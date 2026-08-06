@@ -1,0 +1,30 @@
+# Normalize all text files to LF in the repo and working tree.
+# Matches the Prettier config (endOfLine: "lf") and stops the
+# "LF will be replaced by CRLF" warnings on Windows checkouts.
+* text=auto eol=lf
+
+# Binary assets: never touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.ogg binary
+*.onnx binary
+*.bin binary
+*.db binary
+*.sqlite binary
+*.wasm binary
+*.dll binary
+*.dylib binary
+*.so binary
+*.node binary
