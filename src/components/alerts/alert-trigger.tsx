@@ -8,15 +8,26 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useAlertStore } from "@/stores/alert-store"
+import { useBroadcastStore } from "@/stores"
 import { AlertTemplatesManager } from "@/components/alerts/alert-templates-manager"
+import { StageMonitorControls } from "@/components/broadcast/stage-monitor-controls"
+import { StageMonitorGroupsDialog } from "@/components/broadcast/stage-monitor-groups-dialog"
 import { cn } from "@/lib/utils"
 
 export function AlertTrigger() {
   const templates = useAlertStore((s) => s.templates)
   const activeAlerts = useAlertStore((s) => s.activeAlerts)
+  // A live stage cue (on any monitor) also warrants the badge now that the
+  // stage-monitor inputs live inside this popover.
+  const hasStageCue = useBroadcastStore(
+    (s) =>
+      Object.values(s.stageMessages).some((v) => v != null) ||
+      Object.values(s.stageAnnouncements).some((v) => v != null)
+  )
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [managerOpen, setManagerOpen] = useState(false)
+  const [groupsOpen, setGroupsOpen] = useState(false)
 
   const hasActive = activeAlerts.length > 0
 
@@ -27,13 +38,19 @@ export function AlertTrigger() {
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Alerts"
+            title="Alerts & stage monitor"
             data-tour="alerts"
             className="relative"
           >
             <BellIcon className="size-3.5" />
-            {hasActive && (
-              <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-red-500" />
+            {(hasActive || hasStageCue) && (
+              <span
+                className={cn(
+                  "absolute -top-0.5 -right-0.5 size-2 rounded-full",
+                  // Red = audience alert on air; amber = private stage cue only.
+                  hasActive ? "bg-red-500" : "bg-amber-500"
+                )}
+              />
             )}
           </Button>
         </PopoverTrigger>
@@ -148,10 +165,15 @@ export function AlertTrigger() {
               Manage Templates
             </Button>
           </div>
+
+          {/* Private stage-monitor cues — self-hides when no stage output exists. */}
+          <StageMonitorControls onManageGroups={() => setGroupsOpen(true)} />
         </PopoverContent>
       </Popover>
 
       <AlertTemplatesManager open={managerOpen} onOpenChange={setManagerOpen} />
+      {/* Rendered outside the popover so it survives the popover closing. */}
+      <StageMonitorGroupsDialog open={groupsOpen} onOpenChange={setGroupsOpen} />
     </>
   )
 }

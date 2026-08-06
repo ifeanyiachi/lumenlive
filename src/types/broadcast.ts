@@ -46,6 +46,19 @@ export type ContentRouting =
   | { type: "independent" }
   | { type: "layer-filter"; layers: LayerFilter }
 
+/**
+ * A named set of stage monitors, so the operator can push a private stage cue
+ * (message/announcement) to several presenter screens at once — e.g. "Musicians"
+ * or "Hosts". Membership is by output id; stale ids are pruned when an output is
+ * removed. Purely a targeting convenience — the cue content itself is stored
+ * per-output, not per-group.
+ */
+export interface StageMonitorGroup {
+  id: string
+  name: string
+  outputIds: string[]
+}
+
 export interface LayerFilter {
   showContent: boolean
   showProps: boolean

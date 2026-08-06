@@ -35,7 +35,6 @@ import {
 } from "lucide-react"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { PropsManager } from "@/components/props/props-manager"
-import { StageMonitorControls } from "@/components/broadcast/stage-monitor-controls"
 import {
   sortMarkers,
   findMarkerInDirection,
@@ -1185,8 +1184,6 @@ export function LiveOutputPanel() {
           </div>
         )}
       </div>
-
-      <StageMonitorControls />
     </div>
   )
 }

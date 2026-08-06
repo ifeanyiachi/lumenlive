@@ -373,3 +373,122 @@ describe("broadcast store — followManualSelection", () => {
     expect(emitToMock).not.toHaveBeenCalled()
   })
 })
+
+describe("broadcast store — stage monitor targeting", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  // Two stage monitors sharing the default theme, plus the normal "main".
+  const withTwoStageMonitors = (useBroadcastStore: {
+    getState: () => {
+      themes: { id: string }[]
+    }
+    setState: (patch: Record<string, unknown>) => void
+  }) => {
+    const themeId = useBroadcastStore.getState().themes[0].id
+    useBroadcastStore.setState({
+      outputs: [
+        {
+          id: "main",
+          name: "Program",
+          themeId,
+          mode: "normal",
+          contentSource: { type: "independent" },
+          enabled: true,
+        },
+        {
+          id: "stage-a",
+          name: "Musicians",
+          themeId,
+          mode: "stage",
+          contentSource: { type: "independent" },
+          enabled: true,
+        },
+        {
+          id: "stage-b",
+          name: "Hosts",
+          themeId,
+          mode: "stage",
+          contentSource: { type: "independent" },
+          enabled: true,
+        },
+      ],
+    })
+  }
+
+  it("setStageCue writes the cue to only the targeted monitors", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    withTwoStageMonitors(useBroadcastStore)
+
+    useBroadcastStore.getState().setStageCue(["stage-a"], "WRAP UP", null)
+
+    const s = useBroadcastStore.getState()
+    expect(s.stageMessages["stage-a"]).toBe("WRAP UP")
+    expect(s.stageMessages["stage-b"]).toBeUndefined()
+    // The per-window emit carries each monitor's own value.
+    expect(emitToMock).toHaveBeenCalledWith(
+      expect.stringContaining("stage-a"),
+      "broadcast:stage-update",
+      expect.objectContaining({ message: "WRAP UP" })
+    )
+    expect(emitToMock).toHaveBeenCalledWith(
+      expect.stringContaining("stage-b"),
+      "broadcast:stage-update",
+      expect.objectContaining({ message: null })
+    )
+  })
+
+  it("clearStageCue removes both cues from the targeted monitors", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    withTwoStageMonitors(useBroadcastStore)
+    useBroadcastStore.getState().setStageCue(["stage-a"], "HELLO", "note")
+
+    useBroadcastStore.getState().clearStageCue(["stage-a"])
+
+    const s = useBroadcastStore.getState()
+    expect(s.stageMessages["stage-a"]).toBeUndefined()
+    expect(s.stageAnnouncements["stage-a"]).toBeUndefined()
+  })
+
+  it("groups: add returns an id, update patches, remove deletes", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    withTwoStageMonitors(useBroadcastStore)
+
+    const id = useBroadcastStore
+      .getState()
+      .addStageMonitorGroup("Band", ["stage-a"])
+    expect(typeof id).toBe("string")
+    expect(useBroadcastStore.getState().stageMonitorGroups).toHaveLength(1)
+
+    useBroadcastStore
+      .getState()
+      .updateStageMonitorGroup(id, { outputIds: ["stage-a", "stage-b"] })
+    expect(
+      useBroadcastStore.getState().stageMonitorGroups[0].outputIds
+    ).toEqual(["stage-a", "stage-b"])
+
+    useBroadcastStore.getState().removeStageMonitorGroup(id)
+    expect(useBroadcastStore.getState().stageMonitorGroups).toHaveLength(0)
+  })
+
+  it("removeOutput prunes the monitor's cue and its group membership", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    withTwoStageMonitors(useBroadcastStore)
+    useBroadcastStore.getState().setStageCue(["stage-a", "stage-b"], "HI", null)
+    const gid = useBroadcastStore
+      .getState()
+      .addStageMonitorGroup("All", ["stage-a", "stage-b"])
+
+    useBroadcastStore.getState().removeOutput("stage-a")
+
+    const s = useBroadcastStore.getState()
+    expect(s.outputs.some((o) => o.id === "stage-a")).toBe(false)
+    expect(s.stageMessages["stage-a"]).toBeUndefined()
+    expect(s.stageMonitorGroups.find((g) => g.id === gid)?.outputIds).toEqual([
+      "stage-b",
+    ])
+  })
+})

@@ -8,6 +8,7 @@ import type {
   BroadcastOutput,
   StageLayout,
   ZoneSource,
+  StageMonitorGroup,
 } from "@/types"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
@@ -226,8 +227,16 @@ interface BroadcastState {
   stageNotes: string | null
   // Live source feeds for stage zones (Phase 4).
   stageTimer: StageTimer | null
-  stageMessage: string | null
-  stageAnnouncement: string | null
+  /**
+   * Per-monitor stage cues, keyed by output id. Each stage monitor can show its
+   * own message/announcement (or none), so the operator can target one screen,
+   * a named group, or all of them. Absent key ⇒ no cue on that monitor.
+   * Ephemeral live state — not persisted (a cue shouldn't survive a restart).
+   */
+  stageMessages: Record<string, string | null>
+  stageAnnouncements: Record<string, string | null>
+  /** Named sets of stage monitors for one-tap cue targeting; persisted. */
+  stageMonitorGroups: StageMonitorGroup[]
   stagePlaylist: string[] | null
 
   isDesignerOpen: boolean
@@ -350,8 +359,21 @@ interface BroadcastState {
   ) => void
   setStageNotes: (notes: string | null) => void
   setStageTimer: (timer: StageTimer | null) => void
-  setStageMessage: (message: string | null) => void
-  setStageAnnouncement: (announcement: string | null) => void
+  /** Set (or clear, with nulls) the message + announcement on the given monitors. */
+  setStageCue: (
+    outputIds: string[],
+    message: string | null,
+    announcement: string | null
+  ) => void
+  /** Remove both cues from the given monitors. */
+  clearStageCue: (outputIds: string[]) => void
+  /** Create a named monitor group; returns its generated id. */
+  addStageMonitorGroup: (name: string, outputIds: string[]) => string
+  updateStageMonitorGroup: (
+    id: string,
+    patch: Partial<Omit<StageMonitorGroup, "id">>
+  ) => void
+  removeStageMonitorGroup: (id: string) => void
   setStagePlaylist: (playlist: string[] | null) => void
   syncStageOutput: () => void
 
@@ -403,8 +425,8 @@ function emitStageDraftToOutputs(state: BroadcastState): void {
       currentSlide: state.liveSlide,
       notes: state.stageNotes,
       timer: state.stageTimer,
-      message: state.stageMessage,
-      announcement: state.stageAnnouncement,
+      message: state.stageMessages[output.id] ?? null,
+      announcement: state.stageAnnouncements[output.id] ?? null,
       playlist: state.stagePlaylist,
     })
   }
@@ -530,8 +552,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     props: [],
     stageNotes: null,
     stageTimer: null,
-    stageMessage: null,
-    stageAnnouncement: null,
+    stageMessages: {},
+    stageAnnouncements: {},
+    stageMonitorGroups: [],
     stagePlaylist: null,
     stageDesignerOpen: false,
     editingStageLayoutId: null,
@@ -1205,7 +1228,23 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     },
     removeOutput: (outputId) => {
       if (outputId === "main") return
-      set((s) => ({ outputs: s.outputs.filter((o) => o.id !== outputId) }))
+      set((s) => {
+        // Drop the monitor's stage cue and scrub it from every group so a
+        // deleted output can't linger as a stale target.
+        const stageMessages = { ...s.stageMessages }
+        const stageAnnouncements = { ...s.stageAnnouncements }
+        delete stageMessages[outputId]
+        delete stageAnnouncements[outputId]
+        return {
+          outputs: s.outputs.filter((o) => o.id !== outputId),
+          stageMessages,
+          stageAnnouncements,
+          stageMonitorGroups: s.stageMonitorGroups.map((g) => ({
+            ...g,
+            outputIds: g.outputIds.filter((id) => id !== outputId),
+          })),
+        }
+      })
     },
     updateOutput: (outputId, updates) => {
       set((s) => ({
@@ -1250,13 +1289,53 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       set({ stageTimer })
       get().syncStageOutput()
     },
-    setStageMessage: (stageMessage) => {
-      set({ stageMessage })
+    setStageCue: (outputIds, message, announcement) => {
+      if (outputIds.length === 0) return
+      set((s) => {
+        const stageMessages = { ...s.stageMessages }
+        const stageAnnouncements = { ...s.stageAnnouncements }
+        for (const id of outputIds) {
+          stageMessages[id] = message
+          stageAnnouncements[id] = announcement
+        }
+        return { stageMessages, stageAnnouncements }
+      })
       get().syncStageOutput()
     },
-    setStageAnnouncement: (stageAnnouncement) => {
-      set({ stageAnnouncement })
+    clearStageCue: (outputIds) => {
+      if (outputIds.length === 0) return
+      set((s) => {
+        const stageMessages = { ...s.stageMessages }
+        const stageAnnouncements = { ...s.stageAnnouncements }
+        for (const id of outputIds) {
+          delete stageMessages[id]
+          delete stageAnnouncements[id]
+        }
+        return { stageMessages, stageAnnouncements }
+      })
       get().syncStageOutput()
+    },
+    addStageMonitorGroup: (name, outputIds) => {
+      const id = crypto.randomUUID()
+      set((s) => ({
+        stageMonitorGroups: [
+          ...s.stageMonitorGroups,
+          { id, name, outputIds: [...outputIds] },
+        ],
+      }))
+      return id
+    },
+    updateStageMonitorGroup: (id, patch) => {
+      set((s) => ({
+        stageMonitorGroups: s.stageMonitorGroups.map((g) =>
+          g.id === id ? { ...g, ...patch } : g
+        ),
+      }))
+    },
+    removeStageMonitorGroup: (id) => {
+      set((s) => ({
+        stageMonitorGroups: s.stageMonitorGroups.filter((g) => g.id !== id),
+      }))
     },
     setStagePlaylist: (stagePlaylist) => {
       set({ stagePlaylist })
@@ -1277,8 +1356,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
           currentSlide: s.liveSlide,
           notes: s.stageNotes,
           timer: s.stageTimer,
-          message: s.stageMessage,
-          announcement: s.stageAnnouncement,
+          message: s.stageMessages[output.id] ?? null,
+          announcement: s.stageAnnouncements[output.id] ?? null,
           playlist: s.stagePlaylist,
         })
       }
@@ -1527,6 +1606,8 @@ export function hydrateBroadcastThemes(): Promise<void> {
         StageLayout[] | undefined
       const savedOutputs = (await store.get("outputs")) as
         BroadcastOutput[] | undefined
+      const savedGroups = (await store.get("stageMonitorGroups")) as
+        StageMonitorGroup[] | undefined
 
       const savedProps = (await store.get("props")) as
         BroadcastProp[] | undefined
@@ -1605,6 +1686,9 @@ export function hydrateBroadcastThemes(): Promise<void> {
         await store.delete("stageDisplayConfig")
       }
 
+      if (savedGroups && Array.isArray(savedGroups)) {
+        patch.stageMonitorGroups = savedGroups
+      }
       if (savedProps && Array.isArray(savedProps)) patch.props = savedProps
       if (savedMediaLayer) patch.mediaLayer = savedMediaLayer
 
@@ -1618,6 +1702,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
           state.themes !== prevState.themes ||
           state.stageLayouts !== prevState.stageLayouts ||
           state.outputs !== prevState.outputs ||
+          state.stageMonitorGroups !== prevState.stageMonitorGroups ||
           state.props !== prevState.props ||
           state.mediaLayer !== prevState.mediaLayer
         if (!changed) return
@@ -1650,6 +1735,7 @@ async function persistBroadcastThemes(state: BroadcastState): Promise<void> {
     await store.set("customThemes", customThemes)
     await store.set("customStageLayouts", customStageLayouts)
     await store.set("outputs", state.outputs)
+    await store.set("stageMonitorGroups", state.stageMonitorGroups)
     await store.set("props", state.props)
     await store.set("mediaLayer", state.mediaLayer)
     await store.delete("activeThemeId")

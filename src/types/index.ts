@@ -40,6 +40,7 @@ export type {
   BroadcastOutput,
   ContentRouting,
   LayerFilter,
+  StageMonitorGroup,
 } from "./broadcast"
 export type { StageLayout, StageZone, ZoneSource } from "./stage-layout"
 export type {

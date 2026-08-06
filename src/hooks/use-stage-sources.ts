@@ -13,10 +13,10 @@ import type { StageTimer } from "@/lib/stage-display-renderer"
  * - active countdown → Timer zone
  * - the live schedule's upcoming items → Playlist zone
  *
- * The Stage Message and Announcement zones are driven directly by the operator
- * (`setStageMessage` / `setStageAnnouncement`, see StageMonitorControls) and are
- * intentionally NOT wired to the audience alert feed — they are private to the
- * stage monitor. Mounted once in `App`. Each mapping only pushes when its
+ * The Stage Message and Announcement zones are driven directly by the operator,
+ * per monitor (`setStageCue`, see StageMonitorControls), and are intentionally
+ * NOT wired to the audience alert feed — they are private to the stage monitor.
+ * Mounted once in `App`. Each mapping only pushes when its
  * derived value actually changes, so we don't re-emit on every unrelated render.
  */
 export function useStageSources() {
