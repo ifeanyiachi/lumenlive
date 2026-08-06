@@ -5,6 +5,7 @@ import type {
   CountdownTimer,
 } from "@/types/alert"
 import type { BroadcastProp } from "@/stores/broadcast-store"
+import type { BroadcastTheme } from "@/types/broadcast"
 import type { SlideTransitionType } from "@/types/slide"
 import {
   computeRemainingSeconds,
@@ -12,6 +13,7 @@ import {
   formatCountdownTime,
   resolveTimeColor,
 } from "@/lib/countdown/timer"
+import { renderCountdownTheme } from "@/lib/countdown/theme-render"
 
 // Re-exported for back-compat: the countdown time math now lives in the shared
 // pure module so the operator preview and this painter can never disagree.
@@ -80,15 +82,41 @@ export function drawCountdownOverlay(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  countdowns: { countdown: ActiveCountdown; timer: CountdownTimer }[],
+  countdowns: {
+    countdown: ActiveCountdown
+    timer: CountdownTimer
+    theme?: BroadcastTheme
+  }[],
   now: number
 ): void {
   if (countdowns.length === 0) return
 
-  for (const { countdown, timer } of countdowns) {
+  for (const { countdown, timer, theme } of countdowns) {
     const remaining = computeRemainingSeconds(countdown, now)
     const overtime = timer.endAction === "overtime"
     const timeStr = formatCountdownTime(remaining, timer.format, overtime)
+
+    // Themed countdown: render the full-frame themed composition (background,
+    // decorative elements, timer digits). The theme's `verseText` colour is the
+    // digits' base colour; urgency thresholds still recolour it via
+    // `resolveTimeColor`. Flash pulses the whole frame's opacity on expiry.
+    if (theme) {
+      const themedColor = resolveTimeColor(remaining, {
+        textColor: theme.verseText.color,
+        warnSeconds: timer.warnSeconds,
+        dangerSeconds: timer.dangerSeconds,
+      })
+      const flashing = remaining <= 0 && timer.endAction === "flash"
+      renderCountdownTheme(ctx, theme, {
+        timeText: timeStr,
+        label: timer.label,
+        showLabel: timer.showLabel,
+        timeColor: themedColor,
+        opacity: flashing ? Math.abs(Math.sin(now / 300)) : 1,
+      })
+      continue
+    }
+
     const timeColor = resolveTimeColor(remaining, timer)
 
     if (timer.position === "fullscreen") {

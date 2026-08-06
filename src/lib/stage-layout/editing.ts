@@ -44,12 +44,6 @@ const ZONE_DEFAULTS: Record<
     showHeader: true,
     box: { w: 1090, h: 824 },
   },
-  next: {
-    name: "Next",
-    label: "NEXT",
-    showHeader: true,
-    box: { w: 770, h: 824 },
-  },
   clock: { name: "Clock", showHeader: false, box: { w: 658, h: 216 } },
   timer: {
     name: "Timer",
@@ -82,6 +76,33 @@ const ZONE_DEFAULTS: Record<
     box: { w: 1222, h: 216 },
   },
   spacer: { name: "Spacer", showHeader: false, box: { w: 400, h: 200 } },
+}
+
+/** Runtime set of the zone sources the app still supports (keys of ZONE_DEFAULTS). */
+const VALID_ZONE_SOURCES: ReadonlySet<string> = new Set(
+  Object.keys(ZONE_DEFAULTS)
+)
+
+/**
+ * Drop zones whose `source` the app no longer supports (e.g. the removed "next"
+ * preview) from a stored layout, keeping `layerOrder` in sync. Returns the same
+ * reference when nothing needs removing, so callers can skip needless writes.
+ * Runs on load so a layout saved before a source was retired stays clean rather
+ * than falling through to a placeholder.
+ */
+export function sanitizeStageLayout(layout: StageLayout): StageLayout {
+  const zones = (layout.zones ?? []).filter((z) =>
+    VALID_ZONE_SOURCES.has(z.source)
+  )
+  if (zones.length === (layout.zones?.length ?? 0)) return layout
+  const kept = new Set(zones.map((z) => z.id))
+  return {
+    ...layout,
+    zones,
+    layerOrder: (layout.layerOrder ?? []).filter(
+      (id) => kept.has(id) || (layout.elements ?? []).some((e) => e.id === id)
+    ),
+  }
 }
 
 /**

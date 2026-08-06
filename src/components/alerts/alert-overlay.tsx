@@ -25,12 +25,14 @@ export function AlertOverlay() {
         return (
           <div
             key={alert.id}
-            className="pointer-events-auto flex items-center gap-2.5 rounded-lg border border-border bg-card py-2 pr-1.5 pl-3 shadow-lg animate-in duration-200 fade-in slide-in-from-right-4"
+            className="pointer-events-auto flex animate-in items-center gap-2.5 rounded-lg border border-border bg-card py-2 pr-1.5 pl-3 shadow-lg duration-200 fade-in slide-in-from-right-4"
           >
             <span
               aria-hidden
               className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: template?.backgroundColor ?? "#dc2626" }}
+              style={{
+                backgroundColor: template?.backgroundColor ?? "#dc2626",
+              }}
             />
             <div className="flex min-w-0 flex-col">
               <span className="text-[0.625rem] font-semibold tracking-wider text-muted-foreground uppercase">

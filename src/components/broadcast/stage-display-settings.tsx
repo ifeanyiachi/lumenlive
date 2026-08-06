@@ -94,15 +94,6 @@ export function StageDisplaySettings() {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-xs text-muted-foreground">
-                Show next preview
-              </label>
-              <Switch
-                checked={config.showNext}
-                onCheckedChange={(showNext) => update({ showNext })}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">
                 Show clock
               </label>
               <Switch

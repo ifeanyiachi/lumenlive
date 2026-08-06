@@ -4,15 +4,12 @@ import { drawStageDisplay } from "@/lib/stage-display-renderer"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { StageLayout } from "@/types/stage-layout"
 import type { BroadcastTheme, VerseRenderData } from "@/types"
+import { DEFAULT_COUNTDOWN } from "@/types/alert"
 import { cn } from "@/lib/utils"
 
 const SAMPLE_VERSE: VerseRenderData = {
   reference: "John 3:16 (KJV)",
   segments: [{ verseNumber: 16, text: "For God so loved the world…" }],
-}
-const SAMPLE_NEXT: VerseRenderData = {
-  reference: "John 3:17 (KJV)",
-  segments: [{ verseNumber: 17, text: "For God sent not his Son…" }],
 }
 const SAMPLE_NOTES = "Welcome — Call to worship, then announcements."
 
@@ -51,10 +48,19 @@ export function StagePreviewCanvas({
       currentTheme: activeTheme,
       currentVerse: SAMPLE_VERSE,
       currentSlide: null,
-      nextVerse: SAMPLE_NEXT,
-      nextSlide: null,
       notes: SAMPLE_NOTES,
-      timer: { label: "Sermon", endsAt: Date.now() + 12 * 60_000 },
+      timer: {
+        timer: { ...DEFAULT_COUNTDOWN, label: "Sermon", durationSeconds: 720 },
+        countdown: {
+          id: "preview",
+          timerId: DEFAULT_COUNTDOWN.id,
+          mode: "duration",
+          startedAt: Date.now(),
+          durationSeconds: 720,
+          state: "running",
+          accumulatedPausedMs: 0,
+        },
+      },
       message: "5 MINUTES",
       announcement: "Fellowship lunch after the service.",
       playlist: ["Opening Prayer", "Worship Set", "Sermon", "Closing"],

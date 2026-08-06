@@ -14,7 +14,6 @@ export const STAGE_RESOLUTION = { width: 1920, height: 1080 } as const
 // These constants mirror drawStageDisplay in lib/stage-display-renderer.ts.
 const PADDING = 20
 const INFO_BAR_RATIO = 0.2 // Math.round(h * 0.2)
-const CURRENT_WIDTH_RATIO = 0.58 // Math.round(contentW * 0.58)
 const CLOCK_SPLIT_RATIO = 0.35 // Math.round(infoW * 0.35) when clock+notes share
 
 function zoneText(config: StageDisplayConfig): TextStyle {
@@ -33,23 +32,20 @@ function zoneText(config: StageDisplayConfig): TextStyle {
 /**
  * Compute the zones a `StageDisplayConfig` implies, positioned to match the
  * legacy renderer's container rects at the given resolution. Draw order is
- * current → next → clock → notes (used verbatim as `layerOrder`).
+ * current → clock → notes (used verbatim as `layerOrder`). The current zone
+ * always spans the full content width — there is no longer a next-item preview.
  */
 export function stageConfigToZones(
   config: StageDisplayConfig,
   w: number = STAGE_RESOLUTION.width,
   h: number = STAGE_RESOLUTION.height
 ): StageZone[] {
-  const hasNext = config.showNext
   const hasInfo = config.showClock || config.showNotes
 
   const infoBarH = hasInfo ? Math.round(h * INFO_BAR_RATIO) : 0
   const contentH = h - infoBarH - PADDING * 2
   const contentW = w - PADDING * 2
-  const currentW = hasNext
-    ? Math.round(contentW * CURRENT_WIDTH_RATIO)
-    : contentW
-  const nextW = hasNext ? contentW - currentW - PADDING : 0
+  const currentW = contentW
 
   const infoY = h - infoBarH - PADDING
   const infoW = contentW
@@ -69,23 +65,6 @@ export function stageConfigToZones(
       visible: true,
       locked: false,
       label: "CURRENT",
-      showHeader: true,
-      text,
-    })
-  }
-
-  if (hasNext) {
-    zones.push({
-      id: "next",
-      name: "Next",
-      source: "next",
-      x: PADDING + currentW + PADDING,
-      y: PADDING,
-      width: nextW,
-      height: contentH,
-      visible: true,
-      locked: false,
-      label: "NEXT",
       showHeader: true,
       text,
     })

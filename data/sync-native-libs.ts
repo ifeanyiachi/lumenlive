@@ -72,7 +72,9 @@ function main() {
     process.exit(1)
   }
 
-  console.log(`\n  Synced ${DLLS.length} DLLs into src-tauri/libs/. Commit them.`)
+  console.log(
+    `\n  Synced ${DLLS.length} DLLs into src-tauri/libs/. Commit them.`
+  )
 }
 
 main()

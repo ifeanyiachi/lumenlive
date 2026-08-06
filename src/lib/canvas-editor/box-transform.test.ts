@@ -35,7 +35,8 @@ function legacyResize(
     newW = Math.max(20, orig.width - dxPx)
     newX = orig.x + orig.width - newW
   }
-  if (corner === "se" || corner === "sw") newH = Math.max(20, orig.height + dyPx)
+  if (corner === "se" || corner === "sw")
+    newH = Math.max(20, orig.height + dyPx)
   if (corner === "nw" || corner === "ne") {
     newH = Math.max(20, orig.height - dyPx)
     newY = orig.y + orig.height - newH

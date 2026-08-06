@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { XIcon, PauseIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCountdownStore } from "@/stores/countdown-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import {
   computeRemainingSeconds,
   formatCountdownTime,
@@ -15,6 +16,7 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
   const [now, setNow] = useState(() => Date.now())
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
   const timers = useCountdownStore((s) => s.timers)
+  const themes = useBroadcastStore((s) => s.themes)
 
   const countdown = activeCountdowns.find((c) => c.id === countdownId)
   const timer = countdown
@@ -28,12 +30,30 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
 
   if (!countdown || !timer) return null
 
+  // The operator pill is a compact preview — it can't reproduce the full themed
+  // composition (that renders on the broadcast output), so a themed timer just
+  // borrows the theme's background/text colours to stay on-brand.
+  const theme =
+    timer.styleMode === "theme" && timer.themeId
+      ? themes.find((t) => t.id === timer.themeId && t.category === "countdown")
+      : undefined
+  const bgColor = theme
+    ? theme.background.type === "solid" || theme.background.type === "gradient"
+      ? theme.background.color
+      : "rgba(0,0,0,0.7)"
+    : timer.backgroundColor
+  const baseTextColor = theme ? theme.verseText.color : timer.textColor
+
   const remaining = computeRemainingSeconds(countdown, now)
   const overtime = timer.endAction === "overtime"
   const isExpired = remaining <= 0
   const flashing = isExpired && timer.endAction === "flash"
   const paused = countdown.state === "paused"
-  const timeColor = resolveTimeColor(remaining, timer)
+  const timeColor = resolveTimeColor(remaining, {
+    textColor: baseTextColor,
+    warnSeconds: timer.warnSeconds,
+    dangerSeconds: timer.dangerSeconds,
+  })
 
   const timeText = formatCountdownTime(remaining, timer.format, overtime)
 
@@ -43,8 +63,8 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
       aria-label={`${timer.label}: ${timeText}${paused ? ", paused" : ""}`}
       className="pointer-events-auto flex items-center gap-2 rounded-lg px-3 py-1.5"
       style={{
-        backgroundColor: timer.backgroundColor,
-        color: timer.textColor,
+        backgroundColor: bgColor,
+        color: baseTextColor,
         opacity: flashing ? Math.abs(Math.sin(now / 300)) * 0.5 + 0.5 : 1,
       }}
     >

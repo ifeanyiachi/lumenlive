@@ -1,54 +1,49 @@
 import { useEffect } from "react"
 import {
   useBroadcastStore,
-  useAlertStore,
   useCountdownStore,
   useScheduleStore,
 } from "@/stores"
+import type { StageTimer } from "@/lib/stage-display-renderer"
 
 /**
  * Bridges the existing operator feeds into the stage-display source fields so
- * stage zones (Phase 4) render live without their own control surface:
+ * stage zones render live without their own control surface:
  *
- * - active alert  → Stage Message zone
  * - active countdown → Timer zone
  * - the live schedule's upcoming items → Playlist zone
  *
- * The Announcement zone has no automatic feed; it's driven directly via
- * `setStageAnnouncement`. Mounted once in `App`. Each mapping only pushes when
- * its derived value actually changes, so we don't re-emit to the stage output
- * on every unrelated render.
+ * The Stage Message and Announcement zones are driven directly by the operator
+ * (`setStageMessage` / `setStageAnnouncement`, see StageMonitorControls) and are
+ * intentionally NOT wired to the audience alert feed — they are private to the
+ * stage monitor. Mounted once in `App`. Each mapping only pushes when its
+ * derived value actually changes, so we don't re-emit on every unrelated render.
  */
 export function useStageSources() {
-  const activeAlerts = useAlertStore((s) => s.activeAlerts)
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
   const timers = useCountdownStore((s) => s.timers)
   const schedules = useScheduleStore((s) => s.schedules)
   const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
   const activeItemIndex = useScheduleStore((s) => s.activeItemIndex)
 
-  // Latest alert wins as the stage message.
-  const message = activeAlerts.length
-    ? activeAlerts[activeAlerts.length - 1].message
-    : null
-  useEffect(() => {
-    useBroadcastStore.getState().setStageMessage(message)
-  }, [message])
-
-  // Most-recent active countdown feeds the timer. endsAt is derived from the
-  // start + duration; a paused countdown isn't frozen (documented limitation).
+  // Most-recent active countdown feeds the timer. We push the raw countdown +
+  // its timer config; the stage renderer derives the remaining time from the
+  // SAME shared math as the operator preview (so pause freezes it, clock-mode
+  // counts to its target, and format/colour match). The stage output re-derives
+  // per second on its own tick, so we only push when the countdown identity or
+  // state (start/pause/resume/adjust) actually changes — not every second.
   const cd = activeCountdowns.length
     ? activeCountdowns[activeCountdowns.length - 1]
     : null
-  const timerLabel = cd
-    ? (timers.find((t) => t.id === cd.timerId)?.label ?? "Timer")
-    : ""
-  const endsAt = cd ? cd.startedAt + cd.durationSeconds * 1000 : null
+  const cdTimer = cd ? timers.find((t) => t.id === cd.timerId) : undefined
+  const stageTimer: StageTimer | null =
+    cd && cdTimer ? { countdown: cd, timer: cdTimer } : null
+  const timerKey = stageTimer ? JSON.stringify(stageTimer) : ""
   useEffect(() => {
-    useBroadcastStore
-      .getState()
-      .setStageTimer(endsAt != null ? { label: timerLabel, endsAt } : null)
-  }, [endsAt, timerLabel])
+    useBroadcastStore.getState().setStageTimer(stageTimer)
+    // stageTimer is rederived each render; timerKey captures its content.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerKey])
 
   // Upcoming schedule items (after the live one) become the playlist.
   const schedule = schedules.find((s) => s.id === activeScheduleId)

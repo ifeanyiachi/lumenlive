@@ -19,29 +19,18 @@ function rect(zones: ReturnType<typeof stageConfigToZones>, source: string) {
   return z && { x: z.x, y: z.y, width: z.width, height: z.height }
 }
 
-describe("stageConfigToZones — legacy geometry parity (1920×1080)", () => {
-  it("places all four zones exactly where drawStageDisplay did", () => {
+describe("stageConfigToZones — geometry (1920×1080)", () => {
+  it("places current (full-width) + clock + notes where the renderer expects", () => {
     const zones = stageConfigToZones(config()) // all zones on
-    expect(zones.map((z) => z.source)).toEqual([
-      "current",
-      "next",
-      "clock",
-      "notes",
-    ])
+    expect(zones.map((z) => z.source)).toEqual(["current", "clock", "notes"])
     // Hand-computed from the renderer constants:
     // infoBarH = round(1080*0.2)=216; contentH = 1080-216-40 = 824
-    // contentW = 1880; currentW = round(1880*0.58)=1090; nextW = 770
+    // contentW = 1880; current now spans the full content width (no next zone)
     // infoY = 844; clockW = round(1880*0.35)=658
     expect(rect(zones, "current")).toEqual({
       x: 20,
       y: 20,
-      width: 1090,
-      height: 824,
-    })
-    expect(rect(zones, "next")).toEqual({
-      x: 1130,
-      y: 20,
-      width: 770,
+      width: 1880,
       height: 824,
     })
     expect(rect(zones, "clock")).toEqual({
@@ -58,12 +47,12 @@ describe("stageConfigToZones — legacy geometry parity (1920×1080)", () => {
     })
   })
 
-  it("current fills the full canvas content when next+info are off", () => {
+  it("current fills the full canvas content when the info bar is off", () => {
     const zones = stageConfigToZones(
-      config({ showNext: false, showClock: false, showNotes: false })
+      config({ showClock: false, showNotes: false })
     )
     expect(zones.map((z) => z.source)).toEqual(["current"])
-    // no info bar → contentH = 1080-40 = 1040; no next → currentW = 1880
+    // no info bar → contentH = 1080-40 = 1040; currentW = 1880
     expect(rect(zones, "current")).toEqual({
       x: 20,
       y: 20,

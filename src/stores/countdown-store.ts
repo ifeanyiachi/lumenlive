@@ -2,12 +2,26 @@ import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { CountdownTimer, ActiveCountdown } from "@/types/alert"
 import { DEFAULT_COUNTDOWN } from "@/types/alert"
+import type { BroadcastTheme } from "@/types/broadcast"
 import {
   computeRemainingSeconds,
   resolveTargetEpoch,
 } from "@/lib/countdown/timer"
 import { emitToAllOutputs } from "@/lib/broadcast-routing"
 import { useBroadcastStore } from "./broadcast-store"
+
+/**
+ * The `countdown`-category theme a timer renders with, or `undefined` when it is
+ * in custom mode (or the referenced theme is gone). Resolved from the broadcast
+ * store and shipped with each countdown event so the output window can paint the
+ * themed composition without reaching into the theme store itself.
+ */
+function resolveTimerTheme(timer: CountdownTimer): BroadcastTheme | undefined {
+  if (timer.styleMode !== "theme" || !timer.themeId) return undefined
+  return useBroadcastStore
+    .getState()
+    .themes.find((t) => t.id === timer.themeId && t.category === "countdown")
+}
 
 interface CountdownState {
   timers: CountdownTimer[]
@@ -33,7 +47,7 @@ function emitUpdate(countdown: ActiveCountdown, timer: CountdownTimer): void {
   emitToAllOutputs(
     useBroadcastStore.getState().outputs,
     "broadcast:countdown-update",
-    { countdown, timer }
+    { countdown, timer, theme: resolveTimerTheme(timer) }
   )
 }
 
@@ -75,7 +89,7 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
     emitToAllOutputs(
       useBroadcastStore.getState().outputs,
       "broadcast:countdown",
-      { countdown, timer }
+      { countdown, timer, theme: resolveTimerTheme(timer) }
     )
 
     // The ticker only drives expiry side-effects (auto-hide). Rendering derives
@@ -199,10 +213,18 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
     const items = activeCountdowns
       .map((countdown) => {
         const timer = timers.find((t) => t.id === countdown.timerId)
-        return timer ? { countdown, timer } : null
+        return timer
+          ? { countdown, timer, theme: resolveTimerTheme(timer) }
+          : null
       })
-      .filter((x): x is { countdown: ActiveCountdown; timer: CountdownTimer } =>
-        Boolean(x)
+      .filter(
+        (
+          x
+        ): x is {
+          countdown: ActiveCountdown
+          timer: CountdownTimer
+          theme: BroadcastTheme | undefined
+        } => Boolean(x)
       )
 
     emitToAllOutputs(

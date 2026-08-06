@@ -58,12 +58,14 @@ export function resizeBoxCorner(
   let newW = orig.width
   let newH = orig.height
 
-  if (corner === "se" || corner === "ne") newW = Math.max(minSize, orig.width + dxPx)
+  if (corner === "se" || corner === "ne")
+    newW = Math.max(minSize, orig.width + dxPx)
   if (corner === "nw" || corner === "sw") {
     newW = Math.max(minSize, orig.width - dxPx)
     newX = orig.x + orig.width - newW
   }
-  if (corner === "se" || corner === "sw") newH = Math.max(minSize, orig.height + dyPx)
+  if (corner === "se" || corner === "sw")
+    newH = Math.max(minSize, orig.height + dyPx)
   if (corner === "nw" || corner === "ne") {
     newH = Math.max(minSize, orig.height - dyPx)
     newY = orig.y + orig.height - newH

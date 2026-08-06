@@ -16,7 +16,6 @@ import type { ThemeElement } from "./broadcast"
 /** The live data source a zone renders. */
 export type ZoneSource =
   | "current" // the current slide / verse being shown to the congregation
-  | "next" // a preview of the next item
   | "clock" // wall clock
   | "timer" // count-up / countdown
   | "messages" // operator stage messages

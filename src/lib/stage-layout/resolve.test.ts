@@ -26,16 +26,15 @@ describe("resolveOutputStageLayout", () => {
     expect(layout.displayMode).toBe("zone")
     expect(layout.zones.map((z) => z.source)).toEqual([
       "current",
-      "next",
       "clock",
       "notes",
     ])
   })
 
   it("migrates the output's own stageConfig when no id is set", () => {
-    const config = { ...DEFAULT_STAGE_DISPLAY_CONFIG, showNext: false }
+    const config = { ...DEFAULT_STAGE_DISPLAY_CONFIG, showNotes: false }
     const layout = resolveOutputStageLayout({ stageConfig: config }, [])
-    expect(layout.zones.some((z) => z.source === "next")).toBe(false)
+    expect(layout.zones.some((z) => z.source === "notes")).toBe(false)
     expect(layout).toEqual(
       migrateStageConfig(config, "resolved-stage-config", 0)
     )

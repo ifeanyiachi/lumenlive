@@ -145,92 +145,13 @@ interface ScheduleState {
   getActiveSchedule: () => ServiceSchedule | undefined
 }
 
-async function computeAndSetNext(
-  items: ScheduleItem[],
-  currentIndex: number,
-  currentSlideIdx: number | null,
-  currentItem: ScheduleItem
-): Promise<void> {
-  const broadcast = useBroadcastStore.getState()
-  const notes = currentItem.notes ?? null
-
-  if (currentItem.type === "slide") {
-    const si = currentItem as SlideScheduleItem
-    const pres = usePresentationStore
-      .getState()
-      .presentations.find((p) => p.id === si.presentationId)
-    const slideIdx = currentSlideIdx ?? si.slideIndex
-    if (pres && slideIdx < pres.slides.length - 1) {
-      broadcast.setStageNext(null, pres.slides[slideIdx + 1], notes)
-      return
-    }
-  } else if (currentItem.type === "song") {
-    const cached = useScheduleStore.getState().activeSongDeck
-    const deck =
-      cached?.itemId === currentItem.id
-        ? cached.deck
-        : deckForSongItem(currentItem as SongScheduleItem)
-    const slideIdx = currentSlideIdx ?? 0
-    if (deck && slideIdx < deck.slides.length - 1) {
-      broadcast.setStageNext(null, deck.slides[slideIdx + 1], notes)
-      return
-    }
-  }
-
-  let nextIdx = currentIndex + 1
-  while (nextIdx < items.length && items[nextIdx].type === "header") nextIdx++
-  if (nextIdx >= items.length) {
-    broadcast.setStageNext(null, null, notes)
-    return
-  }
-
-  const nextItem = items[nextIdx]
-  if (nextItem.type === "scripture") {
-    const si = nextItem as ScriptureScheduleItem
-    try {
-      const verse = await invoke<Verse | null>("get_verse", {
-        translationId: si.translationId,
-        bookNumber: si.bookNumber,
-        chapter: si.chapter,
-        verse: si.verseStart,
-      })
-      if (verse) {
-        const abbr =
-          useBibleStore
-            .getState()
-            .translations.find((t) => t.id === si.translationId)
-            ?.abbreviation ?? "KJV"
-        const renderData = toVerseRenderData(verse, abbr)
-        broadcast.setStageNext(renderData, null, notes)
-      } else {
-        broadcast.setStageNext(null, null, notes)
-      }
-    } catch {
-      broadcast.setStageNext(null, null, notes)
-    }
-  } else if (nextItem.type === "slide") {
-    const si = nextItem as SlideScheduleItem
-    const pres = usePresentationStore
-      .getState()
-      .presentations.find((p) => p.id === si.presentationId)
-    if (pres && pres.slides.length > 0) {
-      const idx = Math.min(si.slideIndex, pres.slides.length - 1)
-      broadcast.setStageNext(null, pres.slides[idx], notes)
-    } else {
-      broadcast.setStageNext(null, null, notes)
-    }
-  } else if (nextItem.type === "song") {
-    const deck = deckForSongItem(nextItem as SongScheduleItem)
-    if (deck && deck.slides.length > 0) {
-      broadcast.setStageNext(null, deck.slides[0], notes)
-    } else {
-      broadcast.setStageNext(null, null, notes)
-    }
-  } else if (nextItem.type === "lexicon") {
-    broadcast.setStageNext(null, (nextItem as LexiconScheduleItem).slide, notes)
-  } else {
-    broadcast.setStageNext(null, null, notes)
-  }
+/**
+ * Push the live schedule item's presenter notes to the stage monitor's Notes
+ * zone. (This once also computed a "next item" preview for a dedicated stage
+ * zone; that zone was removed, so only the notes feed remains.)
+ */
+function setStageNotesForItem(currentItem: ScheduleItem): void {
+  useBroadcastStore.getState().setStageNotes(currentItem.notes ?? null)
 }
 
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -449,7 +370,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       activeSongDeck,
     })
     void get().presentItem(item)
-    void computeAndSetNext(schedule.items, index, activeSlideIndex, item)
+    setStageNotesForItem(item)
   },
 
   nextItem: () => {
@@ -468,12 +389,12 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
           const next = slideIdx + 1
           set({ activeSlideIndex: next })
           void get().presentItem(item)
-          void computeAndSetNext(schedule.items, current, next, item)
+          setStageNotesForItem(item)
           return
         }
       } else if (item?.type === "song") {
         // Reuse the cached deck when it matches, else regenerate — mirroring
-        // presentItem/computeAndSetNext. Without the fallback, a song whose
+        // presentItem. Without the fallback, a song whose
         // deck cache is empty (e.g. active item restored without its transient
         // deck) can't step and wrongly skips to the next schedule item.
         const cached = get().activeSongDeck
@@ -487,7 +408,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
             activeSongDeck: { itemId: item.id, deck },
           })
           void get().presentItem(item)
-          void computeAndSetNext(schedule.items, current, next, item)
+          setStageNotesForItem(item)
           return
         }
       }
@@ -515,7 +436,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
         const newIdx = slideIdx - 1
         set({ activeSlideIndex: newIdx })
         void get().presentItem(item)
-        void computeAndSetNext(schedule.items, current, newIdx, item)
+        setStageNotesForItem(item)
         return
       }
     } else if (item?.type === "song") {
@@ -524,7 +445,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
         const newIdx = slideIdx - 1
         set({ activeSlideIndex: newIdx })
         void get().presentItem(item)
-        void computeAndSetNext(schedule.items, current, newIdx, item)
+        setStageNotesForItem(item)
         return
       }
     }
@@ -549,7 +470,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
             activeSongDeck: null,
           })
           void get().presentItem(prevItem)
-          void computeAndSetNext(schedule.items, prev, lastSlide, prevItem)
+          setStageNotesForItem(prevItem)
           return
         }
       } else if (prevItem?.type === "song") {
@@ -563,7 +484,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
             activeSongDeck: { itemId: prevItem.id, deck },
           })
           void get().presentItem(prevItem)
-          void computeAndSetNext(schedule.items, prev, lastSlide, prevItem)
+          setStageNotesForItem(prevItem)
           return
         }
       }

@@ -13,11 +13,10 @@ import { migrateStageConfig } from "./migrate"
 
 const STANDARD_CONFIG: StageDisplayConfig = { ...DEFAULT_STAGE_DISPLAY_CONFIG }
 
-// Minimal: just the current content + a clock. No next preview, no notes.
+// Minimal: just the current content + a clock. No notes.
 const MINIMAL_CONFIG: StageDisplayConfig = {
   ...DEFAULT_STAGE_DISPLAY_CONFIG,
   layout: "minimal",
-  showNext: false,
   showNotes: false,
 }
 

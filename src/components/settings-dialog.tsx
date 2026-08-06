@@ -321,9 +321,7 @@ function SpeechSection() {
           {/* Sherpa / Moonshine (local, fast) */}
           <label
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
-              sttProvider !== "sherpa"
-                ? "hover:border-muted-foreground/25"
-                : ""
+              sttProvider !== "sherpa" ? "hover:border-muted-foreground/25" : ""
             }`}
           >
             <RadioGroupItem value="sherpa" className="mt-0.5" />

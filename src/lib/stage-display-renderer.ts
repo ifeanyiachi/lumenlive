@@ -16,16 +16,28 @@
 
 import { renderVerse } from "@/lib/verse-renderer"
 import { renderSlide } from "@/lib/slide-renderer"
+import {
+  computeRemainingSeconds,
+  formatCountdownTime,
+  resolveTimeColor,
+} from "@/lib/countdown/timer"
 import type { BroadcastTheme, VerseRenderData } from "@/types/broadcast"
 import type { Background, TextStyle } from "@/types/canvas"
 import type { StageLayout, StageZone } from "@/types/stage-layout"
+import type { ActiveCountdown, CountdownTimer } from "@/types/alert"
 import type { Slide } from "@/types/slide"
 
-/** A running/paused countdown feed for a `timer` zone. */
+/**
+ * A running/paused countdown feed for a `timer` zone. Carries the raw
+ * `ActiveCountdown` plus its `CountdownTimer` so the zone derives its time and
+ * urgency colour from the SAME shared math (`lib/countdown/timer`) as the
+ * operator preview and the audience overlay — a paused timer freezes, a
+ * clock-mode timer counts to its wall-clock target, and the format / warn /
+ * danger thresholds match the rest of the app exactly.
+ */
 export interface StageTimer {
-  label: string
-  /** Absolute epoch-ms the countdown reaches zero, or null when idle. */
-  endsAt: number | null
+  countdown: ActiveCountdown
+  timer: CountdownTimer
 }
 
 export interface StageDisplayData {
@@ -34,8 +46,6 @@ export interface StageDisplayData {
   currentTheme: BroadcastTheme
   currentVerse: VerseRenderData | null
   currentSlide: Slide | null
-  nextVerse: VerseRenderData | null
-  nextSlide: Slide | null
   notes: string | null
   // Live source feeds (Phase 4). Optional so older producers stay valid.
   timer?: StageTimer | null
@@ -109,8 +119,7 @@ function renderContentPreview(
   verse: VerseRenderData | null,
   slide: Slide | null,
   imageCache: Map<string, HTMLImageElement>,
-  videoCache: Map<string, HTMLVideoElement>,
-  dimmed?: boolean
+  videoCache: Map<string, HTMLVideoElement>
 ) {
   const offscreen = document.createElement("canvas")
   offscreen.width = theme.resolution.width
@@ -131,10 +140,7 @@ function renderContentPreview(
     renderVerse(offCtx, theme, verse, { imageCache })
   }
 
-  ctx.save()
-  if (dimmed) ctx.globalAlpha = 0.6
   ctx.drawImage(offscreen, x, y, w, h)
-  ctx.restore()
 }
 
 function drawClock(
@@ -240,7 +246,6 @@ function drawPreviewZone(
   opts: {
     bgAlpha: string
     isLive: boolean
-    dimmed: boolean
     emptyLabel: string
     emptyFontSize: number
     emptyColor: string
@@ -269,8 +274,7 @@ function drawPreviewZone(
       verse,
       slide,
       imageCache,
-      videoCache,
-      opts.dimmed
+      videoCache
     )
   } else {
     ctx.font = `400 ${opts.emptyFontSize}px ${fontFamily}, sans-serif`
@@ -354,16 +358,6 @@ function drawWrappedText(
   if (line && curY + lineHeight <= maxY) ctx.fillText(line, x, curY)
 }
 
-/** Format a remaining-milliseconds value as H:MM:SS (or M:SS under an hour). */
-function formatCountdown(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
-}
-
 function drawTimerZone(
   ctx: CanvasRenderingContext2D,
   zone: StageZone,
@@ -375,20 +369,37 @@ function drawTimerZone(
   ctx.fill()
 
   const fontFamily = fontFamilyOf(zone)
-  const label = timer?.label ?? zone.label
+  // Prefer the countdown's own label; fall back to the zone's header label.
+  const label = timer?.timer.label ?? zone.label
   let headerH = 0
   if (zone.showHeader && label) {
     drawZoneHeader(ctx, zone.x, zone.y, zone.width, label, fontFamily)
     headerH = HEADER_H
   }
 
-  const remaining = timer?.endsAt != null ? timer.endsAt - now.getTime() : null
-  const text = remaining != null ? formatCountdown(remaining) : "--:--"
+  // Derive time + colour from the shared countdown math so the stage timer
+  // stays byte-for-byte in step with the operator preview and audience overlay:
+  // pause freezes it, clock-mode counts to its target, and warn/danger colours
+  // and the display format come straight off the timer.
+  const remaining = timer
+    ? computeRemainingSeconds(timer.countdown, now.getTime())
+    : null
+  const text =
+    timer && remaining != null
+      ? formatCountdownTime(
+          remaining,
+          timer.timer.format,
+          timer.timer.endAction === "overtime"
+        )
+      : "--:--"
+  const color =
+    timer && remaining != null
+      ? resolveTimeColor(remaining, timer.timer)
+      : (zone.text?.color ?? "#e0e0e0")
+
   const bodyH = zone.height - headerH
-  // Timer turns red in the final 60 s (and at/after zero).
-  const urgent = remaining != null && remaining <= 60_000
   ctx.font = `700 ${Math.round(bodyH * 0.5)}px ${fontFamily}, sans-serif`
-  ctx.fillStyle = urgent ? "#ef4444" : (zone.text?.color ?? "#e0e0e0")
+  ctx.fillStyle = color
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   ctx.fillText(text, zone.x + zone.width / 2, zone.y + headerH + bodyH / 2)
@@ -535,29 +546,9 @@ export function drawStageDisplay(
           {
             bgAlpha: "rgba(0,0,0,0.3)",
             isLive: true,
-            dimmed: false,
             emptyLabel: "No content",
             emptyFontSize: 16,
             emptyColor: "rgba(255,255,255,0.3)",
-          }
-        )
-        break
-      case "next":
-        drawPreviewZone(
-          ctx,
-          zone,
-          data.currentTheme,
-          data.nextVerse,
-          data.nextSlide,
-          imageCache,
-          videoCache,
-          {
-            bgAlpha: "rgba(0,0,0,0.2)",
-            isLive: false,
-            dimmed: true,
-            emptyLabel: "End of playlist",
-            emptyFontSize: 14,
-            emptyColor: "rgba(255,255,255,0.25)",
           }
         )
         break

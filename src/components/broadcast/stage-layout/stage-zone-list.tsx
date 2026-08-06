@@ -21,11 +21,10 @@ import { cn } from "@/lib/utils"
 import type { ZoneSource } from "@/types/stage-layout"
 
 // The typed data sources an operator can drop onto a stage layout. Current /
-// Next / Clock / Notes render live today; the rest render labelled placeholders
-// until their feeds land (Phase 4).
+// Clock / Notes / Timer / Stage Message / Announcement render live; Playlist
+// renders from the schedule feed and Spacer is a visual-only placeholder.
 const ZONE_SOURCES: { source: ZoneSource; label: string }[] = [
   { source: "current", label: "Current (Lyrics/Slide)" },
-  { source: "next", label: "Next Up" },
   { source: "clock", label: "Clock" },
   { source: "notes", label: "Notes" },
   { source: "timer", label: "Timer" },

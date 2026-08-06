@@ -538,7 +538,6 @@ function StageConfigPanel({
             {(
               [
                 ["showCurrent", "Show current content"],
-                ["showNext", "Show next preview"],
                 ["showClock", "Show clock"],
                 ["showNotes", "Show notes"],
               ] as const

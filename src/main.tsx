@@ -79,13 +79,12 @@ Promise.race([
     .then(() => initBiblePersistence())
     .catch(() => {}),
   bootTimeout,
-])
-  .finally(() => {
-    createRoot(document.getElementById("root")!).render(
-      <StrictMode>
-        <TooltipProvider>
-          <App />
-        </TooltipProvider>
-      </StrictMode>
-    )
-  })
+]).finally(() => {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
+    </StrictMode>
+  )
+})

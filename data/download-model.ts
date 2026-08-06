@@ -112,7 +112,9 @@ async function main() {
   // and friends), and it is the only variant the app or the precompute pipeline
   // ever loads. The FP32 export is purely the quantization source, so drop its
   // ~4.8 GB now that INT8 exists — leaving it would just be dead weight.
-  console.log("🧹 Removing the FP32 export (only needed as the quantize source)...")
+  console.log(
+    "🧹 Removing the FP32 export (only needed as the quantize source)..."
+  )
   await rm(MODELS_DIR, { recursive: true, force: true })
 
   console.log("\n  Files kept (models/qwen3-embedding-0.6b-int8/):")

@@ -204,7 +204,9 @@ describe("schedule store duplicate prevention", () => {
   })
 })
 
-function song(overrides: Partial<Extract<ScheduleItem, { type: "song" }>> = {}) {
+function song(
+  overrides: Partial<Extract<ScheduleItem, { type: "song" }>> = {}
+) {
   return {
     id: crypto.randomUUID(),
     type: "song" as const,

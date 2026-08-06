@@ -129,7 +129,11 @@ function BroadcastCanvas() {
     { alert: ActiveAlert; template: AlertTemplate }[]
   >([])
   const activeCountdowns = useRef<
-    { countdown: ActiveCountdown; timer: CountdownTimer }[]
+    {
+      countdown: ActiveCountdown
+      timer: CountdownTimer
+      theme?: BroadcastTheme
+    }[]
   >([])
   const activeProps = useRef<BroadcastProp[]>([])
   const marqueeRafRef = useRef<number>(0)
@@ -1151,6 +1155,7 @@ function BroadcastCanvas() {
     const unlistenCountdown = currentWindow.listen<{
       countdown: ActiveCountdown
       timer: CountdownTimer
+      theme?: BroadcastTheme
     }>("broadcast:countdown", (event) => {
       activeCountdowns.current = [...activeCountdowns.current, event.payload]
       logDebug("Received broadcast:countdown", {
@@ -1163,6 +1168,7 @@ function BroadcastCanvas() {
     const unlistenCountdownUpdate = currentWindow.listen<{
       countdown: ActiveCountdown
       timer: CountdownTimer
+      theme?: BroadcastTheme
     }>("broadcast:countdown-update", (event) => {
       activeCountdowns.current = activeCountdowns.current.map((c) =>
         c.countdown.id === event.payload.countdown.id ? event.payload : c
@@ -1178,7 +1184,11 @@ function BroadcastCanvas() {
     // readiness so a countdown that started before it opened still appears.
     // Replace (not append) keeps already-synced windows from doubling entries.
     const unlistenCountdownSync = currentWindow.listen<{
-      items: { countdown: ActiveCountdown; timer: CountdownTimer }[]
+      items: {
+        countdown: ActiveCountdown
+        timer: CountdownTimer
+        theme?: BroadcastTheme
+      }[]
     }>("broadcast:countdown-sync", (event) => {
       activeCountdowns.current = event.payload.items
       logDebug("Received broadcast:countdown-sync", {

@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useCountdownStore } from "@/stores/countdown-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import type { CountdownTimer, CountdownFormat } from "@/types/alert"
 import { cn } from "@/lib/utils"
 
@@ -48,6 +49,11 @@ function TimerEditor({
   const minutes = Math.floor(draft.durationSeconds / 60)
   const seconds = draft.durationSeconds % 60
 
+  const countdownThemes = useBroadcastStore((s) => s.themes).filter(
+    (t) => t.category === "countdown"
+  )
+  const isThemed = draft.styleMode === "theme"
+
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex flex-col gap-1.5">
@@ -60,6 +66,85 @@ function TimerEditor({
           className="h-7 text-xs"
         />
       </div>
+
+      {/* Style: custom inline appearance vs. a saved countdown theme */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+          Style
+        </span>
+        <div className="grid grid-cols-2 gap-1">
+          {(["custom", "theme"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() =>
+                setDraft({
+                  ...draft,
+                  styleMode: mode,
+                  // Auto-select a theme the first time Theme mode is chosen so
+                  // the picker isn't empty; keep any prior choice otherwise.
+                  themeId:
+                    mode === "theme"
+                      ? (draft.themeId ?? countdownThemes[0]?.id)
+                      : draft.themeId,
+                })
+              }
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs capitalize transition-colors",
+                (mode === "theme") === isThemed
+                  ? "border-emerald-500/50 bg-emerald-500/10 text-foreground"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              )}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isThemed && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+            Theme
+          </span>
+          {countdownThemes.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border px-2 py-3 text-center text-[0.625rem] text-muted-foreground">
+              No countdown themes yet. Create one in the Theme Designer and set
+              its category to Countdown.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {countdownThemes.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, themeId: theme.id })}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
+                    draft.themeId === theme.id
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-foreground"
+                      : "border-border text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  <span
+                    className="size-5 shrink-0 rounded border border-border"
+                    style={{
+                      backgroundColor:
+                        theme.background.type === "solid" ||
+                        theme.background.type === "gradient"
+                          ? theme.background.color
+                          : "#000000",
+                      color: theme.verseText.color,
+                    }}
+                    aria-hidden
+                  />
+                  <span className="truncate">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
@@ -171,75 +256,83 @@ function TimerEditor({
         </Select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Position
-        </span>
-        <Select
-          value={draft.position}
-          onValueChange={(value) =>
-            setDraft({
-              ...draft,
-              position: value as CountdownTimer["position"],
-            })
-          }
-        >
-          <SelectTrigger size="sm" className="h-7 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="fullscreen">
-              Full screen (starting soon)
-            </SelectItem>
-            <SelectItem value="center">Center</SelectItem>
-            <SelectItem value="top-left">Top Left</SelectItem>
-            <SelectItem value="top-center">Top Center</SelectItem>
-            <SelectItem value="top-right">Top Right</SelectItem>
-            <SelectItem value="bottom-left">Bottom Left</SelectItem>
-            <SelectItem value="bottom-center">Bottom Center</SelectItem>
-            <SelectItem value="bottom-right">Bottom Right</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {!isThemed && (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              Position
+            </span>
+            <Select
+              value={draft.position}
+              onValueChange={(value) =>
+                setDraft({
+                  ...draft,
+                  position: value as CountdownTimer["position"],
+                })
+              }
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fullscreen">
+                  Full screen (starting soon)
+                </SelectItem>
+                <SelectItem value="center">Center</SelectItem>
+                <SelectItem value="top-left">Top Left</SelectItem>
+                <SelectItem value="top-center">Top Center</SelectItem>
+                <SelectItem value="top-right">Top Right</SelectItem>
+                <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                <SelectItem value="bottom-center">Bottom Center</SelectItem>
+                <SelectItem value="bottom-right">Bottom Right</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Appearance
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="text-[0.6875rem] text-muted-foreground">BG</span>
-          <input
-            type="color"
-            value={
-              draft.backgroundColor.startsWith("rgba")
-                ? "#000000"
-                : draft.backgroundColor
-            }
-            onChange={(e) =>
-              setDraft({ ...draft, backgroundColor: e.target.value })
-            }
-            className="size-6 cursor-pointer rounded border border-border"
-          />
-          <span className="text-[0.6875rem] text-muted-foreground">Text</span>
-          <input
-            type="color"
-            value={draft.textColor}
-            onChange={(e) => setDraft({ ...draft, textColor: e.target.value })}
-            className="size-6 cursor-pointer rounded border border-border"
-          />
-          <Input
-            type="number"
-            value={draft.fontSize}
-            min={16}
-            max={200}
-            onChange={(e) =>
-              setDraft({ ...draft, fontSize: Number(e.target.value) })
-            }
-            className="h-7 w-14 text-xs"
-            title="Font size"
-          />
-        </div>
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              Appearance
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-muted-foreground">BG</span>
+              <input
+                type="color"
+                value={
+                  draft.backgroundColor.startsWith("rgba")
+                    ? "#000000"
+                    : draft.backgroundColor
+                }
+                onChange={(e) =>
+                  setDraft({ ...draft, backgroundColor: e.target.value })
+                }
+                className="size-6 cursor-pointer rounded border border-border"
+              />
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Text
+              </span>
+              <input
+                type="color"
+                value={draft.textColor}
+                onChange={(e) =>
+                  setDraft({ ...draft, textColor: e.target.value })
+                }
+                className="size-6 cursor-pointer rounded border border-border"
+              />
+              <Input
+                type="number"
+                value={draft.fontSize}
+                min={16}
+                max={200}
+                onChange={(e) =>
+                  setDraft({ ...draft, fontSize: Number(e.target.value) })
+                }
+                className="h-7 w-14 text-xs"
+                title="Font size"
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
@@ -513,6 +606,7 @@ export function CountdownTrigger() {
                   durationSeconds: 300,
                   targetTime: "10:00",
                   format: "mm:ss",
+                  styleMode: "custom",
                   backgroundColor: "rgba(0,0,0,0.7)",
                   textColor: "#ffffff",
                   fontSize: 64,

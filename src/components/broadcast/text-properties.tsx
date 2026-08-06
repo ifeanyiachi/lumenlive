@@ -163,11 +163,17 @@ function ReferenceProperties() {
 
   if (!draftTheme) return null
 
+  const isCountdown = draftTheme.category === "countdown"
+
   return (
     <div className="flex flex-col gap-3">
       <SectionHeader
-        title="Reference Text"
-        description="Customize how reference text appears"
+        title={isCountdown ? "Label Text" : "Reference Text"}
+        description={
+          isCountdown
+            ? "Customize the countdown's label text"
+            : "Customize how reference text appears"
+        }
       />
       <SpacingControls prefix="reference" />
 
@@ -235,11 +241,17 @@ function VerseProperties() {
 
   if (!draftTheme) return null
 
+  const isCountdown = draftTheme.category === "countdown"
+
   return (
     <div className="flex flex-col gap-3">
       <SectionHeader
-        title="Verse Text"
-        description="Customize how verse text appears"
+        title={isCountdown ? "Timer Text" : "Verse Text"}
+        description={
+          isCountdown
+            ? "Customize how the timer digits appear"
+            : "Customize how verse text appears"
+        }
       />
       <SpacingControls prefix="verseText" />
 

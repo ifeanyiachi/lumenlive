@@ -159,3 +159,56 @@ describe("findLayer", () => {
     expect(editing.findLayer(start, "nope")).toBeUndefined()
   })
 })
+
+describe("sanitizeStageLayout", () => {
+  // A layout saved before "next" was retired: a stale zone plus its layerOrder id.
+  const withStaleNext = () => {
+    const start = base()
+    const stale = {
+      ...editing.makeZone("current", "stale-next"),
+      source: "next" as never,
+    }
+    return {
+      ...start,
+      zones: [...start.zones, stale],
+      layerOrder: [...start.layerOrder, "stale-next"],
+    }
+  }
+
+  it("drops zones with an unsupported source and their layerOrder ids", () => {
+    const cleaned = editing.sanitizeStageLayout(withStaleNext())
+    expect(cleaned.zones.some((z) => z.id === "stale-next")).toBe(false)
+    expect(cleaned.layerOrder).not.toContain("stale-next")
+    // Every surviving layerOrder id still resolves to a real zone.
+    for (const id of cleaned.layerOrder) {
+      expect(cleaned.zones.some((z) => z.id === id)).toBe(true)
+    }
+  })
+
+  it("returns the same reference when nothing needs removing", () => {
+    const start = base()
+    expect(editing.sanitizeStageLayout(start)).toBe(start)
+  })
+
+  it("keeps free-form element ids in layerOrder", () => {
+    const el: ThemeElement = {
+      id: "e1",
+      type: "shape",
+      name: "Box",
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      visible: true,
+      locked: false,
+    }
+    const layout = {
+      ...withStaleNext(),
+      elements: [el],
+    }
+    layout.layerOrder = [...layout.layerOrder, "e1"]
+    const cleaned = editing.sanitizeStageLayout(layout)
+    expect(cleaned.layerOrder).toContain("e1")
+    expect(cleaned.layerOrder).not.toContain("stale-next")
+  })
+})

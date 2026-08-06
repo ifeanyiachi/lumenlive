@@ -16,6 +16,7 @@ import type {
   CountdownTimer,
 } from "@/types/alert"
 import type { BroadcastProp } from "@/stores/broadcast-store"
+import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 
 /** Recording 2D context: records method names + fillText strings; measureText
  *  returns a length-proportional width. */
@@ -222,6 +223,46 @@ describe("overlay painters", () => {
     expect(r.calls).toContain("stroke")
     expect(r.texts).toContain("00:50")
     expect(r.texts).toContain("Starting Soon")
+  })
+
+  it("drawCountdownOverlay renders through a countdown theme when supplied", () => {
+    const countdown = {
+      id: "c",
+      timerId: "t",
+      mode: "duration",
+      startedAt: 1000,
+      durationSeconds: 60,
+      state: "running",
+      accumulatedPausedMs: 0,
+    } as ActiveCountdown
+    const timer = {
+      format: "mm:ss",
+      position: "center",
+      fontSize: 100,
+      fontFamily: "Inter",
+      backgroundColor: "#000",
+      textColor: "#fff",
+      showLabel: true,
+      label: "STARTING SOON",
+      endAction: "flash",
+      styleMode: "theme",
+    } as CountdownTimer
+    // Solid-background theme: this Proxy ctx can't build a real gradient, and
+    // the renderer swallows draw errors — a solid bg keeps the pass painting.
+    const theme = BUILTIN_THEMES.find(
+      (t) => t.id === "builtin-countdown-minimal"
+    )!
+    const r = recordingCtx()
+    drawCountdownOverlay(
+      r.ctx,
+      1920,
+      1080,
+      [{ countdown, timer, theme }],
+      11000
+    )
+    // Themed path paints the digits and label via the shared theme renderer.
+    expect(r.texts).toContain("00:50")
+    expect(r.texts.some((t) => t.includes("STARTING SOON"))).toBe(true)
   })
 
   it("drawPropsOverlay paints text props and no-ops on empty", () => {

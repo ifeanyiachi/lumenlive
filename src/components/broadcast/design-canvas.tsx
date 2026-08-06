@@ -3,6 +3,7 @@ import * as fabric from "fabric"
 import { useBroadcastStore } from "@/stores"
 import { renderVerse } from "@/lib/verse-renderer"
 import type { VerseLayoutMetrics } from "@/lib/verse-renderer"
+import { renderCountdownTheme } from "@/lib/countdown/theme-render"
 import { ThemeCanvasOverlay } from "./theme-canvas-overlay"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,6 +27,12 @@ const DESIGNER_SAMPLE_VERSE: VerseRenderData = {
     },
   ],
 }
+/** Sample frame the designer paints for a `countdown`-category theme. */
+const DESIGNER_SAMPLE_COUNTDOWN = {
+  timeText: "04:59",
+  label: "STARTING SOON",
+  showLabel: true,
+} as const
 
 interface WsScreenRect {
   left: number
@@ -610,7 +617,16 @@ function renderThemeBitmap(
   if (!ctx) return { bitmap: offscreen, metrics: null }
   ctx.clearRect(0, 0, WS_WIDTH, WS_HEIGHT)
 
-  const metrics = renderVerse(ctx, theme, DESIGNER_SAMPLE_VERSE, { imageCache })
+  // A countdown theme is styled against a sample ticking timer so the designer
+  // is WYSIWYG with the live output — both go through `renderCountdownTheme`.
+  const metrics =
+    theme.category === "countdown"
+      ? renderCountdownTheme(ctx, theme, {
+          ...DESIGNER_SAMPLE_COUNTDOWN,
+          timeColor: theme.verseText.color,
+          imageCache,
+        })
+      : renderVerse(ctx, theme, DESIGNER_SAMPLE_VERSE, { imageCache })
 
   return { bitmap: offscreen, metrics }
 }

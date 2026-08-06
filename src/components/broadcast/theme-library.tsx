@@ -176,7 +176,14 @@ function ThemeCard({
   )
 }
 
-const CATEGORY_FILTERS: ThemeCategory[] = ["scripture", "sermon", "overlay"]
+const CATEGORY_FILTERS: ThemeCategory[] = [
+  "general",
+  "scripture",
+  "song",
+  "sermon",
+  "overlay",
+  "countdown",
+]
 
 export function ThemeLibrary() {
   const themes = useBroadcastStore((s) => s.themes)

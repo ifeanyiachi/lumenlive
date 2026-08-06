@@ -223,8 +223,6 @@ interface BroadcastState {
   mediaLayer: MediaLayerState | null
   props: BroadcastProp[]
 
-  stageNextVerse: VerseRenderData | null
-  stageNextSlide: Slide | null
   stageNotes: string | null
   // Live source feeds for stage zones (Phase 4).
   stageTimer: StageTimer | null
@@ -339,11 +337,7 @@ interface BroadcastState {
     outputId: string,
     updates: Partial<StageDisplayConfig>
   ) => void
-  setStageNext: (
-    verse: VerseRenderData | null,
-    slide: Slide | null,
-    notes: string | null
-  ) => void
+  setStageNotes: (notes: string | null) => void
   setStageTimer: (timer: StageTimer | null) => void
   setStageMessage: (message: string | null) => void
   setStageAnnouncement: (announcement: string | null) => void
@@ -396,8 +390,6 @@ function emitStageDraftToOutputs(state: BroadcastState): void {
       currentTheme: theme,
       currentVerse: state.liveVerse,
       currentSlide: state.liveSlide,
-      nextVerse: state.stageNextVerse,
-      nextSlide: state.stageNextSlide,
       notes: state.stageNotes,
       timer: state.stageTimer,
       message: state.stageMessage,
@@ -525,8 +517,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     broadcastMuted: false,
     mediaLayer: null,
     props: [],
-    stageNextVerse: null,
-    stageNextSlide: null,
     stageNotes: null,
     stageTimer: null,
     stageMessage: null,
@@ -1232,8 +1222,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       }))
       get().syncStageOutput()
     },
-    setStageNext: (stageNextVerse, stageNextSlide, stageNotes) => {
-      set({ stageNextVerse, stageNextSlide, stageNotes })
+    setStageNotes: (stageNotes) => {
+      set({ stageNotes })
       get().syncStageOutput()
     },
     setStageTimer: (stageTimer) => {
@@ -1265,8 +1255,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
           currentTheme: theme,
           currentVerse: s.liveVerse,
           currentSlide: s.liveSlide,
-          nextVerse: s.stageNextVerse,
-          nextSlide: s.stageNextSlide,
           notes: s.stageNotes,
           timer: s.stageTimer,
           message: s.stageMessage,
@@ -1541,7 +1529,10 @@ export function hydrateBroadcastThemes(): Promise<void> {
         Array.isArray(customStageLayouts) &&
         customStageLayouts.length > 0
       ) {
-        patch.stageLayouts = [...BUILTIN_STAGE_LAYOUTS, ...customStageLayouts]
+        patch.stageLayouts = [
+          ...BUILTIN_STAGE_LAYOUTS,
+          ...customStageLayouts.map(stageEditing.sanitizeStageLayout),
+        ]
       }
 
       if (

@@ -77,7 +77,6 @@ export interface RenderOptions {
 export interface StageDisplayConfig {
   layout: "standard" | "minimal"
   showCurrent: boolean
-  showNext: boolean
   showClock: boolean
   showNotes: boolean
   backgroundColor: string
@@ -90,7 +89,6 @@ export interface StageDisplayConfig {
 export const DEFAULT_STAGE_DISPLAY_CONFIG: StageDisplayConfig = {
   layout: "standard",
   showCurrent: true,
-  showNext: true,
   showClock: true,
   showNotes: true,
   backgroundColor: "#1a1a2e",
@@ -101,7 +99,7 @@ export const DEFAULT_STAGE_DISPLAY_CONFIG: StageDisplayConfig = {
 }
 
 export type ThemeCategory =
-  "general" | "song" | "scripture" | "sermon" | "overlay"
+  "general" | "song" | "scripture" | "sermon" | "overlay" | "countdown"
 
 export interface ThemeElement extends CanvasBox {
   type: "image" | "shape"

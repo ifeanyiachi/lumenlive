@@ -66,6 +66,18 @@ export interface CountdownTimer {
   /** Clock-mode target time-of-day, "HH:MM" (24h). Ignored in duration mode. */
   targetTime?: string
   format: CountdownFormat
+  /**
+   * How the timer is styled on output:
+   *  - "custom" (default): the inline appearance fields below (colors, font,
+   *    position) — the classic behaviour.
+   *  - "theme":  render through a saved `countdown`-category broadcast theme
+   *    (`themeId`), a full-frame composition. Falls back to custom when the theme
+   *    is missing. Optional/undefined is treated as "custom" so timers persisted
+   *    before this feature keep working.
+   */
+  styleMode?: "custom" | "theme"
+  /** The `countdown`-category theme to render with when `styleMode === "theme"`. */
+  themeId?: string
   backgroundColor: string
   textColor: string
   fontSize: number
@@ -118,6 +130,7 @@ export const DEFAULT_COUNTDOWN: CountdownTimer = {
   mode: "duration",
   durationSeconds: 300,
   format: "mm:ss",
+  styleMode: "custom",
   backgroundColor: "rgba(0,0,0,0.7)",
   textColor: "#ffffff",
   fontSize: 64,

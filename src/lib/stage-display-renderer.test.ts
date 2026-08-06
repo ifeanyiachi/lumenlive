@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
 import type { BroadcastTheme } from "@/types/broadcast"
+import { DEFAULT_COUNTDOWN } from "@/types/alert"
+import type { ActiveCountdown, CountdownTimer } from "@/types/alert"
 import { migrateStageConfig } from "@/lib/stage-layout/migrate"
 import { makeZone } from "@/lib/stage-layout/editing"
 import type { StageLayout, StageZone } from "@/types/stage-layout"
 import type { ZoneSource } from "@/types/stage-layout"
 import { drawStageDisplay } from "./stage-display-renderer"
-import type { StageDisplayData } from "./stage-display-renderer"
+import type { StageDisplayData, StageTimer } from "./stage-display-renderer"
 
 // A recording Canvas2D stub. It captures the ordered primitive draw calls the
 // renderer makes (with the fill/text state active at call time) so we can assert
@@ -106,8 +108,6 @@ function data(
     currentTheme: theme,
     currentVerse: null,
     currentSlide: null,
-    nextVerse: null,
-    nextSlide: null,
     notes,
   }
 }
@@ -137,38 +137,22 @@ describe("drawStageDisplay — zone dispatch and placement", () => {
     expect(bg?.fillStyle).toBe(DEFAULT_STAGE_DISPLAY_CONFIG.backgroundColor)
   })
 
-  it("draws the current zone box, header and empty-state where the legacy renderer did", () => {
+  it("draws the current zone spanning the full content width, with header and empty-state", () => {
     const { ctx, ops } = recordingContext()
     drawStageDisplay(ctx, 1920, 1080, data(standard), caches.img, caches.vid)
-    // Container: 20,20 / 1090×824 at 0.3 alpha
+    // Container now fills the content width (no next preview): 20,20 / 1880×824.
     expect(roundRects(ops)).toContainEqual(
       expect.objectContaining({
         x: 20,
         y: 20,
-        w: 1090,
+        w: 1880,
         h: 824,
         fillStyle: "rgba(0,0,0,0.3)",
       })
     )
     expect(text(ops, "CURRENT")).toBeTruthy()
     // Empty-state centred in the preview area (below the 36px header).
-    expect(text(ops, "No content")).toMatchObject({ x: 565, y: 450 })
-  })
-
-  it("draws the next zone with its dimmed empty-state", () => {
-    const { ctx, ops } = recordingContext()
-    drawStageDisplay(ctx, 1920, 1080, data(standard), caches.img, caches.vid)
-    expect(roundRects(ops)).toContainEqual(
-      expect.objectContaining({
-        x: 1130,
-        y: 20,
-        w: 770,
-        h: 824,
-        fillStyle: "rgba(0,0,0,0.2)",
-      })
-    )
-    expect(text(ops, "NEXT")).toBeTruthy()
-    expect(text(ops, "End of playlist")).toMatchObject({ x: 1515, y: 450 })
+    expect(text(ops, "No content")).toMatchObject({ x: 960, y: 450 })
   })
 
   it("renders the clock centred with the configured format and colour", () => {
@@ -215,12 +199,12 @@ describe("drawStageDisplay — zone dispatch and placement", () => {
     const hidden: StageLayout = {
       ...standard,
       zones: standard.zones.map((z) =>
-        z.source === "next" ? { ...z, visible: false } : z
+        z.source === "clock" ? { ...z, visible: false } : z
       ),
     }
     const { ctx, ops } = recordingContext()
     drawStageDisplay(ctx, 1920, 1080, data(hidden), caches.img, caches.vid)
-    expect(text(ops, "NEXT")).toBeUndefined()
+    expect(text(ops, "02:05:09 PM")).toBeUndefined()
     expect(text(ops, "CURRENT")).toBeTruthy()
   })
 
@@ -252,12 +236,20 @@ describe("drawStageDisplay — zone dispatch and placement", () => {
 
   it("honours layerOrder for draw sequence", () => {
     const { ctx, ops } = recordingContext()
-    drawStageDisplay(ctx, 1920, 1080, data(standard), caches.img, caches.vid)
+    drawStageDisplay(
+      ctx,
+      1920,
+      1080,
+      data(standard, "Welcome"),
+      caches.img,
+      caches.vid
+    )
+    // Standard draws current → clock → notes in that order.
     const iCurrent = ops.findIndex((o) => o.text === "CURRENT")
-    const iNext = ops.findIndex((o) => o.text === "NEXT")
     const iClock = ops.findIndex((o) => o.text === "02:05:09 PM")
-    expect(iCurrent).toBeLessThan(iNext)
-    expect(iNext).toBeLessThan(iClock)
+    const iNotes = ops.findIndex((o) => o.text === "NOTES")
+    expect(iCurrent).toBeLessThan(iClock)
+    expect(iClock).toBeLessThan(iNotes)
   })
 })
 
@@ -289,21 +281,75 @@ describe("drawStageDisplay — live data sources (Phase 4)", () => {
     return ops
   }
 
-  it("renders a running countdown as M:SS", () => {
+  // Build a stage-timer feed anchored at BASE. The renderer derives time from
+  // the shared countdown math, so these prove pause / clock-mode / thresholds
+  // stay in step with the operator preview.
+  function stageTimer(
+    countdown: Partial<ActiveCountdown>,
+    timer: Partial<CountdownTimer> = {}
+  ): StageTimer {
+    return {
+      countdown: {
+        id: "c",
+        timerId: "t",
+        mode: "duration",
+        startedAt: BASE,
+        durationSeconds: 90,
+        state: "running",
+        accumulatedPausedMs: 0,
+        ...countdown,
+      },
+      timer: { ...DEFAULT_COUNTDOWN, ...timer },
+    }
+  }
+
+  it("renders a running countdown in the timer's format, with its label", () => {
     const { layout } = only("timer")
     const ops = render(layout, {
-      timer: { label: "Sermon", endsAt: BASE + 90_000 },
+      timer: stageTimer(
+        { durationSeconds: 90 },
+        {
+          label: "Sermon",
+          format: "mm:ss",
+          textColor: "#e0e0e0",
+        }
+      ),
     })
     const t = text(ops, "01:30")
     expect(t).toBeTruthy()
     expect(t?.fillStyle).toBe("#e0e0e0")
-    expect(text(ops, "Sermon")).toBeTruthy() // header label from feed
+    expect(text(ops, "Sermon")).toBeTruthy() // header label from the countdown
   })
 
-  it("turns the timer red inside the final minute", () => {
+  it("recolours from the countdown's own warn/danger thresholds", () => {
     const { layout } = only("timer")
-    const ops = render(layout, { timer: { label: "T", endsAt: BASE + 30_000 } })
+    const ops = render(layout, {
+      timer: stageTimer({ durationSeconds: 30 }, { dangerSeconds: 60 }),
+    })
     expect(text(ops, "00:30")?.fillStyle).toBe("#ef4444")
+  })
+
+  it("freezes a paused countdown as time advances", () => {
+    const { layout } = only("timer")
+    // Started 30 s ago, duration 90 → 60 s left, then paused right now.
+    const timer = stageTimer({
+      startedAt: BASE - 30_000,
+      durationSeconds: 90,
+      state: "paused",
+      pausedAt: BASE,
+    })
+    expect(text(render(layout, { timer }), "01:00")).toBeTruthy()
+    // Advance the clock 15 s — a paused timer must not move.
+    vi.setSystemTime(new Date(BASE + 15_000))
+    expect(text(render(layout, { timer }), "01:00")).toBeTruthy()
+  })
+
+  it("counts a clock-mode countdown down to its wall-clock target", () => {
+    const { layout } = only("timer")
+    const ops = render(layout, {
+      timer: stageTimer({ mode: "clock", targetEpochMs: BASE + 120_000 }),
+    })
+    expect(text(ops, "02:00")).toBeTruthy()
   })
 
   it("shows a dash placeholder when no timer is running", () => {

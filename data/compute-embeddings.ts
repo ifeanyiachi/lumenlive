@@ -72,7 +72,9 @@ async function main() {
   console.log("\n📖 Exporting KJV verses for embedding...\n")
 
   const wordMap = await loadWordMap()
-  console.log(`  Loaded ${Object.keys(wordMap).length} archaic normalization rules`)
+  console.log(
+    `  Loaded ${Object.keys(wordMap).length} archaic normalization rules`
+  )
 
   const db = new Database(DB_PATH, { readonly: true })
 
