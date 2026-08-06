@@ -302,6 +302,17 @@ interface BroadcastState {
   setLiveWeb: (web: LiveWeb | null, source?: BroadcastSource) => void
   clearLiveWeb: () => void
   syncWebOutput: () => void
+  /**
+   * Return the Program preview to manual (operator-driven) ownership so it
+   * follows the currently-selected verse. Presenting a queue/schedule item
+   * pins `previewSource` to `"queue"`/`"schedule"`, which makes the preview
+   * render the staged `previewVerse` and ignore later verse selections and the
+   * interlinear toggle. Call this whenever the operator manually picks a verse
+   * (or toggles interlinear) to release that pin. Only touches the staged
+   * `preview*` fields and the source labels — never `live*` — so a live lock
+   * keeps auditioning safely.
+   */
+  followManualSelection: () => void
   setInterlinearText: (text: string | null) => void
   setBroadcastMuted: (muted: boolean) => void
   sendMediaTransport: (
@@ -1027,6 +1038,15 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       else if (s.previewSlide) commitSlideLive(s.previewSlide, s.previewSource)
       else commitVerseLive(s.previewVerse, s.previewSource)
     },
+    followManualSelection: () =>
+      set({
+        previewVerse: null,
+        previewSlide: null,
+        previewMedia: null,
+        previewWeb: null,
+        previewSource: null,
+        broadcastSource: null,
+      }),
     setInterlinearText: (interlinearText) => set({ interlinearText }),
     setBroadcastMuted: (broadcastMuted) => {
       set({ broadcastMuted })

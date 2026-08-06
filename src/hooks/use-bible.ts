@@ -99,7 +99,13 @@ export const bibleActions = {
       .setPendingNavigation({ bookNumber, chapter, verse }),
   selectVerse: (verse: Verse | null) => {
     useBibleStore.getState().selectVerse(verse)
-    useBroadcastStore.setState({ broadcastSource: null })
+    // Manually picking a verse returns both live and preview ownership to the
+    // operator: release the queue/schedule pin so the Program preview follows
+    // the new selection (not just live), and drop any interlinear carried over
+    // from the previous verse so its original-language text can't bleed in.
+    const bs = useBroadcastStore.getState()
+    bs.followManualSelection()
+    bs.setInterlinearText(null)
   },
 }
 

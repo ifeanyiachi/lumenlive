@@ -301,6 +301,12 @@ export function PreviewPanel() {
   const toggleInterlinear = useCallback(async () => {
     if (!selectedVerse) return
 
+    // Toggling interlinear is a manual audition of the selected verse: release
+    // any queue/schedule pin so both the Program preview and the live output
+    // reflect it. Without this, a verse presented from the schedule keeps the
+    // preview pinned to its staged copy and the toggle appears to do nothing.
+    useBroadcastStore.getState().followManualSelection()
+
     if (interlinearOn) {
       setInterlinearOn(false)
       setInterlinearText(null)

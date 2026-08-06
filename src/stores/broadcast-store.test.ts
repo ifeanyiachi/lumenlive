@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Slide } from "@/types/slide"
+import type { VerseRenderData } from "@/types"
 import type { LiveMedia } from "./broadcast-store"
 
 const emitToMock = vi.fn()
@@ -308,5 +309,67 @@ describe("broadcast store — live lock", () => {
 
     expect(useBroadcastStore.getState().liveLocked).toBe(false)
     expect(useBroadcastStore.getState().previewPending).toBe(false)
+  })
+})
+
+describe("broadcast store — followManualSelection", () => {
+  const verse = (reference: string): VerseRenderData => ({
+    reference,
+    segments: [{ text: reference, verseNumber: 1 }],
+  })
+
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("releases a queue/schedule pin so the preview follows the selection", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    // Present a scheduled verse: the preview is pinned to the staged copy.
+    useBroadcastStore.getState().setLiveVerse(verse("Ps 23:1"), "schedule")
+    expect(useBroadcastStore.getState().previewSource).toBe("schedule")
+    expect(useBroadcastStore.getState().broadcastSource).toBe("schedule")
+
+    useBroadcastStore.getState().followManualSelection()
+
+    // Preview ownership is back to manual, so the panel renders the selected
+    // verse (previewSource null) instead of the stale staged one.
+    expect(useBroadcastStore.getState().previewSource).toBeNull()
+    expect(useBroadcastStore.getState().broadcastSource).toBeNull()
+    expect(useBroadcastStore.getState().previewVerse).toBeNull()
+  })
+
+  it("clears a staged slide/media/web so a stale non-verse preview can't win", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({
+      previewSlide: { id: "s" } as unknown as Slide,
+      previewMedia: { filePath: "x", mediaType: "video", name: "x" },
+    })
+
+    useBroadcastStore.getState().followManualSelection()
+
+    expect(useBroadcastStore.getState().previewSlide).toBeNull()
+    expect(useBroadcastStore.getState().previewMedia).toBeNull()
+    expect(useBroadcastStore.getState().previewWeb).toBeNull()
+  })
+
+  it("leaves the live output untouched (safe while locked)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const live = verse("John 1:1")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveVerse: live,
+      previewVerse: verse("Acts 2:1"),
+      previewSource: "schedule",
+    })
+    emitToMock.mockClear()
+
+    useBroadcastStore.getState().followManualSelection()
+
+    // Audience stays on the locked verse; nothing is emitted to outputs.
+    expect(useBroadcastStore.getState().liveVerse).toBe(live)
+    expect(emitToMock).not.toHaveBeenCalled()
   })
 })
