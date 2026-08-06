@@ -1,0 +1,312 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { Slide } from "@/types/slide"
+import type { LiveMedia } from "./broadcast-store"
+
+const emitToMock = vi.fn()
+
+vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: emitToMock,
+}))
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(() => Promise.resolve()),
+}))
+
+describe("broadcast store sync", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("syncBroadcastOutput emits current theme and verse to all output windows", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const theme = useBroadcastStore.getState().themes[0]
+    const outputs = useBroadcastStore.getState().outputs
+    const mainOutput = outputs.find((o) => o.id === "main")!
+    mainOutput.themeId = theme.id
+    // syncBroadcastOutputFor only emits the live verse when live; otherwise it
+    // emits verse: null (blank output). Go live so the verse is emitted.
+    useBroadcastStore.setState({
+      isLive: true,
+      outputs: [...outputs],
+      liveVerse: {
+        reference: "John 3:16",
+        segments: [{ text: "For God so loved the world", verseNumber: 16 }],
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutput()
+
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:verse-update",
+      expect.objectContaining({
+        theme: expect.objectContaining({ id: theme.id }),
+        verse: expect.objectContaining({ reference: "John 3:16" }),
+      })
+    )
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:verse-update",
+      expect.objectContaining({
+        theme: expect.objectContaining({ id: theme.id }),
+        verse: expect.objectContaining({ reference: "John 3:16" }),
+      })
+    )
+  })
+})
+
+describe("broadcast store theme designer", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("addElement appends an element, selects it, and can be undone/redone", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditing(store.themes[0].id)
+
+    const before = useBroadcastStore.getState().draftTheme!.elements.length
+    useBroadcastStore.getState().addElement("shape")
+
+    const afterAdd = useBroadcastStore.getState()
+    expect(afterAdd.draftTheme!.elements).toHaveLength(before + 1)
+    const newId = afterAdd.selectedElement!
+    expect(afterAdd.draftTheme!.layerOrder[0]).toBe(newId)
+
+    useBroadcastStore.getState().undo()
+    expect(useBroadcastStore.getState().draftTheme!.elements).toHaveLength(
+      before
+    )
+
+    useBroadcastStore.getState().redo()
+    expect(useBroadcastStore.getState().draftTheme!.elements).toHaveLength(
+      before + 1
+    )
+  })
+
+  it("removeElement clears the selection when the removed element was selected", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditing(store.themes[0].id)
+    useBroadcastStore.getState().addElement("image")
+    const id = useBroadcastStore.getState().selectedElement!
+
+    useBroadcastStore.getState().removeElement(id)
+    const after = useBroadcastStore.getState()
+    expect(after.selectedElement).toBeNull()
+    expect(after.draftTheme!.elements.find((e) => e.id === id)).toBeUndefined()
+  })
+
+  it("duplicateElement inserts an offset copy and selects it", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditing(store.themes[0].id)
+    useBroadcastStore.getState().addElement("shape")
+    const srcId = useBroadcastStore.getState().selectedElement!
+    const src = useBroadcastStore
+      .getState()
+      .draftTheme!.elements.find((e) => e.id === srcId)!
+
+    useBroadcastStore.getState().duplicateElement(srcId)
+    const after = useBroadcastStore.getState()
+    const copyId = after.selectedElement!
+    expect(copyId).not.toBe(srcId)
+    const copy = after.draftTheme!.elements.find((e) => e.id === copyId)!
+    expect(copy.x).toBe(src.x + 2)
+    expect(copy.name).toBe(`${src.name} Copy`)
+  })
+
+  it("nudgeElement on the verse region shifts the layout offset", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditing(store.themes[0].id)
+    useBroadcastStore.getState().setSelectedElement("verse")
+    const before = useBroadcastStore.getState().draftTheme!.layout.offsetX
+
+    useBroadcastStore.getState().nudgeElement(7, 0)
+    expect(useBroadcastStore.getState().draftTheme!.layout.offsetX).toBe(
+      before + 7
+    )
+  })
+
+  it("nudgeElement is a no-op for a locked element", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditing(store.themes[0].id)
+    useBroadcastStore.getState().addElement("shape")
+    const id = useBroadcastStore.getState().selectedElement!
+    useBroadcastStore.getState().toggleElementLocked(id)
+    const snapshot = useBroadcastStore
+      .getState()
+      .draftTheme!.elements.find((e) => e.id === id)!
+
+    useBroadcastStore.getState().nudgeElement(50, 50)
+    const after = useBroadcastStore
+      .getState()
+      .draftTheme!.elements.find((e) => e.id === id)!
+    expect(after.x).toBe(snapshot.x)
+    expect(after.y).toBe(snapshot.y)
+  })
+})
+
+/**
+ * "Lock live" lets the operator audition items in the Program preview without
+ * the audience seeing them. Presenting stages into `preview*`; the `live*`
+ * fields (what the output windows mirror) only change on Take/unlock. Each test
+ * imports the store fresh (resetModules) so it starts from default state.
+ */
+describe("broadcast store — live lock", () => {
+  const slide = (id: string) => ({ id }) as unknown as Slide
+  const media = (filePath: string): LiveMedia => ({
+    filePath,
+    mediaType: "video",
+    name: filePath,
+  })
+
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("unlocked: presenting writes live and preview together and emits", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({ isLive: true })
+    emitToMock.mockClear()
+
+    const a = slide("a")
+    useBroadcastStore.getState().setLiveSlide(a, "manual")
+
+    expect(useBroadcastStore.getState().liveSlide).toBe(a)
+    expect(useBroadcastStore.getState().previewSlide).toBe(a)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+    expect(emitToMock).toHaveBeenCalled()
+  })
+
+  it("locked: presenting stages preview only and leaves live frozen (no emit)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const live = slide("live")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveSlide: live,
+      previewSlide: live,
+    })
+    emitToMock.mockClear()
+
+    const staged = slide("staged")
+    useBroadcastStore.getState().setLiveSlide(staged, "manual")
+
+    expect(useBroadcastStore.getState().liveSlide).toBe(live) // audience untouched
+    expect(useBroadcastStore.getState().previewSlide).toBe(staged)
+    expect(useBroadcastStore.getState().previewPending).toBe(true)
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
+
+  it("takeToLive: commits the staged item and emits, staying locked", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const staged = slide("staged")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveSlide: slide("live"),
+      previewSlide: staged,
+      previewSource: "manual",
+      previewPending: true,
+    })
+    emitToMock.mockClear()
+
+    useBroadcastStore.getState().takeToLive()
+
+    expect(useBroadcastStore.getState().liveSlide).toBe(staged)
+    expect(useBroadcastStore.getState().liveLocked).toBe(true)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+    expect(emitToMock).toHaveBeenCalled()
+  })
+
+  it("takeToLive: no-op when nothing is pending", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const live = slide("live")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveSlide: live,
+      previewSlide: live,
+      previewPending: false,
+    })
+    emitToMock.mockClear()
+
+    useBroadcastStore.getState().takeToLive()
+
+    expect(useBroadcastStore.getState().liveSlide).toBe(live)
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
+
+  it("unlock: takes the pending preview and returns to follow mode", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const staged = slide("staged")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveSlide: slide("live"),
+      previewSlide: staged,
+      previewSource: "manual",
+      previewPending: true,
+    })
+
+    useBroadcastStore.getState().setLiveLocked(false)
+
+    expect(useBroadcastStore.getState().liveLocked).toBe(false)
+    expect(useBroadcastStore.getState().liveSlide).toBe(staged)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+  })
+
+  it("unlock: nothing staged does not re-commit (restart) the live item", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const liveMedia = media("clip.mp4")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      liveMedia,
+      previewMedia: liveMedia,
+      previewPending: false,
+    })
+    emitToMock.mockClear()
+
+    useBroadcastStore.getState().setLiveLocked(false)
+
+    expect(useBroadcastStore.getState().liveLocked).toBe(false)
+    // Same reference — commitMediaLive would build a fresh object and restart
+    // playback on the audience.
+    expect(useBroadcastStore.getState().liveMedia).toBe(liveMedia)
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
+
+  it("lock only applies while live: presenting off-air commits normally", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({ isLive: false, liveLocked: true })
+
+    const a = slide("a")
+    useBroadcastStore.getState().setLiveSlide(a, "manual")
+
+    expect(useBroadcastStore.getState().liveSlide).toBe(a)
+  })
+
+  it("going off-air clears the lock and any pending stage", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveLocked: true,
+      previewPending: true,
+    })
+
+    useBroadcastStore.getState().setLive(false)
+
+    expect(useBroadcastStore.getState().liveLocked).toBe(false)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+  })
+})

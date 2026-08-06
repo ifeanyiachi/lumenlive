@@ -1,0 +1,42 @@
+[package]
+name = "lumenlive-stt"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true }
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+url = "2"
+futures-util = "0.3"
+crossbeam-channel = "0.5"
+async-trait = "0.1"
+
+# Shared VAD front-end for the local Moonshine provider (optional).
+lumenlive-audio = { path = "../audio", optional = true }
+
+# Streaming local STT via sherpa-onnx (Moonshine). `download-binaries` pulls
+# prebuilt sherpa-onnx + ONNX Runtime native libs, so there is no C++/cmake
+# build step. `tts` is off (we only need ASR). Optional; enabled by `sherpa`.
+sherpa-rs = { version = "0.6.8", default-features = false, features = ["download-binaries"], optional = true }
+
+[features]
+default = ["rest-fallback"]
+rest-fallback = ["reqwest"]
+
+# Streaming sherpa-onnx (Moonshine) provider — the local/offline STT backend.
+# Pulls in the audio crate for the shared VAD front-end.
+sherpa = ["dep:sherpa-rs", "lumenlive-audio"]
+
+# Phase-A benchmark harness (RTF + transcript for candidate models on this
+# machine). Only built when the `sherpa` feature is on.
+[[example]]
+name = "sherpa_bench"
+required-features = ["sherpa"]

@@ -1,0 +1,111 @@
+[workspace]
+members = [
+    ".",
+    "crates/audio",
+    "crates/stt",
+    "crates/bible",
+    "crates/detection",
+    "crates/broadcast",
+    "crates/api",
+    "crates/lyrics",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Allow common patterns that pedantic warns about
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Numeric conversions in the DSP / ML / stats / OSC-coercion paths are
+# intentionally lossy: sample counts and byte sizes cast to f32/f64 for
+# duration/percentage math (no lossless int->float exists), and bounded values
+# narrow to smaller ints at sites where the range is already known. Rust's
+# `as` float->int casts saturate, so these are safe by construction. Enabling
+# these would force `try_into().unwrap()` panics into hot audio/inference loops.
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_possible_truncation = "allow"
+
+# Release tuning. The real-time hot paths (RGBA->BGRA pixel conversion in the
+# broadcast crate, the cosine dot-product scan in detection, i16<->f32 audio
+# conversion in audio) each live in a different crate from their caller. With
+# the default `lto = false` / `codegen-units = 16` the optimizer cannot inline
+# or auto-vectorize across those crate boundaries. ThinLTO + a single codegen
+# unit unlock that; the cost is slower *release* builds only (dev is untouched).
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[package]
+name = "lumenlive"
+version = "0.1.0"
+description = "LumenLive - Real-Time AI Bible Verse Detection"
+authors = ["Faithful"]
+license = "MIT"
+repository = "https://github.com/ifeanyiachi/lumenlive"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "lumenlive_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "LumenLive"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+log.workspace = true
+tokio.workspace = true
+tauri = { version = "2.11", features = ["protocol-asset"] }
+tauri-plugin-log = "2.9"
+tauri-plugin-store = "2"
+lumenlive-audio = { path = "crates/audio" }
+lumenlive-bible = { path = "crates/bible" }
+lumenlive-stt = { path = "crates/stt" }
+lumenlive-broadcast = { path = "crates/broadcast" }
+lumenlive-detection = { path = "crates/detection", features = ["onnx", "vector-search"] }
+lumenlive-api = { path = "crates/api" }
+lumenlive-lyrics = { path = "crates/lyrics" }
+crossbeam-channel = "0.5"
+dotenvy = "0.15"
+base64 = "0.22"
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+url = "2"
+# Resource-store downloader: streamed HTTPS fetch (rustls, no OpenSSL),
+# SHA-256 verification, and zstd decompression of downloaded translation DBs.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+sha2 = "0.10"
+zstd = "0.13"
+futures-util = "0.3"
+
+[features]
+default = ["sherpa"]
+# Streaming local/offline STT via sherpa-onnx / Moonshine. Pulls prebuilt
+# native libs at build time (no C++ build).
+sherpa = ["lumenlive-stt/sherpa"]
+
+[lints]
+workspace = true
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"

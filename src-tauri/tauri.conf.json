@@ -1,0 +1,62 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "LumenLive",
+  "version": "0.1.0",
+  "identifier": "xyz.lumenlive.app",
+  "build": {
+    "frontendDist": "../build",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "bun dev",
+    "beforeBuildCommand": "bun run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LumenLive",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data: blob: https://i.ytimg.com https://img.youtube.com; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:3000 ws://localhost:3000; media-src 'self' asset: https://asset.localhost blob:; worker-src 'self'; frame-src https: http:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../data/lumenlive.db": "./",
+      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/",
+      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/",
+      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/",
+      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/",
+      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/tokens.txt": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/",
+      "../models/qwen3-embedding-0.6b-int8/model_quantized.onnx": "models/qwen3-embedding-0.6b-int8/",
+      "../models/qwen3-embedding-0.6b-int8/tokenizer.json": "models/qwen3-embedding-0.6b-int8/",
+      "../embeddings/kjv-qwen3-0.6b.bin": "embeddings/",
+      "../embeddings/kjv-qwen3-0.6b-ids.bin": "embeddings/",
+      "../sdk/ndi/windows/Processing.NDI.Lib.x64.dll": "sdk/ndi/windows/",
+      "libs/onnxruntime.dll": "./",
+      "libs/onnxruntime_providers_shared.dll": "./",
+      "libs/sherpa-onnx-c-api.dll": "./",
+      "libs/sherpa-onnx-cxx-api.dll": "./",
+      "libs/cargs.dll": "./"
+    }
+  }
+}

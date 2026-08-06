@@ -1,0 +1,18 @@
+{
+  "identifier": "desktop-capability",
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "windows": [
+    "main",
+    "broadcast",
+    "broadcast-*",
+    "web-overlay",
+    "web-overlay-*"
+  ],
+  "permissions": [
+    "global-shortcut:default"
+  ]
+}
