@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useBroadcastStore } from "@/stores"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,8 +79,13 @@ export function StageMonitorControls({
 }: {
   onManageGroups?: () => void
 }) {
-  const stageOutputs = useBroadcastStore((s) =>
-    s.outputs.filter((o) => o.mode === "stage")
+  // Select the stable `outputs` slice and derive with useMemo — a selector that
+  // returns a fresh `.filter()` array every call makes zustand v5's plain
+  // useSyncExternalStore loop ("Maximum update depth exceeded").
+  const outputs = useBroadcastStore((s) => s.outputs)
+  const stageOutputs = useMemo(
+    () => outputs.filter((o) => o.mode === "stage"),
+    [outputs]
   )
   const groups = useBroadcastStore((s) => s.stageMonitorGroups)
   const stageMessages = useBroadcastStore((s) => s.stageMessages)

@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { PlusIcon, TrashIcon, MonitorIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,8 +26,12 @@ export function StageMonitorGroupsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const stageOutputs = useBroadcastStore((s) =>
-    s.outputs.filter((o) => o.mode === "stage")
+  // Stable slice + useMemo — a `.filter()` selector returns a new array each
+  // render and loops zustand v5's plain useSyncExternalStore.
+  const outputs = useBroadcastStore((s) => s.outputs)
+  const stageOutputs = useMemo(
+    () => outputs.filter((o) => o.mode === "stage"),
+    [outputs]
   )
   const groups = useBroadcastStore((s) => s.stageMonitorGroups)
 
