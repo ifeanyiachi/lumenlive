@@ -527,14 +527,22 @@ function syncThemeToCanvas(
   metricsRef.current = newMetrics
   onMetricsUpdate?.(newMetrics)
 
-  // Reuse one Pattern bound to the persistent canvas. Re-`set`ting the fill each
-  // frame marks the rect dirty so Fabric repaints from the updated pixels.
+  // Reuse one Pattern bound to the persistent canvas so a re-render doesn't
+  // allocate a fresh ~8MB canvas + Pattern every frame.
   let pattern = patternRef.current
   if (!pattern || pattern.source !== bitmap) {
     pattern = new fabric.Pattern({ source: bitmap, repeat: "no-repeat" })
     patternRef.current = pattern
   }
   workspace.set({ fill: pattern })
+
+  // The scratch canvas is mutated in place, so the Pattern's source reference
+  // never changes. Fabric v7 only flags an object dirty when a cached property
+  // changes *by reference* (`_set`: `isChanged = this[key] !== value`), so
+  // re-setting the identical pattern is a no-op — the rect would keep painting
+  // its stale object cache and edits (drag, colour, font…) wouldn't show. Force
+  // the flag so Fabric regenerates the cache from the updated pixels.
+  workspace.dirty = true
 
   canvas.requestRenderAll()
 }

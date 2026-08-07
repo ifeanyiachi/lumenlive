@@ -133,6 +133,8 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
         useBroadcastStore.getState().setSelectedElement("verse")
       } else if (regionId === "reference") {
         useBroadcastStore.getState().setSelectedElement("reference")
+      } else if (regionId === "textArea") {
+        useBroadcastStore.getState().setSelectedElement("textArea")
       }
 
       setDragMode(mode)
@@ -438,10 +440,18 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
         )
       )}
 
-      {/* Text area region — draggable + resizable */}
+      {/* Text area region — draggable + resizable. Outlined only when
+          selected (or on hover), so selecting a single element no longer
+          leaves the whole-text-block box drawn around everything. */}
       {!isTextAreaHidden && (
         <div
-          className={`absolute border border-dashed ${isTextAreaLocked ? "border-muted-foreground/30" : "border-amber-500/50 hover:border-amber-500"}`}
+          className={`absolute border border-dashed transition-colors ${
+            isTextAreaLocked
+              ? "border-muted-foreground/30"
+              : selectedElement === "textArea"
+                ? "border-amber-500"
+                : "border-transparent hover:border-amber-500/50"
+          }`}
           style={{
             left: taScreen.left,
             top: taScreen.top,
@@ -506,9 +516,10 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
         />
       )}
 
-      {/* Resize handles on text area corners */}
+      {/* Resize handles on text area corners — only when selected */}
       {!isTextAreaHidden &&
         !isTextAreaLocked &&
+        selectedElement === "textArea" &&
         (
           [
             [
