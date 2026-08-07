@@ -600,6 +600,7 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use lumenlive_detection::{Detection, DetectionMerger, DetectionPipeline, DetectionSource, VerseRef};
+    use lumenlive_detection::quotation;
 
     // Per-verse aggregation across the vector + FTS signals. Declared up-front
     // (before any statement) per clippy::items_after_statements.
@@ -610,6 +611,10 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
         verse: i32,
         vsim: Option<f64>,
         frank: Option<usize>,
+        /// Candidate verse text, when resolved (vector hits carry it via
+        /// `get_verse_by_id`; FTS-only hits leave it `None`). Enables the
+        /// verbatim-overlap quotation signal.
+        text: Option<String>,
     }
 
     let t0 = std::time::Instant::now();
@@ -665,8 +670,11 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
                     verse: v.verse,
                     vsim: None,
                     frank: None,
+                    text: None,
                 });
                 e.vsim = Some(e.vsim.map_or(*sim, |p| p.max(*sim)));
+                // Keep the candidate verse text for the verbatim-overlap signal.
+                e.text.get_or_insert(v.text);
             }
         }
 
@@ -679,6 +687,7 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
                 verse: f.verse,
                 vsim: None,
                 frank: None,
+                text: None,
             });
             e.frank = Some(e.frank.map_or(rank, |p| p.min(rank)));
         }
@@ -708,6 +717,13 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
                     }
                     (None, None) => return None,
                 };
+                // Modulate by quotation likelihood: dampen matches that lack
+                // scripture markers (raising precision against preaching that only
+                // alludes to a verse), leave genuine quotations near their raw
+                // score. Vector hits contribute verbatim overlap via `a.text`;
+                // FTS-only hits fall back to transcript archaic-register + cues.
+                let quotation = quotation::quotation_score(transcript, a.text.as_deref());
+                let confidence = quotation::adjust_confidence(confidence, quotation);
                 Some(Detection {
                     verse_ref: VerseRef {
                         book_number: a.book_number,

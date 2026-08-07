@@ -21,6 +21,7 @@ pub mod direct;
 pub mod semantic;
 pub mod merger;
 pub mod pipeline;
+pub mod quotation;
 pub mod sentence_buffer;
 pub mod reading_mode;
 
