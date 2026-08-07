@@ -486,7 +486,9 @@ export function BroadcastSettings({
           showCloseButton={true}
         >
           <DialogHeader>
-            <div className="flex items-center justify-between">
+            {/* Reserve room on the right so the "Manage Outputs" button clears
+                the dialog's absolute top-4 right-4 close (X) button. */}
+            <div className="flex items-center justify-between pr-10">
               <DialogTitle>Broadcast</DialogTitle>
               <Button
                 variant="outline"

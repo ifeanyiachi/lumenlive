@@ -470,7 +470,9 @@ function ScheduleAllTab({
           {viewMode === "list" ? (
             <div
               ref={listRef}
-              className="flex flex-col gap-0.5 p-1.5"
+              // pr-3 reserves a gutter so row action icons clear the ScrollArea's
+              // overlay scrollbar (which otherwise sits on top of the gear button).
+              className="flex flex-col gap-0.5 p-1.5 pr-3"
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
             >
@@ -497,6 +499,16 @@ function ScheduleAllTab({
                   : 0
                 const hasMultipleSlides = !!deck && deck.slides.length > 1
                 const isExpanded = expandedIds.has(item.id)
+
+                // Dynamic label truncation: when the slide-count badge is shown
+                // (active multi-slide item), cut the label further so the badge
+                // and the trailing action icons always have room.
+                const showsBadge = activeItemIndex === index && hasMultipleSlides
+                const labelMaxChars = showsBadge ? 18 : 25
+                const displayLabel =
+                  item.label.length > labelMaxChars
+                    ? `${item.label.slice(0, labelMaxChars)}…`
+                    : item.label
 
                 return (
                   <div key={item.id} className="min-w-0 overflow-hidden">
@@ -552,42 +564,38 @@ function ScheduleAllTab({
                         className="min-w-0 shrink truncate"
                         title={item.label}
                       >
-                        {item.label.length > 25
-                          ? `${item.label.slice(0, 25)}...`
-                          : item.label}
+                        {displayLabel}
                       </span>
 
-                      {activeItemIndex === index &&
-                        deck &&
-                        deck.slides.length > 1 && (
-                          <Badge
-                            variant="outline"
-                            className="shrink-0 px-1 text-[0.5rem] tabular-nums"
-                          >
-                            {(activeSlideIndex ?? baseSlideIndex) + 1} /{" "}
-                            {deck.slides.length}
-                          </Badge>
-                        )}
+                      {showsBadge && (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 px-1 text-[0.5rem] tabular-nums"
+                        >
+                          {(activeSlideIndex ?? baseSlideIndex) + 1} /{" "}
+                          {deck.slides.length}
+                        </Badge>
+                      )}
 
-                      <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
                         {item.type !== "header" && (
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            className="size-5"
+                            className="size-6"
                             onClick={(e) => {
                               e.stopPropagation()
                               store.goToItem(index)
                             }}
                             title="Present"
                           >
-                            <PlayIcon className="size-2.5" />
+                            <PlayIcon className="size-3" />
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="size-5"
+                          className="size-6"
                           onClick={(e) => {
                             e.stopPropagation()
                             if (!activeScheduleId) return
@@ -604,20 +612,20 @@ function ScheduleAllTab({
                           }}
                           title="Remove"
                         >
-                          <TrashIcon className="size-2.5" />
+                          <TrashIcon className="size-3" />
                         </Button>
                         {item.type !== "header" && (
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            className="size-5"
+                            className="size-6"
                             onClick={(e) => {
                               e.stopPropagation()
                               onEditProperties(item)
                             }}
                             title="Edit properties"
                           >
-                            <SettingsIcon className="size-2.5" />
+                            <SettingsIcon className="size-3" />
                           </Button>
                         )}
                       </div>
