@@ -19,7 +19,12 @@ export interface HttpStartInfo {
   token: string
 }
 
-/** The inbound remote command events the log subscribes to. */
+/**
+ * The inbound remote command events the log subscribes to. This must mirror
+ * every event the Rust `CommandDispatcher` emits (see `crates/api/src/dispatch.rs`)
+ * so the command log reflects the full command set — presentation, schedule, and
+ * alert commands alike — not just a subset.
+ */
 const REMOTE_EVENTS = [
   "remote:next",
   "remote:prev",
@@ -29,6 +34,12 @@ const REMOTE_EVENTS = [
   "remote:show",
   "remote:hide",
   "remote:confidence",
+  "remote:schedule_next",
+  "remote:schedule_prev",
+  "remote:schedule_goto",
+  "remote:alert",
+  "remote:alert_message",
+  "remote:dismiss_alert",
 ] as const
 
 export function getOscStatus(): Promise<RemoteStatus> {

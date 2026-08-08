@@ -1,8 +1,14 @@
-import { useRef, useCallback, useState, useEffect } from "react"
+import {
+  useRef,
+  useCallback,
+  useState,
+  useEffect,
+  useLayoutEffect,
+} from "react"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { computeSnaps, clamp } from "@/lib/snap-utils"
 import type { SnapGuide } from "@/lib/snap-utils"
-import type { SlideElement } from "@/types/slide"
+import type { SlideElement, SlideTextElement } from "@/types/slide"
 
 type DragMode =
   | "move"
@@ -26,6 +32,9 @@ export function SlideCanvasOverlay({
   )
   const selectedElementId = usePresentationStore((s) => s.selectedElementId)
   const multiSelectedIds = usePresentationStore((s) => s.selectedElementIds)
+  const editingTextElementId = usePresentationStore(
+    (s) => s.editingTextElementId
+  )
   const overlayRef = useRef<HTMLDivElement>(null)
   const [dragMode, setDragMode] = useState<DragMode>(null)
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
@@ -267,6 +276,10 @@ export function SlideCanvasOverlay({
   const selectedElement = activeSlide.elements.find(
     (e) => e.id === selectedElementId
   )
+  const editingElement = activeSlide.elements.find(
+    (e): e is SlideTextElement =>
+      e.id === editingTextElementId && e.type === "text"
+  )
 
   return (
     <div
@@ -321,11 +334,16 @@ export function SlideCanvasOverlay({
             }}
             onPointerDown={(e) => handlePointerDown(e, "move", el.id)}
             onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
+              if (el.type !== "text" || el.locked) return
+              e.stopPropagation()
+              usePresentationStore.getState().beginTextEdit(el.id)
+            }}
           />
         )
       })}
 
-      {selectedElement && (
+      {selectedElement && selectedElement.id !== editingTextElementId && (
         <>
           {/* Selection border */}
           <div
@@ -419,6 +437,134 @@ export function SlideCanvasOverlay({
             ))}
         </>
       )}
+
+      {editingElement && (
+        <InlineTextEditor
+          key={editingElement.id}
+          element={editingElement}
+          canvasRef={canvasRef}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Inline (on-canvas) text editor. Positioned over the element's box and styled
+ * to approximate the baked canvas text, so double-clicking a text element lets
+ * you edit it in place. The edited text is kept in local state and only written
+ * to the store on commit — Enter (Shift+Enter inserts a newline) or blur commit;
+ * Escape cancels and restores the original. The canvas hides this element's
+ * baked text while editing, so this `<textarea>` is the only visible copy.
+ */
+function InlineTextEditor({
+  element,
+  canvasRef,
+}: {
+  element: SlideTextElement
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+}) {
+  const [value, setValue] = useState(element.text)
+  // Canvas is authored at 1080px tall; font/letter metrics are in that space and
+  // must be scaled to the on-screen canvas size (which changes with zoom/resize).
+  const [scale, setScale] = useState(1)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Escape cancels, but clearing the edit unmounts the textarea and fires blur
+  // (→ commit) — which would save the discarded text. This one-shot latch lets
+  // whichever of commit/cancel runs first win and ignores the trailing blur.
+  const settledRef = useRef(false)
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (rect && rect.height > 0) setScale(rect.height / 1080)
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [canvasRef])
+
+  // Auto-grow to fit content so the flex wrapper can vertical-align it, matching
+  // the element's verticalAlign closely while typing.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.style.height = "auto"
+    ta.style.height = `${ta.scrollHeight}px`
+  }, [value, scale])
+
+  // Focus and select all on open so typing immediately replaces the text.
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.focus()
+    ta.select()
+  }, [])
+
+  const commit = () => {
+    if (settledRef.current) return
+    settledRef.current = true
+    usePresentationStore.getState().commitTextEdit(element.id, value)
+  }
+  const cancel = () => {
+    if (settledRef.current) return
+    settledRef.current = true
+    usePresentationStore.getState().cancelTextEdit()
+  }
+
+  const justify =
+    element.verticalAlign === "top"
+      ? "flex-start"
+      : element.verticalAlign === "bottom"
+        ? "flex-end"
+        : "center"
+
+  return (
+    <div
+      className="absolute flex flex-col"
+      style={{
+        left: `${element.x}%`,
+        top: `${element.y}%`,
+        width: `${element.width}%`,
+        height: `${element.height}%`,
+        justifyContent: justify,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <textarea
+        ref={textareaRef}
+        value={value}
+        spellCheck={false}
+        className="w-full resize-none overflow-hidden border-none bg-transparent p-0 outline-none"
+        style={{
+          fontFamily: element.fontFamily,
+          fontSize: element.fontSize * scale,
+          fontWeight: element.bold ? 700 : element.fontWeight,
+          fontStyle: element.italic ? "italic" : "normal",
+          textDecoration: element.underline ? "underline" : "none",
+          color: element.color,
+          textAlign: element.horizontalAlign,
+          lineHeight: element.lineHeight,
+          letterSpacing: element.letterSpacing
+            ? element.letterSpacing * scale
+            : undefined,
+          textTransform: element.textTransform,
+        }}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // Keep Delete/undo and other editor shortcuts from firing while typing.
+          e.stopPropagation()
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault()
+            commit()
+          } else if (e.key === "Escape") {
+            e.preventDefault()
+            cancel()
+          }
+        }}
+      />
     </div>
   )
 }

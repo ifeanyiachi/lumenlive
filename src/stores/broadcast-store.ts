@@ -33,6 +33,7 @@ import * as history from "@/lib/broadcast/undo-history"
 import {
   findOutput,
   resolveThemeId,
+  resolveEffectiveOutput,
   updateOutputInArray,
 } from "@/lib/broadcast/output-selectors"
 
@@ -436,10 +437,17 @@ function emitDraftToBroadcast(state: BroadcastState): void {
   if (!state.draftTheme) return
   const id = state.editingThemeId
   for (const output of state.outputs) {
-    if (output.themeId === id) {
+    // Resolve through mirroring so a mirror output previews when its *source's*
+    // theme is the one being edited, using the source's filter.
+    const effective = resolveEffectiveOutput(state.outputs, output.id) ?? output
+    if (effective.themeId === id) {
       emitToOutput(output.id, "broadcast:verse-update", {
         theme: state.draftTheme,
         verse: state.liveVerse,
+        layerFilter:
+          effective.contentSource.type === "layer-filter"
+            ? effective.contentSource.layers
+            : undefined,
       })
     }
   }
@@ -980,29 +988,49 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       const s = get()
       const output = findOutput(s.outputs, outputId)
       if (!output) return
-      const themeId = output.themeId
+      // A "mirror" output clones its source: follow the chain and drive this
+      // window with the *source's* theme + layer filter. Content is shared by
+      // all outputs, so mirroring only inherits the presentation. Falls back to
+      // the output itself for dangling/cyclic mirrors.
+      const effective = resolveEffectiveOutput(s.outputs, outputId) ?? output
+      const themeId = effective.themeId
       const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
       if (!theme) return
 
+      // A layer-filter output carries its per-output filter on EVERY content
+      // payload (verse, slide, media) so the receiving window can suppress
+      // props/alerts/countdowns/media/content regardless of which live mode is
+      // active — not just while showing a verse.
+      const layerFilter =
+        effective.contentSource.type === "layer-filter"
+          ? effective.contentSource.layers
+          : undefined
+
       if (!s.isLive) {
-        const payload: Record<string, unknown> = { theme, verse: null }
-        if (output.contentSource.type === "layer-filter") {
-          payload.layerFilter = output.contentSource.layers
-        }
-        emitToOutput(outputId, "broadcast:verse-update", payload)
+        emitToOutput(outputId, "broadcast:verse-update", {
+          theme,
+          verse: null,
+          layerFilter,
+        })
         return
       }
 
       if (s.liveSlide) {
-        emitToOutput(outputId, "broadcast:slide-update", { slide: s.liveSlide })
+        emitToOutput(outputId, "broadcast:slide-update", {
+          slide: s.liveSlide,
+          layerFilter,
+        })
       } else if (s.liveMedia) {
-        emitToOutput(outputId, "broadcast:media-update", s.liveMedia)
+        emitToOutput(outputId, "broadcast:media-update", {
+          ...s.liveMedia,
+          layerFilter,
+        })
       } else {
-        const payload: Record<string, unknown> = { theme, verse: s.liveVerse }
-        if (output.contentSource.type === "layer-filter") {
-          payload.layerFilter = output.contentSource.layers
-        }
-        emitToOutput(outputId, "broadcast:verse-update", payload)
+        emitToOutput(outputId, "broadcast:verse-update", {
+          theme,
+          verse: s.liveVerse,
+          layerFilter,
+        })
       }
     },
     syncBroadcastOutput: () => {
@@ -1017,13 +1045,15 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       set((s) => ({
         outputs: updateOutputInArray(s.outputs, "main", { themeId }),
       }))
-      get().syncBroadcastOutputFor("main")
+      // Refresh all outputs, not just "main": any output mirroring "main"
+      // inherits its theme and must re-render too.
+      get().syncBroadcastOutput()
     },
     setAltActiveTheme: (themeId) => {
       set((s) => ({
         outputs: updateOutputInArray(s.outputs, "alt", { themeId }),
       }))
-      get().syncBroadcastOutputFor("alt")
+      get().syncBroadcastOutput()
     },
     setLive: (isLive) => {
       set({ isLive })
@@ -1261,7 +1291,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         if (output?.mode === "stage") {
           get().syncStageOutput()
         } else {
-          get().syncBroadcastOutputFor(outputId)
+          // Refresh all outputs: changing this output's theme/routing can also
+          // change what any output mirroring it should show.
+          get().syncBroadcastOutput()
         }
       }
     },

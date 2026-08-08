@@ -28,6 +28,12 @@ interface PresentationState {
   draftPresentation: Presentation | null
   activeSlideIndex: number
   selectedElementId: string | null
+  /**
+   * Id of the text element currently being edited inline on the canvas (via
+   * double-click), or `null`. While set, the editor hides this element's baked
+   * canvas text so the DOM overlay `<textarea>` is the sole visible copy.
+   */
+  editingTextElementId: string | null
 
   createPresentation: (name?: string) => string
   deletePresentation: (id: string) => void
@@ -52,6 +58,9 @@ interface PresentationState {
   updateDraftElementsBatch: (
     updatesById: Record<string, Partial<SlideElement>>
   ) => void
+  beginTextEdit: (elementId: string) => void
+  commitTextEdit: (elementId: string, text: string) => void
+  cancelTextEdit: () => void
   addElement: () => void
   addImageElement: () => void
   addScriptureElement: () => void
@@ -128,6 +137,7 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
   draftPresentation: null,
   activeSlideIndex: 0,
   selectedElementId: null,
+  editingTextElementId: null,
   selectedElementIds: [],
 
   createPresentation: (name) => {
@@ -263,6 +273,7 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
       return {
         activeSlideIndex: index,
         selectedElementId: slide?.elements[0]?.id ?? null,
+        editingTextElementId: null,
       }
     }),
 
@@ -313,6 +324,43 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
         ),
       }
     }),
+
+  // ── Inline (on-canvas) text editing ──
+  // Selects the element and marks it as the inline-edit target. Text isn't
+  // written to the draft until commit, so a canceled edit leaves the draft
+  // untouched.
+  beginTextEdit: (elementId) =>
+    set({
+      selectedElementId: elementId,
+      selectedElementIds: [],
+      editingTextElementId: elementId,
+    }),
+
+  // Writes the edited text back to the draft in a single mutation, snapshotting
+  // undo once (only when the text actually changed) so the whole edit collapses
+  // into one undo step. Always clears the inline-edit target.
+  commitTextEdit: (elementId, text) =>
+    set((s) => {
+      if (!s.draftPresentation) return { editingTextElementId: null }
+      const slide = s.draftPresentation.slides[s.activeSlideIndex]
+      const el = slide?.elements.find((e) => e.id === elementId)
+      if (!el || el.type !== "text" || el.text === text) {
+        return { editingTextElementId: null }
+      }
+      pushUndo(s.draftPresentation)
+      return {
+        editingTextElementId: null,
+        draftPresentation: slides.updateElementOnSlide(
+          s.draftPresentation,
+          s.activeSlideIndex,
+          elementId,
+          { text },
+          Date.now()
+        ),
+      }
+    }),
+
+  cancelTextEdit: () => set({ editingTextElementId: null }),
 
   addElement: () =>
     set((s) => {

@@ -501,7 +501,7 @@ export function BroadcastSettings({
               </Button>
             </div>
             <DialogDescription>
-              Configure outputs with independent themes and routing.
+              Configure each output's theme and layer routing.
             </DialogDescription>
           </DialogHeader>
 

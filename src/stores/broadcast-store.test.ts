@@ -56,6 +56,111 @@ describe("broadcast store sync", () => {
       })
     )
   })
+
+  it("a layer-filter output carries its filter on slide and media payloads too", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const layers = {
+      showContent: true,
+      showProps: true,
+      showAlerts: false,
+      showCountdowns: true,
+      showMediaLayer: false,
+    }
+    const outputs = useBroadcastStore.getState().outputs
+    const mainOutput = outputs.find((o) => o.id === "main")!
+    mainOutput.contentSource = { type: "layer-filter", layers }
+    useBroadcastStore.setState({ isLive: true, outputs: [...outputs] })
+
+    // Slide live path.
+    emitToMock.mockClear()
+    useBroadcastStore.setState({
+      liveSlide: { id: "s1" } as unknown as Slide,
+      liveMedia: null,
+    })
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:slide-update",
+      expect.objectContaining({ layerFilter: layers })
+    )
+
+    // Media live path.
+    emitToMock.mockClear()
+    useBroadcastStore.setState({
+      liveSlide: null,
+      liveMedia: { filePath: "clip.mp4", mediaType: "video", name: "clip.mp4" },
+    })
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:media-update",
+      expect.objectContaining({
+        filePath: "clip.mp4",
+        layerFilter: layers,
+      })
+    )
+  })
+
+  it("a non-layer-filter output omits the filter (shows everything)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: { id: "s1" } as unknown as Slide,
+      liveMedia: null,
+    })
+    emitToMock.mockClear()
+    // Default "main" output is not a layer-filter output.
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    const slideCall = emitToMock.mock.calls.find(
+      (c) => c[1] === "broadcast:slide-update"
+    )
+    expect(slideCall).toBeTruthy()
+    expect(slideCall![2].layerFilter).toBeUndefined()
+  })
+
+  it("a mirror output renders with its source's theme and layer filter", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const themes = useBroadcastStore.getState().themes
+    const sourceTheme = themes[0]
+    const layers = {
+      showContent: true,
+      showProps: true,
+      showAlerts: false,
+      showCountdowns: true,
+      showMediaLayer: true,
+    }
+    const outputs = useBroadcastStore.getState().outputs
+    const main = outputs.find((o) => o.id === "main")!
+    const alt = outputs.find((o) => o.id === "alt")!
+    // main is a layer-filter output with sourceTheme; alt mirrors main but keeps
+    // its own (different) theme, which mirroring must override.
+    main.themeId = sourceTheme.id
+    main.contentSource = { type: "layer-filter", layers }
+    alt.themeId = themes[1]?.id ?? sourceTheme.id
+    alt.contentSource = { type: "mirror", sourceOutputId: "main" }
+    useBroadcastStore.setState({
+      isLive: true,
+      outputs: [...outputs],
+      liveSlide: null,
+      liveMedia: null,
+      liveVerse: {
+        reference: "Ps 23:1",
+        segments: [{ text: "The LORD is my shepherd" }],
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutputFor("alt")
+
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:verse-update",
+      expect.objectContaining({
+        theme: expect.objectContaining({ id: sourceTheme.id }),
+        layerFilter: layers,
+      })
+    )
+  })
 })
 
 describe("broadcast store theme designer", () => {

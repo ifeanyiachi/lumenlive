@@ -71,6 +71,9 @@ ghs.json
 
 __pycache__/
 
+# Playwright MCP server output — tool-generated, machine-specific
+.playwright-mcp/
+
 # GSD planning artifacts
 .planning/
 # Full store upload staging (incl. copyrighted) — never commit

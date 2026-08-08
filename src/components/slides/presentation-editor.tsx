@@ -274,7 +274,7 @@ function SlideStrip({
   if (!draft) return null
 
   return (
-    <div className="flex h-full w-48 flex-col border-r border-border bg-card">
+    <div className="flex h-full w-[15%] shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-11 items-center justify-between border-b border-border px-3">
         <span className="text-xs font-medium text-foreground">Slides</span>
         <div className="flex items-center gap-0.5">
@@ -529,6 +529,9 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
   const draft = usePresentationStore((s) => s.draftPresentation)
   const activeSlideIndex = usePresentationStore((s) => s.activeSlideIndex)
   const selectedElementId = usePresentationStore((s) => s.selectedElementId)
+  const editingTextElementId = usePresentationStore(
+    (s) => s.editingTextElementId
+  )
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoCacheRef = useRef<Map<string, HTMLVideoElement>>(new Map())
   const editorVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -594,16 +597,26 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
       renderOpts.animationStates = tracker.elementStates
       renderOpts.textBuildProgress = tracker.textBuildProgress
     }
+    // While a text element is edited inline, hide its baked copy so the DOM
+    // `<textarea>` overlay is the only visible one (no double-vision).
+    const slideToRender = editingTextElementId
+      ? {
+          ...activeSlide,
+          elements: activeSlide.elements.map((el) =>
+            el.id === editingTextElementId ? { ...el, visible: false } : el
+          ),
+        }
+      : activeSlide
     renderSlide(
       ctx,
-      activeSlide,
+      slideToRender,
       1920,
       1080,
       getSlideImageCache(),
       videoCacheRef.current,
       renderOpts
     )
-  }, [activeSlide])
+  }, [activeSlide, editingTextElementId])
 
   // Keep a stable handle to the latest draw so the animation loop below can call
   // it without restarting every time draw's identity changes on an edit.
@@ -899,7 +912,7 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
       <SlideStrip onPreviewTransition={handlePreviewTransition} />
 
       {/* Center: Canvas preview */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-11 items-center justify-between border-b border-border px-4">
           <Input
             value={draft.name}
@@ -1113,7 +1126,7 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Right: Tabbed panel */}
-      <div className="flex w-80 flex-col border-l border-border bg-card">
+      <div className="flex w-[20%] min-w-0 shrink-0 flex-col border-l border-border bg-card">
         <div className="flex h-11 border-b border-border">
           <button
             type="button"

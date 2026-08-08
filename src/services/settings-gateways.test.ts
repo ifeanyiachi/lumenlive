@@ -2,9 +2,13 @@ import { describe, expect, it, beforeEach, vi } from "vitest"
 
 // Static gateway imports trip vitest's vi.mock hoisting unless the mock fns are
 // created via vi.hoisted (see Phase 2 note in decouple.md).
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }))
+const { invokeMock, listenMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  listenMock: vi.fn(),
+}))
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }))
+vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }))
 
 import { listAudioDevices } from "./audio-devices-gateway"
 import {
@@ -19,11 +23,14 @@ import {
   stopOsc,
   startHttp,
   stopHttp,
+  onRemoteCommand,
 } from "./remote-control-gateway"
 
 beforeEach(() => {
   invokeMock.mockReset()
   invokeMock.mockResolvedValue(undefined)
+  listenMock.mockReset()
+  listenMock.mockResolvedValue(() => {})
 })
 
 describe("audio-devices-gateway", () => {
@@ -71,5 +78,47 @@ describe("remote-control-gateway", () => {
     expect(invokeMock).toHaveBeenCalledWith("stop_osc")
     expect(invokeMock).toHaveBeenCalledWith("start_http", { port: 8080 })
     expect(invokeMock).toHaveBeenCalledWith("stop_http")
+  })
+
+  it("onRemoteCommand subscribes to every dispatched command event", async () => {
+    // Must mirror the events emitted by the Rust CommandDispatcher
+    // (crates/api/src/dispatch.rs) so the command log covers the full set.
+    const expected = [
+      "remote:next",
+      "remote:prev",
+      "remote:theme",
+      "remote:opacity",
+      "remote:on_air",
+      "remote:show",
+      "remote:hide",
+      "remote:confidence",
+      "remote:schedule_next",
+      "remote:schedule_prev",
+      "remote:schedule_goto",
+      "remote:alert",
+      "remote:alert_message",
+      "remote:dismiss_alert",
+    ]
+
+    await onRemoteCommand(() => {})
+
+    const subscribed = listenMock.mock.calls.map(([event]) => event)
+    expect(subscribed).toEqual(expected)
+  })
+
+  it("onRemoteCommand forwards the event name and disposes every listener", async () => {
+    const unlisten = vi.fn()
+    listenMock.mockResolvedValue(unlisten)
+
+    const handler = vi.fn()
+    const dispose = await onRemoteCommand(handler)
+
+    // Fire the callback registered for the first subscribed event.
+    const [, firstCallback] = listenMock.mock.calls[0]
+    firstCallback({ payload: "{}" })
+    expect(handler).toHaveBeenCalledWith("remote:next")
+
+    dispose()
+    expect(unlisten).toHaveBeenCalledTimes(listenMock.mock.calls.length)
   })
 })

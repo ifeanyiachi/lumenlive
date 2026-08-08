@@ -187,3 +187,118 @@ describe("presentation store — deck & slide flow", () => {
     expect(useStore.getState().importPresentation("garbage")).toBeNull()
   })
 })
+
+describe("presentation store — inline text editing", () => {
+  beforeEach(() => vi.resetModules())
+
+  it("beginTextEdit selects the element and marks it as the edit target", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    const elId = useStore.getState().draftPresentation!.slides[0].elements[0].id
+
+    useStore.getState().beginTextEdit(elId)
+    const s = useStore.getState()
+    expect(s.editingTextElementId).toBe(elId)
+    expect(s.selectedElementId).toBe(elId)
+    expect(s.selectedElementIds).toEqual([])
+  })
+
+  it("commitTextEdit writes the new text, clears the target, and is one undo step", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    const el = useStore.getState().draftPresentation!.slides[0]
+      .elements[0] as { id: string; type: string; text: string }
+    const original = el.text
+
+    useStore.getState().beginTextEdit(el.id)
+    useStore.getState().commitTextEdit(el.id, "Amazing Grace")
+
+    const committed = useStore.getState()
+    expect(committed.editingTextElementId).toBeNull()
+    expect(
+      (committed.draftPresentation!.slides[0].elements[0] as { text: string })
+        .text
+    ).toBe("Amazing Grace")
+
+    useStore.getState().undo()
+    expect(
+      (
+        useStore.getState().draftPresentation!.slides[0].elements[0] as {
+          text: string
+        }
+      ).text
+    ).toBe(original)
+
+    useStore.getState().redo()
+    expect(
+      (
+        useStore.getState().draftPresentation!.slides[0].elements[0] as {
+          text: string
+        }
+      ).text
+    ).toBe("Amazing Grace")
+  })
+
+  it("commitTextEdit with unchanged text is a no-op that still clears the target", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    // A prior real edit gives the undo stack a known top-of-stack to detect a
+    // phantom snapshot from an unchanged commit.
+    useStore.getState().addElement()
+    const el = useStore.getState().draftPresentation!.slides[0]
+      .elements[0] as { id: string; text: string }
+    const elementCount =
+      useStore.getState().draftPresentation!.slides[0].elements.length
+
+    useStore.getState().beginTextEdit(el.id)
+    useStore.getState().commitTextEdit(el.id, el.text) // unchanged
+
+    expect(useStore.getState().editingTextElementId).toBeNull()
+
+    // No snapshot was pushed for the unchanged commit, so one undo unwinds the
+    // addElement fully rather than a no-op text snapshot.
+    useStore.getState().undo()
+    expect(
+      useStore.getState().draftPresentation!.slides[0].elements
+    ).toHaveLength(elementCount - 1)
+  })
+
+  it("cancelTextEdit clears the target without changing text", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    const el = useStore.getState().draftPresentation!.slides[0]
+      .elements[0] as { id: string; text: string }
+    const original = el.text
+
+    useStore.getState().beginTextEdit(el.id)
+    useStore.getState().cancelTextEdit()
+
+    expect(useStore.getState().editingTextElementId).toBeNull()
+    expect(
+      (
+        useStore.getState().draftPresentation!.slides[0].elements[0] as {
+          text: string
+        }
+      ).text
+    ).toBe(original)
+  })
+
+  it("navigating slides clears an open inline edit", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    useStore.getState().addSlide()
+    const elId = useStore.getState().draftPresentation!.slides[0].elements[0].id
+
+    useStore.getState().setActiveSlideIndex(0)
+    useStore.getState().beginTextEdit(elId)
+    expect(useStore.getState().editingTextElementId).toBe(elId)
+
+    useStore.getState().setActiveSlideIndex(1)
+    expect(useStore.getState().editingTextElementId).toBeNull()
+  })
+})

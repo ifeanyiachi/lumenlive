@@ -49,14 +49,14 @@ export function SlideElementProperties({
   const outline = element.outline ?? { width: 0, color: "#000000" }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <PanelHeader
         title="Properties"
         icon={<SettingsIcon className="size-3.5" />}
       />
 
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-4 p-3">
+      <ScrollArea className="min-h-0 min-w-0 flex-1">
+        <div className="flex min-w-0 flex-col gap-4 p-3">
           {/* Text content */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">

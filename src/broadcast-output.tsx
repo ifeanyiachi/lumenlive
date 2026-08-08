@@ -73,6 +73,7 @@ interface BroadcastPayload {
 interface SlidePayload {
   slide: Slide
   prevSlide?: Slide
+  layerFilter?: LayerFilter
 }
 
 interface MediaPayload {
@@ -89,6 +90,7 @@ interface MediaPayload {
   focalY?: number
   containBackground?: ContainBackground
   containBackgroundColor?: string
+  layerFilter?: LayerFilter
 }
 
 interface MediaTransportPayload {
@@ -113,6 +115,10 @@ function BroadcastCanvas() {
   const latestData = useRef<BroadcastPayload | null>(null)
   const latestSlide = useRef<SlidePayload | null>(null)
   const latestMedia = useRef<{ img: HTMLImageElement } | null>(null)
+  // The active per-output layer filter, kept in sync by every content handler
+  // (verse/slide/media) so overlay/content gating is correct in all live modes,
+  // not just verse mode. `null` means "no filter — show everything".
+  const layerFilterRef = useRef<LayerFilter | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const videoRafRef = useRef<number>(0)
@@ -305,7 +311,7 @@ function BroadcastCanvas() {
       return
     }
 
-    const activeFilter = latestData.current?.layerFilter
+    const activeFilter = layerFilterRef.current
     const hasMediaLayer =
       mediaLayerRef.current !== null &&
       (!activeFilter || activeFilter.showMediaLayer)
@@ -383,7 +389,7 @@ function BroadcastCanvas() {
       }
     }
 
-    const lf = latestData.current?.layerFilter
+    const lf = layerFilterRef.current
     if (!lf || lf.showProps) drawPropsOverlay(ctx, canvas.width, canvas.height)
     if (!lf || lf.showAlerts) drawAlertOverlay(ctx, canvas.width, canvas.height)
     if (!lf || lf.showCountdowns)
@@ -716,6 +722,7 @@ function BroadcastCanvas() {
       "broadcast:verse-update",
       (event) => {
         latestData.current = event.payload
+        layerFilterRef.current = event.payload.layerFilter ?? null
         activeMode.current = "verse"
         latestSlide.current = null
         latestMedia.current = null
@@ -775,6 +782,7 @@ function BroadcastCanvas() {
         }
 
         latestSlide.current = event.payload
+        layerFilterRef.current = event.payload.layerFilter ?? null
         activeMode.current = "slide"
         latestMedia.current = null
         if (videoRef.current) {
@@ -913,6 +921,7 @@ function BroadcastCanvas() {
         latestData.current = null
         latestSlide.current = null
         latestMedia.current = null
+        layerFilterRef.current = event.payload.layerFilter ?? null
         if (videoRef.current) {
           videoRef.current.pause()
           videoRef.current.src = ""

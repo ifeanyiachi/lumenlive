@@ -151,7 +151,7 @@ export function OutputManager({
         <DialogHeader>
           <DialogTitle>Output Manager</DialogTitle>
           <DialogDescription>
-            Configure broadcast outputs with independent themes and routing.
+            Configure each output's theme and layer routing.
           </DialogDescription>
         </DialogHeader>
 
@@ -327,7 +327,7 @@ export function OutputManager({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="independent">
-                              Independent
+                              Full program
                             </SelectItem>
                             <SelectItem value="mirror">
                               Mirror another output
