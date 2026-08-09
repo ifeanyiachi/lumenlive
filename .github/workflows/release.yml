@@ -1,0 +1,108 @@
+# Installer build — produces the desktop installers in the cloud.
+#
+# TRIGGERS (never on a plain commit):
+#   * pushing a version tag  (git tag v0.1.0 && git push --tags)  -> builds AND
+#     publishes the installers to a GitHub Release for that tag.
+#   * the "Run workflow" button (workflow_dispatch)               -> builds and
+#     uploads the installers as run artifacts, without publishing a release.
+#
+# Each run: fetches the ~1 GB runtime assets from the `assets-v1` release (the
+# models / bible DB / embeddings that are too big for git), extracts them to the
+# repo root, then compiles the Rust workspace and bundles the installer.
+#
+# Currently WINDOWS ONLY. To add macOS: uncomment the macos entry in the matrix
+# below, and give tauri.conf.json per-platform `bundle.resources` (the native
+# libs differ: .dll vs .dylib) plus a `dmg`/`app` bundle target.
+name: Release build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# The release-publish step needs write access to create/upload release assets.
+permissions:
+  contents: write
+
+# The pinned release holding the bundled runtime assets (see the assets-v1
+# GitHub Release). Bump this if you ever regenerate the models/DB/embeddings.
+env:
+  ASSETS_TAG: assets-v1
+  ASSETS_TAR: lumenlive-runtime-assets-v1.tar
+  ASSETS_SHA256: e9aceb0a8ef939dfa217c077b0b56c8332bcbe20f977abbbc06d4b2417c3eb6c
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            bundles: nsis
+          # --- add macOS here once tauri.conf.json has per-platform resources:
+          # - platform: macos-latest
+          #   bundles: dmg
+          # - platform: ubuntu-22.04
+          #   bundles: appimage
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Caches the cargo registry + target dir keyed on the workspace, so only
+      # the first build compiles the whole dependency tree from scratch.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # Pull the bundled runtime assets and extract them at the repo root so the
+      # paths line up with tauri.conf.json -> bundle.resources. Verify the SHA
+      # so a corrupted/replaced asset fails loudly instead of shipping.
+      - name: Fetch runtime assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$ASSETS_TAG" --pattern "$ASSETS_TAR" --clobber
+          echo "${ASSETS_SHA256}  ${ASSETS_TAR}" | sha256sum -c -
+          tar -xf "$ASSETS_TAR"
+          rm -f "$ASSETS_TAR"
+
+      # Builds the frontend (beforeBuildCommand: bun run build) and bundles the
+      # installer. On a tag push, tauri-action also creates/updates the GitHub
+      # Release for that tag and uploads the installer to it; on manual dispatch
+      # (no tag) it just builds, and the artifact step below captures the output.
+      - name: Build installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('LumenLive {0}', github.ref_name) || '' }}
+          releaseDraft: true
+          args: --bundles ${{ matrix.bundles }}
+
+      # Always keep the installer downloadable from the run itself — useful for
+      # manual (untagged) test builds.
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: |
+            src-tauri/target/release/bundle/**/*-setup.exe
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.AppImage
+          if-no-files-found: warn
