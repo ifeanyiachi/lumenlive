@@ -161,3 +161,107 @@ describe("computeVerseLayoutMetrics", () => {
     expect(other).not.toBe(a)
   })
 })
+
+describe("native surface reflow", () => {
+  const theme = BUILTIN_THEMES[0]
+
+  it("is byte-identical when the surface equals the authored resolution", () => {
+    __clearLayoutCacheForTests()
+    const plain = computeVerseLayoutMetrics(fakeCtx(), theme, verse)
+    const projected = computeVerseLayoutMetrics(fakeCtx(), theme, verse, {
+      surface: { width: theme.resolution.width, height: theme.resolution.height },
+    })
+    expect(projected.textRect).toEqual(plain.textRect)
+    expect(projected.textAreaRect).toEqual(plain.textAreaRect)
+    expect(projected.scaledTheme.verseText.fontSize).toBe(
+      plain.scaledTheme.verseText.fontSize
+    )
+  })
+
+  it("widens the text box on a wider-than-authored surface", () => {
+    const plain = computeVerseLayoutMetrics(fakeCtx(), theme, verse)
+    const wide = computeVerseLayoutMetrics(fakeCtx(), theme, verse, {
+      // 2x width, same height (fontScale = min(2,1) = 1, so fonts unchanged).
+      surface: {
+        width: theme.resolution.width * 2,
+        height: theme.resolution.height,
+      },
+    })
+    // The text-area box scales exactly with the surface width; the inner text
+    // rect grows too (padding is fixed px, so it doesn't exactly double).
+    expect(wide.textAreaRect.width).toBeCloseTo(plain.textAreaRect.width * 2, 3)
+    expect(wide.textAreaRect.height).toBeCloseTo(plain.textAreaRect.height, 3)
+    expect(wide.textRect.width).toBeGreaterThan(plain.textRect.width)
+    expect(wide.scaledTheme.verseText.fontSize).toBe(theme.verseText.fontSize)
+  })
+
+  it("scales fonts up uniformly on a larger 16:9 surface", () => {
+    const big = computeVerseLayoutMetrics(fakeCtx(), theme, verse, {
+      surface: {
+        width: theme.resolution.width * 2,
+        height: theme.resolution.height * 2,
+      },
+    })
+    expect(big.scaledTheme.verseText.fontSize).toBe(theme.verseText.fontSize * 2)
+  })
+})
+
+describe("verse auto-fit", () => {
+  const theme = BUILTIN_THEMES[0]
+  const authored = theme.verseText.fontSize
+  const surface = {
+    width: theme.resolution.width,
+    height: theme.resolution.height,
+  }
+
+  it("is off by default — font stays at the authored size", () => {
+    __clearLayoutCacheForTests()
+    const m = computeVerseLayoutMetrics(fakeCtx(), theme, verse, { surface })
+    expect(m.scaledTheme.verseText.fontSize).toBe(authored)
+  })
+
+  it("grows a short verse to fill, capped at maxVerseScale", () => {
+    const short: VerseRenderData = {
+      reference: "John 11:35",
+      segments: [{ text: "Jesus wept", verseNumber: 35 }],
+    }
+    const m = computeVerseLayoutMetrics(fakeCtx(), theme, short, {
+      surface,
+      verseAutoFit: true,
+      maxVerseScale: 1.5,
+    })
+    const fs = m.scaledTheme.verseText.fontSize
+    expect(fs).toBeGreaterThan(authored)
+    expect(fs).toBeLessThanOrEqual(Math.round(authored * 1.5))
+  })
+
+  it("never exceeds the cap (maxVerseScale = 1 keeps the authored size)", () => {
+    const short: VerseRenderData = {
+      reference: "John 11:35",
+      segments: [{ text: "Jesus wept", verseNumber: 35 }],
+    }
+    const m = computeVerseLayoutMetrics(fakeCtx(), theme, short, {
+      surface,
+      verseAutoFit: true,
+      maxVerseScale: 1,
+    })
+    expect(m.scaledTheme.verseText.fontSize).toBeLessThanOrEqual(authored)
+  })
+
+  it("shrinks a very long verse below the authored size to fit", () => {
+    const long: VerseRenderData = {
+      reference: "Psalm 119",
+      segments: [
+        {
+          text: Array.from({ length: 400 }, (_, i) => `word${i}`).join(" "),
+          verseNumber: 1,
+        },
+      ],
+    }
+    const m = computeVerseLayoutMetrics(fakeCtx(), theme, long, {
+      surface,
+      verseAutoFit: true,
+    })
+    expect(m.scaledTheme.verseText.fontSize).toBeLessThan(authored)
+  })
+})

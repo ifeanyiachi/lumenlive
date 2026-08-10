@@ -4,6 +4,7 @@ import type {
   RenderOptions,
 } from "@/types/broadcast"
 import { applyTextTransform } from "@/lib/canvas-draw"
+import { surfaceFontScale } from "@/lib/canvas-constants"
 import {
   alignX,
   alignY,
@@ -239,6 +240,73 @@ function measureVerseHeight(
   }
 }
 
+/**
+ * Project a theme authored at its own resolution onto a real output surface:
+ * scale size quantities (fonts, padding, offsets) by the shorter-axis factor so
+ * text keeps its designed proportions, then set the resolution to the surface so
+ * the text box and anchor math reflow to the true aspect ratio. At a 16:9 surface
+ * this equals the uniform-scalar path; at other aspects the box widens/narrows
+ * while text stays proportional. Byte-identical at the authored resolution.
+ */
+function projectThemeToSurface(
+  theme: BroadcastTheme,
+  surface: { width: number; height: number }
+): BroadcastTheme {
+  const fontScale = surfaceFontScale(surface.width, surface.height)
+  const scaled = buildScaledTheme(theme, fontScale)
+  return {
+    ...scaled,
+    resolution: { width: surface.width, height: surface.height },
+  }
+}
+
+const AUTO_FIT_MIN_FS = 8
+
+/** Verse block height (px) if the verse were drawn at `fontSize`. */
+function verseHeightAt(
+  ctx: CanvasRenderingContext2D,
+  theme: BroadcastTheme,
+  verse: VerseRenderData,
+  textRectWidth: number,
+  fontSize: number
+): number {
+  const probe: BroadcastTheme = {
+    ...theme,
+    verseText: { ...theme.verseText, fontSize },
+  }
+  return measureVerseHeight(ctx, probe, verse, textRectWidth).height
+}
+
+/**
+ * Largest integer font size in [minFs, maxFs] whose wrapped verse fits within
+ * `availableHeight`. Verse height is monotonic in font size (bigger font → more
+ * or taller lines), so a binary search finds the fit in ~log₂(range) measures.
+ * Falls back to `minFs` when even the smallest size overflows (best-effort — the
+ * box overflows rather than the text vanishing).
+ */
+function fitVerseFontSize(
+  ctx: CanvasRenderingContext2D,
+  theme: BroadcastTheme,
+  verse: VerseRenderData,
+  textRectWidth: number,
+  availableHeight: number,
+  minFs: number,
+  maxFs: number
+): number {
+  const fitsAt = (fs: number) =>
+    verseHeightAt(ctx, theme, verse, textRectWidth, fs) <= availableHeight
+  if (fitsAt(maxFs)) return maxFs
+  if (!fitsAt(minFs)) return minFs
+  let lo = minFs
+  let hi = maxFs
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (fitsAt(mid)) lo = mid
+    else hi = mid - 1
+  }
+  return lo
+}
+
 function rectForAlignedText(
   align: BroadcastTheme["layout"]["textAlign"],
   drawX: number,
@@ -277,6 +345,10 @@ interface LayoutCacheEntry {
   scale: number
   offsetX: number
   offsetY: number
+  surfaceW: number
+  surfaceH: number
+  verseAutoFit: boolean
+  maxVerseScale: number
   fontEpoch: number
   metrics: VerseLayoutMetrics
 }
@@ -314,6 +386,10 @@ export function computeVerseLayoutMetrics(
   const scale = options?.scale ?? 1
   const optOffsetX = options?.offsetX ?? 0
   const optOffsetY = options?.offsetY ?? 0
+  const surfaceW = options?.surface?.width ?? 0
+  const surfaceH = options?.surface?.height ?? 0
+  const verseAutoFit = options?.verseAutoFit ?? false
+  const maxVerseScale = options?.maxVerseScale ?? 1.5
 
   if (verse) {
     const entries = layoutCache.get(verse)
@@ -324,6 +400,10 @@ export function computeVerseLayoutMetrics(
           e.scale === scale &&
           e.offsetX === optOffsetX &&
           e.offsetY === optOffsetY &&
+          e.surfaceW === surfaceW &&
+          e.surfaceH === surfaceH &&
+          e.verseAutoFit === verseAutoFit &&
+          e.maxVerseScale === maxVerseScale &&
           e.fontEpoch === fontEpoch
         ) {
           return e.metrics
@@ -345,6 +425,10 @@ export function computeVerseLayoutMetrics(
       scale,
       offsetX: optOffsetX,
       offsetY: optOffsetY,
+      surfaceW,
+      surfaceH,
+      verseAutoFit,
+      maxVerseScale,
       fontEpoch,
       metrics,
     })
@@ -361,7 +445,12 @@ function computeVerseLayoutMetricsUncached(
   options?: RenderOptions
 ): VerseLayoutMetrics {
   const scale = options?.scale ?? 1
-  const scaledTheme = buildScaledTheme(theme, scale)
+  // Native reflow renders at the real output surface (theme projected onto it);
+  // the design/preview path keeps the uniform-scalar behavior. `let` because
+  // auto-fit may re-derive the verse font below.
+  let scaledTheme = options?.surface
+    ? projectThemeToSurface(theme, options.surface)
+    : buildScaledTheme(theme, scale)
   const canvasW = scaledTheme.resolution.width
   const canvasH = scaledTheme.resolution.height
   const layout = scaledTheme.layout
@@ -434,6 +523,41 @@ function computeVerseLayoutMetricsUncached(
     0,
     scaledTheme.layout.referenceGap ?? scaledTheme.reference.fontSize * 0.5
   )
+
+  // Auto-fit: grow/shrink the verse font to fill the box height (opt-in; live
+  // output only). The reference height is fixed, so reserve it first, then fit
+  // the verse to the remaining height. Verse numbers scale with the same ratio.
+  if (options?.verseAutoFit) {
+    const proportionalFs = scaledTheme.verseText.fontSize
+    const maxFs = Math.round(
+      Math.max(AUTO_FIT_MIN_FS, proportionalFs * (options.maxVerseScale ?? 1.5))
+    )
+    const refReserve =
+      referenceHeight +
+      (scaledTheme.reference.position === "below" ? referenceGap : 0)
+    const availableVerseHeight = Math.max(1, textRectH - refReserve)
+    const fittedFs = fitVerseFontSize(
+      ctx,
+      scaledTheme,
+      verse,
+      textRectW,
+      availableVerseHeight,
+      AUTO_FIT_MIN_FS,
+      maxFs
+    )
+    if (fittedFs !== proportionalFs) {
+      const ratio = fittedFs / proportionalFs
+      scaledTheme = {
+        ...scaledTheme,
+        verseText: { ...scaledTheme.verseText, fontSize: fittedFs },
+        verseNumbers: {
+          ...scaledTheme.verseNumbers,
+          fontSize: scaledTheme.verseNumbers.fontSize * ratio,
+        },
+      }
+    }
+  }
+
   const verseMetrics = measureVerseHeight(ctx, scaledTheme, verse, textRectW)
   const verseHeight = verseMetrics.height
   const verseDrawX = alignX(

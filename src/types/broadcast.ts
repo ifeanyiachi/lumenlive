@@ -111,6 +111,21 @@ export interface RenderOptions {
   offsetY?: number
   scale?: number // Scale factor for rendering at display size (e.g., 0.42 for 400px panel)
   imageCache?: Map<string, HTMLImageElement>
+  /**
+   * Render at this real output size and reflow to its aspect ratio, instead of
+   * the theme's authored resolution. When set, the theme is projected onto the
+   * surface (fonts/padding scaled by the shorter axis, box reflowed from the
+   * surface). Omit for the design/preview path (unchanged authored layout).
+   */
+  surface?: { width: number; height: number }
+  /**
+   * Grow/shrink the verse font to fill the text box height. Opt-in (default
+   * off), so only the live output auto-fits — the theme designer keeps showing
+   * authored sizes. Requires {@link surface} to be meaningful.
+   */
+  verseAutoFit?: boolean
+  /** Cap on verse-font growth vs the surface-proportional size. Default 1.5. */
+  maxVerseScale?: number
 }
 
 export interface StageDisplayConfig {
