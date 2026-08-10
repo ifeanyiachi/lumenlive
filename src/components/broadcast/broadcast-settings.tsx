@@ -38,6 +38,8 @@ import type {
   NdiFrameRate,
   NdiResolution,
   NdiStartRequest,
+  BroadcastOutput,
+  OutputDisplayMode,
 } from "@/types"
 import {
   MonitorIcon,
@@ -89,6 +91,140 @@ const NDI_ALPHA_OPTIONS: Array<{ value: NdiAlphaMode; label: string }> = [
   { value: "straightAlpha", label: "Straight Alpha" },
   { value: "premultipliedAlpha", label: "Premultiplied Alpha" },
 ]
+
+const MAX_VERSE_SCALE_OPTIONS = [
+  { value: "1.25", label: "1.25×" },
+  { value: "1.5", label: "1.5×" },
+  { value: "2", label: "2×" },
+  { value: "3", label: "3×" },
+]
+
+/**
+ * Per-output reflow controls: how the output surface is sized (match the monitor
+ * vs a fixed custom resolution) and whether verse text auto-fits the box height.
+ * Writes go through the store, which pushes each change to the live output window
+ * immediately — so operators can tune it with the preview open. `native` fills the
+ * screen and reflows content; NDI overrides sizing while active (feed resolution
+ * wins), so the custom size only affects the on-screen preview.
+ */
+function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
+  const store = useBroadcastStore.getState
+  const displayMode = output.displayMode ?? "native"
+  const custom = output.customResolution ?? { width: 1920, height: 1080 }
+  const customFit = output.customFit ?? "contain"
+  const autoFit = output.verseAutoFit ?? true
+  const maxScale = output.maxVerseScale ?? 1.5
+
+  return (
+    <div className="space-y-2.5 rounded-md border border-border/60 p-2.5">
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Display size</label>
+        <Select
+          value={displayMode}
+          onValueChange={(v) =>
+            store().setOutputDisplayMode(output.id, v as OutputDisplayMode)
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="native">Match monitor (fill screen)</SelectItem>
+            <SelectItem value="custom">Custom size…</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {displayMode === "custom" && (
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[0.625rem] text-muted-foreground">
+                Width
+              </label>
+              <Input
+                type="number"
+                value={custom.width}
+                onChange={(e) =>
+                  store().setOutputCustomResolution(output.id, {
+                    width: Math.max(1, Number(e.target.value)),
+                    height: custom.height,
+                  })
+                }
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[0.625rem] text-muted-foreground">
+                Height
+              </label>
+              <Input
+                type="number"
+                value={custom.height}
+                onChange={(e) =>
+                  store().setOutputCustomResolution(output.id, {
+                    width: custom.width,
+                    height: Math.max(1, Number(e.target.value)),
+                  })
+                }
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+          <Select
+            value={customFit}
+            onValueChange={(v) =>
+              store().setOutputCustomFit(output.id, v as "contain" | "cover")
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="contain">Fit (letterbox)</SelectItem>
+              <SelectItem value="cover">Fill (crop edges)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs text-muted-foreground">
+          Auto-fit verse text
+        </label>
+        <Switch
+          checked={autoFit}
+          onCheckedChange={(v) => store().setVerseAutoFit(output.id, v)}
+        />
+      </div>
+
+      {autoFit && (
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">
+            Max verse scale
+          </label>
+          <Select
+            value={String(maxScale)}
+            onValueChange={(v) =>
+              store().setMaxVerseScale(output.id, Number(v))
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MAX_VERSE_SCALE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  )
+}
 
 
 export function BroadcastSettings({
@@ -647,6 +783,8 @@ export function BroadcastSettings({
                       )}
                   </div>
 
+                  {mainOutput && <OutputDisplaySettings output={mainOutput} />}
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -908,6 +1046,7 @@ export function BroadcastSettings({
                         </p>
                       )}
                   </div>
+                  {altOutput && <OutputDisplaySettings output={altOutput} />}
                   <Button
                     variant="outline"
                     size="sm"
