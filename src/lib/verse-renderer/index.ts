@@ -14,6 +14,7 @@ import { roundRect } from "./text-style"
 import { drawBackground } from "./background"
 import { drawReference, drawVerseText } from "./verse-text"
 import { computeVerseLayoutMetrics, type VerseLayoutMetrics } from "./layout"
+import { projectElementToSurface } from "./project-element"
 
 /**
  * Public entry point for verse rendering. Orchestrates the pipeline —
@@ -162,10 +163,28 @@ function renderVerseImpl(
     return metrics
   }
 
-  const elements = theme.elements ?? []
+  const rawElements = theme.elements ?? []
+  const surface = options?.surface
+  const scale = options?.scale ?? 1
+  // Transform elements to the output geometry once, so masks (looked up by id)
+  // stay consistent with their target elements. In the native-reflow path each
+  // element is re-anchored + scaled to the surface; otherwise the uniform-scalar
+  // path (design canvas at 1, preview panels at a fraction) is preserved.
+  const elements: ThemeElement[] = surface
+    ? rawElements.map((e) =>
+        projectElementToSurface(e, theme.resolution, surface)
+      )
+    : scale !== 1
+      ? rawElements.map((e) => ({
+          ...e,
+          x: e.x * scale,
+          y: e.y * scale,
+          width: e.width * scale,
+          height: e.height * scale,
+        }))
+      : rawElements
   const elementsMap = new Map(elements.map((e) => [e.id, e]))
   const masks = collectMasks(elements)
-  const scale = options?.scale ?? 1
 
   for (const id of [...layerOrder].reverse()) {
     if (FIXED_IDS.has(id)) {
@@ -173,18 +192,7 @@ function renderVerseImpl(
     } else {
       const el = elementsMap.get(id)
       if (!el || !el.visible) continue
-      if (scale !== 1) {
-        const scaled: ThemeElement = {
-          ...el,
-          x: el.x * scale,
-          y: el.y * scale,
-          width: el.width * scale,
-          height: el.height * scale,
-        }
-        renderThemeElementMasked(ctx, scaled, imageCache, masks)
-      } else {
-        renderThemeElementMasked(ctx, el, imageCache, masks)
-      }
+      renderThemeElementMasked(ctx, el, imageCache, masks)
     }
   }
 

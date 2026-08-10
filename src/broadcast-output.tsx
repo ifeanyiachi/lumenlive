@@ -37,7 +37,6 @@ import {
   type Surface,
   type ResolvedSurface,
 } from "@/lib/broadcast-output/surface"
-import { surfaceFontScale } from "@/lib/canvas-constants"
 import { sendNdiFrame, getNdiStatus } from "@/services/ndi-output-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { SlideRenderOptions } from "@/lib/slide-renderer"
@@ -446,10 +445,9 @@ function BroadcastCanvas() {
           drawMediaLayer(ctx, canvas.width, canvas.height)
         }
         const result = renderVerse(ctx, theme, verse, {
-          // Decorative theme elements scale uniformly by the surface factor —
-          // matching the old whole-canvas CSS scaling on 16:9 (Phase 3 adds
-          // per-element anchors for correct non-16:9 placement).
-          scale: surfaceFontScale(sw, sh),
+          // Decorative elements are re-anchored to the surface inside the verse
+          // renderer (per-element anchors), so no uniform element scale here.
+          scale: 1,
           imageCache: imageCacheRef.current,
           surface: { width: sw, height: sh },
           verseAutoFit: displayConfigRef.current.verseAutoFit,

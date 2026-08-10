@@ -11,6 +11,12 @@ import {
 } from "@/components/ui/select"
 import { ImageIcon } from "lucide-react"
 import type { ThemeElement } from "@/types/broadcast"
+import type { CanvasSizeMode } from "@/types/canvas"
+import {
+  AnchorPicker,
+  type AnchorPosition,
+} from "@/components/shared/anchor-picker"
+import { deriveElementAnchor } from "@/lib/verse-renderer/project-element"
 import { open } from "@tauri-apps/plugin-dialog"
 import { convertFileSrc } from "@tauri-apps/api/core"
 
@@ -121,6 +127,42 @@ export function ElementProperties() {
             }
             className="h-8 text-xs"
           />
+        </div>
+      </div>
+
+      {/* Reflow anchor — where this element pins when the live output renders at
+          a non-16:9 resolution. No effect in the 1920×1080 editor. */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted-foreground">
+          Reflow anchor
+        </label>
+        <div className="flex items-center gap-3">
+          <AnchorPicker
+            value={
+              (el.anchor ??
+                deriveElementAnchor(el, draftTheme.resolution)) as AnchorPosition
+            }
+            onChange={(anchor) => update(`${prefix}.anchor`, anchor)}
+          />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Select
+              value={el.sizeMode ?? "proportional"}
+              onValueChange={(v) =>
+                update(`${prefix}.sizeMode`, v as CanvasSizeMode)
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="proportional">Scale with screen</SelectItem>
+                <SelectItem value="fixed">Fixed size</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] leading-tight text-muted-foreground">
+              Pins this element on non-16:9 output. Editing stays at 1920×1080.
+            </p>
+          </div>
         </div>
       </div>
 

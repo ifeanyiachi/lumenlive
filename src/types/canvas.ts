@@ -22,6 +22,23 @@ export interface Outline {
 }
 
 /**
+ * The nine-way (here seven — no mid-row sides) anchor a box pins to when the
+ * output reflows to a different aspect ratio. Mirrors the content-block
+ * `layout.anchor` vocabulary and the shared `AnchorPicker`.
+ */
+export type CanvasAnchor =
+  | "center"
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right"
+
+/** Whether a box's size scales with the surface or stays at authored pixels. */
+export type CanvasSizeMode = "proportional" | "fixed"
+
+/**
  * A positioned, resizable rectangle on the 1920×1080 design canvas, in absolute
  * pixel coordinates. This is the shared base shape for a theme `ThemeElement`
  * and a stage `StageZone` — both are draggable/resizable boxes; they differ only
@@ -36,6 +53,14 @@ export interface CanvasBox {
   height: number
   visible: boolean
   locked: boolean
+  /**
+   * Which point the box pins to when the output reflows to another aspect ratio
+   * (native-reflow output only; the editor is fixed at 1920×1080). Missing = derived
+   * from the box's authored position, so pre-existing themes need no migration.
+   */
+  anchor?: CanvasAnchor
+  /** Size behavior on reflow. Missing = `"proportional"`. */
+  sizeMode?: CanvasSizeMode
 }
 
 /** Shared text-styling shape (font, colour, alignment, shadow/outline). */
