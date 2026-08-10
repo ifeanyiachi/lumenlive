@@ -25,6 +25,7 @@ import type {
   ContainBackground,
 } from "@/types/schedule"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { paginateVerse } from "@/lib/verse-pagination"
 import {
   emitToOutput,
   emitToAllOutputs,
@@ -202,6 +203,7 @@ function outputDisplayConfig(output: BroadcastOutput) {
     customFit: output.customFit ?? "contain",
     verseAutoFit: output.verseAutoFit ?? true,
     maxVerseScale: output.maxVerseScale ?? 1.5,
+    minVerseFontSize: output.minVerseFontSize ?? 40,
   }
 }
 
@@ -226,6 +228,12 @@ interface BroadcastState {
   outputs: BroadcastOutput[]
   isLive: boolean
   liveVerse: VerseRenderData | null
+  /**
+   * When a long multi-verse block is paginated, the ordered pages. `liveVerse`
+   * points at pages[liveVersePageIndex]. Null when the live verse is a single page.
+   */
+  liveVersePages: VerseRenderData[] | null
+  liveVersePageIndex: number
   liveSlide: Slide | null
   liveMedia: LiveMedia | null
   liveWeb: LiveWeb | null
@@ -394,6 +402,11 @@ interface BroadcastState {
   setOutputCustomFit: (outputId: string, fit: "contain" | "cover") => void
   setVerseAutoFit: (outputId: string, enabled: boolean) => void
   setMaxVerseScale: (outputId: string, scale: number) => void
+  setMinVerseFontSize: (outputId: string, size: number) => void
+  setPaginateLongVerses: (outputId: string, enabled: boolean) => void
+  /** Step a paginated live verse; returns false when there is no further page. */
+  nextVersePage: () => boolean
+  prevVersePage: () => boolean
   getOutput: (outputId: string) => BroadcastOutput | undefined
   getOutputThemeId: (outputId: string) => string
 
@@ -515,9 +528,29 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     liveVerse: VerseRenderData | null,
     source?: BroadcastSource
   ) => {
-    const hadWeb = get().liveWeb !== null
+    const s = get()
+    const hadWeb = s.liveWeb !== null
+    // Paginate long multi-verse blocks so they stay readable: split (once, at the
+    // main output's readable floor) into pages the operator steps through. Single
+    // pages leave `liveVersePages` null. `liveVerse` always points at the current
+    // page, so the existing emit path renders it unchanged.
+    let pages: VerseRenderData[] = liveVerse ? [liveVerse] : []
+    if (liveVerse) {
+      const main = findOutput(s.outputs, "main")
+      const themeId = resolveThemeId(s.outputs, "main")
+      const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
+      const autoFit = main?.verseAutoFit ?? true
+      if (theme && autoFit && (main?.paginateLongVerses ?? true)) {
+        pages = paginateVerse(liveVerse, theme, {
+          minFontSize: main?.minVerseFontSize ?? 40,
+          enabled: true,
+        })
+      }
+    }
     set({
-      liveVerse,
+      liveVerse: pages[0] ?? liveVerse,
+      liveVersePages: pages.length > 1 ? pages : null,
+      liveVersePageIndex: 0,
       liveSlide: null,
       liveMedia: null,
       liveWeb: null,
@@ -536,6 +569,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     set({
       liveSlide,
       liveVerse: null,
+      liveVersePages: null,
+      liveVersePageIndex: 0,
       liveMedia: null,
       liveWeb: null,
       mediaTransport: null,
@@ -554,6 +589,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       liveMedia,
       liveSlide: null,
       liveVerse: null,
+      liveVersePages: null,
+      liveVersePageIndex: 0,
       liveWeb: null,
       mediaTransport: null,
       webTransport: null,
@@ -571,6 +608,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       liveWeb: stamped,
       liveSlide: null,
       liveVerse: null,
+      liveVersePages: null,
+      liveVersePageIndex: 0,
       liveMedia: null,
       mediaTransport: null,
       webTransport: null,
@@ -585,6 +624,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     outputs: DEFAULT_OUTPUTS.map((o) => ({ ...o })),
     isLive: false,
     liveVerse: null,
+    liveVersePages: null,
+    liveVersePageIndex: 0,
     liveSlide: null,
     liveMedia: null,
     liveWeb: null,
@@ -1375,6 +1416,39 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         outputs: updateOutputInArray(s.outputs, outputId, { maxVerseScale }),
       }))
       pushDisplayConfig(get, outputId)
+    },
+    setMinVerseFontSize: (outputId, minVerseFontSize) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { minVerseFontSize }),
+      }))
+      pushDisplayConfig(get, outputId)
+    },
+    setPaginateLongVerses: (outputId, paginateLongVerses) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, {
+          paginateLongVerses,
+        }),
+      }))
+      // Store-side pagination setting (no output-window payload needed); applies
+      // on the next verse present.
+    },
+    nextVersePage: () => {
+      const s = get()
+      if (!s.liveVersePages) return false
+      const next = s.liveVersePageIndex + 1
+      if (next >= s.liveVersePages.length) return false
+      set({ liveVersePageIndex: next, liveVerse: s.liveVersePages[next] })
+      get().syncBroadcastOutput()
+      return true
+    },
+    prevVersePage: () => {
+      const s = get()
+      if (!s.liveVersePages) return false
+      const prev = s.liveVersePageIndex - 1
+      if (prev < 0) return false
+      set({ liveVersePageIndex: prev, liveVerse: s.liveVersePages[prev] })
+      get().syncBroadcastOutput()
+      return true
     },
     getOutput: (outputId) => findOutput(get().outputs, outputId),
     getOutputThemeId: (outputId) => resolveThemeId(get().outputs, outputId),

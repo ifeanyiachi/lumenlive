@@ -289,6 +289,9 @@ export function PreviewPanel() {
   )
 
   const activeTheme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
+  const mainOutput = useBroadcastStore((s) =>
+    s.outputs.find((o) => o.id === "main")
+  )
   const translation =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ??
     "KJV"
@@ -461,7 +464,13 @@ export function PreviewPanel() {
         ) : showSlide ? (
           <SlidePreviewCanvas slide={liveSlide} />
         ) : (
-          <CanvasVerse theme={activeTheme} verse={verseData} />
+          <CanvasVerse
+            theme={activeTheme}
+            verse={verseData}
+            verseAutoFit={mainOutput?.verseAutoFit ?? true}
+            maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
+            minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
+          />
         )}
       </div>
     </div>

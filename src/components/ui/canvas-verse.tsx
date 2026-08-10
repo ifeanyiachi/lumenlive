@@ -7,12 +7,23 @@ interface CanvasVerseProps {
   theme: BroadcastTheme
   verse: VerseRenderData | null
   className?: string
+  /**
+   * Mirror the live output's verse auto-fit so operator previews match what the
+   * audience sees (a long multi-verse block shrinks to fit instead of clipping).
+   * Off by default — the design/thumbnail callers keep authored sizes.
+   */
+  verseAutoFit?: boolean
+  maxVerseScale?: number
+  minVerseFontSize?: number
 }
 
 export const CanvasVerse = memo(function CanvasVerse({
   theme,
   verse,
   className,
+  verseAutoFit,
+  maxVerseScale,
+  minVerseFontSize,
 }: CanvasVerseProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -43,18 +54,23 @@ export const CanvasVerse = memo(function CanvasVerse({
     const displayW = containerWidth
     const displayH = displayW / aspectRatio
 
-    canvas.width = displayW * dpr
-    canvas.height = displayH * dpr
+    // The backing store IS the render surface (device pixels), so the verse
+    // reflows/auto-fits exactly like the live output — just at thumbnail size.
+    const bw = Math.max(1, Math.round(displayW * dpr))
+    const bh = Math.max(1, Math.round(displayH * dpr))
+    canvas.width = bw
+    canvas.height = bh
     canvas.style.width = `${displayW}px`
     canvas.style.height = `${displayH}px`
 
-    ctx.scale(dpr, dpr)
-    const scale = displayW / theme.resolution.width
     renderVerse(ctx, theme, verse, {
-      scale,
       imageCache: imageCacheRef.current,
+      surface: { width: bw, height: bh },
+      verseAutoFit,
+      maxVerseScale,
+      minVerseFontSize,
     })
-  }, [theme, verse, containerWidth])
+  }, [theme, verse, containerWidth, verseAutoFit, maxVerseScale, minVerseFontSize])
 
   // Preload background image so the renderer can find it in the cache.
   useEffect(() => {

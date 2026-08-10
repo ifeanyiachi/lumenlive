@@ -50,6 +50,15 @@ export interface BroadcastOutput {
   verseAutoFit?: boolean
   /** Max verse-font growth vs the authored size when auto-fitting. Missing = 1.5. */
   maxVerseScale?: number
+  /**
+   * Readable floor for verse auto-fit, in design-space px (scaled by the surface).
+   * Auto-fit never shrinks below this. On the main output it also triggers
+   * pagination: a passage that won't fit at this size is split into pages. Missing
+   * = 40.
+   */
+  minVerseFontSize?: number
+  /** Split a long multi-verse block into operator-steppable pages. Missing = true. */
+  paginateLongVerses?: boolean
   ndi?: {
     sourceName: string
     resolution: NdiResolution
@@ -126,6 +135,11 @@ export interface RenderOptions {
   verseAutoFit?: boolean
   /** Cap on verse-font growth vs the surface-proportional size. Default 1.5. */
   maxVerseScale?: number
+  /**
+   * Readable floor for auto-fit, in design-space px (scaled by the surface).
+   * Auto-fit never shrinks the verse below this. Default 8 (the hard floor).
+   */
+  minVerseFontSize?: number
 }
 
 export interface StageDisplayConfig {

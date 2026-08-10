@@ -529,8 +529,19 @@ function computeVerseLayoutMetricsUncached(
   // the verse to the remaining height. Verse numbers scale with the same ratio.
   if (options?.verseAutoFit) {
     const proportionalFs = scaledTheme.verseText.fontSize
-    const maxFs = Math.round(
-      Math.max(AUTO_FIT_MIN_FS, proportionalFs * (options.maxVerseScale ?? 1.5))
+    // Readable floor (design px → surface px), never below the hard floor.
+    const surfaceScale = options.surface
+      ? surfaceFontScale(options.surface.width, options.surface.height)
+      : 1
+    const minFs = Math.max(
+      AUTO_FIT_MIN_FS,
+      Math.round((options.minVerseFontSize ?? 0) * surfaceScale)
+    )
+    const maxFs = Math.max(
+      minFs,
+      Math.round(
+        Math.max(AUTO_FIT_MIN_FS, proportionalFs * (options.maxVerseScale ?? 1.5))
+      )
     )
     const refReserve =
       referenceHeight +
@@ -542,7 +553,7 @@ function computeVerseLayoutMetricsUncached(
       verse,
       textRectW,
       availableVerseHeight,
-      AUTO_FIT_MIN_FS,
+      minFs,
       maxFs
     )
     if (fittedFs !== proportionalFs) {
@@ -669,4 +680,48 @@ function computeVerseLayoutMetricsUncached(
     verseRect,
     wrappedVerse: verseMetrics.wrapped,
   }
+}
+
+// ── Pagination helpers ──────────────────────────────────────────────────────
+// Exposed for `lib/verse-pagination`, which decides how to split a long verse
+// block into readable pages. Both operate at the theme's authored resolution
+// (pagination is computed once, surface-independent — each page then auto-fits
+// per output).
+
+/** Height (px) a verse block would occupy if drawn at `fontSize`. */
+export function measureVerseHeightAtFont(
+  ctx: CanvasRenderingContext2D,
+  theme: BroadcastTheme,
+  verse: VerseRenderData,
+  textRectWidth: number,
+  fontSize: number
+): number {
+  return verseHeightAt(ctx, theme, verse, textRectWidth, fontSize)
+}
+
+/** The verse text-box width and the height available for the verse (reference
+ *  reserved), at the theme's authored resolution. */
+export function computeVerseTextBox(theme: BroadcastTheme): {
+  textRectW: number
+  availableVerseHeight: number
+} {
+  const layout = theme.layout
+  const canvasW = theme.resolution.width
+  const canvasH = theme.resolution.height
+  const bgW = (layout.backgroundWidth / 100) * canvasW
+  const bgH = (layout.backgroundHeight / 100) * canvasH
+  const textAreaW = (layout.textAreaWidth / 100) * bgW
+  const textAreaH = (layout.textAreaHeight / 100) * bgH
+  const pad = layout.padding
+  const textRectW = textAreaW - pad.left - pad.right
+  const textRectH = textAreaH - pad.top - pad.bottom
+  const refLineHeight = theme.reference.lineHeight ?? 1.4
+  const referenceHeight = theme.reference.fontSize * refLineHeight
+  const referenceGap = Math.max(
+    0,
+    theme.layout.referenceGap ?? theme.reference.fontSize * 0.5
+  )
+  const refReserve =
+    referenceHeight + (theme.reference.position === "below" ? referenceGap : 0)
+  return { textRectW, availableVerseHeight: Math.max(1, textRectH - refReserve) }
 }

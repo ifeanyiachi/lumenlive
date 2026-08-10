@@ -922,7 +922,12 @@ export function LiveOutputPanel() {
   const activeThemeId = useBroadcastStore(
     (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
   )
+  const mainOutput = useBroadcastStore((s) =>
+    s.outputs.find((o) => o.id === "main")
+  )
   const interlinearText = useBroadcastStore((s) => s.interlinearText)
+  const liveVersePages = useBroadcastStore((s) => s.liveVersePages)
+  const liveVersePageIndex = useBroadcastStore((s) => s.liveVersePageIndex)
   const liveMedia = useBroadcastStore((s) => s.liveMedia)
   const liveSlide = useBroadcastStore((s) => s.liveSlide)
   const broadcastMuted = useBroadcastStore((s) => s.broadcastMuted)
@@ -1000,6 +1005,31 @@ export function LiveOutputPanel() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [isLive, liveLocked])
+
+  // Arrow keys step through pages of a long paginated verse. Only active while a
+  // paginated verse is live (media/web own the arrows in their own modes, but
+  // those are never live at the same time as a verse). Ignored while typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "ArrowRight" && e.code !== "ArrowLeft") return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return
+      const st = useBroadcastStore.getState()
+      if (!st.liveVersePages) return
+      e.preventDefault()
+      if (e.code === "ArrowRight") st.nextVersePage()
+      else st.prevVersePage()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   // Priority cascade (web > media > slide > verse). Kept as inline null-checks so
   // TypeScript narrows liveWeb/liveMedia/liveSlide at the JSX call sites below.
@@ -1161,11 +1191,42 @@ export function LiveOutputPanel() {
           ) : showSlide ? (
             <LiveSlideCanvas slide={liveSlide} />
           ) : (
-            <CanvasVerse theme={activeTheme} verse={liveVerse} />
+            <CanvasVerse
+              theme={activeTheme}
+              verse={liveVerse}
+              verseAutoFit={mainOutput?.verseAutoFit ?? true}
+              maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
+              minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
+            />
           )}
         </div>
         <PropsOverlay />
         <AlertPreviewOverlay />
+        {liveVersePages && liveVersePages.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white backdrop-blur">
+            <button
+              type="button"
+              disabled={liveVersePageIndex === 0}
+              onClick={() => useBroadcastStore.getState().prevVersePage()}
+              className="rounded px-1.5 py-0.5 hover:bg-white/15 disabled:opacity-30"
+              title="Previous page (←)"
+            >
+              ‹
+            </button>
+            <span className="tabular-nums">
+              Page {liveVersePageIndex + 1} / {liveVersePages.length}
+            </span>
+            <button
+              type="button"
+              disabled={liveVersePageIndex >= liveVersePages.length - 1}
+              onClick={() => useBroadcastStore.getState().nextVersePage()}
+              className="rounded px-1.5 py-0.5 hover:bg-white/15 disabled:opacity-30"
+              title="Next page (→)"
+            >
+              ›
+            </button>
+          </div>
+        )}
         {mediaLayer?.active && (
           <div className="absolute right-4 bottom-4 z-20 flex items-center gap-1 rounded bg-blue-500/70 px-1.5 py-0.5">
             <ImageIcon className="size-2.5 text-white" />

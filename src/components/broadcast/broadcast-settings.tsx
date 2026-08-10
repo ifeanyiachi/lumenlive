@@ -114,6 +114,8 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
   const customFit = output.customFit ?? "contain"
   const autoFit = output.verseAutoFit ?? true
   const maxScale = output.maxVerseScale ?? 1.5
+  const minSize = output.minVerseFontSize ?? 40
+  const paginate = output.paginateLongVerses ?? true
 
   return (
     <div className="space-y-2.5 rounded-md border border-border/60 p-2.5">
@@ -199,27 +201,63 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
       </div>
 
       {autoFit && (
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">
-            Max verse scale
-          </label>
-          <Select
-            value={String(maxScale)}
-            onValueChange={(v) =>
-              store().setMaxVerseScale(output.id, Number(v))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MAX_VERSE_SCALE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-2.5">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">
+              Max verse scale
+            </label>
+            <Select
+              value={String(maxScale)}
+              onValueChange={(v) =>
+                store().setMaxVerseScale(output.id, Number(v))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MAX_VERSE_SCALE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">
+              Minimum verse size (px)
+            </label>
+            <Input
+              type="number"
+              min={8}
+              value={minSize}
+              onChange={(e) =>
+                store().setMinVerseFontSize(
+                  output.id,
+                  Math.max(8, Number(e.target.value))
+                )
+              }
+              className="h-8 text-xs"
+            />
+            <p className="text-[10px] leading-tight text-muted-foreground">
+              Verses won&apos;t shrink below this. Long passages split into pages
+              instead.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs text-muted-foreground">
+              Paginate long verses
+            </label>
+            <Switch
+              checked={paginate}
+              onCheckedChange={(v) =>
+                store().setPaginateLongVerses(output.id, v)
+              }
+            />
+          </div>
         </div>
       )}
     </div>

@@ -185,12 +185,14 @@ function BroadcastCanvas() {
     customFit: "contain" | "cover"
     verseAutoFit: boolean
     maxVerseScale: number
+    minVerseFontSize: number
   }>({
     displayMode: "native",
     customResolution: null,
     customFit: "contain",
     verseAutoFit: true,
     maxVerseScale: 1.5,
+    minVerseFontSize: 40,
   })
   const lastPushRef = useRef(0)
   const pushingRef = useRef(false)
@@ -452,6 +454,7 @@ function BroadcastCanvas() {
           surface: { width: sw, height: sh },
           verseAutoFit: displayConfigRef.current.verseAutoFit,
           maxVerseScale: displayConfigRef.current.maxVerseScale,
+          minVerseFontSize: displayConfigRef.current.minVerseFontSize,
         })
         if (!result) {
           ctx.fillStyle = "#000"
@@ -1451,6 +1454,7 @@ function BroadcastCanvas() {
       customFit: "contain" | "cover"
       verseAutoFit: boolean
       maxVerseScale: number
+      minVerseFontSize: number
     }>("broadcast:display-config", (event) => {
       displayConfigRef.current = event.payload
       logDebug("Received broadcast:display-config", event.payload)
