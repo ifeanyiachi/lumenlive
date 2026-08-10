@@ -10,7 +10,10 @@ import type {
   ZoneSource,
   StageMonitorGroup,
 } from "@/types"
-import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
+import {
+  DEFAULT_STAGE_DISPLAY_CONFIG,
+  type OutputDisplayMode,
+} from "@/types/broadcast"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
 import type { StageTimer } from "@/lib/stage-display-renderer"
@@ -186,6 +189,37 @@ const DEFAULT_OUTPUTS: BroadcastOutput[] = [
   },
 ]
 
+/**
+ * Wire payload describing how an output window should size its render surface
+ * (see `lib/broadcast-output/surface.ts`). Emitted on every resync and on any
+ * change so a freshly opened window inherits the saved settings. Defaults mirror
+ * the "missing field" semantics documented on {@link BroadcastOutput}.
+ */
+function outputDisplayConfig(output: BroadcastOutput) {
+  return {
+    displayMode: output.displayMode ?? "native",
+    customResolution: output.customResolution ?? null,
+    customFit: output.customFit ?? "contain",
+    verseAutoFit: output.verseAutoFit ?? true,
+    maxVerseScale: output.maxVerseScale ?? 1.5,
+  }
+}
+
+/** Push an output's current display config to its live window immediately. */
+function pushDisplayConfig(
+  get: () => BroadcastState,
+  outputId: string
+): void {
+  const output = findOutput(get().outputs, outputId)
+  if (output) {
+    emitToOutput(
+      outputId,
+      "broadcast:display-config",
+      outputDisplayConfig(output)
+    )
+  }
+}
+
 interface BroadcastState {
   themes: BroadcastTheme[]
   stageLayouts: StageLayout[]
@@ -350,6 +384,16 @@ interface BroadcastState {
   addOutput: (output: BroadcastOutput) => void
   removeOutput: (outputId: string) => void
   updateOutput: (outputId: string, updates: Partial<BroadcastOutput>) => void
+  // Per-output display/surface settings. Each pushes the change to that output's
+  // live window immediately (see `outputDisplayConfig` / `broadcast:display-config`).
+  setOutputDisplayMode: (outputId: string, mode: OutputDisplayMode) => void
+  setOutputCustomResolution: (
+    outputId: string,
+    resolution: { width: number; height: number }
+  ) => void
+  setOutputCustomFit: (outputId: string, fit: "contain" | "cover") => void
+  setVerseAutoFit: (outputId: string, enabled: boolean) => void
+  setMaxVerseScale: (outputId: string, scale: number) => void
   getOutput: (outputId: string) => BroadcastOutput | undefined
   getOutputThemeId: (outputId: string) => string
 
@@ -988,6 +1032,11 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       const s = get()
       const output = findOutput(s.outputs, outputId)
       if (!output) return
+      // Surface/display config belongs to the physical output window (its
+      // monitor), not to any mirrored source, so it uses the output's OWN
+      // settings. Re-sent on every sync/resync so a freshly opened window
+      // inherits the saved settings.
+      emitToOutput(outputId, "broadcast:display-config", outputDisplayConfig(output))
       // A "mirror" output clones its source: follow the chain and drive this
       // window with the *source's* theme + layer filter. Content is shared by
       // all outputs, so mirroring only inherits the presentation. Falls back to
@@ -1296,6 +1345,36 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
           get().syncBroadcastOutput()
         }
       }
+    },
+    setOutputDisplayMode: (outputId, displayMode) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { displayMode }),
+      }))
+      pushDisplayConfig(get, outputId)
+    },
+    setOutputCustomResolution: (outputId, customResolution) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { customResolution }),
+      }))
+      pushDisplayConfig(get, outputId)
+    },
+    setOutputCustomFit: (outputId, customFit) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { customFit }),
+      }))
+      pushDisplayConfig(get, outputId)
+    },
+    setVerseAutoFit: (outputId, verseAutoFit) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { verseAutoFit }),
+      }))
+      pushDisplayConfig(get, outputId)
+    },
+    setMaxVerseScale: (outputId, maxVerseScale) => {
+      set((s) => ({
+        outputs: updateOutputInArray(s.outputs, outputId, { maxVerseScale }),
+      }))
+      pushDisplayConfig(get, outputId)
     },
     getOutput: (outputId) => findOutput(get().outputs, outputId),
     getOutputThemeId: (outputId) => resolveThemeId(get().outputs, outputId),

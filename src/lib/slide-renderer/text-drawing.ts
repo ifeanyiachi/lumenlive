@@ -1,7 +1,7 @@
 import type { SlideTextElement, SlideScriptureElement } from "@/types/slide"
 import { wrapText, wrapTextWithHardBreaks } from "@/lib/verse-renderer"
 import { applyTextTransform } from "@/lib/canvas-draw"
-import { DESIGN_WIDTH } from "@/lib/canvas-constants"
+import { surfaceFontScale } from "@/lib/canvas-constants"
 
 /**
  * Text rendering for slides: font strings, line drawing (with alignment,
@@ -77,10 +77,10 @@ function drawTextLines(
   y: number,
   w: number,
   h: number,
-  canvasWidth: number,
+  fontScale: number,
   textBuildProgress?: number
 ): void {
-  const fontSize = element.fontSize * (canvasWidth / DESIGN_WIDTH)
+  const fontSize = element.fontSize * fontScale
   ctx.font = buildFontString(
     fontSize,
     element.fontWeight,
@@ -325,7 +325,8 @@ export function drawTextElement(
       .join("\n")
   }
 
-  let fontSize = element.fontSize * (canvasWidth / DESIGN_WIDTH)
+  const fontScale = surfaceFontScale(canvasWidth, canvasHeight)
+  let fontSize = element.fontSize * fontScale
 
   ctx.save()
 
@@ -369,15 +370,17 @@ export function drawTextElement(
     }
   }
 
+  // Auto-shrink stores the *authored* (unscaled) size back on the element so
+  // drawTextLines — which re-applies fontScale — reproduces the shrunk pixels.
   const shrunkElement =
-    fontSize !== element.fontSize * (canvasWidth / DESIGN_WIDTH)
-      ? { ...element, fontSize: fontSize * (DESIGN_WIDTH / canvasWidth) }
+    fontSize !== element.fontSize * fontScale
+      ? { ...element, fontSize: fontSize / fontScale }
       : element
 
   if (scrolling) {
     const lineH = fontSize * element.lineHeight
     const totalContentH = lines.length * lineH
-    const speed = scrolling.speed * (canvasWidth / DESIGN_WIDTH)
+    const speed = scrolling.speed * fontScale
     const now = performance.now() / 1000
     const range = totalContentH + h
     const scrollOffset = (now * speed) % range
@@ -396,7 +399,7 @@ export function drawTextElement(
       y,
       w,
       totalContentH,
-      canvasWidth,
+      fontScale,
       textBuildProgress
     )
     ctx.restore()
@@ -409,7 +412,7 @@ export function drawTextElement(
       y,
       w,
       h,
-      canvasWidth,
+      fontScale,
       textBuildProgress
     )
   }
@@ -435,8 +438,9 @@ export function drawScriptureElement(
     ctx.fillRect(x, y, w, h)
   }
 
-  const verseFontSize = element.fontSize * (canvasWidth / DESIGN_WIDTH)
-  const refFontSize = element.referenceFontSize * (canvasWidth / DESIGN_WIDTH)
+  const fontScale = surfaceFontScale(canvasWidth, canvasHeight)
+  const verseFontSize = element.fontSize * fontScale
+  const refFontSize = element.referenceFontSize * fontScale
   const refSpacing = refFontSize * 1.8
 
   ctx.font = buildFontString(
@@ -457,7 +461,7 @@ export function drawScriptureElement(
     y,
     w,
     verseH,
-    canvasWidth
+    fontScale
   )
 
   if (element.reference) {
@@ -523,10 +527,11 @@ export function drawScriptureElement(
 export function getTextLineCount(
   ctx: CanvasRenderingContext2D,
   element: SlideTextElement,
-  canvasWidth: number
+  canvasWidth: number,
+  canvasHeight: number
 ): number {
   const w = (element.width / 100) * canvasWidth
-  const fontSize = element.fontSize * (canvasWidth / DESIGN_WIDTH)
+  const fontSize = element.fontSize * surfaceFontScale(canvasWidth, canvasHeight)
   ctx.font = buildFontString(
     fontSize,
     element.fontWeight,

@@ -31,6 +31,12 @@ import {
   shouldPushNdiFrame,
   type MediaFitPayload,
 } from "@/lib/broadcast-output/frame"
+import {
+  resolveSurface,
+  resolvePreviewObjectFit,
+  type Surface,
+  type ResolvedSurface,
+} from "@/lib/broadcast-output/surface"
 import { sendNdiFrame, getNdiStatus } from "@/services/ndi-output-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { SlideRenderOptions } from "@/lib/slide-renderer"
@@ -44,6 +50,7 @@ import type {
   BroadcastTheme,
   VerseRenderData,
   LayerFilter,
+  OutputDisplayMode,
 } from "@/types/broadcast"
 import type {
   Slide,
@@ -168,6 +175,23 @@ function BroadcastCanvas() {
     height: 1080,
   })
   const ndiCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  // The output window's real inner size in device px (native-mode surface).
+  const windowSizeRef = useRef<Surface | null>(null)
+  // How this output should size its surface. Sent by the main app via
+  // `broadcast:display-config`; defaults to native until the first message.
+  const displayConfigRef = useRef<{
+    displayMode: OutputDisplayMode
+    customResolution: Surface | null
+    customFit: "contain" | "cover"
+    verseAutoFit: boolean
+    maxVerseScale: number
+  }>({
+    displayMode: "native",
+    customResolution: null,
+    customFit: "contain",
+    verseAutoFit: true,
+    maxVerseScale: 1.5,
+  })
   const lastPushRef = useRef(0)
   const pushingRef = useRef(false)
   const broadcastMutedRef = useRef(false)
@@ -181,6 +205,25 @@ function BroadcastCanvas() {
       return
     }
     console.debug(`[broadcast-output] ${message}`, meta)
+  }, [])
+
+  // The pixel dimensions this output renders at. NDI (when active) wins so the
+  // feed is never distorted; otherwise a custom resolution, else the real window
+  // size (native reflow), else the 1920×1080 fallback. Reads live refs, so it's
+  // stable and always reflects the latest window/NDI/display-config state.
+  const computeSurface = useCallback((): ResolvedSurface => {
+    const cfg = displayConfigRef.current
+    return resolveSurface({
+      displayMode: cfg.displayMode,
+      window: windowSizeRef.current,
+      custom: cfg.customResolution,
+      ndi: ndiConfigRef.current.active
+        ? {
+            width: ndiConfigRef.current.width,
+            height: ndiConfigRef.current.height,
+          }
+        : null,
+    })
   }, [])
 
   const drawAlertOverlay = useCallback(
@@ -265,8 +308,11 @@ function BroadcastCanvas() {
       prevCanvasRef.current = document.createElement("canvas")
     }
     const prev = prevCanvasRef.current
-    prev.width = 1920
-    prev.height = 1080
+    // Snapshot at the live surface size so the transition blends against a
+    // same-sized current frame (no scale/ghost on non-16:9 surfaces).
+    const { width: sw, height: sh } = computeSurface()
+    prev.width = sw
+    prev.height = sh
     const pCtx = prev.getContext("2d")
     if (!pCtx) return
     pCtx.clearRect(0, 0, prev.width, prev.height)
@@ -274,7 +320,7 @@ function BroadcastCanvas() {
       imageCache: imageCacheRef.current,
       videoCache: videoCacheRef.current,
     })
-  }, [])
+  }, [computeSurface])
 
   const drawTransitionFrame = useCallback(
     (
@@ -297,7 +343,20 @@ function BroadcastCanvas() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    // Resolve the render surface for this output (native monitor / custom / NDI).
+    // NDI wins while active so the feed is never distorted (surface.ts §7).
+    const surface = computeSurface()
+    const previewFit = resolvePreviewObjectFit(
+      surface.source,
+      displayConfigRef.current.customFit
+    )
+    const sw = surface.width
+    const sh = surface.height
+
     if (OUTPUT_MODE === "stage" && stageDataRef.current) {
+      // Stage display is not yet surface-aware (screenim.md Phase 4); keep it at
+      // the design resolution and letterbox onto the monitor.
+      canvas.style.objectFit = "contain"
       canvas.width = 1920
       canvas.height = 1080
       drawStageDisplay(
@@ -317,17 +376,19 @@ function BroadcastCanvas() {
       (!activeFilter || activeFilter.showMediaLayer)
 
     if (activeMode.current === "media") {
-      canvas.width = 1920
-      canvas.height = 1080
+      // Media fills the full surface (image/video fit is applied within the frame).
+      canvas.style.objectFit = previewFit
+      canvas.width = sw
+      canvas.height = sh
       ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, 1920, 1080)
-      if (hasMediaLayer) drawMediaLayer(ctx, 1920, 1080)
+      ctx.fillRect(0, 0, sw, sh)
+      if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
       if ((!activeFilter || activeFilter.showContent) && latestMedia.current) {
         drawMediaSource(
           ctx,
           latestMedia.current.img,
-          1920,
-          1080,
+          sw,
+          sh,
           mediaFitRef.current
         )
       } else if (
@@ -335,16 +396,18 @@ function BroadcastCanvas() {
         videoRef.current &&
         videoRef.current.readyState >= 2
       ) {
-        drawMediaSource(ctx, videoRef.current, 1920, 1080, mediaFitRef.current)
+        drawMediaSource(ctx, videoRef.current, sw, sh, mediaFitRef.current)
       }
     } else if (activeMode.current === "slide" && latestSlide.current) {
+      // Slides are percentage-based, so they reflow to the surface natively.
       const { slide } = latestSlide.current
-      canvas.width = 1920
-      canvas.height = 1080
+      canvas.style.objectFit = previewFit
+      canvas.width = sw
+      canvas.height = sh
       if (hasMediaLayer && slide.background.type === "transparent") {
         ctx.fillStyle = "#000"
-        ctx.fillRect(0, 0, 1920, 1080)
-        drawMediaLayer(ctx, 1920, 1080)
+        ctx.fillRect(0, 0, sw, sh)
+        drawMediaLayer(ctx, sw, sh)
       }
       const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
       const tracker = slideAnimTracker.current
@@ -355,13 +418,16 @@ function BroadcastCanvas() {
       renderSlide(
         ctx,
         slide,
-        1920,
-        1080,
+        sw,
+        sh,
         imageCacheRef.current,
         videoCacheRef.current,
         renderOpts
       )
     } else {
+      // Verse mode is not yet surface-aware (screenim.md Phase 2); keep it at the
+      // theme's authored resolution and letterbox onto the monitor.
+      canvas.style.objectFit = "contain"
       const data = latestData.current
       if (!data) {
         ctx.fillStyle = "#000"
@@ -396,6 +462,7 @@ function BroadcastCanvas() {
       drawCountdownOverlay(ctx, canvas.width, canvas.height)
   }, [
     logDebug,
+    computeSurface,
     drawAlertOverlay,
     drawCountdownOverlay,
     drawPropsOverlay,
@@ -873,8 +940,11 @@ function BroadcastCanvas() {
           slideAnimTracker.current = tracker
 
           const measuringCanvas = document.createElement("canvas")
-          measuringCanvas.width = 1920
-          measuringCanvas.height = 1080
+          // Measure line counts at the live surface width so text-build reveals
+          // match the actual wrapped line count on non-16:9 surfaces.
+          const measureSurface = computeSurface()
+          measuringCanvas.width = measureSurface.width
+          measuringCanvas.height = measureSurface.height
           const mCtx = measuringCanvas.getContext("2d")!
 
           const animInfo = {
@@ -887,7 +957,12 @@ function BroadcastCanvas() {
                   : undefined,
               textLineCount:
                 el.type === "text"
-                  ? getTextLineCount(mCtx, el as SlideTextElement, 1920)
+                  ? getTextLineCount(
+                      mCtx,
+                      el as SlideTextElement,
+                      measureSurface.width,
+                      measureSurface.height
+                    )
                   : undefined,
               textWordCount:
                 el.type === "text"
@@ -1352,10 +1427,28 @@ function BroadcastCanvas() {
       (event) => {
         ndiConfigRef.current = event.payload
         logDebug("Received broadcast:ndi-config", event.payload)
+        // Toggling NDI changes which surface wins (NDI resolution vs monitor),
+        // so re-render to pick up the new surface + object-fit.
+        drawRef.current()
         // Push burst when NDI becomes active
         if (event.payload.active) pushNdiBurst()
       }
     )
+
+    // How this output sizes its surface (native / custom / fit). Applied via the
+    // draw loop (surface + object-fit are computed there), so we just stash it
+    // and redraw. Defaults to native until the first message arrives.
+    const unlistenDisplayConfig = currentWindow.listen<{
+      displayMode: OutputDisplayMode
+      customResolution: Surface | null
+      customFit: "contain" | "cover"
+      verseAutoFit: boolean
+      maxVerseScale: number
+    }>("broadcast:display-config", (event) => {
+      displayConfigRef.current = event.payload
+      logDebug("Received broadcast:display-config", event.payload)
+      drawRef.current()
+    })
 
     // Request current NDI status on mount (fixes race condition
     // where NDI is started before this window opens)
@@ -1397,8 +1490,21 @@ function BroadcastCanvas() {
       }
     )
 
+    // Track the window's real inner size so native mode renders at the true
+    // output resolution and reflows when the window is resized or moved to a
+    // different monitor.
+    const applyWindowSize = (size: { width: number; height: number }) => {
+      windowSizeRef.current = { width: size.width, height: size.height }
+      drawRef.current()
+    }
+    void currentWindow.innerSize().then(applyWindowSize).catch(() => {})
+    const unlistenResized = currentWindow.onResized((event) => {
+      applyWindowSize(event.payload)
+    })
+
     return () => {
       unlistenResync.then((fn) => fn())
+      unlistenResized.then((fn) => fn())
       unlisten.then((fn) => fn())
       unlistenSlide.then((fn) => fn())
       unlistenMedia.then((fn) => fn())
@@ -1417,6 +1523,7 @@ function BroadcastCanvas() {
       unlistenMute.then((fn) => fn())
       unlistenStage.then((fn) => fn())
       unlistenNdiConfig.then((fn) => fn())
+      unlistenDisplayConfig.then((fn) => fn())
       // Cleanup must cancel/tear down the ref's latest value at unmount, not a
       // snapshot copied at effect setup.
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1450,6 +1557,7 @@ function BroadcastCanvas() {
   }, [
     draw,
     logDebug,
+    computeSurface,
     preloadThemeImages,
     pushNdiFrame,
     pushNdiBurst,

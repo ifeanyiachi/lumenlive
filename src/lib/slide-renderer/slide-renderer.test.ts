@@ -118,7 +118,8 @@ describe("text measurement", () => {
     const count = getTextLineCount(
       ctx,
       textElement({ text: "a short line" }),
-      1920
+      1920,
+      1080
     )
     expect(count).toBeGreaterThanOrEqual(1)
   })

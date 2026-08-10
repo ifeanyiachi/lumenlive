@@ -38,6 +38,7 @@ export type {
   RenderOptions,
   StageDisplayConfig,
   BroadcastOutput,
+  OutputDisplayMode,
   ContentRouting,
   LayerFilter,
   StageMonitorGroup,

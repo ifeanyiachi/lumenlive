@@ -658,7 +658,7 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
           el.type === "text" ? (el as SlideTextElement).textBuild : undefined,
         textLineCount:
           el.type === "text" && mCtx
-            ? getTextLineCount(mCtx, el as SlideTextElement, 1920)
+            ? getTextLineCount(mCtx, el as SlideTextElement, 1920, 1080)
             : undefined,
         textWordCount:
           el.type === "text"

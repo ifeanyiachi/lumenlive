@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import { __textDrawingTesting, drawTextElement } from "./text-drawing"
 import { wrapText } from "@/lib/verse-renderer"
+import {
+  surfaceFontScale,
+  DESIGN_WIDTH,
+  DESIGN_HEIGHT,
+} from "@/lib/canvas-constants"
 import { createDefaultTextElement } from "@/types/slide"
 import type { SlideTextElement } from "@/types/slide"
 
@@ -284,5 +289,79 @@ describe("text-build reveal styles", () => {
     expect(idx).toBeGreaterThanOrEqual(0)
     expect(alphas[idx]).toBe(1)
     expect(filters[idx]).toBe("none")
+  })
+})
+
+/**
+ * Reflow parity (screenim.md Phase 1): a text element's drawn pixel font size
+ * must be `authored × min(w/1920, h/1080)` — byte-identical at the design
+ * resolution and capped by the shorter axis on non-16:9 surfaces so text never
+ * over-grows on a wide screen.
+ */
+function fontCapturingCtx(surfaceW: number, surfaceH: number) {
+  const fonts: string[] = []
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(_t, prop: string) {
+      if (prop === "measureText")
+        return (t: string) => ({ width: t.length * 10 })
+      if (prop === "canvas") return { width: surfaceW, height: surfaceH }
+      return () => {}
+    },
+    set(_t, prop: string, value: unknown) {
+      if (prop === "font") fonts.push(String(value))
+      return true
+    },
+  }
+  const ctx = new Proxy({}, handler) as unknown as CanvasRenderingContext2D
+  return { ctx, fonts }
+}
+
+const pxOf = (font: string): number =>
+  Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1])
+
+/** First (pre-shrink) font px a short-text element draws at on a surface. */
+function firstFontPx(fontSize: number, w: number, h: number): number {
+  const { ctx, fonts } = fontCapturingCtx(w, h)
+  // Short text in a generous box so auto-shrink never triggers.
+  drawTextElement(
+    ctx,
+    lyric({ text: "Hi", x: 5, y: 5, width: 90, height: 80, fontSize }),
+    w,
+    h
+  )
+  return pxOf(fonts[0])
+}
+
+describe("surfaceFontScale", () => {
+  it("is exactly 1 at the design resolution (parity)", () => {
+    expect(surfaceFontScale(DESIGN_WIDTH, DESIGN_HEIGHT)).toBe(1)
+  })
+
+  it("uses the smaller axis ratio", () => {
+    expect(surfaceFontScale(2560, 1080)).toBe(1) // wide → height-limited
+    expect(surfaceFontScale(1080, 1920)).toBeCloseTo(1080 / 1920, 10)
+    expect(surfaceFontScale(3840, 2160)).toBe(2)
+    expect(surfaceFontScale(960, 540)).toBe(0.5)
+  })
+})
+
+describe("slide text reflow font sizing", () => {
+  const FS = 60
+
+  it("draws at the authored size at 1920×1080 (byte-identical parity)", () => {
+    expect(firstFontPx(FS, 1920, 1080)).toBe(FS)
+  })
+
+  it("does NOT over-grow on a wider-than-16:9 surface (the bug fix)", () => {
+    // Width-only scaling would give 60 * 2560/1920 = 80; min() keeps it at 60.
+    expect(firstFontPx(FS, 2560, 1080)).toBe(FS)
+  })
+
+  it("scales up uniformly on a larger 16:9 surface", () => {
+    expect(firstFontPx(FS, 3840, 2160)).toBe(FS * 2)
+  })
+
+  it("scales down on a smaller surface", () => {
+    expect(firstFontPx(FS, 960, 540)).toBe(FS / 2)
   })
 })

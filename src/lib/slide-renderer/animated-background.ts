@@ -1,4 +1,5 @@
 import type { AnimatedBackground } from "@/types/slide"
+import { surfaceFontScale } from "@/lib/canvas-constants"
 
 /**
  * Procedural, time-driven slide backgrounds (pure Canvas2D — no WebGL).
@@ -37,7 +38,6 @@ function rand(seed: number): number {
 }
 
 const TAU = Math.PI * 2
-const DESIGN_WIDTH = 1920
 
 // ── Scene data (plain, testable) ─────────────────────────────────────────────
 
@@ -248,7 +248,7 @@ export function computeAnimatedScene(
   const intensity = clamp01(spec.intensity)
   const speed = spec.speed > 0 ? spec.speed : 1
   const t = (timeMs / 1000) * speed
-  const scale = width / DESIGN_WIDTH
+  const scale = surfaceFontScale(width, height)
   const maxDim = Math.max(width, height)
 
   // Base wash: palette top→bottom.

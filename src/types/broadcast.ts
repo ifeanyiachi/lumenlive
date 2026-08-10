@@ -18,12 +18,38 @@ export type {
 
 // ── Multi-Output Routing ──
 
+/**
+ * How an output's render surface is sized (see `lib/broadcast-output/surface.ts`):
+ * - `native` — render at the output window's real pixel size and reflow content
+ *              to that aspect ratio (EasyWorship-style). Default.
+ * - `custom` — render at a fixed authored resolution ({@link BroadcastOutput.customResolution}),
+ *              mapped onto the monitor per {@link BroadcastOutput.customFit}.
+ *
+ * NDI overrides both while active — the NDI session resolution wins the surface
+ * so the feed is never distorted (see surface.ts precedence + screenim.md §7).
+ */
+export type OutputDisplayMode = "native" | "custom"
+
 export interface BroadcastOutput {
   id: string
   name: string
   themeId: string
   mode: "normal" | "stage"
   contentSource: ContentRouting
+  /** Surface sizing. Optional for back-compat; a missing value is `"native"`. */
+  displayMode?: OutputDisplayMode
+  /** Authored surface size when {@link displayMode} is `"custom"`. */
+  customResolution?: { width: number; height: number }
+  /** How a `custom` surface maps onto a mismatched monitor. Missing = `"contain"`. */
+  customFit?: "contain" | "cover"
+  /**
+   * Vertical auto-fit for verse text (grow/shrink to fill the text box, like
+   * EasyWorship). Missing = `true`. When `false`, the authored px font size is
+   * kept and only wrapping reflows.
+   */
+  verseAutoFit?: boolean
+  /** Max verse-font growth vs the authored size when auto-fitting. Missing = 1.5. */
+  maxVerseScale?: number
   ndi?: {
     sourceName: string
     resolution: NdiResolution

@@ -3,7 +3,7 @@ import type {
   SlideShapeElement,
   SlideVideoElement,
 } from "@/types/slide"
-import { DESIGN_WIDTH } from "@/lib/canvas-constants"
+import { surfaceFontScale } from "@/lib/canvas-constants"
 import type { SlideRenderCaches } from "./types"
 
 /**
@@ -32,7 +32,7 @@ export function drawImageElement(
   ctx.globalAlpha = element.opacity
 
   if (element.borderRadius > 0) {
-    const r = element.borderRadius * (canvasWidth / DESIGN_WIDTH)
+    const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
     ctx.beginPath()
     ctx.roundRect(x, y, w, h, r)
     ctx.clip()
@@ -94,7 +94,7 @@ export function buildShapePath(
       break
     }
     case "rounded-rect": {
-      const r = element.borderRadius * (canvasWidth / DESIGN_WIDTH)
+      const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
       ctx.roundRect(x, y, w, h, r)
       break
     }
@@ -133,7 +133,7 @@ export function drawShapeElement(
       break
     }
     case "rounded-rect": {
-      const r = element.borderRadius * (canvasWidth / DESIGN_WIDTH)
+      const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
       ctx.roundRect(x, y, w, h, r)
       break
     }
@@ -153,7 +153,7 @@ export function drawShapeElement(
 
   if (element.strokeWidth > 0 && element.strokeColor) {
     ctx.strokeStyle = element.strokeColor
-    ctx.lineWidth = element.strokeWidth * (canvasWidth / DESIGN_WIDTH)
+    ctx.lineWidth = element.strokeWidth * surfaceFontScale(canvasWidth, canvasHeight)
     ctx.stroke()
   }
 
@@ -181,7 +181,7 @@ export function drawVideoElement(
   ctx.globalAlpha = element.opacity
 
   if (element.borderRadius > 0) {
-    const r = element.borderRadius * (canvasWidth / DESIGN_WIDTH)
+    const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
     ctx.beginPath()
     ctx.roundRect(x, y, w, h, r)
     ctx.clip()
