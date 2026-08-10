@@ -14,6 +14,7 @@ import {
   resolveTimeColor,
 } from "@/lib/countdown/timer"
 import { renderCountdownTheme } from "@/lib/countdown/theme-render"
+import { surfaceFontScale } from "@/lib/canvas-constants"
 
 // Re-exported for back-compat: the countdown time math now lives in the shared
 // pure module so the operator preview and this painter can never disagree.
@@ -70,7 +71,7 @@ export function drawAlertOverlay(
     ctx.fillRect(0, barY, w, barH)
 
     ctx.fillStyle = template.textColor
-    ctx.font = `600 ${template.fontSize}px Inter, sans-serif`
+    ctx.font = `600 ${template.fontSize * surfaceFontScale(w, h)}px Inter, sans-serif`
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     ctx.fillText(alert.message, w / 2, barY + barH / 2, w - 80)
@@ -129,7 +130,7 @@ export function drawCountdownOverlay(
       continue
     }
 
-    const fontSize = timer.fontSize * (w / 1920)
+    const fontSize = timer.fontSize * surfaceFontScale(w, h)
     const labelSize = fontSize * 0.4
 
     ctx.font = `700 ${fontSize}px ${timer.fontFamily}, sans-serif`
@@ -182,7 +183,7 @@ export function drawCountdownOverlay(
 
     ctx.fillStyle = timer.backgroundColor
     ctx.beginPath()
-    ctx.roundRect(bx, by, boxW, boxH, 12 * (w / 1920))
+    ctx.roundRect(bx, by, boxW, boxH, 12 * surfaceFontScale(w, h))
     ctx.fill()
 
     if (timer.showLabel && timer.label) {
@@ -314,7 +315,7 @@ export function drawPropsOverlay(
         ctx.fillStyle = prop.backgroundColor
         ctx.fillRect(px, py, pw, ph)
       }
-      const fontSize = prop.fontSize ?? 32
+      const fontSize = (prop.fontSize ?? 32) * surfaceFontScale(w, h)
       ctx.font = `${prop.fontWeight ?? 600} ${fontSize}px ${prop.fontFamily ?? "Inter"}, sans-serif`
       ctx.fillStyle = prop.color ?? "#ffffff"
       ctx.textBaseline = "middle"
@@ -329,7 +330,7 @@ export function drawPropsOverlay(
             : px + pw / 2
       ctx.fillText(prop.text ?? "", tx, py + ph / 2, pw - pad * 2)
     } else if (prop.type === "marquee") {
-      drawMarquee(ctx, prop, px, py, pw, ph, w, now)
+      drawMarquee(ctx, prop, px, py, pw, ph, w, h, now)
     } else if (prop.type === "image" && prop.imageUrl) {
       const img = imageCache.get(prop.imageUrl)
       if (img) {
@@ -357,6 +358,7 @@ function drawMarquee(
   pw: number,
   ph: number,
   canvasW: number,
+  canvasH: number,
   now: number
 ): void {
   if (prop.backgroundColor) {
@@ -367,7 +369,8 @@ function drawMarquee(
   const text = prop.text ?? ""
   if (text.length === 0) return
 
-  const fontSize = prop.fontSize ?? 32
+  const surfaceScale = surfaceFontScale(canvasW, canvasH)
+  const fontSize = (prop.fontSize ?? 32) * surfaceScale
   ctx.font = `${prop.fontWeight ?? 600} ${fontSize}px ${prop.fontFamily ?? "Inter"}, sans-serif`
   ctx.fillStyle = prop.color ?? "#ffffff"
   ctx.textAlign = "left"
@@ -383,8 +386,7 @@ function drawMarquee(
   const gap = fontSize
   const period = textW + gap
 
-  const scale = canvasW / 1920
-  const speed = (prop.scrollSpeed ?? 120) * scale
+  const speed = (prop.scrollSpeed ?? 120) * surfaceScale
   // "left" (default): text enters from the right and exits left. "right": inverse.
   const travelled = (now / 1000) * speed // px scrolled since epoch
   const raw = prop.scrollDirection === "right" ? -travelled : travelled

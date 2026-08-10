@@ -16,6 +16,9 @@
 
 import { renderVerse } from "@/lib/verse-renderer"
 import { renderSlide } from "@/lib/slide-renderer"
+import { surfaceFontScale } from "@/lib/canvas-constants"
+import { projectBoxToSurface } from "@/lib/canvas-box-projection"
+import { STAGE_RESOLUTION } from "@/lib/stage-layout/migrate"
 import {
   computeRemainingSeconds,
   formatCountdownTime,
@@ -518,9 +521,27 @@ export function drawStageDisplay(
 ): void {
   const { layout } = data
 
+  // Background fills the whole real surface (before the reflow transform).
   drawBackground(ctx, w, h, layout.background)
 
-  const byId = new Map(layout.zones.map((z) => [z.id, z]))
+  // Reflow to the output surface with a single uniform scale: draw the whole
+  // stage in an aspect-corrected "virtual" canvas (surface ÷ scale) so every
+  // fixed constant (header height, label fonts, insets) scales automatically,
+  // while zones are re-anchored for the extra space on non-16:9 surfaces. On a
+  // 16:9 surface this is exactly the old uniform scaling; at 1920×1080 it is a
+  // no-op (byte-identical).
+  const scale = surfaceFontScale(w, h)
+  const authored = layout.resolution ?? STAGE_RESOLUTION
+  ctx.save()
+  if (scale !== 1) ctx.scale(scale, scale)
+  const virtual = { width: w / scale, height: h / scale }
+
+  const byId = new Map(
+    layout.zones.map((z) => [
+      z.id,
+      projectBoxToSurface(z, authored, virtual),
+    ])
+  )
   const order =
     layout.layerOrder.length > 0
       ? layout.layerOrder
@@ -583,4 +604,6 @@ export function drawStageDisplay(
         break
     }
   }
+
+  ctx.restore()
 }

@@ -78,6 +78,7 @@ function recordingContext() {
     lineTo: () => {},
     save: () => {},
     restore: () => {},
+    scale: (x: number, y: number) => ops.push({ op: "scale", x, y }),
     measureText: (t: string) => ({ width: t.length * 7 }),
     fillText: (text: string, x: number, y: number) =>
       ops.push({
@@ -391,5 +392,44 @@ describe("drawStageDisplay — live data sources (Phase 4)", () => {
     const { layout, zone } = only("playlist")
     const ops = render(layout, { playlist: [] })
     expect(text(ops, zone.label!)).toBeTruthy()
+  })
+})
+
+describe("drawStageDisplay — native reflow", () => {
+  const standard = migrateStageConfig(DEFAULT_STAGE_DISPLAY_CONFIG, "s", 0)
+
+  it("applies no scale transform at the authored resolution (parity)", () => {
+    const { ctx, ops } = recordingContext()
+    drawStageDisplay(ctx, 1920, 1080, data(standard), caches.img, caches.vid)
+    expect(ops.find((o) => o.op === "scale")).toBeUndefined()
+  })
+
+  it("uniformly scales + fills the whole surface on a larger 16:9 output", () => {
+    const { ctx, ops } = recordingContext()
+    drawStageDisplay(ctx, 3840, 2160, data(standard), caches.img, caches.vid)
+    // Background fills the real surface; content is drawn under a 2x scale, so the
+    // zones stay in virtual (1920x1080) space and the header keeps its position.
+    expect(ops.find((o) => o.op === "fillRect")).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 3840,
+      h: 2160,
+    })
+    expect(ops.find((o) => o.op === "scale")).toMatchObject({ x: 2, y: 2 })
+    expect(text(ops, "CURRENT")).toBeTruthy()
+  })
+
+  it("fills a non-16:9 surface (no distortion — uniform scale + zone re-anchor)", () => {
+    const { ctx, ops } = recordingContext()
+    // 2560x1080 (21:9): surfaceFontScale = min(1.333, 1) = 1, so no scale op, and
+    // zones re-anchor within the wider virtual canvas.
+    drawStageDisplay(ctx, 2560, 1080, data(standard), caches.img, caches.vid)
+    expect(ops.find((o) => o.op === "fillRect")).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 2560,
+      h: 1080,
+    })
+    expect(ops.find((o) => o.op === "scale")).toBeUndefined()
   })
 })

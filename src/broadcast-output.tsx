@@ -354,15 +354,15 @@ function BroadcastCanvas() {
     const sh = surface.height
 
     if (OUTPUT_MODE === "stage" && stageDataRef.current) {
-      // Stage display is not yet surface-aware (screenim.md Phase 4); keep it at
-      // the design resolution and letterbox onto the monitor.
-      canvas.style.objectFit = "contain"
-      canvas.width = 1920
-      canvas.height = 1080
+      // Stage reflows to the surface (drawStageDisplay applies a uniform scale +
+      // zone re-anchor). Native fills the monitor; NDI/custom follow the surface.
+      canvas.style.objectFit = previewFit
+      canvas.width = sw
+      canvas.height = sh
       drawStageDisplay(
         ctx,
-        1920,
-        1080,
+        sw,
+        sh,
         stageDataRef.current,
         imageCacheRef.current,
         videoCacheRef.current
