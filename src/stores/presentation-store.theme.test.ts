@@ -37,7 +37,8 @@ describe("presentation-store — song theme editing", () => {
     const { store, songTheme } = await freshStore()
     const before = store.getState().presentations.length
 
-    store.getState().startEditingSlideTheme(songTheme, true)
+    // Editing a BUILT-IN theme forks it to a new custom one on save.
+    store.getState().startEditingSlideTheme(songTheme, false)
     const el = store.getState().draftPresentation!.slides[0].elements[0]
     store.getState().updateDraftElement(el.id, { color: "#ff0000" })
     store.getState().saveDraft()
@@ -45,20 +46,80 @@ describe("presentation-store — song theme editing", () => {
     const s = store.getState()
     // No library entry was created.
     expect(s.presentations.length).toBe(before)
-    // A custom theme with the edited color was upserted.
-    const saved = s.customSlideThemes.find((t) => t.id === songTheme.id)
-    expect(saved).toBeTruthy()
-    expect(saved!.builtin).toBe(false)
-    const content = saved!.variants.find((v) => v.layout === "content-only")!
+    // Exactly one custom theme — a fork with a NEW id (the built-in is untouched).
+    expect(s.customSlideThemes).toHaveLength(1)
+    const saved = s.customSlideThemes[0]
+    expect(saved.id).not.toBe(songTheme.id)
+    expect(saved.builtin).toBe(false)
+    expect(saved.name).toBe(`${songTheme.name} (Custom)`)
+    const content = saved.variants.find((v) => v.layout === "content-only")!
     const firstEl = content.elements[0] as { color?: string }
     expect(firstEl.color).toBe("#ff0000")
-    // isNew flips off after the first save.
-    expect(s.themeEditSession).toEqual({ themeId: songTheme.id, isNew: false })
+    // The session now targets the fork, so further saves update it in place.
+    expect(s.themeEditSession).toEqual({ themeId: saved.id, isNew: false })
+    expect(s.editingPresentationId).toBe(`__theme__${saved.id}`)
     // The blank variant is derived (same bg, no elements).
-    expect(saved!.variants.map((v) => v.layout)).toEqual([
-      "content-only",
-      "blank",
-    ])
+    expect(saved.variants.map((v) => v.layout)).toEqual(["content-only", "blank"])
+
+    // A second save updates the fork in place (no second custom theme).
+    store.getState().saveDraft()
+    expect(store.getState().customSlideThemes).toHaveLength(1)
+  })
+
+  it("editing a CUSTOM theme updates it in place (no fork)", async () => {
+    const { store } = await freshStore()
+    const custom = {
+      id: "c-inplace",
+      name: "Mine",
+      category: "song" as const,
+      builtin: false,
+      variants: [
+        {
+          layout: "content-only" as const,
+          background: { type: "solid" as const, color: "#111111" },
+          elements: [],
+        },
+        {
+          layout: "blank" as const,
+          background: { type: "solid" as const, color: "#111111" },
+          elements: [],
+        },
+      ],
+    }
+    store.getState().saveCustomSlideTheme(custom)
+    store.getState().startEditingSlideTheme(custom, false)
+    store.getState().saveDraft()
+    const s = store.getState()
+    expect(s.customSlideThemes).toHaveLength(1)
+    expect(s.customSlideThemes[0].id).toBe("c-inplace")
+    expect(s.themeEditSession?.themeId).toBe("c-inplace")
+  })
+
+  it("startEditingNewPresentation opens a draft that persists only on save", async () => {
+    const { store } = await freshStore()
+    const before = store.getState().presentations.length
+
+    store.getState().startEditingNewPresentation("Fresh Deck")
+    expect(store.getState().themeEditSession).toBeNull()
+    expect(store.getState().draftPresentation).toBeTruthy()
+    // Not in the library yet.
+    expect(store.getState().presentations.length).toBe(before)
+
+    // Discarding leaves the library untouched.
+    store.getState().discardDraft()
+    expect(store.getState().presentations.length).toBe(before)
+
+    // Editing again and saving appends exactly one deck.
+    store.getState().startEditingNewPresentation("Fresh Deck")
+    const draftId = store.getState().editingPresentationId
+    store.getState().saveDraft()
+    expect(store.getState().presentations.length).toBe(before + 1)
+    expect(store.getState().presentations.some((p) => p.id === draftId)).toBe(
+      true
+    )
+    // Saving again does not create a duplicate.
+    store.getState().saveDraft()
+    expect(store.getState().presentations.length).toBe(before + 1)
   })
 
   it("discardDraft clears the theme session", async () => {

@@ -54,18 +54,15 @@ const uuid = () => crypto.randomUUID()
 /**
  * Song themes are authored in the slide editor, which the Theme Designer now
  * embeds in place (Phase 4 editor shell) — so the designer stays open and the
- * theme list remains visible on the left while editing.
+ * theme list remains visible on the left while editing. Nothing is persisted
+ * here; the theme is only saved to the custom collection when the user hits
+ * Save in the editor (editing a built-in forks it to a custom copy on save).
  */
-function openSlideEditorForTheme(theme: SlideTheme, isNew: boolean) {
-  usePresentationStore.getState().startEditingSlideTheme(theme, isNew)
+function editSlideTheme(theme: SlideTheme) {
+  usePresentationStore.getState().startEditingSlideTheme(theme, false)
 }
 
-/** Open a custom song theme in the slide editor. */
-function editCustomSlideTheme(theme: SlideTheme) {
-  openSlideEditorForTheme(theme, false)
-}
-
-/** Duplicate any song theme into a new editable custom copy and open it. */
+/** Duplicate a song theme into an editable copy and open it (saved on Save). */
 function duplicateSlideThemeForEdit(theme: SlideTheme) {
   const copy: SlideTheme = {
     ...structuredClone(theme),
@@ -73,18 +70,16 @@ function duplicateSlideThemeForEdit(theme: SlideTheme) {
     name: `${theme.name} Copy`,
     builtin: false,
   }
-  usePresentationStore.getState().saveCustomSlideTheme(copy)
-  openSlideEditorForTheme(copy, true)
+  usePresentationStore.getState().startEditingSlideTheme(copy, true)
 }
 
-/** Create a fresh custom song theme and open it in the slide editor. */
+/** Open a fresh song theme in the slide editor (saved on Save). */
 function createAndEditSongTheme() {
   const { theme } = createDraftSlideTheme(
     { id: uuid(), name: "New Song Theme" },
     uuid
   )
-  usePresentationStore.getState().saveCustomSlideTheme(theme)
-  openSlideEditorForTheme(theme, true)
+  usePresentationStore.getState().startEditingSlideTheme(theme, true)
 }
 
 function ThemeCard({
@@ -102,33 +97,29 @@ function ThemeCard({
 }) {
   // Slide/song themes carry a SlideTheme payload (rendered by the slide renderer,
   // not CanvasVerse) and are edited in the slide editor, not the broadcast canvas.
-  // Custom (non-builtin) song themes are clickable to edit; built-in ones are
-  // duplicated to edit (via the menu). The broadcast active/default/pin actions
-  // never apply to slide themes.
+  // Every song theme is clickable to edit — a built-in opens for editing and
+  // forks to a custom copy on save (like the verse designer). The broadcast
+  // active/default/pin actions never apply to slide themes.
   const isSlide = theme.kind === "slide"
   const broadcastTheme = isSlide ? null : toBroadcastTheme(theme)
   const isCustomSlide = isSlide && !theme.builtin
-  const clickable = !isSlide || isCustomSlide
 
   const handleClick = !isSlide
     ? onSelect
-    : isCustomSlide
-      ? () => editCustomSlideTheme(theme.slide!)
-      : undefined
+    : () => editSlideTheme(theme.slide!)
 
   return (
     <div
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
       title={
         isSlide && !isCustomSlide
-          ? "Built-in song theme — duplicate to edit"
+          ? "Built-in song theme — edit to create your own copy"
           : undefined
       }
       className={cn(
-        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors",
-        clickable && "cursor-pointer hover:bg-muted/50",
+        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors cursor-pointer hover:bg-muted/50",
         isEditing && "ring-2 ring-primary"
       )}
     >
@@ -291,26 +282,26 @@ function ThemeCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-50">
-              {isCustomSlide ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  editSlideTheme(theme.slide!)
+                }}
+              >
+                <EditIcon className="mr-2 size-3.5" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  duplicateSlideThemeForEdit(theme.slide!)
+                }}
+              >
+                <CheckCircleIcon className="mr-2 size-3.5" />
+                Duplicate
+              </DropdownMenuItem>
+              {isCustomSlide && (
                 <>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      editCustomSlideTheme(theme.slide!)
-                    }}
-                  >
-                    <EditIcon className="mr-2 size-3.5" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      duplicateSlideThemeForEdit(theme.slide!)
-                    }}
-                  >
-                    <CheckCircleIcon className="mr-2 size-3.5" />
-                    Duplicate
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -339,16 +330,6 @@ function ThemeCard({
                     Delete
                   </DropdownMenuItem>
                 </>
-              ) : (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    duplicateSlideThemeForEdit(theme.slide!)
-                  }}
-                >
-                  <EditIcon className="mr-2 size-3.5" />
-                  Duplicate &amp; Edit
-                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -53,6 +53,8 @@ interface PresentationState {
   renamePresentation: (id: string, name: string) => void
 
   startEditing: (id: string) => void
+  /** Open the editor on a new, unsaved draft deck (persisted only on save). */
+  startEditingNewPresentation: (name?: string) => void
   saveDraft: () => void
   discardDraft: () => void
 
@@ -214,36 +216,74 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
     })
   },
 
+  startEditingNewPresentation: (name) => {
+    undoStack = []
+    redoStack = []
+    lastUndoPush = 0
+    // Open the editor on a fresh draft that is NOT yet in the library — it's
+    // only persisted when the user hits Save (saveDraft appends it). Cancel
+    // leaves the library untouched.
+    const draft = createDefaultPresentation(name)
+    set({
+      editingPresentationId: draft.id,
+      draftPresentation: draft,
+      activeSlideIndex: 0,
+      selectedElementId: draft.slides[0]?.elements[0]?.id ?? null,
+      themeEditSession: null,
+    })
+  },
+
   saveDraft: () =>
     set((s) => {
       // Theme-authoring session: the draft's single slide becomes a custom
-      // SlideTheme (upserted) rather than a library presentation.
+      // SlideTheme rather than a library presentation. Editing a *built-in*
+      // theme forks it to a new custom one (built-ins live in code and stay
+      // immutable), then keeps editing the fork — mirroring the verse designer.
       const session = s.themeEditSession
       if (session) {
         const slide = s.draftPresentation?.slides[0]
         if (!slide) return s
-        const theme = editableSlideToSlideTheme(slide, {
-          id: session.themeId,
-          name: s.draftPresentation?.name ?? slide.name,
-        })
+        const builtin = BUILTIN_SLIDE_THEMES.find(
+          (t) => t.id === session.themeId
+        )
+        const targetId = builtin ? newId() : session.themeId
+        const draftName = s.draftPresentation?.name ?? slide.name
+        // Distinguish a fork from its built-in when the name wasn't changed.
+        const name =
+          builtin && draftName === builtin.name
+            ? `${draftName} (Custom)`
+            : draftName
+        const theme = editableSlideToSlideTheme(slide, { id: targetId, name })
+        const draftId = `__theme__${targetId}`
         return {
-          customSlideThemes: s.customSlideThemes.some(
-            (t) => t.id === theme.id
-          )
-            ? s.customSlideThemes.map((t) => (t.id === theme.id ? theme : t))
+          customSlideThemes: s.customSlideThemes.some((t) => t.id === targetId)
+            ? s.customSlideThemes.map((t) => (t.id === targetId ? theme : t))
             : [...s.customSlideThemes, theme],
-          themeEditSession: { themeId: session.themeId, isNew: false },
+          themeEditSession: { themeId: targetId, isNew: false },
+          editingPresentationId: draftId,
           draftPresentation: s.draftPresentation
-            ? { ...s.draftPresentation, updatedAt: Date.now() }
+            ? {
+                ...s.draftPresentation,
+                id: draftId,
+                name,
+                updatedAt: Date.now(),
+              }
             : s.draftPresentation,
         }
       }
       if (!s.draftPresentation || !s.editingPresentationId) return s
       const updated = { ...s.draftPresentation, updatedAt: Date.now() }
+      // A brand-new deck (opened via startEditingNewPresentation) isn't in the
+      // library yet — append it; an existing deck is replaced in place.
+      const exists = s.presentations.some(
+        (p) => p.id === s.editingPresentationId
+      )
       return {
-        presentations: s.presentations.map((p) =>
-          p.id === s.editingPresentationId ? updated : p
-        ),
+        presentations: exists
+          ? s.presentations.map((p) =>
+              p.id === s.editingPresentationId ? updated : p
+            )
+          : [...s.presentations, updated],
         draftPresentation: updated,
       }
     }),

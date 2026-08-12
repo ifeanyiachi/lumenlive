@@ -24,8 +24,8 @@ export function PresentationGrid() {
   }, [allPresentations, searchQuery])
 
   const handleCreate = () => {
-    const id = usePresentationStore.getState().createPresentation()
-    usePresentationStore.getState().setSelectedPresentation(id)
+    // Open the editor on a fresh draft; it's only added to the library on save.
+    usePresentationStore.getState().startEditingNewPresentation()
   }
 
   const handleEdit = (id: string) => {
