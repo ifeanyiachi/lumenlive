@@ -3,6 +3,7 @@ import type {
   Slide,
   SlideElement,
   SlideLayoutVariant,
+  SlideTheme,
 } from "@/types/slide"
 import { BUILTIN_SLIDE_THEMES, migrateSlideElements } from "@/types/slide"
 
@@ -85,13 +86,19 @@ export interface ThemeSlideContent {
 /**
  * Resolve the background + freshly-id'd elements for applying a theme variant to
  * a single slide. Returns `null` when the theme or a usable variant is missing.
+ *
+ * `themes` is the pool to resolve `themeId` against — defaults to the built-in
+ * catalog, but callers with user-authored custom slide themes pass
+ * `[...BUILTIN_SLIDE_THEMES, ...customSlideThemes]` so those resolve too
+ * (theme-unification-plan.md, Phase 3d).
  */
 export function resolveThemeSlideContent(
   themeId: string,
   variant: SlideLayoutVariant,
-  newId: () => string
+  newId: () => string,
+  themes: SlideTheme[] = BUILTIN_SLIDE_THEMES
 ): ThemeSlideContent | null {
-  const theme = BUILTIN_SLIDE_THEMES.find((t) => t.id === themeId)
+  const theme = themes.find((t) => t.id === themeId)
   if (!theme) return null
   const v =
     theme.variants.find((vr) => vr.layout === variant) ?? theme.variants[0]
@@ -114,9 +121,10 @@ export function resolveThemeSlideContent(
 export function applyThemeToAllSlides(
   draft: Presentation,
   themeId: string,
-  now: number
+  now: number,
+  themes: SlideTheme[] = BUILTIN_SLIDE_THEMES
 ): Presentation | null {
-  const theme = BUILTIN_SLIDE_THEMES.find((t) => t.id === themeId)
+  const theme = themes.find((t) => t.id === themeId)
   if (!theme) return null
   const slides = draft.slides.map((slide) => {
     const v =

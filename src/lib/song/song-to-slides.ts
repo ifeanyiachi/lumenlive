@@ -1,4 +1,5 @@
 import {
+  BUILTIN_SLIDE_THEMES,
   createDefaultTextElement,
   type AnimatedBackground,
   type Presentation,
@@ -6,6 +7,7 @@ import {
   type SlideBackground,
   type SlideElement,
   type SlideTextElement,
+  type SlideTheme,
 } from "@/types/slide"
 import type {
   Song,
@@ -227,16 +229,29 @@ export function generateSlidesFromSong(
   arrangement: SongArrangement,
   options: SongSlideOptions,
   newId: () => string = uuid,
-  now: number = Date.now()
+  now: number = Date.now(),
+  customThemes: SlideTheme[] = []
 ): Presentation {
+  // Resolve `themeId` against the built-ins plus any user-authored custom song
+  // themes (theme-unification-plan.md, Phase 3d). Empty custom list → built-ins
+  // only, keeping the historical (golden-tested) output byte-identical.
+  const themes = customThemes.length
+    ? [...BUILTIN_SLIDE_THEMES, ...customThemes]
+    : BUILTIN_SLIDE_THEMES
   // Resolve the chosen theme's content + blank backgrounds and lyric typography
   // once; each slide clones from these so no two slides share nested objects.
   const content = resolveThemeSlideContent(
     options.themeId,
     "content-only",
-    newId
+    newId,
+    themes
   )
-  const blank = resolveThemeSlideContent(options.themeId, "blank", newId)
+  const blank = resolveThemeSlideContent(
+    options.themeId,
+    "blank",
+    newId,
+    themes
+  )
   // Transparent output replaces the theme background entirely (lyrics keyed
   // over live video / NDI); the theme still supplies typography.
   const transparent: SlideBackground = { type: "transparent" }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -58,14 +58,19 @@ export function SlideThemePicker() {
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null)
   const [variant, setVariant] = useState<SlideLayoutVariant>("content-only")
 
+  // Built-ins plus the user's custom slide/song themes (Phase 4 follow-up).
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  const allThemes = useMemo(
+    () => [...BUILTIN_SLIDE_THEMES, ...customSlideThemes],
+    [customSlideThemes]
+  )
+
   const filtered =
     category === "all"
-      ? BUILTIN_SLIDE_THEMES
-      : BUILTIN_SLIDE_THEMES.filter((t) => t.category === category)
+      ? allThemes
+      : allThemes.filter((t) => t.category === category)
 
-  const selectedTheme = BUILTIN_SLIDE_THEMES.find(
-    (t) => t.id === selectedThemeId
-  )
+  const selectedTheme = allThemes.find((t) => t.id === selectedThemeId)
   const availableVariants = selectedTheme?.variants.map((v) => v.layout) ?? []
 
   const handleApplyToSlide = () => {

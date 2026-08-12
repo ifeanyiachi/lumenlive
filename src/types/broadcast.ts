@@ -140,6 +140,13 @@ export interface RenderOptions {
    * Auto-fit never shrinks the verse below this. Default 8 (the hard floor).
    */
   minVerseFontSize?: number
+  /**
+   * Frame clock (ms) for an animated background. The animated-background engine
+   * is a pure function of this time, so the caller owns the clock (RAF loop for
+   * live output/preview; a fixed value in tests). Ignored unless the theme's
+   * background is `type: "animated"`. Default 0.
+   */
+  frameTime?: number
 }
 
 export interface StageDisplayConfig {

@@ -1310,6 +1310,7 @@ export function LiveOutputPanel() {
             <CanvasVerse
               theme={baseTheme}
               verse={null}
+              animate
               verseAutoFit={mainOutput?.verseAutoFit ?? true}
               maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
               minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
@@ -1333,6 +1334,7 @@ export function LiveOutputPanel() {
             <CanvasVerse
               theme={activeTheme}
               verse={liveVerse}
+              animate
               verseAutoFit={mainOutput?.verseAutoFit ?? true}
               maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
               minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}

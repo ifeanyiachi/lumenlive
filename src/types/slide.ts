@@ -1,3 +1,10 @@
+// The animated-background model lives in the shared canvas primitives so the
+// broadcast/stage `Background` and the slide `SlideBackground` share one spec.
+// Imported for local use and re-exported so existing `@/types/slide` imports
+// keep resolving unchanged.
+import type { AnimatedBackground, AnimatedBackgroundPreset } from "./canvas"
+export type { AnimatedBackground, AnimatedBackgroundPreset }
+
 // ── Element Animation ──
 
 export type ElementAnimationType =
@@ -148,34 +155,6 @@ export type SlideElement =
   | SlideVideoElement
 
 // ── Background ──
-
-/** Procedural, time-driven background presets (pure Canvas2D — no WebGL). */
-export type AnimatedBackgroundPreset =
-  | "aurora"
-  | "bokeh"
-  | "embers"
-  | "starfield"
-  | "snow"
-  | "godrays"
-  | "gradient-drift"
-
-/**
- * Parameters for an animated (procedural) background. Rendered as a pure
- * function of these params plus a frame clock, so it is identical on every
- * surface (editor preview, live monitor, broadcast output, NDI). See
- * `src/lib/slide-renderer/animated-background.ts`.
- */
-export interface AnimatedBackground {
-  preset: AnimatedBackgroundPreset
-  /** 2–4 colors driving the look. */
-  palette: string[]
-  /** Global time multiplier (~0.25–2); 1 is the design speed. */
-  speed: number
-  /** 0–1 → particle count / glow opacity. */
-  intensity: number
-  /** Optional solid wash behind the effect. */
-  baseColor?: string
-}
 
 export interface SlideBackground {
   type: "solid" | "gradient" | "image" | "video" | "transparent" | "animated"

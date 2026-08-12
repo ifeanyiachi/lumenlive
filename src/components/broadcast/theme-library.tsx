@@ -30,14 +30,61 @@ import {
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { importTheme, exportTheme } from "@/lib/theme-designer-files"
-import type { BroadcastTheme, VerseRenderData } from "@/types"
+import {
+  buildUnifiedRegistry,
+  toBroadcastTheme,
+  createDraftSlideTheme,
+} from "@/lib/theme"
+import { SlideThemeThumbnail } from "@/components/broadcast/slide-theme-thumbnail"
+import { usePresentationStore } from "@/stores/presentation-store"
+import type { VerseRenderData } from "@/types"
 import type { ThemeCategory } from "@/types/broadcast"
+import type { SlideTheme } from "@/types/slide"
+import type { UnifiedTheme } from "@/types/theme"
 
 type FilterTab = "all" | "pinned" | "custom" | ThemeCategory
 
 const THUMBNAIL_VERSE: VerseRenderData = {
   reference: "John 3:16 (KJV)",
   segments: [{ text: "Sample Verse" }],
+}
+
+const uuid = () => crypto.randomUUID()
+
+/**
+ * Song themes are authored in the slide editor, which the Theme Designer now
+ * embeds in place (Phase 4 editor shell) — so the designer stays open and the
+ * theme list remains visible on the left while editing.
+ */
+function openSlideEditorForTheme(theme: SlideTheme, isNew: boolean) {
+  usePresentationStore.getState().startEditingSlideTheme(theme, isNew)
+}
+
+/** Open a custom song theme in the slide editor. */
+function editCustomSlideTheme(theme: SlideTheme) {
+  openSlideEditorForTheme(theme, false)
+}
+
+/** Duplicate any song theme into a new editable custom copy and open it. */
+function duplicateSlideThemeForEdit(theme: SlideTheme) {
+  const copy: SlideTheme = {
+    ...structuredClone(theme),
+    id: uuid(),
+    name: `${theme.name} Copy`,
+    builtin: false,
+  }
+  usePresentationStore.getState().saveCustomSlideTheme(copy)
+  openSlideEditorForTheme(copy, true)
+}
+
+/** Create a fresh custom song theme and open it in the slide editor. */
+function createAndEditSongTheme() {
+  const { theme } = createDraftSlideTheme(
+    { id: uuid(), name: "New Song Theme" },
+    uuid
+  )
+  usePresentationStore.getState().saveCustomSlideTheme(theme)
+  openSlideEditorForTheme(theme, true)
 }
 
 function ThemeCard({
@@ -47,42 +94,74 @@ function ThemeCard({
   isEditing,
   onSelect,
 }: {
-  theme: BroadcastTheme
+  theme: UnifiedTheme
   isActive: boolean
   isDefault: boolean
   isEditing: boolean
   onSelect: () => void
 }) {
+  // Slide/song themes carry a SlideTheme payload (rendered by the slide renderer,
+  // not CanvasVerse) and are edited in the slide editor, not the broadcast canvas.
+  // Custom (non-builtin) song themes are clickable to edit; built-in ones are
+  // duplicated to edit (via the menu). The broadcast active/default/pin actions
+  // never apply to slide themes.
+  const isSlide = theme.kind === "slide"
+  const broadcastTheme = isSlide ? null : toBroadcastTheme(theme)
+  const isCustomSlide = isSlide && !theme.builtin
+  const clickable = !isSlide || isCustomSlide
+
+  const handleClick = !isSlide
+    ? onSelect
+    : isCustomSlide
+      ? () => editCustomSlideTheme(theme.slide!)
+      : undefined
+
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={handleClick}
+      title={
+        isSlide && !isCustomSlide
+          ? "Built-in song theme — duplicate to edit"
+          : undefined
+      }
       className={cn(
-        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors hover:bg-muted/50",
+        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors",
+        clickable && "cursor-pointer hover:bg-muted/50",
         isEditing && "ring-2 ring-primary"
       )}
     >
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-        <CanvasVerse theme={theme} verse={THUMBNAIL_VERSE} className="w-full" />
+        {broadcastTheme ? (
+          <CanvasVerse
+            theme={broadcastTheme}
+            verse={THUMBNAIL_VERSE}
+            className="w-full"
+          />
+        ) : (
+          <SlideThemeThumbnail theme={theme.slide!} className="w-full" />
+        )}
 
-        {/* Default / Active badges */}
-        <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1">
-          {isDefault && (
-            <Badge className="bg-primary text-[0.5rem] text-primary-foreground hover:bg-primary">
-              Default
-            </Badge>
-          )}
-          {isActive && (
-            <Badge className="bg-emerald-600 text-[0.5rem] text-white hover:bg-emerald-600">
-              Active
-            </Badge>
-          )}
-        </div>
+        {/* Default / Active badges — broadcast-output concepts only */}
+        {!isSlide && (
+          <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1">
+            {isDefault && (
+              <Badge className="bg-primary text-[0.5rem] text-primary-foreground hover:bg-primary">
+                Default
+              </Badge>
+            )}
+            {isActive && (
+              <Badge className="bg-emerald-600 text-[0.5rem] text-white hover:bg-emerald-600">
+                Active
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Pin icon */}
-        {theme.pinned && (
+        {!isSlide && theme.pinned && (
           <div className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-background/80">
             <HeartIcon className="size-3 text-primary" strokeWidth={2} />
           </div>
@@ -99,6 +178,11 @@ function ThemeCard({
 
         {/* Tags */}
         <div className="flex shrink-0 items-center gap-1">
+          {isSlide && (
+            <Badge variant="outline" className="text-[0.5rem]">
+              Song
+            </Badge>
+          )}
           {theme.builtin && (
             <Badge variant="outline" className="text-[0.5rem]">
               Built-in
@@ -106,7 +190,8 @@ function ThemeCard({
           )}
         </div>
 
-        {/* More menu */}
+        {/* More menu — broadcast themes only (slide themes have no CRUD here) */}
+        {!isSlide && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -189,6 +274,85 @@ function ThemeCard({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
+
+        {/* Slide/song theme menu — edit in the slide editor, not the broadcast one */}
+        {isSlide && theme.slide && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Song theme options"
+                className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontalIcon className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-50">
+              {isCustomSlide ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      editCustomSlideTheme(theme.slide!)
+                    }}
+                  >
+                    <EditIcon className="mr-2 size-3.5" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      duplicateSlideThemeForEdit(theme.slide!)
+                    }}
+                  >
+                    <CheckCircleIcon className="mr-2 size-3.5" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const newName = window.prompt("Rename theme:", theme.name)
+                      if (newName?.trim()) {
+                        usePresentationStore
+                          .getState()
+                          .renameCustomSlideTheme(theme.id, newName.trim())
+                      }
+                    }}
+                  >
+                    <PinIcon className="mr-2 size-3.5" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      usePresentationStore
+                        .getState()
+                        .deleteCustomSlideTheme(theme.id)
+                    }}
+                  >
+                    <Trash2Icon className="mr-2 size-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    duplicateSlideThemeForEdit(theme.slide!)
+                  }}
+                >
+                  <EditIcon className="mr-2 size-3.5" />
+                  Duplicate &amp; Edit
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   )
@@ -204,7 +368,20 @@ const CATEGORY_FILTERS: ThemeCategory[] = [
 ]
 
 export function ThemeLibrary() {
+  // The store holds broadcast (verse) themes — built-in + custom. The unified
+  // registry lifts those alongside the built-in slide/song themes, so the library
+  // lists every theme (theme-unification-plan.md, Phase 2). Only custom broadcast
+  // themes are passed through; the built-ins (verse + slide) come from the registry.
   const themes = useBroadcastStore((s) => s.themes)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  const unifiedThemes = useMemo(
+    () =>
+      buildUnifiedRegistry(
+        themes.filter((t) => !t.builtin),
+        customSlideThemes
+      ),
+    [themes, customSlideThemes]
+  )
   const activeThemeId = useBroadcastStore(
     (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
   )
@@ -228,7 +405,7 @@ export function ThemeLibrary() {
   }
 
   const filteredThemes = useMemo(() => {
-    let result = themes
+    let result = unifiedThemes
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter((t) => t.name.toLowerCase().includes(q))
@@ -236,9 +413,9 @@ export function ThemeLibrary() {
     if (filter === "pinned") result = result.filter((t) => t.pinned)
     else if (filter === "custom") result = result.filter((t) => !t.builtin)
     else if (CATEGORY_FILTERS.includes(filter as ThemeCategory))
-      result = result.filter((t) => (t.category ?? "general") === filter)
+      result = result.filter((t) => t.category === filter)
     return result
-  }, [themes, search, filter])
+  }, [unifiedThemes, search, filter])
 
   // The default theme is hoisted into its own section at the very top, so it is
   // excluded from the built-in / custom groups below to avoid rendering twice.
@@ -259,10 +436,24 @@ export function ThemeLibrary() {
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
         <span className="text-lg font-semibold text-foreground">Themes</span>
-        <Button onClick={handleNewTheme}>
-          <PlusIcon className="size-4" />
-          New
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <PlusIcon className="size-4" />
+              New
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={handleNewTheme}>
+              Verse / scripture theme
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => guardSwitch(createAndEditSongTheme)}
+            >
+              Song / lyrics theme
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Search */}

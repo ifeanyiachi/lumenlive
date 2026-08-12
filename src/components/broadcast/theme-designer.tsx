@@ -17,6 +17,8 @@ import { DesignCanvas } from "@/components/broadcast/design-canvas"
 import { ThemeFormatToolbar } from "@/components/broadcast/theme-format-toolbar"
 import { PropertiesPanel } from "@/components/broadcast/properties-panel"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
+import { PresentationEditor } from "@/components/slides/presentation-editor"
+import { usePresentationStore } from "@/stores/presentation-store"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -27,11 +29,16 @@ export function ThemeDesigner() {
   const defaultThemeId = useBroadcastStore((s) => s.defaultThemeId)
   const canUndo = useBroadcastStore((s) => s.undoStack.length > 0)
   const canRedo = useBroadcastStore((s) => s.redoStack.length > 0)
+  // A song-theme authoring session (presentation-store) — when active, the
+  // designer embeds the slide editor in place of the verse canvas, keeping the
+  // theme list on the left (theme-unification-plan.md, Phase 4 editor shell).
+  const themeEditSession = usePresentationStore((s) => s.themeEditSession)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editingNameValue, setEditingNameValue] = useState("")
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   const isEditing = draftTheme != null
+  const isEditingSong = themeEditSession != null
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -176,6 +183,10 @@ export function ThemeDesigner() {
   }
 
   const handleClose = () => {
+    // Closing the designer abandons any in-progress song-theme session.
+    if (usePresentationStore.getState().themeEditSession) {
+      usePresentationStore.getState().discardDraft()
+    }
     useBroadcastStore.getState().setDesignerOpen(false)
   }
 
@@ -198,9 +209,12 @@ export function ThemeDesigner() {
   return (
     <DialogPrimitive.Root
       open={isDesignerOpen}
-      onOpenChange={(open) =>
+      onOpenChange={(open) => {
+        if (!open && usePresentationStore.getState().themeEditSession) {
+          usePresentationStore.getState().discardDraft()
+        }
         useBroadcastStore.getState().setDesignerOpen(open)
-      }
+      }}
     >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
@@ -335,7 +349,17 @@ export function ThemeDesigner() {
           >
             <ThemeLibrary />
 
-            {isEditing ? (
+            {isEditingSong ? (
+              // Song theme: embed the full slide editor in place (its own canvas
+              // + properties), so the theme list stays visible on the left.
+              <PresentationEditor
+                embedded
+                themeMode
+                onClose={() =>
+                  usePresentationStore.getState().discardDraft()
+                }
+              />
+            ) : isEditing ? (
               <>
                 <div className="flex min-h-0 flex-col overflow-hidden">
                   <ThemeFormatToolbar />

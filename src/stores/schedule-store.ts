@@ -56,7 +56,14 @@ function deckForSongItem(item: SongScheduleItem): Presentation | null {
     song.slideOptions
   )
   const options = item.themeId ? { ...base, themeId: item.themeId } : base
-  return generateSlidesFromSong(song, arrangement, options)
+  return generateSlidesFromSong(
+    song,
+    arrangement,
+    options,
+    undefined,
+    undefined,
+    usePresentationStore.getState().customSlideThemes
+  )
 }
 
 /** Options shared by the item-adding actions. */

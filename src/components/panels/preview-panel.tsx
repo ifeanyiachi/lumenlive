@@ -471,6 +471,7 @@ export function PreviewPanel() {
           <CanvasVerse
             theme={activeTheme}
             verse={verseData}
+            animate
             verseAutoFit={mainOutput?.verseAutoFit ?? true}
             maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
             minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}

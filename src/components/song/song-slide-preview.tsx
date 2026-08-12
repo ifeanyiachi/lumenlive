@@ -6,6 +6,7 @@ import {
   resolveSongSlideOptions,
 } from "@/lib/song/song-to-slides"
 import { useSettingsStore } from "@/stores/settings-store"
+import { usePresentationStore } from "@/stores/presentation-store"
 import type { Slide } from "@/types/slide"
 import type { Song } from "@/types/song"
 
@@ -69,6 +70,7 @@ const SlideThumb = memo(function SlideThumb({ slide }: { slide: Slide }) {
  */
 export function SongSlidePreview({ song }: { song: Song }) {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
 
   const arrangement =
     song.arrangements.find((a) => a.isDefault) ?? song.arrangements[0] ?? null
@@ -84,9 +86,10 @@ export function SongSlidePreview({ song }: { song: Song }) {
       arrangement,
       options,
       () => `preview-${n++}`,
-      0
+      0,
+      customSlideThemes
     ).slides
-  }, [song, arrangement, defaults])
+  }, [song, arrangement, defaults, customSlideThemes])
 
   return (
     <div className="flex min-h-0 flex-col">

@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { RotateCcwIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,16 +13,20 @@ import {
 } from "@/components/ui/select"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useSongStore } from "@/stores/song-store"
+import { usePresentationStore } from "@/stores/presentation-store"
 import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
 import {
   BUILTIN_SLIDE_THEMES,
   type SlideTransitionType,
   type AnimatedBackground,
   type AnimatedBackgroundPreset,
+  type SlideTheme,
 } from "@/types/slide"
 import type { Song, SongSlideOptions } from "@/types/song"
 
-const SONG_THEMES = BUILTIN_SLIDE_THEMES.filter((t) => t.category === "song")
+const BUILTIN_SONG_THEMES = BUILTIN_SLIDE_THEMES.filter(
+  (t) => t.category === "song"
+)
 
 const PRESET_LABELS: Record<AnimatedBackgroundPreset, string> = {
   aurora: "Aurora",
@@ -34,8 +39,11 @@ const PRESET_LABELS: Record<AnimatedBackgroundPreset, string> = {
 }
 
 /** The animated-background spec of a song theme, or undefined if it isn't animated. */
-function themeAnimatedSpec(themeId: string): AnimatedBackground | undefined {
-  const theme = SONG_THEMES.find((t) => t.id === themeId)
+function themeAnimatedSpec(
+  themeId: string,
+  themes: SlideTheme[]
+): AnimatedBackground | undefined {
+  const theme = themes.find((t) => t.id === themeId)
   const variant =
     theme?.variants.find((v) => v.layout === "content-only") ??
     theme?.variants[0]
@@ -60,6 +68,15 @@ const TRANSITION_LABELS: Record<SlideTransitionType, string> = {
  */
 export function SongProjectionOptions({ song }: { song: Song }) {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  // Built-in song themes plus any user-authored custom song themes (Phase 3d).
+  const songThemes = useMemo(
+    () => [
+      ...BUILTIN_SONG_THEMES,
+      ...customSlideThemes.filter((t) => t.category === "song"),
+    ],
+    [customSlideThemes]
+  )
   const override = song.slideOptions ?? {}
   const resolved = resolveSongSlideOptions(defaults, song.slideOptions)
 
@@ -83,7 +100,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
   // Animated background: shown only when the chosen theme uses one. Effective
   // spec = theme spec with any per-song override merged on top.
-  const themeSpec = themeAnimatedSpec(resolved.themeId)
+  const themeSpec = themeAnimatedSpec(resolved.themeId, songThemes)
   const animOverride = resolved.animatedBackground ?? {}
   const effAnim: AnimatedBackground | undefined = themeSpec
     ? { ...themeSpec, ...animOverride }
@@ -111,7 +128,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SONG_THEMES.map((t) => (
+            {songThemes.map((t) => (
               <SelectItem key={t.id} value={t.id} className="text-xs">
                 {t.name}
               </SelectItem>

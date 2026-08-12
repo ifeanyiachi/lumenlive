@@ -152,6 +152,9 @@ function BroadcastCanvas() {
   // Redraw loop for a video base background (the theme render path has none of
   // its own). Runs only while the base background is a video.
   const baseVideoRafRef = useRef(0)
+  // Redraw loop for the live verse theme's own procedural animated background.
+  // Runs only while the current (verse-mode) theme background is `animated`.
+  const themeAnimRafRef = useRef(0)
   const mediaKindRef = useRef<"image" | "video" | "audio" | null>(null)
   const mediaFitRef = useRef<MediaFitConfig>(DEFAULT_MEDIA_FIT)
   const activeAlerts = useRef<
@@ -315,6 +318,7 @@ function BroadcastCanvas() {
         scale: 1,
         imageCache: imageCacheRef.current,
         surface: { width: w, height: h },
+        frameTime: performance.now(),
       })
     },
     []
@@ -521,6 +525,7 @@ function BroadcastCanvas() {
           verseAutoFit: displayConfigRef.current.verseAutoFit,
           maxVerseScale: displayConfigRef.current.maxVerseScale,
           minVerseFontSize: displayConfigRef.current.minVerseFontSize,
+          frameTime: performance.now(),
         })
         if (!result) {
           ctx.fillStyle = "#000"
@@ -908,6 +913,16 @@ function BroadcastCanvas() {
           hasVerse: Boolean(event.payload.verse),
           themeId: event.payload.theme.id,
         })
+        // A procedural animated background is clock-driven, so it needs a
+        // per-frame redraw; static backgrounds don't. Start/stop accordingly.
+        cancelAnimationFrame(themeAnimRafRef.current)
+        if (event.payload.theme.background.type === "animated") {
+          const tick = () => {
+            drawRef.current()
+            themeAnimRafRef.current = requestAnimationFrame(tick)
+          }
+          themeAnimRafRef.current = requestAnimationFrame(tick)
+        }
         draw()
         pushNdiBurst()
         if (
@@ -949,6 +964,8 @@ function BroadcastCanvas() {
         layerFilterRef.current = event.payload.layerFilter ?? null
         activeMode.current = "slide"
         latestMedia.current = null
+        // Leaving verse mode: stop the verse theme's animated-background loop.
+        cancelAnimationFrame(themeAnimRafRef.current)
         if (videoRef.current) {
           videoRef.current.pause()
           videoRef.current.src = ""
@@ -1108,6 +1125,8 @@ function BroadcastCanvas() {
           v.pause()
         }
         activeMode.current = "media"
+        // Leaving verse mode: stop the verse theme's animated-background loop.
+        cancelAnimationFrame(themeAnimRafRef.current)
 
         mediaKindRef.current = mediaType
         mediaFitRef.current = toFitConfig(event.payload)
@@ -1563,10 +1582,11 @@ function BroadcastCanvas() {
       (event) => {
         baseThemeRef.current = event.payload.theme
         preloadThemeImages(event.payload.theme)
-        // A video base background needs a per-frame redraw to animate; static
-        // backgrounds (solid/gradient/image/theme) don't. Start/stop accordingly.
+        // A video or procedural animated base background needs a per-frame
+        // redraw; static backgrounds (solid/gradient/image/theme) don't.
         cancelAnimationFrame(baseVideoRafRef.current)
-        if (event.payload.theme.background.type === "video") {
+        const baseBgType = event.payload.theme.background.type
+        if (baseBgType === "video" || baseBgType === "animated") {
           const tick = () => {
             drawRef.current()
             baseVideoRafRef.current = requestAnimationFrame(tick)
@@ -1684,6 +1704,7 @@ function BroadcastCanvas() {
       unlistenVisibility.then((fn) => fn())
       unlistenBaseTheme.then((fn) => fn())
       cancelAnimationFrame(baseVideoRafRef.current)
+      cancelAnimationFrame(themeAnimRafRef.current)
       unlistenStage.then((fn) => fn())
       unlistenNdiConfig.then((fn) => fn())
       unlistenDisplayConfig.then((fn) => fn())

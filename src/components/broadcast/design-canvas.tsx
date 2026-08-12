@@ -245,12 +245,16 @@ export function DesignCanvas() {
     })
   }, [draftTheme])
 
-  // Continuous rAF loop for video backgrounds
+  // Continuous rAF loop for backgrounds that redraw every frame (video +
+  // procedural animated). Both need the bitmap re-rasterized per tick — the
+  // animated engine is clock-driven, the video advances its own texture.
   useEffect(() => {
-    const isVideo =
-      draftTheme?.background.type === "video" &&
-      draftTheme.background.video?.url
-    if (!isVideo) {
+    const needsLoop =
+      (draftTheme?.background.type === "video" &&
+        draftTheme.background.video?.url) ||
+      (draftTheme?.background.type === "animated" &&
+        draftTheme.background.animated)
+    if (!needsLoop) {
       if (videoRafRef.current) {
         cancelAnimationFrame(videoRafRef.current)
         videoRafRef.current = null
@@ -271,6 +275,7 @@ export function DesignCanvas() {
   }, [
     draftTheme?.background.type,
     draftTheme?.background.video?.url,
+    draftTheme?.background.animated,
     resyncLatestTheme,
   ])
 
@@ -634,7 +639,10 @@ function renderThemeBitmap(
           timeColor: theme.verseText.color,
           imageCache,
         })
-      : renderVerse(ctx, theme, DESIGNER_SAMPLE_VERSE, { imageCache })
+      : renderVerse(ctx, theme, DESIGNER_SAMPLE_VERSE, {
+          imageCache,
+          frameTime: performance.now(),
+        })
 
   return { bitmap: offscreen, metrics }
 }

@@ -1,15 +1,21 @@
 import type { BroadcastTheme } from "@/types/broadcast"
 import { fitBackgroundRect, linearGradientCoords } from "@/lib/canvas-draw"
+import { drawAnimatedBackground } from "@/lib/slide-renderer/animated-background"
 
 /**
- * Draws a theme's background layer (solid, gradient, image, video, or
+ * Draws a theme's background layer (solid, gradient, image, video, animated, or
  * transparent) onto the full canvas. Isolated from text/layout concerns so the
  * background pipeline can evolve independently.
+ *
+ * `frameTime` (ms) is the clock for an animated background — the animated engine
+ * is a pure function of it, so callers own the clock (a RAF loop for the live
+ * output/designer preview; a fixed value in tests). Ignored for other types.
  */
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
   theme: BroadcastTheme,
-  imageCache?: Map<string, HTMLImageElement>
+  imageCache?: Map<string, HTMLImageElement>,
+  frameTime = 0
 ): void {
   const { width, height } = theme.resolution
   const bg = theme.background
@@ -115,6 +121,15 @@ export function drawBackground(
       ctx.restore()
       break
     }
+
+    case "animated":
+      if (!bg.animated) {
+        ctx.fillStyle = "#000"
+        ctx.fillRect(0, 0, width, height)
+        break
+      }
+      drawAnimatedBackground(ctx, bg.animated, width, height, frameTime)
+      break
 
     case "transparent":
       ctx.clearRect(0, 0, width, height)

@@ -1,6 +1,12 @@
 import { create } from "zustand"
-import type { Slide, SlideElement, Presentation } from "@/types/slide"
+import type {
+  Slide,
+  SlideElement,
+  Presentation,
+  SlideTheme,
+} from "@/types/slide"
 import {
+  BUILTIN_SLIDE_THEMES,
   createDefaultPresentation,
   createDefaultSlide,
   createDefaultTextElement,
@@ -14,9 +20,15 @@ import * as history from "@/lib/presentation/history"
 import * as slides from "@/lib/presentation/slide-mutations"
 import * as catalog from "@/lib/presentation/presentation-mutations"
 import {
+  slideThemeToEditableSlide,
+  editableSlideToSlideTheme,
+} from "@/lib/theme/slide-theme-edit"
+import {
   loadStoredPresentations,
   loadLegacySlidePresentations,
   savePresentations,
+  loadStoredSlideThemes,
+  saveSlideThemes,
 } from "@/lib/presentation/persistence"
 
 interface PresentationState {
@@ -43,6 +55,20 @@ interface PresentationState {
   startEditing: (id: string) => void
   saveDraft: () => void
   discardDraft: () => void
+
+  // ── Custom slide/song themes (theme-unification-plan.md, Phase 3) ──
+  /** User-authored song themes; built-ins live in code and aren't stored here. */
+  customSlideThemes: SlideTheme[]
+  /**
+   * Non-null while the slide editor is authoring a song theme rather than a deck.
+   * Redirects `saveDraft` to write a `SlideTheme` instead of a library entry.
+   */
+  themeEditSession: { themeId: string; isNew: boolean } | null
+  saveCustomSlideTheme: (theme: SlideTheme) => void
+  deleteCustomSlideTheme: (id: string) => void
+  renameCustomSlideTheme: (id: string, name: string) => void
+  /** Open the slide editor on a song theme (an existing custom, or a new/duplicate). */
+  startEditingSlideTheme: (theme: SlideTheme, isNew: boolean) => void
 
   addSlide: () => void
   removeSlide: (index: number) => void
@@ -135,6 +161,8 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
 
   editingPresentationId: null,
   draftPresentation: null,
+  customSlideThemes: [],
+  themeEditSession: null,
   activeSlideIndex: 0,
   selectedElementId: null,
   editingTextElementId: null,
@@ -188,6 +216,28 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
 
   saveDraft: () =>
     set((s) => {
+      // Theme-authoring session: the draft's single slide becomes a custom
+      // SlideTheme (upserted) rather than a library presentation.
+      const session = s.themeEditSession
+      if (session) {
+        const slide = s.draftPresentation?.slides[0]
+        if (!slide) return s
+        const theme = editableSlideToSlideTheme(slide, {
+          id: session.themeId,
+          name: s.draftPresentation?.name ?? slide.name,
+        })
+        return {
+          customSlideThemes: s.customSlideThemes.some(
+            (t) => t.id === theme.id
+          )
+            ? s.customSlideThemes.map((t) => (t.id === theme.id ? theme : t))
+            : [...s.customSlideThemes, theme],
+          themeEditSession: { themeId: session.themeId, isNew: false },
+          draftPresentation: s.draftPresentation
+            ? { ...s.draftPresentation, updatedAt: Date.now() }
+            : s.draftPresentation,
+        }
+      }
       if (!s.draftPresentation || !s.editingPresentationId) return s
       const updated = { ...s.draftPresentation, updatedAt: Date.now() }
       return {
@@ -204,7 +254,61 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
       draftPresentation: null,
       activeSlideIndex: 0,
       selectedElementId: null,
+      themeEditSession: null,
     }),
+
+  saveCustomSlideTheme: (theme) =>
+    set((s) => ({
+      customSlideThemes: s.customSlideThemes.some((t) => t.id === theme.id)
+        ? s.customSlideThemes.map((t) => (t.id === theme.id ? theme : t))
+        : [...s.customSlideThemes, theme],
+    })),
+
+  deleteCustomSlideTheme: (id) =>
+    set((s) => ({
+      customSlideThemes: s.customSlideThemes.filter((t) => t.id !== id),
+      // If the editor is open on the deleted theme, close it.
+      ...(s.themeEditSession?.themeId === id
+        ? {
+            editingPresentationId: null,
+            draftPresentation: null,
+            themeEditSession: null,
+          }
+        : {}),
+    })),
+
+  renameCustomSlideTheme: (id, name) =>
+    set((s) => ({
+      customSlideThemes: s.customSlideThemes.map((t) =>
+        t.id === id ? { ...t, name } : t
+      ),
+    })),
+
+  startEditingSlideTheme: (theme, isNew) => {
+    undoStack = []
+    redoStack = []
+    lastUndoPush = 0
+    let n = 0
+    const slide = slideThemeToEditableSlide(
+      theme,
+      () => `${theme.id}-el-${n++}`,
+      Date.now()
+    )
+    const draft: Presentation = {
+      id: `__theme__${theme.id}`,
+      name: theme.name,
+      slides: [slide],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    set({
+      editingPresentationId: draft.id,
+      draftPresentation: draft,
+      activeSlideIndex: 0,
+      selectedElementId: slide.elements[0]?.id ?? null,
+      themeEditSession: { themeId: theme.id, isNew },
+    })
+  },
 
   addSlide: () =>
     set((s) => {
@@ -657,7 +761,11 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
   },
 
   applyThemeToSlide: (themeId, variant) => {
-    const content = catalog.resolveThemeSlideContent(themeId, variant, newId)
+    // Resolve against built-ins + the user's custom slide themes (Phase 3d/4).
+    const content = catalog.resolveThemeSlideContent(themeId, variant, newId, [
+      ...BUILTIN_SLIDE_THEMES,
+      ...get().customSlideThemes,
+    ])
     if (!content) return
     const s = get()
     if (!s.draftPresentation) return
@@ -682,7 +790,8 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
     const next = catalog.applyThemeToAllSlides(
       s.draftPresentation,
       themeId,
-      Date.now()
+      Date.now(),
+      [...BUILTIN_SLIDE_THEMES, ...s.customSlideThemes]
     )
     if (!next) return
     pushUndo(s.draftPresentation)
@@ -718,6 +827,8 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
 let hydrationPromise: Promise<void> | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let pendingSave: Promise<void> = Promise.resolve()
+let themeSaveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingThemeSave: Promise<void> = Promise.resolve()
 const SAVE_DEBOUNCE_MS = 500
 
 export function hydratePresentations(): Promise<void> {
@@ -733,6 +844,10 @@ export function hydratePresentations(): Promise<void> {
           presentations: [...s.presentations, ...legacy],
         }))
       }
+
+      const storedThemes = await loadStoredSlideThemes()
+      if (storedThemes)
+        usePresentationStore.setState({ customSlideThemes: storedThemes })
     } catch {
       console.warn(
         "[presentations] Failed to load persisted presentations, starting empty"
@@ -748,6 +863,15 @@ export function hydratePresentations(): Promise<void> {
           saveTimer = null
           pendingSave = pendingSave.then(() =>
             savePresentations(usePresentationStore.getState().presentations)
+          )
+        }, SAVE_DEBOUNCE_MS)
+      }
+      if (state.customSlideThemes !== prevState.customSlideThemes) {
+        if (themeSaveTimer) clearTimeout(themeSaveTimer)
+        themeSaveTimer = setTimeout(() => {
+          themeSaveTimer = null
+          pendingThemeSave = pendingThemeSave.then(() =>
+            saveSlideThemes(usePresentationStore.getState().customSlideThemes)
           )
         }, SAVE_DEBOUNCE_MS)
       }

@@ -80,9 +80,41 @@ export interface TextStyle {
   outline: Outline | null
 }
 
-/** A canvas background — solid / gradient / image / video / transparent. */
+/** Procedural, time-driven background presets (pure Canvas2D — no WebGL). */
+export type AnimatedBackgroundPreset =
+  | "aurora"
+  | "bokeh"
+  | "embers"
+  | "starfield"
+  | "snow"
+  | "godrays"
+  | "gradient-drift"
+
+/**
+ * Parameters for an animated (procedural) background. Rendered as a pure
+ * function of these params plus a frame clock, so it is identical on every
+ * surface (editor preview, live monitor, broadcast output, NDI). See
+ * `src/lib/slide-renderer/animated-background.ts`.
+ *
+ * Lives here (not in `types/slide.ts`) so both the slide `SlideBackground` and
+ * the shared broadcast/stage {@link Background} can carry an animated spec off
+ * the same primitive — the two theme systems share one animated-background model.
+ */
+export interface AnimatedBackground {
+  preset: AnimatedBackgroundPreset
+  /** 2–4 colors driving the look. */
+  palette: string[]
+  /** Global time multiplier (~0.25–2); 1 is the design speed. */
+  speed: number
+  /** 0–1 → particle count / glow opacity. */
+  intensity: number
+  /** Optional solid wash behind the effect. */
+  baseColor?: string
+}
+
+/** A canvas background — solid / gradient / image / video / animated / transparent. */
 export interface Background {
-  type: "solid" | "gradient" | "image" | "video" | "transparent"
+  type: "solid" | "gradient" | "image" | "video" | "animated" | "transparent"
   color: string
   gradient: {
     type: "linear" | "radial"
@@ -101,4 +133,6 @@ export interface Background {
     fit: "cover" | "contain" | "stretch"
     brightness: number
   } | null
+  /** Procedural animated background; present only when `type === "animated"`. */
+  animated?: AnimatedBackground | null
 }

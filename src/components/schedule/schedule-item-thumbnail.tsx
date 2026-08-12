@@ -53,6 +53,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
   )
   // Re-render the song thumbnail if the global default theme changes.
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
   // Holds the latest draw so the async image-load callback can redraw without
   // draw() referencing itself (which the compiler flags and risks stale closures).
   const drawRef = useRef<() => void>(() => {})
@@ -172,8 +173,14 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
             song.slideOptions
           )
           const options = si.themeId ? { ...base, themeId: si.themeId } : base
-          const slide = generateSlidesFromSong(song, arrangement, options)
-            .slides[0]
+          const slide = generateSlidesFromSong(
+            song,
+            arrangement,
+            options,
+            undefined,
+            undefined,
+            customSlideThemes
+          ).slides[0]
           if (slide) {
             renderSlide(ctx, slide, w, h, getSlideImageCache())
             break
@@ -211,7 +218,14 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         break
       }
     }
-  }, [item, presentation, mediaAsset, song, songSlideDefaults])
+  }, [
+    item,
+    presentation,
+    mediaAsset,
+    song,
+    songSlideDefaults,
+    customSlideThemes,
+  ])
 
   useEffect(() => {
     drawRef.current = draw

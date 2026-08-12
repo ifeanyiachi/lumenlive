@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +49,7 @@ import {
 } from "lucide-react"
 import { useSettingsStore } from "@/stores"
 import { flushSettings } from "@/stores/settings-store"
+import { usePresentationStore } from "@/stores/presentation-store"
 import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
 import { useTutorialStore } from "@/stores/tutorial-store"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
@@ -1228,6 +1229,15 @@ const SONG_THEME_OPTIONS = BUILTIN_SLIDE_THEMES.filter(
 function SongsSection() {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
   const setDefaults = useSettingsStore((s) => s.setSongSlideDefaults)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  // Built-in song themes plus any user-authored custom ones (Phase 3d).
+  const songThemeOptions = useMemo(
+    () => [
+      ...SONG_THEME_OPTIONS,
+      ...customSlideThemes.filter((t) => t.category === "song"),
+    ],
+    [customSlideThemes]
+  )
   const geniusApiKey = useSettingsStore((s) => s.geniusApiKey)
   const setGeniusApiKey = useSettingsStore((s) => s.setGeniusApiKey)
   const update = (patch: Partial<typeof defaults>) =>
@@ -1364,7 +1374,7 @@ function SongsSection() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SONG_THEME_OPTIONS.map((t) => (
+            {songThemeOptions.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.name}
               </SelectItem>

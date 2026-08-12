@@ -131,7 +131,7 @@ function renderVerseImpl(
     ctx.globalAlpha = opacity
   }
 
-  drawBackground(ctx, scaledTheme, options?.imageCache)
+  drawBackground(ctx, scaledTheme, options?.imageCache, options?.frameTime)
 
   const layerOrder = theme.layerOrder
   if (!layerOrder || layerOrder.length === 0) {

@@ -1,5 +1,5 @@
 import { load, type Store } from "@tauri-apps/plugin-store"
-import type { Presentation, Slide } from "@/types/slide"
+import type { Presentation, Slide, SlideTheme } from "@/types/slide"
 import { migrateSlideElements } from "@/types/slide"
 
 /**
@@ -120,5 +120,56 @@ export async function savePresentations(
     await store.save()
   } catch {
     console.warn("[presentations] Failed to persist presentations")
+  }
+}
+
+// ── Custom slide/song themes ──
+// User-authored `SlideTheme`s (theme-unification-plan.md, Phase 3). Stored in the
+// same plugin-store file under a separate key so custom song themes survive a
+// reload. Built-in themes live in code and are never persisted.
+
+const CUSTOM_SLIDE_THEMES_KEY = "customSlideThemes"
+
+/** Structural check for one persisted custom slide theme (id/name/variants[]). */
+function isStructurallyValidSlideTheme(value: unknown): value is SlideTheme {
+  if (!value || typeof value !== "object") return false
+  const t = value as Record<string, unknown>
+  return (
+    typeof t.id === "string" &&
+    typeof t.name === "string" &&
+    Array.isArray(t.variants) &&
+    t.variants.every(
+      (v) =>
+        v != null &&
+        typeof v === "object" &&
+        Array.isArray((v as Record<string, unknown>).elements)
+    )
+  )
+}
+
+/** Load persisted custom slide themes, or `null` when there are none. */
+export async function loadStoredSlideThemes(): Promise<SlideTheme[] | null> {
+  const store = await getPresentationStore()
+  const raw = await store.get(CUSTOM_SLIDE_THEMES_KEY)
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  const valid = raw.filter(isStructurallyValidSlideTheme)
+  const dropped = raw.length - valid.length
+  if (dropped > 0) {
+    console.warn(
+      `[slide-themes] Skipped ${dropped} malformed custom theme record(s) while loading`
+    )
+  }
+  // Custom themes are never built-in; normalize the flag defensively.
+  return valid.length ? valid.map((t) => ({ ...t, builtin: false })) : null
+}
+
+/** Persist the current custom slide themes, swallowing errors by convention. */
+export async function saveSlideThemes(themes: SlideTheme[]): Promise<void> {
+  try {
+    const store = await getPresentationStore()
+    await store.set(CUSTOM_SLIDE_THEMES_KEY, themes)
+    await store.save()
+  } catch {
+    console.warn("[slide-themes] Failed to persist custom slide themes")
   }
 }

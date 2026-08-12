@@ -102,4 +102,40 @@ describe("theme application", () => {
       applyThemeToAllSlides(createDefaultPresentation("x"), "nope", NOW)
     ).toBeNull()
   })
+
+  it("resolves a theme from a custom `themes` pool (Phase 3d)", () => {
+    const custom = {
+      id: "custom-x",
+      name: "Custom",
+      category: "song" as const,
+      builtin: false,
+      variants: [
+        {
+          layout: "content-only" as const,
+          background: { type: "solid" as const, color: "#abcabc" },
+          elements: [],
+        },
+      ],
+    }
+    // Unknown to the built-in default pool…
+    expect(
+      resolveThemeSlideContent("custom-x", "content-only", counter())
+    ).toBeNull()
+    // …but resolvable when passed in the pool.
+    const content = resolveThemeSlideContent(
+      "custom-x",
+      "content-only",
+      counter(),
+      [...BUILTIN_SLIDE_THEMES, custom]
+    )!
+    expect(content.background).toEqual({ type: "solid", color: "#abcabc" })
+
+    const next = applyThemeToAllSlides(
+      createDefaultPresentation("Deck"),
+      "custom-x",
+      NOW,
+      [...BUILTIN_SLIDE_THEMES, custom]
+    )!
+    expect(next.slides[0].background).toEqual({ type: "solid", color: "#abcabc" })
+  })
 })

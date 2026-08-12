@@ -178,6 +178,7 @@ function ScheduleAllTab({
   const selectedItemId = useScheduleStore((s) => s.selectedItemId)
   const highlightedId = useScheduleStore((s) => s.highlightedId)
   const presentations = usePresentationStore((s) => s.presentations)
+  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
   const songs = useSongStore((s) => s.songs)
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
   const [editingName, setEditingName] = useState(false)
@@ -238,10 +239,20 @@ function ScheduleAllTab({
       if (!arrangement) continue
       const base = resolveSongSlideOptions(songSlideDefaults, song.slideOptions)
       const options = si.themeId ? { ...base, themeId: si.themeId } : base
-      m.set(item.id, generateSlidesFromSong(song, arrangement, options))
+      m.set(
+        item.id,
+        generateSlidesFromSong(
+          song,
+          arrangement,
+          options,
+          undefined,
+          undefined,
+          customSlideThemes
+        )
+      )
     }
     return m
-  }, [activeSchedule?.items, songs, songSlideDefaults])
+  }, [activeSchedule?.items, songs, songSlideDefaults, customSlideThemes])
 
   const toggleExpanded = useCallback((itemId: string) => {
     setExpandedIds((prev) => {

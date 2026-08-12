@@ -104,7 +104,14 @@ export function addSongAsIndividualSlides({
     useSettingsStore.getState().songSlideDefaults,
     song.slideOptions
   )
-  const deck = generateSlidesFromSong(song, arrangement, options)
+  const deck = generateSlidesFromSong(
+    song,
+    arrangement,
+    options,
+    undefined,
+    undefined,
+    usePresentationStore.getState().customSlideThemes
+  )
   if (deck.slides.length === 0) {
     toast.info("This song has no lyrics to add as slides")
     return

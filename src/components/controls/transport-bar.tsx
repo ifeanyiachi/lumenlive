@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { SettingsDialog } from "@/components/settings-dialog"
 import { ThemeDesigner } from "@/components/broadcast/theme-designer"
+import { PresentationEditorHost } from "@/components/slides/presentation-editor-host"
 import { StageLayoutDesigner } from "@/components/broadcast/stage-layout/stage-layout-designer"
 import { BroadcastSettings } from "@/components/broadcast/broadcast-settings"
 import {
@@ -135,6 +136,7 @@ export function TransportBar() {
           <PaletteIcon className="size-3.5" />
         </Button>
         <ThemeDesigner />
+        <PresentationEditorHost />
         <Button
           variant="ghost"
           size="icon-sm"

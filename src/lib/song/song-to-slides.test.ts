@@ -6,6 +6,7 @@ import {
   DEFAULT_SONG_SLIDE_OPTIONS,
 } from "./song-to-slides"
 import type { Song, SongArrangement, SongSlideOptions } from "@/types/song"
+import type { SlideTheme } from "@/types/slide"
 
 /** Deterministic id generator so output is byte-comparable across runs. */
 function seededIds() {
@@ -123,6 +124,72 @@ describe("generateSlidesFromSong", () => {
       "Verse 1",
       "Chorus",
     ])
+  })
+
+  const customSongTheme: SlideTheme = {
+    id: "custom-song-1",
+    name: "My Custom Theme",
+    category: "song",
+    builtin: false,
+    variants: [
+      {
+        layout: "content-only",
+        background: { type: "solid", color: "#ff0000" },
+        elements: [
+          {
+            type: "text",
+            text: "Verse lyrics here",
+            x: 5,
+            y: 15,
+            width: 90,
+            height: 70,
+            fontFamily: "Inter",
+            fontSize: 61,
+            fontWeight: 700,
+            bold: false,
+            italic: false,
+            underline: false,
+            color: "#00ff00",
+            horizontalAlign: "center",
+            verticalAlign: "middle",
+            lineHeight: 1.4,
+            textTransform: "none",
+          },
+        ],
+      },
+      {
+        layout: "blank",
+        background: { type: "solid", color: "#ff0000" },
+        elements: [],
+      },
+    ],
+  }
+
+  it("resolves a custom (non-builtin) song theme passed via customThemes", () => {
+    const deck = generateSlidesFromSong(
+      s,
+      arrangement(["c"]),
+      { ...OPTS, themeId: "custom-song-1" },
+      seededIds(),
+      NOW,
+      [customSongTheme]
+    )
+    expect(deck.slides[0].background).toEqual({ type: "solid", color: "#ff0000" })
+    const el = deck.slides[0].elements[0] as { color: string; fontSize: number }
+    expect(el.color).toBe("#00ff00")
+    expect(el.fontSize).toBe(61)
+  })
+
+  it("falls back when a custom themeId isn't in the pool (unchanged behaviour)", () => {
+    const deck = generateSlidesFromSong(
+      s,
+      arrangement(["c"]),
+      { ...OPTS, themeId: "custom-song-1" },
+      seededIds(),
+      NOW
+      // no customThemes → unknown id → fallback background
+    )
+    expect(deck.slides[0].background).toEqual({ type: "solid", color: "#000000" })
   })
 
   it("skips empty sections and unresolved section ids without crashing", () => {

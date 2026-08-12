@@ -525,7 +525,21 @@ function ElementPropertiesRouter({ element }: { element: SlideElement }) {
   }
 }
 
-export function PresentationEditor({ onClose }: { onClose: () => void }) {
+export function PresentationEditor({
+  onClose,
+  embedded = false,
+  themeMode = false,
+}: {
+  onClose: () => void
+  /** Fill the parent instead of a full-screen `fixed inset-0` overlay. */
+  embedded?: boolean
+  /**
+   * Author a single-slide song *theme* rather than a deck: hide the multi-slide
+   * strip and deck-only chrome (export/import/apply-theme), and save to the
+   * custom-theme collection (theme-unification-plan.md, Phase 4 editor shell).
+   */
+  themeMode?: boolean
+}) {
   const draft = usePresentationStore((s) => s.draftPresentation)
   const activeSlideIndex = usePresentationStore((s) => s.activeSlideIndex)
   const selectedElementId = usePresentationStore((s) => s.selectedElementId)
@@ -907,9 +921,16 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
     activeSlide?.elements.find((e) => e.id === selectedElementId) ?? null
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-background">
-      {/* Left: Slide strip */}
-      <SlideStrip onPreviewTransition={handlePreviewTransition} />
+    <div
+      className={cn(
+        "flex bg-background",
+        embedded ? "h-full min-h-0 w-full" : "fixed inset-0 z-50"
+      )}
+    >
+      {/* Left: Slide strip — a theme is a single slide, so hide it in theme mode */}
+      {!themeMode && (
+        <SlideStrip onPreviewTransition={handlePreviewTransition} />
+      )}
 
       {/* Center: Canvas preview */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -928,7 +949,7 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
               }
             }}
             className="h-7 w-64 text-sm font-medium"
-            placeholder="Presentation name"
+            placeholder={themeMode ? "Theme name" : "Presentation name"}
           />
           <div className="flex items-center gap-2">
             <Button
@@ -956,80 +977,88 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
             >
               <GridIcon className="size-3.5" />
             </Button>
-            <SlideThemePicker />
-            <div className="mx-1 h-5 w-px bg-border" />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Export presentation"
-              onClick={() => {
-                if (!draft) return
-                const json = usePresentationStore
-                  .getState()
-                  .exportPresentation(draft.id)
-                if (!json) return
-                const blob = new Blob([json], { type: "application/json" })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = `${draft.name || "presentation"}.json`
-                a.click()
-                URL.revokeObjectURL(url)
-                toast.success("Presentation exported as JSON")
-              }}
-            >
-              <DownloadIcon className="size-3.5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" title="Export as PDF">
-                  <FileTextIcon className="size-3.5" />
+            {!themeMode && (
+              <>
+                <SlideThemePicker />
+                <div className="mx-1 h-5 w-px bg-border" />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Export presentation"
+                  onClick={() => {
+                    if (!draft) return
+                    const json = usePresentationStore
+                      .getState()
+                      .exportPresentation(draft.id)
+                    if (!json) return
+                    const blob = new Blob([json], { type: "application/json" })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = `${draft.name || "presentation"}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                    toast.success("Presentation exported as JSON")
+                  }}
+                >
+                  <DownloadIcon className="size-3.5" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem
-                  onClick={async () => {
-                    if (!draft) return
-                    await exportCurrentSlideAsPdf(draft, activeSlideIndex)
-                    toast.success("Slide exported as PDF")
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Export as PDF"
+                    >
+                      <FileTextIcon className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        if (!draft) return
+                        await exportCurrentSlideAsPdf(draft, activeSlideIndex)
+                        toast.success("Slide exported as PDF")
+                      }}
+                    >
+                      Export current slide
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        if (!draft) return
+                        await exportAllSlidesAsPdf(draft)
+                        toast.success("All slides exported as PDF")
+                      }}
+                    >
+                      Export all slides
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Import presentation"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = ".json"
+                    input.onchange = () => {
+                      const file = input.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        const json = reader.result as string
+                        usePresentationStore.getState().importPresentation(json)
+                      }
+                      reader.readAsText(file)
+                    }
+                    input.click()
                   }}
                 >
-                  Export current slide
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    if (!draft) return
-                    await exportAllSlidesAsPdf(draft)
-                    toast.success("All slides exported as PDF")
-                  }}
-                >
-                  Export all slides
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Import presentation"
-              onClick={() => {
-                const input = document.createElement("input")
-                input.type = "file"
-                input.accept = ".json"
-                input.onchange = () => {
-                  const file = input.files?.[0]
-                  if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    const json = reader.result as string
-                    usePresentationStore.getState().importPresentation(json)
-                  }
-                  reader.readAsText(file)
-                }
-                input.click()
-              }}
-            >
-              <UploadIcon className="size-3.5" />
-            </Button>
+                  <UploadIcon className="size-3.5" />
+                </Button>
+              </>
+            )}
             <div className="mx-1 h-5 w-px bg-border" />
             <Button
               variant="outline"
@@ -1046,7 +1075,7 @@ export function PresentationEditor({ onClose }: { onClose: () => void }) {
               size="sm"
               onClick={() => {
                 usePresentationStore.getState().saveDraft()
-                toast.success("Presentation saved")
+                toast.success(themeMode ? "Theme saved" : "Presentation saved")
               }}
             >
               <SaveIcon className="mr-1.5 size-3" />
