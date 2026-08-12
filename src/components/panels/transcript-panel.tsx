@@ -9,12 +9,14 @@ import {
   useDetectionStore,
   useQueueStore,
   useBibleStore,
+  useBroadcastStore,
   useTranscriptStore,
   useSettingsStore,
 } from "@/stores"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
 import { bibleActions } from "@/hooks/use-bible"
+import { toVerseRenderData } from "@/hooks/use-broadcast"
 import type { DetectionResult, ReadingAdvance } from "@/types"
 
 /**
@@ -86,12 +88,15 @@ export function TranscriptPanel() {
     const { directAutoDisplay, semanticAutoQueue, confidenceThreshold } =
       useSettingsStore.getState()
 
-    // Auto-navigate book search + select verse for preview/live
+    // "Direct verse auto-display" (Detection Behavior) is the gate: when on, a
+    // spoken direct reference follows in the book search and is sent to the
+    // audience automatically. When off, the detection only lands in the AI
+    // Detections panel and queue (below) for the operator to send deliberately.
     const directHit = detections.find(
       (d) => d.source === "direct" && !d.is_chapter_only
     )
-    if (directHit && directHit.book_number > 0 && directAutoDisplay) {
-      bibleActions.selectVerse({
+    if (directAutoDisplay && directHit && directHit.book_number > 0) {
+      const verse = {
         id: 0,
         translation_id: useBibleStore.getState().activeTranslationId,
         book_number: directHit.book_number,
@@ -100,12 +105,24 @@ export function TranscriptPanel() {
         chapter: directHit.chapter,
         verse: directHit.verse,
         text: directHit.verse_text,
-      })
+      }
+      // Reflect the verse in the book search (releases any prior pin) without
+      // grabbing the arrow keys, then commit it to the audience.
+      bibleActions.selectVerse(verse)
       useBibleStore.getState().setPendingNavigation({
         bookNumber: directHit.book_number,
         chapter: directHit.chapter,
         verse: directHit.verse,
+        focusPanel: false,
       })
+      const translation =
+        useBibleStore
+          .getState()
+          .translations.find((t) => t.id === verse.translation_id)
+          ?.abbreviation ?? "KJV"
+      const bs = useBroadcastStore.getState()
+      bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
+      bs.takeToLive()
     }
 
     // Auto-queue detections based on per-source settings
@@ -128,13 +145,14 @@ export function TranscriptPanel() {
       }
 
       // Decide whether to queue this detection:
-      // - Direct: use backend auto_queued flag (merger cooldown), gated by setting + threshold
-      // - Semantic: queue if enabled and confidence meets threshold
+      // - Direct: always auto-queue (subject to the merger's auto_queued flag +
+      //   threshold) so the verse is available to send even when auto-display is
+      //   off. "Direct verse auto-display" only controls whether it ALSO goes to
+      //   the audience automatically (handled above), never whether it queues.
+      // - Semantic: queue only when the auto-queue setting is enabled.
       const shouldQueue =
         d.source === "direct"
-          ? d.auto_queued &&
-            directAutoDisplay &&
-            d.confidence >= confidenceThreshold
+          ? d.auto_queued && d.confidence >= confidenceThreshold
           : semanticAutoQueue && d.confidence >= confidenceThreshold
 
       if (shouldQueue) {

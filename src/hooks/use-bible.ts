@@ -93,10 +93,15 @@ export const bibleActions = {
   searchVerses,
   semanticSearch,
   loadCrossReferences,
-  navigateToVerse: (bookNumber: number, chapter: number, verse: number) =>
+  navigateToVerse: (
+    bookNumber: number,
+    chapter: number,
+    verse: number,
+    focusPanel = true
+  ) =>
     useBibleStore
       .getState()
-      .setPendingNavigation({ bookNumber, chapter, verse }),
+      .setPendingNavigation({ bookNumber, chapter, verse, focusPanel }),
   selectVerse: (verse: Verse | null) => {
     useBibleStore.getState().selectVerse(verse)
     // Manually picking a verse returns both live and preview ownership to the

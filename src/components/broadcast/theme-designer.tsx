@@ -11,6 +11,7 @@ import {
   Redo2Icon,
   RotateCcwIcon,
   PaletteIcon,
+  StarIcon,
 } from "lucide-react"
 import { DesignCanvas } from "@/components/broadcast/design-canvas"
 import { ThemeFormatToolbar } from "@/components/broadcast/theme-format-toolbar"
@@ -23,6 +24,7 @@ export function ThemeDesigner() {
   const isDesignerOpen = useBroadcastStore((s) => s.isDesignerOpen)
   const draftTheme = useBroadcastStore((s) => s.draftTheme)
   const editingThemeId = useBroadcastStore((s) => s.editingThemeId)
+  const defaultThemeId = useBroadcastStore((s) => s.defaultThemeId)
   const canUndo = useBroadcastStore((s) => s.undoStack.length > 0)
   const canRedo = useBroadcastStore((s) => s.redoStack.length > 0)
   const [isEditingName, setIsEditingName] = useState(false)
@@ -162,6 +164,17 @@ export function ThemeDesigner() {
     toast.success("Theme saved")
   }
 
+  const handleSetDefault = () => {
+    // Save first so an edited built-in becomes a real custom theme, then mark
+    // whatever we're now editing as the default.
+    useBroadcastStore.getState().saveDraft()
+    const id = useBroadcastStore.getState().editingThemeId
+    if (id) {
+      useBroadcastStore.getState().setDefaultTheme(id)
+      toast.success("Set as default theme")
+    }
+  }
+
   const handleClose = () => {
     useBroadcastStore.getState().setDesignerOpen(false)
   }
@@ -286,6 +299,15 @@ export function ThemeDesigner() {
                 <Button variant="outline" onClick={handleDiscard}>
                   <TrashIcon className="size-4" />
                   Discard
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSetDefault}
+                  disabled={editingThemeId === defaultThemeId}
+                  title="Save and make this the default theme"
+                >
+                  <StarIcon className="size-4" />
+                  Set Default
                 </Button>
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"

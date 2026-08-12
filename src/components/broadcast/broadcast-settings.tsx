@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { useBroadcastStore, useCountdownStore } from "@/stores"
+import { useMediaStore } from "@/stores/media-store"
 import type {
   NdiAlphaMode,
   NdiFrameRate,
@@ -44,12 +45,22 @@ import type {
 import {
   MonitorIcon,
   CastIcon,
-  EyeIcon,
-  EyeOffIcon,
   RefreshCwIcon,
   RadioIcon,
   LayersIcon,
+  ImageIcon,
 } from "lucide-react"
+import { convertFileSrc } from "@tauri-apps/api/core"
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog"
+import {
+  SolidControls,
+  GradientControls,
+} from "@/components/shared/gradient-controls"
+import {
+  pickThemeBackgroundImage,
+  pickVideoFile,
+} from "@/lib/theme-designer-files"
+import type { Background, BaseBackground } from "@/types/broadcast"
 import { OutputManager } from "@/components/broadcast/output-manager"
 import { toast } from "sonner"
 
@@ -265,6 +276,204 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
 }
 
 
+/** The current source kind for the base-background editor's type select. */
+function baseSourceOf(bb: BaseBackground | null): string {
+  if (!bb) return "output"
+  if (bb.kind === "theme") return "theme"
+  return bb.background.type
+}
+
+/** Build a full `Background` for a chosen type, preserving prior fields. */
+function makeBaseBackground(
+  type: Background["type"],
+  prev: Background | null
+): Background {
+  const bg: Background = {
+    type,
+    color: prev?.color ?? "#000000",
+    gradient: prev?.gradient ?? null,
+    image: prev?.image ?? null,
+    video: prev?.video ?? null,
+  }
+  if (type === "gradient" && !bg.gradient) {
+    bg.gradient = {
+      type: "linear",
+      angle: 180,
+      stops: [
+        { color: "#1e3a8a", position: 0 },
+        { color: "#000000", position: 100 },
+      ],
+    }
+  }
+  if (type === "image" && !bg.image) {
+    bg.image = { url: "", fit: "cover", blur: 0, brightness: 100, tint: null }
+  }
+  if (type === "video" && !bg.video) {
+    bg.video = { url: "", fit: "cover", brightness: 100 }
+  }
+  return bg
+}
+
+/**
+ * Global base/master background editor: a theme (with branding) or a bare
+ * background (solid/gradient/image/video). Writes the `BaseBackground` config the
+ * store resolves and delivers to the output. Reuses the theme designer's
+ * gradient/solid controls and file pickers.
+ */
+function BaseBackgroundSection() {
+  const themes = useBroadcastStore((s) => s.themes)
+  const baseBackground = useBroadcastStore((s) => s.baseBackground)
+  const setBase = (bb: BaseBackground | null) =>
+    useBroadcastStore.getState().setBaseBackground(bb)
+  const source = baseSourceOf(baseBackground)
+  const bg =
+    baseBackground?.kind === "background" ? baseBackground.background : null
+  const setBg = (next: Background) =>
+    setBase({ kind: "background", background: next })
+
+  const onSource = (v: string) => {
+    if (v === "output") setBase(null)
+    else if (v === "theme")
+      setBase({ kind: "theme", themeId: themes[0]?.id ?? "" })
+    else
+      setBase({
+        kind: "background",
+        background: makeBaseBackground(v as Background["type"], bg),
+      })
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <MonitorIcon className="size-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Base / Master Background</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Shown when you Clear text, and behind any content with a transparent
+        background. Default: each output uses its own theme.
+      </p>
+
+      <Select value={source} onValueChange={onSource}>
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="output">
+            Each output&apos;s own theme (default)
+          </SelectItem>
+          <SelectItem value="theme">A theme…</SelectItem>
+          <SelectItem value="solid">Solid color</SelectItem>
+          <SelectItem value="gradient">Gradient</SelectItem>
+          <SelectItem value="image">Image</SelectItem>
+          <SelectItem value="video">Video</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {source === "theme" && (
+        <Select
+          value={baseBackground?.kind === "theme" ? baseBackground.themeId : ""}
+          onValueChange={(id) => setBase({ kind: "theme", themeId: id })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a theme" />
+          </SelectTrigger>
+          <SelectContent>
+            {themes.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {bg?.type === "solid" && (
+        <SolidControls
+          color={bg.color}
+          onChange={(c) => setBg({ ...bg, color: c })}
+        />
+      )}
+
+      {bg?.type === "gradient" && bg.gradient && (
+        <GradientControls
+          gradient={bg.gradient}
+          onUpdate={(g) => setBg({ ...bg, gradient: g })}
+        />
+      )}
+
+      {bg?.type === "image" && (
+        <div className="flex items-center gap-3">
+          {bg.image?.url ? (
+            <div className="h-16 w-28 shrink-0 overflow-hidden rounded border border-border bg-black">
+              <img
+                src={bg.image.url}
+                alt=""
+                className="size-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
+              No image
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const picked = await pickThemeBackgroundImage()
+              if (picked) {
+                setBg({
+                  ...bg,
+                  image: {
+                    fit: "cover",
+                    blur: 0,
+                    brightness: 100,
+                    tint: null,
+                    ...(bg.image ?? {}),
+                    url: picked.url,
+                  },
+                })
+                void useMediaStore.getState().importPaths([picked.path])
+              }
+            }}
+          >
+            {bg.image?.url ? "Change image…" : "Choose image…"}
+          </Button>
+        </div>
+      )}
+
+      {bg?.type === "video" && (
+        <div className="flex items-center gap-3">
+          <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
+            {bg.video?.url ? "Video set" : "No video"}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const path = await pickVideoFile()
+              if (path) {
+                setBg({
+                  ...bg,
+                  video: {
+                    fit: "cover",
+                    brightness: 100,
+                    ...(bg.video ?? {}),
+                    url: convertFileSrc(path),
+                  },
+                })
+                void useMediaStore.getState().importPaths([path])
+              }
+            }}
+          >
+            {bg.video?.url ? "Change video…" : "Choose video…"}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function BroadcastSettings({
   open,
   onOpenChange,
@@ -273,6 +482,7 @@ export function BroadcastSettings({
   onOpenChange: (open: boolean) => void
 }) {
   const themes = useBroadcastStore((s) => s.themes)
+  const logoImagePath = useBroadcastStore((s) => s.logoImagePath)
   const outputs = useBroadcastStore((s) => s.outputs)
   const mainOutput = outputs.find((o) => o.id === "main")
   const altOutput = outputs.find((o) => o.id === "alt")
@@ -360,6 +570,26 @@ export function BroadcastSettings({
     if (open) fetchMonitors()
   }, [open, fetchMonitors])
 
+  // The enable switch is now the activation control (no separate preview
+  // button), so reflect the real output-window state whenever the dialog opens
+  // — an output may already be live from a previous session.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void (async () => {
+      const mainOpen = await isBroadcastWindowOpen("main")
+      const altOpen = await isBroadcastWindowOpen("alt")
+      if (cancelled) return
+      setIsPreviewOpen(mainOpen)
+      setAltIsPreviewOpen(altOpen)
+      setMainEnabled(mainOpen)
+      setAltEnabled(altOpen)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
   // Mirror the store's active theme into local selection state when it changes.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -415,51 +645,60 @@ export function BroadcastSettings({
     }
   }, [open, isPreviewOpen, reconcilePreviewState])
 
+  const handleChooseLogo = async () => {
+    try {
+      const path = await openFileDialog({
+        multiple: false,
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp"],
+          },
+        ],
+      })
+      if (typeof path === "string") {
+        useBroadcastStore.getState().setLogoImage(path)
+        void useMediaStore.getState().importPaths([path])
+      }
+    } catch (error) {
+      reportOutputError("Couldn't choose the logo image", error)
+    }
+  }
+
   const handleMainThemeChange = (id: string) => {
     setMainThemeId(id)
     useBroadcastStore.getState().setActiveTheme(id)
   }
 
-  const handleTogglePreview = async () => {
-    try {
-      if (isPreviewOpen) {
-        await closeBroadcastWindow("main")
-        setIsPreviewOpen(await reconcilePreviewState("main"))
-      } else {
-        let synced = false
-        const unlisten = await onOutputReady(() => {
-          synced = true
+  // Open the display output window on the selected monitor. Driven by the
+  // Main Output enable switch (activate the screen) — there is no separate
+  // preview button. Errors bubble to the switch handler.
+  const openMainWindow = async () => {
+    let synced = false
+    const unlisten = await onOutputReady(() => {
+      synced = true
+      useBroadcastStore.getState().syncBroadcastOutputFor("main")
+      syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
+      unlisten()
+    })
+    await openBroadcastWindow("main", Number(selectedMonitor))
+    const opened = await reconcilePreviewState("main")
+    setIsPreviewOpen(opened)
+    if (!opened) {
+      unlisten()
+    } else {
+      // If the window was reused (already mounted from NDI), the React
+      // useEffect won't re-run, so broadcast:output-ready is never
+      // re-emitted. Ask the window to re-announce, and if that still
+      // doesn't trigger within 500ms, push content directly.
+      await requestOutputResync("main")
+      setTimeout(() => {
+        if (!synced) {
           useBroadcastStore.getState().syncBroadcastOutputFor("main")
           syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
           unlisten()
-        })
-        await openBroadcastWindow("main", Number(selectedMonitor))
-        const opened = await reconcilePreviewState("main")
-        setIsPreviewOpen(opened)
-        if (!opened) {
-          unlisten()
-        } else {
-          // If the window was reused (already mounted from NDI), the React
-          // useEffect won't re-run, so broadcast:output-ready is never
-          // re-emitted. Ask the window to re-announce, and if that still
-          // doesn't trigger within 500ms, push content directly.
-          await requestOutputResync("main")
-          setTimeout(() => {
-            if (!synced) {
-              useBroadcastStore.getState().syncBroadcastOutputFor("main")
-              syncNdiConfigToOutput(
-                "main",
-                ndiActive,
-                ndiFrameRate,
-                ndiResolution
-              )
-              unlisten()
-            }
-          }, 500)
         }
-      }
-    } catch (error) {
-      reportOutputError("Couldn't toggle the preview window", error)
+      }, 500)
     }
   }
 
@@ -501,24 +740,26 @@ export function BroadcastSettings({
 
   const handleMainToggle = async (enabled: boolean) => {
     setMainEnabled(enabled)
-    if (!enabled) {
-      if (isPreviewOpen) {
-        try {
+    try {
+      if (enabled) {
+        // Activate the screen: open the display output on the selected
+        // monitor. NDI keeps its own Start/Stop control.
+        if (outputType === "display" && monitors.length > 0) {
+          await openMainWindow()
+        }
+      } else {
+        if (isPreviewOpen) {
           await closeBroadcastWindow("main")
-        } catch {
-          console.error("Failed to close broadcast window")
+          setIsPreviewOpen(false)
         }
-        setIsPreviewOpen(false)
-      }
-      if (ndiActive) {
-        try {
+        if (ndiActive) {
           await stopNdi("main")
-        } catch {
-          console.error("Failed to stop NDI")
+          syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
+          setNdiActive(false)
         }
-        syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
-        setNdiActive(false)
       }
+    } catch (error) {
+      reportOutputError("Couldn't switch the output", error)
     }
   }
 
@@ -529,18 +770,39 @@ export function BroadcastSettings({
     useBroadcastStore.getState().setAltActiveTheme(id)
   }
 
-  const handleAltTogglePreview = async () => {
-    try {
-      if (altIsPreviewOpen) {
-        await closeBroadcastWindow("alt")
-        setAltIsPreviewOpen(await reconcilePreviewState("alt"))
-      } else {
-        const altOutput = useBroadcastStore
-          .getState()
-          .outputs.find((o) => o.id === "alt")
-        let synced = false
-        const unlisten = await onOutputReady(() => {
-          synced = true
+  // Open the alternate display output on its selected monitor. Driven by the
+  // Alternate Output enable switch; errors bubble to the switch handler.
+  const openAltWindow = async () => {
+    const altOutput = useBroadcastStore
+      .getState()
+      .outputs.find((o) => o.id === "alt")
+    let synced = false
+    const unlisten = await onOutputReady(() => {
+      synced = true
+      const bs = useBroadcastStore.getState()
+      bs.syncBroadcastOutputFor("alt")
+      bs.syncStageOutput()
+      syncNdiConfigToOutput(
+        "alt",
+        altNdiActive,
+        altNdiFrameRate,
+        altNdiResolution
+      )
+      unlisten()
+    })
+    await openBroadcastWindow(
+      "alt",
+      Number(altSelectedMonitor),
+      altOutput?.mode === "stage" ? "stage" : undefined
+    )
+    const opened = await reconcilePreviewState("alt")
+    setAltIsPreviewOpen(opened)
+    if (!opened) {
+      unlisten()
+    } else {
+      await requestOutputResync("alt")
+      setTimeout(() => {
+        if (!synced) {
           const bs = useBroadcastStore.getState()
           bs.syncBroadcastOutputFor("alt")
           bs.syncStageOutput()
@@ -551,36 +813,8 @@ export function BroadcastSettings({
             altNdiResolution
           )
           unlisten()
-        })
-        await openBroadcastWindow(
-          "alt",
-          Number(altSelectedMonitor),
-          altOutput?.mode === "stage" ? "stage" : undefined
-        )
-        const opened = await reconcilePreviewState("alt")
-        setAltIsPreviewOpen(opened)
-        if (!opened) {
-          unlisten()
-        } else {
-          await requestOutputResync("alt")
-          setTimeout(() => {
-            if (!synced) {
-              const bs = useBroadcastStore.getState()
-              bs.syncBroadcastOutputFor("alt")
-              bs.syncStageOutput()
-              syncNdiConfigToOutput(
-                "alt",
-                altNdiActive,
-                altNdiFrameRate,
-                altNdiResolution
-              )
-              unlisten()
-            }
-          }, 500)
         }
-      }
-    } catch (error) {
-      reportOutputError("Couldn't toggle the alt preview window", error)
+      }, 500)
     }
   }
 
@@ -628,16 +862,24 @@ export function BroadcastSettings({
 
   const handleAltToggle = async (enabled: boolean) => {
     setAltEnabled(enabled)
-    if (!enabled) {
-      if (altIsPreviewOpen) {
-        await closeBroadcastWindow("alt").catch(() => {})
-        setAltIsPreviewOpen(false)
+    try {
+      if (enabled) {
+        if (altOutputType === "display" && monitors.length > 0) {
+          await openAltWindow()
+        }
+      } else {
+        if (altIsPreviewOpen) {
+          await closeBroadcastWindow("alt")
+          setAltIsPreviewOpen(false)
+        }
+        if (altNdiActive) {
+          await stopNdi("alt")
+          syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
+          setAltNdiActive(false)
+        }
       }
-      if (altNdiActive) {
-        await stopNdi("alt").catch(() => {})
-        syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
-        setAltNdiActive(false)
-      }
+    } catch (error) {
+      reportOutputError("Couldn't switch the alt output", error)
     }
   }
 
@@ -822,26 +1064,6 @@ export function BroadcastSettings({
                   </div>
 
                   {mainOutput && <OutputDisplaySettings output={mainOutput} />}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5"
-                    disabled={monitors.length === 0}
-                    onClick={handleTogglePreview}
-                  >
-                    {isPreviewOpen ? (
-                      <>
-                        <EyeOffIcon className="size-3.5" />
-                        Close Preview
-                      </>
-                    ) : (
-                      <>
-                        <EyeIcon className="size-3.5" />
-                        Open Preview
-                      </>
-                    )}
-                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1085,25 +1307,6 @@ export function BroadcastSettings({
                       )}
                   </div>
                   {altOutput && <OutputDisplaySettings output={altOutput} />}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5"
-                    disabled={monitors.length === 0}
-                    onClick={handleAltTogglePreview}
-                  >
-                    {altIsPreviewOpen ? (
-                      <>
-                        <EyeOffIcon className="size-3.5" />
-                        Close Preview
-                      </>
-                    ) : (
-                      <>
-                        <EyeIcon className="size-3.5" />
-                        Open Preview
-                      </>
-                    )}
-                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1209,6 +1412,61 @@ export function BroadcastSettings({
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Central base / master background — global. Shown when text is
+              cleared and behind any content with a transparent background. */}
+          <BaseBackgroundSection />
+
+          {/* Holding logo — a single global image shown on the audience output
+              when Logo is toggled (press L or the Screen menu while live). */}
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Logo / Holding Image</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Shown full-screen on the audience output when you toggle Logo (press
+              L, or the Screen menu on the Live panel, while broadcasting).
+            </p>
+            <div className="flex items-center gap-3">
+              {logoImagePath ? (
+                <div className="h-16 w-28 shrink-0 overflow-hidden rounded border border-border bg-black">
+                  <img
+                    src={(() => {
+                      try {
+                        return convertFileSrc(logoImagePath)
+                      } catch {
+                        return logoImagePath
+                      }
+                    })()}
+                    alt="Logo preview"
+                    className="size-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
+                  No logo set
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" size="sm" onClick={handleChooseLogo}>
+                  {logoImagePath ? "Change image…" : "Choose image…"}
+                </Button>
+                {logoImagePath && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() =>
+                      useBroadcastStore.getState().setLogoImage(null)
+                    }
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -14,7 +14,7 @@ import {
 } from "./text-style"
 import {
   buildRenderTokens,
-  hasAnySpans,
+  usesTokenLayout,
   wrapStyledText,
   wrapTextMeasured,
   type WrappedVerseContent,
@@ -194,10 +194,11 @@ function measureVerseHeight(
     }
   }
 
-  const isInterlinear = verse.segments.some((s) => s.isInterlinear)
-  const isStyled = !isInterlinear && hasAnySpans(verse.segments)
+  // Must mirror the draw pass's path choice (`drawVerseText`) so cached wrapping
+  // matches what is drawn — hence the shared `usesTokenLayout` predicate.
+  const useToken = usesTokenLayout(theme, verse.segments)
 
-  if (isStyled) {
+  if (useToken) {
     const tokens = buildRenderTokens(verse.segments, theme)
     const styledLines = wrapStyledText(ctx, tokens, textRectWidth, theme)
     let maxLineWidth = 0

@@ -14,7 +14,6 @@ interface SettingsState {
   claudeApiKey: string | null
   audioDeviceId: string | null
   gain: number
-  autoMode: boolean
   confidenceThreshold: number
   cooldownMs: number
   onboardingComplete: boolean
@@ -62,7 +61,6 @@ interface SettingsState {
   setClaudeApiKey: (key: string | null) => void
   setAudioDeviceId: (id: string | null) => void
   setGain: (gain: number) => void
-  setAutoMode: (auto: boolean) => void
   setConfidenceThreshold: (threshold: number) => void
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
@@ -83,7 +81,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   claudeApiKey: null,
   audioDeviceId: null,
   gain: 1.0,
-  autoMode: false,
   confidenceThreshold: 0.65,
   cooldownMs: 2500,
   onboardingComplete: false,
@@ -102,7 +99,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setClaudeApiKey: (claudeApiKey) => set({ claudeApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
   setGain: (gain) => set({ gain }),
-  setAutoMode: (autoMode) => set({ autoMode }),
   setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
@@ -124,7 +120,6 @@ const PERSISTED_KEYS = [
   "claudeApiKey",
   "audioDeviceId",
   "gain",
-  "autoMode",
   "confidenceThreshold",
   "cooldownMs",
   "onboardingComplete",

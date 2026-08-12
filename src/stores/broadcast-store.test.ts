@@ -57,6 +57,117 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("toggleBlackout flips ephemeral state and emits output-visibility", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: true }))
+    useBroadcastStore.setState({ outputs })
+    expect(useBroadcastStore.getState().blackout).toBe(false)
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().toggleBlackout()
+    expect(useBroadcastStore.getState().blackout).toBe(true)
+    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
+      blackout: true,
+      clear: false,
+      logo: false,
+      logoImagePath: null,
+    })
+
+    // Toggling again restores the output.
+    useBroadcastStore.getState().toggleBlackout()
+    expect(useBroadcastStore.getState().blackout).toBe(false)
+  })
+
+  it("toggleLogo is a no-op until a logo image is configured, then toggles", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: true }))
+    useBroadcastStore.setState({ outputs })
+
+    // No logo configured → no-op.
+    useBroadcastStore.getState().toggleLogo()
+    expect(useBroadcastStore.getState().showLogo).toBe(false)
+
+    // Configure a logo, then it toggles and emits the path — and clears any
+    // other active state (mutual exclusivity).
+    useBroadcastStore.getState().setLogoImage("C:/logos/church.png")
+    useBroadcastStore.setState({ clearForeground: true })
+    emitToMock.mockClear()
+    useBroadcastStore.getState().toggleLogo()
+    expect(useBroadcastStore.getState().showLogo).toBe(true)
+    expect(useBroadcastStore.getState().clearForeground).toBe(false)
+    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
+      blackout: false,
+      clear: false,
+      logo: true,
+      logoImagePath: "C:/logos/church.png",
+    })
+
+    // Clearing the image also drops the live logo.
+    useBroadcastStore.getState().setLogoImage(null)
+    expect(useBroadcastStore.getState().showLogo).toBe(false)
+  })
+
+  it("toggleClearForeground turns off Black — states are mutually exclusive", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: true }))
+    useBroadcastStore.setState({ outputs, blackout: true })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().toggleClearForeground()
+    expect(useBroadcastStore.getState().clearForeground).toBe(true)
+    // Enabling Clear clears Black so the screen shows exactly one state.
+    expect(useBroadcastStore.getState().blackout).toBe(false)
+    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
+      blackout: false,
+      clear: true,
+      logo: false,
+      logoImagePath: null,
+    })
+  })
+
+  it("delivers the base theme — the output's own by default, the override when set", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const themes = useBroadcastStore.getState().themes
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: true }))
+    const mainOutput = outputs.find((o) => o.id === "main")!
+    mainOutput.themeId = themes[0].id
+    useBroadcastStore.setState({ outputs: [...outputs], isLive: true })
+
+    // Default (no override): base theme = the output's own theme.
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:base-theme",
+      expect.objectContaining({
+        theme: expect.objectContaining({ id: themes[0].id }),
+      })
+    )
+
+    // Override: the global base theme wins.
+    const other = themes[1] ?? themes[0]
+    useBroadcastStore
+      .getState()
+      .setBaseBackground({ kind: "theme", themeId: other.id })
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:base-theme",
+      expect.objectContaining({
+        theme: expect.objectContaining({ id: other.id }),
+      })
+    )
+  })
+
   it("a layer-filter output carries its filter on slide and media payloads too", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const layers = {
@@ -257,15 +368,74 @@ describe("broadcast store theme designer", () => {
     expect(after.x).toBe(snapshot.x)
     expect(after.y).toBe(snapshot.y)
   })
+
+  it("saving an edited built-in forks a custom theme without changing the active output theme", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    const activeBefore = store.outputs.find((o) => o.id === "main")!.themeId
+    store.startEditing(store.themes[0].id) // a built-in
+    useBroadcastStore.getState().addElement("shape")
+
+    useBroadcastStore.getState().saveDraft()
+
+    const after = useBroadcastStore.getState()
+    // A new custom theme was forked and is now the one being edited...
+    const forked = after.draftTheme!
+    expect(forked.builtin).toBe(false)
+    expect(after.editingThemeId).toBe(forked.id)
+    // ...but the main output's theme is untouched — save never sets the default.
+    expect(after.outputs.find((o) => o.id === "main")!.themeId).toBe(
+      activeBefore
+    )
+    expect(after.defaultThemeId).toBe(activeBefore)
+  })
+
+  it("setDefaultTheme records the default and applies it to the main output", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const target = useBroadcastStore.getState().themes[1]
+
+    useBroadcastStore.getState().setDefaultTheme(target.id)
+
+    const after = useBroadcastStore.getState()
+    expect(after.defaultThemeId).toBe(target.id)
+    expect(after.outputs.find((o) => o.id === "main")!.themeId).toBe(target.id)
+  })
+
+  it("setDefaultTheme ignores an unknown theme id", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const before = useBroadcastStore.getState().defaultThemeId
+
+    useBroadcastStore.getState().setDefaultTheme("does-not-exist")
+
+    expect(useBroadcastStore.getState().defaultThemeId).toBe(before)
+  })
+
+  it("deleting the default theme falls back to the first built-in", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.duplicateTheme(store.themes[0].id)
+    const custom = useBroadcastStore
+      .getState()
+      .themes.find((t) => !t.builtin)!
+    useBroadcastStore.getState().setDefaultTheme(custom.id)
+    expect(useBroadcastStore.getState().defaultThemeId).toBe(custom.id)
+
+    useBroadcastStore.getState().deleteTheme(custom.id)
+
+    expect(useBroadcastStore.getState().defaultThemeId).toBe(
+      useBroadcastStore.getState().themes[0].id
+    )
+  })
 })
 
 /**
- * "Lock live" lets the operator audition items in the Program preview without
- * the audience seeing them. Presenting stages into `preview*`; the `live*`
- * fields (what the output windows mirror) only change on Take/unlock. Each test
- * imports the store fresh (resetModules) so it starts from default state.
+ * Locked-by-default staging: presenting an item always writes only the
+ * `preview*` fields (the Program preview). The `live*` fields — what the output
+ * windows mirror — change solely on {@link takeToLive} (the play icon, the Go
+ * Live button, or Enter). Nothing reaches the audience without an explicit take.
+ * Each test imports the store fresh (resetModules) so it starts from default.
  */
-describe("broadcast store — live lock", () => {
+describe("broadcast store — staging (locked by default)", () => {
   const slide = (id: string) => ({ id }) as unknown as Slide
   const media = (filePath: string): LiveMedia => ({
     filePath,
@@ -279,28 +449,14 @@ describe("broadcast store — live lock", () => {
     vi.resetModules()
   })
 
-  it("unlocked: presenting writes live and preview together and emits", async () => {
-    const { useBroadcastStore } = await import("./broadcast-store")
-    useBroadcastStore.setState({ isLive: true })
-    emitToMock.mockClear()
-
-    const a = slide("a")
-    useBroadcastStore.getState().setLiveSlide(a, "manual")
-
-    expect(useBroadcastStore.getState().liveSlide).toBe(a)
-    expect(useBroadcastStore.getState().previewSlide).toBe(a)
-    expect(useBroadcastStore.getState().previewPending).toBe(false)
-    expect(emitToMock).toHaveBeenCalled()
-  })
-
-  it("locked: presenting stages preview only and leaves live frozen (no emit)", async () => {
+  it("presenting while live stages preview only and leaves the audience untouched (no emit)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const live = slide("live")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
       liveSlide: live,
       previewSlide: live,
+      previewPending: false,
     })
     emitToMock.mockClear()
 
@@ -313,12 +469,24 @@ describe("broadcast store — live lock", () => {
     expect(emitToMock).not.toHaveBeenCalled()
   })
 
-  it("takeToLive: commits the staged item and emits, staying locked", async () => {
+  it("presenting off-air also only stages — nothing is committed to live", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({ isLive: false })
+    emitToMock.mockClear()
+
+    const a = slide("a")
+    useBroadcastStore.getState().setLiveSlide(a, "manual")
+
+    expect(useBroadcastStore.getState().liveSlide).toBeNull()
+    expect(useBroadcastStore.getState().previewSlide).toBe(a)
+    expect(useBroadcastStore.getState().previewPending).toBe(true)
+  })
+
+  it("takeToLive: commits the staged item to the audience and emits", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const staged = slide("staged")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
       liveSlide: slide("live"),
       previewSlide: staged,
       previewSource: "manual",
@@ -329,7 +497,6 @@ describe("broadcast store — live lock", () => {
     useBroadcastStore.getState().takeToLive()
 
     expect(useBroadcastStore.getState().liveSlide).toBe(staged)
-    expect(useBroadcastStore.getState().liveLocked).toBe(true)
     expect(useBroadcastStore.getState().previewPending).toBe(false)
     expect(emitToMock).toHaveBeenCalled()
   })
@@ -339,7 +506,6 @@ describe("broadcast store — live lock", () => {
     const live = slide("live")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
       liveSlide: live,
       previewSlide: live,
       previewPending: false,
@@ -352,67 +518,32 @@ describe("broadcast store — live lock", () => {
     expect(emitToMock).not.toHaveBeenCalled()
   })
 
-  it("unlock: takes the pending preview and returns to follow mode", async () => {
+  it("takeToLive commits the staged media by reference (no restart of a same item)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
-    const staged = slide("staged")
+    const staged = media("clip.mp4")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
-      liveSlide: slide("live"),
-      previewSlide: staged,
+      previewMedia: staged,
       previewSource: "manual",
       previewPending: true,
     })
-
-    useBroadcastStore.getState().setLiveLocked(false)
-
-    expect(useBroadcastStore.getState().liveLocked).toBe(false)
-    expect(useBroadcastStore.getState().liveSlide).toBe(staged)
-    expect(useBroadcastStore.getState().previewPending).toBe(false)
-  })
-
-  it("unlock: nothing staged does not re-commit (restart) the live item", async () => {
-    const { useBroadcastStore } = await import("./broadcast-store")
-    const liveMedia = media("clip.mp4")
-    useBroadcastStore.setState({
-      isLive: true,
-      liveLocked: true,
-      liveMedia,
-      previewMedia: liveMedia,
-      previewPending: false,
-    })
     emitToMock.mockClear()
 
-    useBroadcastStore.getState().setLiveLocked(false)
+    useBroadcastStore.getState().takeToLive()
 
-    expect(useBroadcastStore.getState().liveLocked).toBe(false)
-    // Same reference — commitMediaLive would build a fresh object and restart
-    // playback on the audience.
-    expect(useBroadcastStore.getState().liveMedia).toBe(liveMedia)
-    expect(emitToMock).not.toHaveBeenCalled()
+    expect(useBroadcastStore.getState().liveMedia).toBe(staged)
+    expect(emitToMock).toHaveBeenCalled()
   })
 
-  it("lock only applies while live: presenting off-air commits normally", async () => {
-    const { useBroadcastStore } = await import("./broadcast-store")
-    useBroadcastStore.setState({ isLive: false, liveLocked: true })
-
-    const a = slide("a")
-    useBroadcastStore.getState().setLiveSlide(a, "manual")
-
-    expect(useBroadcastStore.getState().liveSlide).toBe(a)
-  })
-
-  it("going off-air clears the lock and any pending stage", async () => {
+  it("going off-air clears any pending stage", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
       previewPending: true,
     })
 
     useBroadcastStore.getState().setLive(false)
 
-    expect(useBroadcastStore.getState().liveLocked).toBe(false)
     expect(useBroadcastStore.getState().previewPending).toBe(false)
   })
 })
@@ -431,8 +562,10 @@ describe("broadcast store — followManualSelection", () => {
 
   it("releases a queue/schedule pin so the preview follows the selection", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
-    // Present a scheduled verse: the preview is pinned to the staged copy.
+    // Present a scheduled verse and take it live: the preview is pinned to the
+    // schedule copy and the audience owns the schedule source.
     useBroadcastStore.getState().setLiveVerse(verse("Ps 23:1"), "schedule")
+    useBroadcastStore.getState().takeToLive()
     expect(useBroadcastStore.getState().previewSource).toBe("schedule")
     expect(useBroadcastStore.getState().broadcastSource).toBe("schedule")
 
@@ -459,12 +592,11 @@ describe("broadcast store — followManualSelection", () => {
     expect(useBroadcastStore.getState().previewWeb).toBeNull()
   })
 
-  it("leaves the live output untouched (safe while locked)", async () => {
+  it("leaves the live output untouched", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const live = verse("John 1:1")
     useBroadcastStore.setState({
       isLive: true,
-      liveLocked: true,
       liveVerse: live,
       previewVerse: verse("Acts 2:1"),
       previewSource: "schedule",
@@ -473,7 +605,7 @@ describe("broadcast store — followManualSelection", () => {
 
     useBroadcastStore.getState().followManualSelection()
 
-    // Audience stays on the locked verse; nothing is emitted to outputs.
+    // Audience stays on the live verse; nothing is emitted to outputs.
     expect(useBroadcastStore.getState().liveVerse).toBe(live)
     expect(emitToMock).not.toHaveBeenCalled()
   })

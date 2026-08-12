@@ -73,7 +73,7 @@ export function createEmptyItem(
         type: "web",
         label: "Web Page",
         url: "",
-        autoplay: true,
+        autoplay: false,
         isYouTube: false,
       }
     case "song":

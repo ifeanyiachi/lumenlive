@@ -8,6 +8,14 @@ interface PendingNavigation {
   bookNumber: number
   chapter: number
   verse: number
+  /**
+   * Whether the search panel should grab keyboard focus once it navigates.
+   * Missing/true for navigations the operator initiated in the book search or a
+   * detection; false for schedule-driven ones, which must leave the arrow keys
+   * with the schedule list so list navigation isn't hijacked by verse/chapter
+   * stepping.
+   */
+  focusPanel?: boolean
 }
 
 interface BibleState {

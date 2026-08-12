@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data: blob: https://i.ytimg.com https://img.youtube.com; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:3000 ws://localhost:3000; media-src 'self' asset: https://asset.localhost blob:; worker-src 'self'; frame-src https: http:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'",
+      "csp": "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost http://asset.localhost data: blob: https://i.ytimg.com https://img.youtube.com; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:3000 ws://localhost:3000 asset: https://asset.localhost http://asset.localhost; media-src 'self' asset: https://asset.localhost http://asset.localhost blob:; worker-src 'self'; frame-src https: http:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'",
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]

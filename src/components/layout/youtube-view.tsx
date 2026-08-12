@@ -79,7 +79,7 @@ export function YouTubeView() {
     setError("")
     setActiveVideoId(videoId)
     setActiveUrl(normalized)
-    void loadVideo(videoId, true)
+    void loadVideo(videoId, false)
   }, [urlInput, loadVideo])
 
   const handleSubmit = (e: React.SyntheticEvent) => {
@@ -93,7 +93,7 @@ export function YouTubeView() {
       setActiveVideoId(videoId)
       setActiveUrl(url)
       setError("")
-      void loadVideo(videoId, true)
+      void loadVideo(videoId, false)
     },
     [loadVideo]
   )
@@ -125,7 +125,7 @@ export function YouTubeView() {
       label: player.videoTitle || `YouTube: ${activeVideoId}`,
       order: 0,
       url: activeUrl,
-      autoplay: true,
+      autoplay: false,
       isYouTube: true,
       videoId: activeVideoId,
     }

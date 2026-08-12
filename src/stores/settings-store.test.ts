@@ -51,7 +51,6 @@ describe("settings store", () => {
     // Defaults remain for keys with null. The default confidence threshold is
     // 0.65 to match the backend merger's DEFAULT_AUTO_QUEUE_THRESHOLD (the
     // frontend value is forwarded straight to set_auto_queue_threshold).
-    expect(state.autoMode).toBe(false)
     expect(state.confidenceThreshold).toBe(0.65)
   })
 
@@ -66,7 +65,7 @@ describe("settings store", () => {
 
     expect(after.gain).toBe(before.gain)
     expect(after.sttProvider).toBe(before.sttProvider)
-    expect(after.autoMode).toBe(before.autoMode)
+    expect(after.directAutoDisplay).toBe(before.directAutoDisplay)
   })
 
   it("lexicon is installed-but-disabled by default and persists when toggled", async () => {
@@ -163,7 +162,7 @@ describe("settings store", () => {
       await import("./settings-store")
     await hydrateSettings()
 
-    useSettingsStore.getState().setAutoMode(true)
+    useSettingsStore.getState().setDirectAutoDisplay(false)
     await flushSave()
 
     expect(warnSpy).toHaveBeenCalledWith(

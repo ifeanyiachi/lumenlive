@@ -39,7 +39,12 @@ import {
   generateSlidesFromSong,
   resolveSongSlideOptions,
 } from "@/lib/song/song-to-slides"
-import { useDropZone, type DragPayload } from "@/stores/drag-store"
+import {
+  useDropZone,
+  useDragStore,
+  type DragPayload,
+  type DragKind,
+} from "@/stores/drag-store"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import { bibleActions } from "@/hooks/use-bible"
@@ -82,19 +87,19 @@ type ViewMode = "list" | "thumbnail"
 // store state so they can live at module scope.
 type VersesPayload = Extract<DragPayload, { kind: "verses" }>
 
-function addVersesToSchedule({
-  verses,
-  translation,
-  translationId,
-}: VersesPayload) {
+function addVersesToSchedule(
+  { verses, translation, translationId }: VersesPayload,
+  insertIndex?: number
+) {
   const store = useScheduleStore.getState()
   const scheduleId = store.activeScheduleId
   if (!scheduleId) return
   const schedule = store.getActiveSchedule()
   let insertAt =
-    store.activeItemIndex !== null
+    insertIndex ??
+    (store.activeItemIndex !== null
       ? store.activeItemIndex + 1
-      : (schedule?.items.length ?? 0)
+      : (schedule?.items.length ?? 0))
   let added = 0
   for (const verse of verses) {
     const item: import("@/types/schedule").ScriptureScheduleItem = {
@@ -131,12 +136,15 @@ function addVersesToSchedule({
   }
 }
 
-// Routes a dropped payload (verses, media, slide, or song) into the active schedule.
-function handleScheduleDrop(p: DragPayload) {
-  if (p.kind === "verses") addVersesToSchedule(p)
-  else if (p.kind === "media") addAssetsToSchedule(p.assets, true)
-  else if (p.kind === "slide") addSlideToSchedule(p)
-  else if (p.kind === "song") addSongToSchedule(p)
+// Routes a dropped payload (verses, media, slide, or song) into the active
+// schedule. `insertIndex` targets the drop indicator's position; when omitted
+// (e.g. dropping onto a tab trigger, which has no positional context) each
+// handler falls back to inserting just after the active item.
+function handleScheduleDrop(p: DragPayload, insertIndex?: number) {
+  if (p.kind === "verses") addVersesToSchedule(p, insertIndex)
+  else if (p.kind === "media") addAssetsToSchedule(p.assets, true, insertIndex)
+  else if (p.kind === "slide") addSlideToSchedule(p, insertIndex)
+  else if (p.kind === "song") addSongToSchedule(p, insertIndex)
 }
 
 function addVersesToQueue({ verses, translation }: VersesPayload) {
@@ -179,6 +187,14 @@ function ScheduleAllTab({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
   const dragIndexRef = useRef<number | null>(null)
+  // Insertion point (0..items.length) for an external quick-add drag hovering
+  // the list. Drives the same indicator line as internal reordering and the
+  // position the payload lands at. The ref mirrors it so the drop handler can
+  // read the latest value without re-registering the zone.
+  const [externalDropIndex, setExternalDropIndex] = useState<number | null>(
+    null
+  )
+  const externalDropIndexRef = useRef<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const { isOver: fileDragOver, dropHandlers: mediaDropHandlers } =
@@ -276,7 +292,7 @@ function ScheduleAllTab({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeItemIndex === null || !activeSchedule) return
+      if (!activeSchedule) return
       // Don't hijack arrow keys while the operator is typing in a field.
       const target = e.target as HTMLElement | null
       if (
@@ -287,14 +303,33 @@ function ScheduleAllTab({
           target.isContentEditable)
       )
         return
-      // Only step through deck-bearing items (slide groups and songs), matching
-      // the prev/next transport buttons. Leaving other item types alone avoids
-      // clashing with the media panel's own Left/Right handling.
+      // Up/Down move the selection through the schedule list (staging each item
+      // into the Program preview), replacing the prev/next buttons. preventDefault
+      // stops the arrow keys from scrolling the list instead. Skip when the book
+      // search panel is focused — it owns the arrows for verse navigation.
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (document.activeElement?.closest('[data-slot="search-panel"]')) return
+        e.preventDefault()
+        const items = activeSchedule.items
+        if (e.key === "ArrowDown") {
+          let next = (activeItemIndex ?? -1) + 1
+          while (next < items.length && items[next].type === "header") next++
+          if (next < items.length) void useScheduleStore.getState().goToItem(next)
+        } else {
+          let prev = (activeItemIndex ?? items.length) - 1
+          while (prev >= 0 && items[prev].type === "header") prev--
+          if (prev >= 0) void useScheduleStore.getState().goToItem(prev)
+        }
+        return
+      }
+      // Left/Right step slides within a deck-bearing item (slide groups and
+      // songs), matching the prev/next transport buttons. Leaving other item
+      // types alone avoids clashing with the media panel's own Left/Right.
+      if (activeItemIndex === null) return
       const item = activeSchedule.items[activeItemIndex]
       if (item?.type !== "slide" && item?.type !== "song") return
       // Read the store lazily in the handler so this effect doesn't depend on
-      // (and re-bind the listener for) the store reference. Only Left/Right
-      // step slides — Up/Down are left to scroll the schedule list.
+      // (and re-bind the listener for) the store reference.
       if (e.key === "ArrowRight") {
         e.preventDefault()
         useScheduleStore.getState().nextItem()
@@ -362,10 +397,66 @@ function ScheduleAllTab({
     setDragOverIndex(null)
   }
 
+  // Translate a cursor Y into an insertion index (0..itemCount): the position
+  // before the first row whose vertical midpoint sits below the cursor, or the
+  // end of the list when the cursor is past them all. Mirrors the Y-only
+  // hit-testing used by internal reordering (works in list and grid views).
+  const computeInsertIndex = useCallback((clientY: number): number => {
+    const container = listRef.current
+    if (!container) return 0
+    const rows = container.querySelectorAll<HTMLElement>("[data-schedule-idx]")
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) {
+        return Number(row.dataset.scheduleIdx)
+      }
+    }
+    return rows.length
+  }, [])
+
+  // While a quick-add drag hovers the list, track the insertion index so the
+  // indicator line follows the cursor. Subscribing imperatively (not via a
+  // reactive selector) keeps the ~per-pixel move updates off the render path;
+  // we only re-render when the computed index actually changes.
+  const ACCEPTED_KINDS: DragKind[] = useMemo(
+    () => ["verses", "media", "slide", "song"],
+    []
+  )
+  useEffect(() => {
+    return useDragStore.subscribe((state) => {
+      const rect = dropZoneRef.current?.getBoundingClientRect()
+      const inZone =
+        state.active &&
+        state.payload !== null &&
+        ACCEPTED_KINDS.includes(state.payload.kind) &&
+        rect !== undefined &&
+        state.x >= rect.left &&
+        state.x <= rect.right &&
+        state.y >= rect.top &&
+        state.y <= rect.bottom
+      if (!inZone) {
+        externalDropIndexRef.current = null
+        setExternalDropIndex((prev) => (prev === null ? prev : null))
+        return
+      }
+      const idx = computeInsertIndex(state.y)
+      externalDropIndexRef.current = idx
+      setExternalDropIndex((prev) => (prev === idx ? prev : idx))
+    })
+  }, [ACCEPTED_KINDS, computeInsertIndex])
+
   const dragOver = useDropZone(dropZoneRef, {
-    accepts: ["verses", "media", "slide", "song"],
-    onDrop: handleScheduleDrop,
+    accepts: ACCEPTED_KINDS,
+    onDrop: (p) => {
+      handleScheduleDrop(p, externalDropIndexRef.current ?? undefined)
+      externalDropIndexRef.current = null
+      setExternalDropIndex(null)
+    },
   })
+
+  // Total row count, used to render the trailing indicator when a quick-add
+  // drag targets the end of the list (insertion index === itemCount).
+  const itemCount = activeSchedule?.items.length ?? 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -525,13 +616,20 @@ function ScheduleAllTab({
                         activeItemIndex === index && "ring-1 ring-primary/30",
                         dragOverIndex === index &&
                           "border-t-2 border-t-primary",
+                        // Quick-add drop indicator: a line before this row, or
+                        // after the last row when appending to the end.
+                        externalDropIndex === index &&
+                          "border-t-2 border-t-primary",
+                        externalDropIndex === itemCount &&
+                          index === itemCount - 1 &&
+                          "border-b-2 border-b-primary",
                         draggingIndex === index && "opacity-40",
                         item.id === highlightedId &&
                           "animate-pulse border border-amber-500/40 bg-amber-500/15 text-foreground"
                       )}
                       onClick={() => {
                         store.setSelectedItem(item.id)
-                        if (item.type !== "header") store.goToItem(index)
+                        if (item.type !== "header") void store.goToItem(index)
                       }}
                     >
                       <span
@@ -585,9 +683,9 @@ function ScheduleAllTab({
                             className="size-6"
                             onClick={(e) => {
                               e.stopPropagation()
-                              store.goToItem(index)
+                              void store.presentLive(index)
                             }}
-                            title="Present"
+                            title="Send to live"
                           >
                             <PlayIcon className="size-3" />
                           </Button>
@@ -640,7 +738,7 @@ function ScheduleAllTab({
                         }
                         onSlideClick={(slideIdx) => {
                           if (activeItemIndex !== index) {
-                            store.goToItem(index)
+                            void store.goToItem(index)
                           }
                           useScheduleStore.setState({
                             activeSlideIndex: slideIdx,
@@ -672,13 +770,19 @@ function ScheduleAllTab({
                       : "border-border hover:border-primary/50",
                     activeItemIndex === index && "ring-1 ring-primary/30",
                     dragOverIndex === index && "border-2 border-primary",
+                    // Quick-add drop indicator: a line before this cell, or
+                    // after the last cell when appending to the end.
+                    externalDropIndex === index && "border-t-2 border-t-primary",
+                    externalDropIndex === itemCount &&
+                      index === itemCount - 1 &&
+                      "border-b-2 border-b-primary",
                     draggingIndex === index && "opacity-40",
                     item.id === highlightedId &&
                       "animate-pulse border-amber-500/40 bg-amber-500/15"
                   )}
                   onClick={() => {
                     store.setSelectedItem(item.id)
-                    if (item.type !== "header") store.goToItem(index)
+                    if (item.type !== "header") void store.goToItem(index)
                   }}
                 >
                   <div className="relative">
@@ -693,6 +797,20 @@ function ScheduleAllTab({
                     </span>
                     <ScheduleItemThumbnail item={item} />
                     <div className="absolute right-1 bottom-1 z-10 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      {item.type !== "header" && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void store.presentLive(index)
+                          }}
+                          title="Send to live"
+                        >
+                          <PlayIcon className="size-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon-sm"

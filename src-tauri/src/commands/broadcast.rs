@@ -43,6 +43,9 @@ pub struct WebOverlayConfig {
     pub end: Option<f64>,
     pub is_live: Option<bool>,
     pub muted: Option<bool>,
+    /// Start playing on load. Defaults to false (cue paused) — playback is
+    /// operator-driven via the `broadcast:web-transport` "play" action.
+    pub autoplay: Option<bool>,
 }
 
 /// Build the web-overlay.html URL with hash fragment from the overlay config.
@@ -67,6 +70,9 @@ fn web_overlay_url(output_id: &str, cfg: &WebOverlayConfig) -> String {
     }
     if cfg.muted.unwrap_or(false) {
         hash.push_str("&muted=1");
+    }
+    if cfg.autoplay.unwrap_or(false) {
+        hash.push_str("&autoplay=1");
     }
     format!("web-overlay.html#{hash}")
 }
@@ -182,8 +188,10 @@ pub async fn open_broadcast_window(
         WebviewUrl::App(window_url(&output_id, mode_str).into()),
     )
     .title(&title)
-    .position(f64::from(pos.x) + 50.0, f64::from(pos.y) + 50.0)
-    .inner_size(f64::from(size.width) - 100.0, f64::from(size.height) - 100.0)
+    // Fill the target monitor exactly (edge-to-edge, borderless) — no inset
+    // offset. Matches the reused-window path above.
+    .position(f64::from(pos.x), f64::from(pos.y))
+    .inner_size(f64::from(size.width), f64::from(size.height))
     .decorations(false)
     .closable(false)
     .minimizable(false)

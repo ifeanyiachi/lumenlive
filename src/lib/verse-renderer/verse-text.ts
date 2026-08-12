@@ -12,8 +12,8 @@ import {
 import {
   buildFontForToken,
   buildRenderTokens,
-  hasAnySpans,
   parseInterlinearTokens,
+  usesTokenLayout,
   wrapStyledText,
   wrapTextMeasured,
   type MeasuredLine,
@@ -324,7 +324,10 @@ export function drawVerseText(
   const lineHeightPx = vt.fontSize * vt.lineHeight
 
   const isInterlinear = verse.segments.some((s) => s.isInterlinear)
-  const isStyled = !isInterlinear && hasAnySpans(verse.segments)
+  // Verses with per-token needs — styled spans, a distinctly-styled verse
+  // number, or per-verse line breaks — render through the token path; plain
+  // single-colour verses keep the cheaper path (byte-identical output).
+  const useToken = usesTokenLayout(theme, verse.segments)
 
   ctx.save()
   ctx.font = `${vt.fontWeight} ${vt.fontSize}px "${vt.fontFamily}", serif`
@@ -341,7 +344,7 @@ export function drawVerseText(
   }
 
   // Styled path: two-pass rendering with per-token formatting
-  if (isStyled) {
+  if (useToken) {
     // Reuse the layout pass's wrapping when available; only re-wrap as a fallback.
     const styledLines =
       wrapped?.kind === "styled"

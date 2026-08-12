@@ -24,7 +24,7 @@ const baseTheme: Omit<
     visible: true,
     fontSize: 14,
     color: "#ffffff",
-    superscript: true,
+    superscript: false,
   },
 }
 
@@ -72,7 +72,7 @@ const CLASSIC_DARK: BroadcastTheme = {
     visible: true,
     fontSize: 20,
     color: "#d4a574",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -147,7 +147,7 @@ const MODERN_LIGHT: BroadcastTheme = {
     visible: true,
     fontSize: 18,
     color: "#666666",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -222,7 +222,7 @@ const BROADCAST_OVERLAY: BroadcastTheme = {
     visible: true,
     fontSize: 18,
     color: "#fbbf24",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -305,7 +305,7 @@ const WORSHIP_NIGHT: BroadcastTheme = {
     visible: false,
     fontSize: 16,
     color: "#ffffff",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -380,7 +380,7 @@ const HYMNAL: BroadcastTheme = {
     visible: false,
     fontSize: 16,
     color: "#fef3c7",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Georgia",
@@ -462,7 +462,7 @@ const PRAISE_BOLD: BroadcastTheme = {
     visible: false,
     fontSize: 16,
     color: "#ffffff",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -537,7 +537,7 @@ const PARCHMENT: BroadcastTheme = {
     visible: true,
     fontSize: 18,
     color: "#78716c",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Georgia",
@@ -619,7 +619,7 @@ const SCRIPTURE_FOCUS: BroadcastTheme = {
     visible: true,
     fontSize: 20,
     color: "#7dd3fc",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -694,7 +694,7 @@ const SERMON_CLEAN: BroadcastTheme = {
     visible: true,
     fontSize: 16,
     color: "#71717a",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -776,7 +776,7 @@ const SERMON_FULLSCREEN: BroadcastTheme = {
     visible: true,
     fontSize: 18,
     color: "#9ca3af",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -851,7 +851,7 @@ const LOWER_THIRD_DARK: BroadcastTheme = {
     visible: false,
     fontSize: 14,
     color: "#ffffff",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -926,7 +926,7 @@ const LOWER_THIRD_GLASS: BroadcastTheme = {
     visible: false,
     fontSize: 14,
     color: "#f1f5f9",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -1014,7 +1014,7 @@ const COUNTDOWN_MIDNIGHT: BroadcastTheme = {
     visible: false,
     fontSize: 16,
     color: "#ffffff",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",
@@ -1089,7 +1089,7 @@ const COUNTDOWN_MINIMAL: BroadcastTheme = {
     visible: false,
     fontSize: 16,
     color: "#fafafa",
-    superscript: true,
+    superscript: false,
   },
   reference: {
     fontFamily: "Geist Variable",

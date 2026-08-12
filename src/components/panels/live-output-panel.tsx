@@ -4,12 +4,21 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { CanvasVerse } from "@/components/ui/canvas-verse"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+  DropdownMenuShortcut,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useBroadcastStore, useBibleStore } from "@/stores"
 import { useAlertStore } from "@/stores/alert-store"
 import { alertBarLayout } from "@/lib/broadcast-output/overlays"
 import type { LiveMedia, LiveWeb } from "@/stores/broadcast-store"
 import { deriveLiveVerse } from "@/hooks/use-broadcast"
+import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import {
   renderSlide,
@@ -29,9 +38,10 @@ import {
   LayersIcon,
   ImageIcon,
   RadioIcon,
-  LockIcon,
-  UnlockIcon,
-  ArrowUpToLineIcon,
+  MonitorOffIcon,
+  EyeOffIcon,
+  SlidersHorizontalIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { PropsManager } from "@/components/props/props-manager"
@@ -47,7 +57,14 @@ import {
 } from "@/lib/live-output/transport"
 import { applyMuteParam } from "@/lib/live-output/presentation"
 
-function LiveSlideCanvas({ slide }: { slide: import("@/types/slide").Slide }) {
+function LiveSlideCanvas({
+  slide,
+  hideElements,
+}: {
+  slide: import("@/types/slide").Slide
+  /** Mirror the audience "Clear": draw the backdrop but hide text/elements. */
+  hideElements?: boolean
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const videoCacheRef = useRef<Map<string, HTMLVideoElement>>(new Map())
@@ -69,9 +86,10 @@ function LiveSlideCanvas({ slide }: { slide: import("@/types/slide").Slide }) {
       videoCacheRef.current,
       {
         frameTime: performance.now(),
+        hideElements,
       }
     )
-  }, [slide])
+  }, [slide, hideElements])
 
   useEffect(() => {
     draw()
@@ -145,11 +163,19 @@ function LiveSlideCanvas({ slide }: { slide: import("@/types/slide").Slide }) {
  * instant feedback AND forwards to the broadcast output(s) via
  * sendMediaTransport, so the audience feed follows.
  */
-function LiveMediaMonitor({ media }: { media: LiveMedia }) {
+function LiveMediaMonitor({
+  media,
+  onAir,
+}: {
+  media: LiveMedia
+  onAir: boolean
+}) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null)
   const [duration, setDuration] = useState(0)
   const [current, setCurrent] = useState(0)
-  const [playing, setPlaying] = useState(true)
+  // Cue paused — playback starts when the operator presses Play (which also
+  // forwards to the audience output). Nothing auto-plays on going live.
+  const [playing, setPlaying] = useState(false)
   const [dragging, setDragging] = useState(false)
 
   const sendTransport = useBroadcastStore((s) => s.sendMediaTransport)
@@ -284,6 +310,16 @@ function LiveMediaMonitor({ media }: { media: LiveMedia }) {
     [markers, transport, jumpToMarker, commitSeek]
   )
 
+  // Going off-air stops playback: pause the booth element and forward a pause to
+  // the audience output so its <video>/<audio> stops too. Without this, media
+  // (and its audio) keeps running after the operator flips Live off.
+  useEffect(() => {
+    if (onAir) return
+    const el = mediaRef.current
+    if (el && !el.paused) el.pause()
+    sendTransport("pause")
+  }, [onAir, sendTransport])
+
   // Operator keyboard shortcuts: space = play/pause, ←/→ = jump markers.
   useEffect(() => {
     if (media.mediaType === "image") return
@@ -349,7 +385,6 @@ function LiveMediaMonitor({ media }: { media: LiveMedia }) {
             <video
               ref={setElRef}
               src={src}
-              autoPlay
               muted
               playsInline
               className="relative size-full"
@@ -366,7 +401,6 @@ function LiveMediaMonitor({ media }: { media: LiveMedia }) {
             <audio
               ref={setElRef}
               src={src}
-              autoPlay
               muted
               onLoadedMetadata={handleLoaded}
               onTimeUpdate={handleTime}
@@ -445,7 +479,15 @@ function LiveMediaMonitor({ media }: { media: LiveMedia }) {
  * "Jump to Live" control; a VOD behaves like a recorded clip. Markers double as
  * DVR offsets when live. Non-YouTube web pages render as a plain display.
  */
-function LiveWebMonitor({ web, src }: { web: LiveWeb; src: string }) {
+function LiveWebMonitor({
+  web,
+  src,
+  onAir,
+}: {
+  web: LiveWeb
+  src: string
+  onAir: boolean
+}) {
   const sendWeb = useBroadcastStore((s) => s.sendWebTransport)
   const broadcastMuted = useBroadcastStore((s) => s.broadcastMuted)
 
@@ -489,8 +531,20 @@ function LiveWebMonitor({ web, src }: { web: LiveWeb; src: string }) {
   // upstream, so re-presenting the same item remounts this and replays from the
   // top.
   useEffect(() => {
-    if (isYouTube) void loadVideo(web.videoId!, true)
-  }, [isYouTube, web.videoId, loadVideo])
+    // Cue paused unless the item opts into autoplay — the operator presses Play.
+    if (isYouTube) void loadVideo(web.videoId!, web.autoplay ?? false)
+  }, [isYouTube, web.videoId, web.autoplay, loadVideo])
+
+  // Going off-air must stop playback everywhere: pause this booth player and
+  // tell the audience overlay to pause too (it is also closed by setLive, but
+  // pausing first guarantees silence even if the close races). Without this the
+  // video keeps playing after the operator flips Live off.
+  useEffect(() => {
+    if (!onAir) {
+      pause()
+      sendWeb("pause")
+    }
+  }, [onAir, pause, sendWeb])
 
   // Enter at the configured start offset once ready (join-late / skip pre-service).
   const seekedRef = useRef(false)
@@ -729,7 +783,15 @@ function LiveWebMonitor({ web, src }: { web: LiveWeb; src: string }) {
             step={0.05}
             value={Math.min(position, duration || 0)}
             disabled={!isReady || duration <= 0}
-            onChange={(e) => setDragCurrent(Number(e.target.value))}
+            onChange={(e) => {
+              // Scrub the operator's player live on every change — onChange fires
+              // reliably through a drag, whereas a webview range input often
+              // drops the final pointerup (why the seek "rarely worked"). The
+              // audience overlay is synced with one seek on release below.
+              const t = Number(e.target.value)
+              setDragCurrent(t)
+              seekTo(t)
+            }}
             onPointerUp={(e) =>
               commitSeek(Number((e.target as HTMLInputElement).value))
             }
@@ -932,8 +994,11 @@ export function LiveOutputPanel() {
   const liveSlide = useBroadcastStore((s) => s.liveSlide)
   const broadcastMuted = useBroadcastStore((s) => s.broadcastMuted)
   const liveWeb = useBroadcastStore((s) => s.liveWeb)
-  const liveLocked = useBroadcastStore((s) => s.liveLocked)
-  const previewPending = useBroadcastStore((s) => s.previewPending)
+  const blackout = useBroadcastStore((s) => s.blackout)
+  const clearForeground = useBroadcastStore((s) => s.clearForeground)
+  const showLogo = useBroadcastStore((s) => s.showLogo)
+  const logoImagePath = useBroadcastStore((s) => s.logoImagePath)
+  const baseBackground = useBroadcastStore((s) => s.baseBackground)
   const liveWebUrl = useMemo(() => {
     if (!liveWeb) return null
     return applyMuteParam(liveWeb.url, broadcastMuted, !!liveWeb.isYouTube)
@@ -945,6 +1010,10 @@ export function LiveOutputPanel() {
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
 
   const activeTheme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
+  // Central base theme resolved from the configured base background (theme or a
+  // synthesized background-only theme), else this output's own theme. Revealed
+  // in the preview on Clear.
+  const baseTheme = resolveBaseTheme(baseBackground, activeTheme, themes)
   const translation =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ??
     "KJV"
@@ -982,11 +1051,11 @@ export function LiveOutputPanel() {
 
   const [propsOpen, setPropsOpen] = useState(false)
 
-  // While locked, Enter takes the staged preview to the audience without
-  // unlocking (so the operator can keep auditioning). Space/←/→ are reserved by
-  // the media/web monitors, so Take gets its own key. Ignored while typing.
+  // Enter takes the staged Program-preview item to the audience — the keyboard
+  // path to live (mirrors the schedule play icon and the Go Live button).
+  // Space/←/→ are reserved by the media/web monitors. Ignored while typing.
   useEffect(() => {
-    if (!isLive || !liveLocked) return
+    if (!isLive) return
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Enter" && e.code !== "NumpadEnter") return
       const t = e.target as HTMLElement | null
@@ -1004,7 +1073,7 @@ export function LiveOutputPanel() {
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [isLive, liveLocked])
+  }, [isLive])
 
   // Arrow keys step through pages of a long paginated verse. Only active while a
   // paginated verse is live (media/web own the arrows in their own modes, but
@@ -1030,6 +1099,33 @@ export function LiveOutputPanel() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [])
+
+  // B = Black (cut to black), C = Clear (hide text), L = Logo (holding image).
+  // Only while live, never with a modifier held (so Ctrl+C still copies) and not
+  // while typing in a field.
+  useEffect(() => {
+    if (!isLive) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "KeyB" && e.code !== "KeyC" && e.code !== "KeyL") return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return
+      e.preventDefault()
+      const st = useBroadcastStore.getState()
+      if (e.code === "KeyB") st.toggleBlackout()
+      else if (e.code === "KeyC") st.toggleClearForeground()
+      else st.toggleLogo()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isLive])
 
   // Priority cascade (web > media > slide > verse). Kept as inline null-checks so
   // TypeScript narrows liveWeb/liveMedia/liveSlide at the JSX call sites below.
@@ -1081,43 +1177,71 @@ export function LiveOutputPanel() {
               )}
             </Button>
           )}
-          {/* Lock the audience output: only meaningful while broadcasting. When
-              locked, presenting items only stages them into the Program preview;
-              the audience stays frozen until Take (Enter) or unlock. */}
+          {/* Audience-screen controls (clear / black / logo) live in one menu to
+              keep the header uncluttered. Content only reaches the audience via an
+              explicit take (schedule play icon, Enter, or the preview Go Live). */}
           {isLive && (
             <>
-              {liveLocked && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => useBroadcastStore.getState().takeToLive()}
-                  disabled={!previewPending}
-                  title="Send the previewed item to the audience (Enter)"
-                  className="h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider text-emerald-400 uppercase hover:text-emerald-300 disabled:text-muted-foreground"
-                >
-                  <ArrowUpToLineIcon className="size-3.5" />
-                  Take
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() =>
-                  useBroadcastStore.getState().setLiveLocked(!liveLocked)
-                }
-                title={
-                  liveLocked
-                    ? "Locked — audience frozen. Unlock to resume live follow (sends current preview)."
-                    : "Lock live — preview items without sending them to the audience"
-                }
-                className={cn(liveLocked && "text-amber-400")}
-              >
-                {liveLocked ? (
-                  <LockIcon className="size-3.5" />
-                ) : (
-                  <UnlockIcon className="size-3.5" />
-                )}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Audience screen — clear, black, logo"
+                    className={cn(
+                      "h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider uppercase",
+                      blackout
+                        ? "text-red-400"
+                        : clearForeground || showLogo
+                          ? "text-amber-400"
+                          : "text-muted-foreground"
+                    )}
+                  >
+                    <SlidersHorizontalIcon className="size-3.5" />
+                    Screen
+                    <ChevronDownIcon className="size-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Audience screen</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={clearForeground}
+                    onCheckedChange={() =>
+                      useBroadcastStore.getState().toggleClearForeground()
+                    }
+                  >
+                    <EyeOffIcon className="size-3.5" />
+                    Clear (hide text)
+                    <DropdownMenuShortcut>C</DropdownMenuShortcut>
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={blackout}
+                    onCheckedChange={() =>
+                      useBroadcastStore.getState().toggleBlackout()
+                    }
+                  >
+                    <MonitorOffIcon className="size-3.5" />
+                    Black (cut to black)
+                    <DropdownMenuShortcut>B</DropdownMenuShortcut>
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={showLogo}
+                    disabled={!logoImagePath}
+                    title={
+                      logoImagePath
+                        ? undefined
+                        : "Set a logo image in Broadcast settings first"
+                    }
+                    onCheckedChange={() =>
+                      useBroadcastStore.getState().toggleLogo()
+                    }
+                  >
+                    <ImageIcon className="size-3.5" />
+                    Logo (holding image)
+                    <DropdownMenuShortcut>L</DropdownMenuShortcut>
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
           <label className="flex items-center gap-2">
@@ -1180,14 +1304,29 @@ export function LiveOutputPanel() {
           </div>
         )}
         <div className="relative z-10 flex size-full items-center justify-center">
-          {showWeb ? (
+          {clearForeground ? (
+            // Clear reveals the central base theme (no content) — consistent
+            // across verse / slide / song, mirroring the audience output.
+            <CanvasVerse
+              theme={baseTheme}
+              verse={null}
+              verseAutoFit={mainOutput?.verseAutoFit ?? true}
+              maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
+              minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
+            />
+          ) : showWeb ? (
             <LiveWebMonitor
               key={`${liveWeb.videoId ?? liveWeb.url}:${liveWeb.nonce ?? 0}`}
               web={liveWeb}
               src={liveWebUrl!}
+              onAir={isLive}
             />
           ) : showMedia ? (
-            <LiveMediaMonitor key={liveMedia.filePath} media={liveMedia} />
+            <LiveMediaMonitor
+              key={liveMedia.filePath}
+              media={liveMedia}
+              onAir={isLive}
+            />
           ) : showSlide ? (
             <LiveSlideCanvas slide={liveSlide} />
           ) : (
@@ -1202,6 +1341,29 @@ export function LiveOutputPanel() {
         </div>
         <PropsOverlay />
         <AlertPreviewOverlay />
+        {/* Logo holding image: mirror the audience by covering the preview with
+            the logo on black. Below the Black overlay so Black still wins. */}
+        {isLive && showLogo && logoImagePath && (
+          <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center bg-black">
+            <img
+              src={(() => {
+                try {
+                  return convertFileSrc(logoImagePath)
+                } catch {
+                  return logoImagePath
+                }
+              })()}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+        )}
+        {/* Black cut: mirror the audience by covering the whole preview (over
+            content AND overlays). pointer-events-none so the page-nav below still
+            works. Clear needs no overlay — the verse renders background-only. */}
+        {isLive && blackout && (
+          <div className="pointer-events-none absolute inset-3 z-20 bg-black" />
+        )}
         {liveVersePages && liveVersePages.length > 1 && (
           <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white backdrop-blur">
             <button
@@ -1233,14 +1395,27 @@ export function LiveOutputPanel() {
             <span className="text-[0.5rem] font-medium text-white">BG</span>
           </div>
         )}
-        {/* Frozen-output banner: this panel mirrors the audience, so while
-            locked it makes clear the audience is held and whether a staged item
-            is waiting to be taken. */}
-        {isLive && liveLocked && (
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-1 rounded bg-amber-500/80 px-1.5 py-0.5">
-            <LockIcon className="size-2.5 text-white" />
+        {/* Audience-hidden indicator — priority Black > Logo > Clear. */}
+        {isLive && (blackout || showLogo || clearForeground) && (
+          <div
+            className={cn(
+              "absolute top-4 right-4 z-30 flex items-center gap-1 rounded px-1.5 py-0.5",
+              blackout ? "bg-red-600/85" : "bg-amber-500/85"
+            )}
+          >
+            {blackout ? (
+              <MonitorOffIcon className="size-2.5 text-white" />
+            ) : showLogo ? (
+              <ImageIcon className="size-2.5 text-white" />
+            ) : (
+              <EyeOffIcon className="size-2.5 text-white" />
+            )}
             <span className="text-[0.5rem] font-semibold tracking-wide text-white uppercase">
-              {previewPending ? "Locked · take to send" : "Locked · frozen"}
+              {blackout
+                ? "Black · hidden"
+                : showLogo
+                  ? "Logo"
+                  : "Clear · text hidden"}
             </span>
           </div>
         )}

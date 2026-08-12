@@ -203,6 +203,85 @@ describe("drawVerseText layout reuse parity", () => {
     }
   })
 
+  // ── Verse-number styling + per-verse line breaks ──
+
+  function drawWith(t: typeof theme, verse: VerseRenderData) {
+    const layout = computeVerseLayoutMetrics(recordingCtx().ctx, t, verse)
+    const rec = recordingCtx()
+    drawVerseText(
+      rec.ctx,
+      t,
+      verse,
+      layout.textRect.x,
+      layout.textRect.width,
+      layout.verseRect?.y ?? 0,
+      layout.wrappedVerse ?? undefined
+    )
+    return rec
+  }
+
+  it("draws the verse number in its own colour and superscript size", () => {
+    const t = structuredClone(theme)
+    t.verseText.color = "#ffffff"
+    t.verseNumbers = {
+      visible: true,
+      color: "#ff3366",
+      superscript: true,
+      fontSize: 24,
+    }
+    t.layout.breakPerVerse = false
+
+    const rec = drawWith(t, plainVerse)
+    const num = rec.ops.find((o) => o.op === "fillText" && o.text.trim() === "16")
+    expect(num).toBeDefined()
+    expect(num!.fillStyle).toBe("#ff3366")
+    expect(num!.font).toContain("24px")
+
+    // The body text stays the body colour — the number colour is scoped to it.
+    const body = rec.ops.find((o) => o.op === "fillText" && o.text.trim() === "For")
+    expect(body!.fillStyle).toBe("#ffffff")
+  })
+
+  it("keeps the number inline in the body colour for a neutral theme (plain path)", () => {
+    const t = structuredClone(theme)
+    t.verseText.color = "#ffffff"
+    t.verseNumbers = {
+      visible: true,
+      color: "#ffffff",
+      superscript: false,
+      fontSize: 20,
+    }
+    t.layout.breakPerVerse = false
+
+    const rec = drawWith(t, plainVerse)
+    // Plain path draws whole wrapped lines: the first line starts with the number
+    // concatenated onto the body text in a single op, not a standalone "16".
+    const first = rec.ops.find((o) => o.op === "fillText" && o.text.includes("16"))
+    expect(first!.text.startsWith("16 For")).toBe(true)
+  })
+
+  it("puts each verse on its own line when breakPerVerse is on", () => {
+    const twoVerse: VerseRenderData = {
+      reference: "John 3:16-17",
+      segments: [
+        { verseNumber: 16, text: "For God" },
+        { verseNumber: 17, text: "God sent" },
+      ],
+    }
+    const lineCount = (brk: boolean) => {
+      const t = structuredClone(theme)
+      t.layout.breakPerVerse = brk
+      const rec = drawWith(t, twoVerse)
+      const ys = rec.ops
+        .filter((o) => o.op === "fillText" && o.text.trim().length > 0)
+        .map((o) => o.y)
+      return new Set(ys).size
+    }
+    // Both verses fit on one line together; the break forces a second line.
+    expect(lineCount(false)).toBe(1)
+    expect(lineCount(true)).toBe(2)
+  })
+
   it("plain: reusing the layout wrapping performs zero measureText calls in the draw pass", () => {
     const layout = computeVerseLayoutMetrics(
       recordingCtx().ctx,

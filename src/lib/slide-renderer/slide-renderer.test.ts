@@ -172,6 +172,21 @@ describe("renderSlide", () => {
     }
   })
 
+  it("hideElements draws the background but skips the foreground (Clear)", () => {
+    // Baseline: text is drawn.
+    const shown = recordingCtx()
+    renderSlide(shown.ctx, solidSlide(), 1920, 1080)
+    expect(shown.calls).toContain("fillText")
+
+    // Clear: background still fills, but no element text is drawn.
+    const cleared = recordingCtx()
+    renderSlide(cleared.ctx, solidSlide(), 1920, 1080, undefined, undefined, {
+      hideElements: true,
+    })
+    expect(cleared.calls).toContain("fillRect")
+    expect(cleared.calls).not.toContain("fillText")
+  })
+
   it("drawSlideElements paints elements but no background", () => {
     const { ctx, calls } = recordingCtx()
     drawSlideElements(ctx, solidSlide(), 1920, 1080)

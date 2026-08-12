@@ -2,11 +2,19 @@ import { open, save } from "@tauri-apps/plugin-dialog"
 import { readFile, writeTextFile } from "@tauri-apps/plugin-fs"
 import type { BroadcastTheme } from "@/types"
 
+export interface PickedThemeImage {
+  /** Base64 data URL, embedded into the theme so it persists across restarts. */
+  url: string
+  /** Absolute source path, for also registering the file in the media library. */
+  path: string
+}
+
 /**
- * Opens a native file dialog to pick an image, reads it,
- * and returns a base64 data URL that persists across restarts.
+ * Opens a native file dialog to pick an image, reads it, and returns both a
+ * base64 data URL (embedded into the theme so it persists across restarts) and
+ * the source path (so callers can also register it in the media library).
  */
-export async function pickThemeBackgroundImage(): Promise<string | null> {
+export async function pickThemeBackgroundImage(): Promise<PickedThemeImage | null> {
   const selected = await open({
     multiple: false,
     filters: [
@@ -37,7 +45,7 @@ export async function pickThemeBackgroundImage(): Promise<string | null> {
     binary += String.fromCharCode(byte)
   }
   const base64 = btoa(binary)
-  return `data:${mime};base64,${base64}`
+  return { url: `data:${mime};base64,${base64}`, path }
 }
 
 /**

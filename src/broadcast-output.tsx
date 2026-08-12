@@ -136,6 +136,22 @@ function BroadcastCanvas() {
     endAction: "hold" | "stop" | "loop" | "next"
   } | null>(null)
   const mediaBlankRef = useRef(false)
+  // Live-output visibility (Black / Clear). Blackout paints the
+  // whole frame black after everything else; clearForeground hides the scripture/
+  // slide text while keeping the background. Both are pushed from the store.
+  const blackoutRef = useRef(false)
+  const clearForegroundRef = useRef(false)
+  // Holding-logo state: whether it's showing, its source path, and the loaded
+  // image. Drawn full-screen over content (but under Black).
+  const showLogoRef = useRef(false)
+  const logoPathRef = useRef<string | null>(null)
+  const logoImgRef = useRef<HTMLImageElement | null>(null)
+  // Central base/master theme: the backdrop revealed on Clear and composited
+  // behind transparent content. Delivered via broadcast:base-theme.
+  const baseThemeRef = useRef<BroadcastTheme | null>(null)
+  // Redraw loop for a video base background (the theme render path has none of
+  // its own). Runs only while the base background is a video.
+  const baseVideoRafRef = useRef(0)
   const mediaKindRef = useRef<"image" | "video" | "audio" | null>(null)
   const mediaFitRef = useRef<MediaFitConfig>(DEFAULT_MEDIA_FIT)
   const activeAlerts = useRef<
@@ -288,6 +304,22 @@ function BroadcastCanvas() {
     [drawMediaSource]
   )
 
+  // Draw the central base theme's backdrop (background + decorative elements,
+  // no verse text) onto the surface. Used for Clear and behind transparent
+  // content. No-op until a base theme is delivered.
+  const drawBaseTheme = useCallback(
+    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+      const bt = baseThemeRef.current
+      if (!bt) return
+      renderVerse(ctx, bt, null, {
+        scale: 1,
+        imageCache: imageCacheRef.current,
+        surface: { width: w, height: h },
+      })
+    },
+    []
+  )
+
   const snapshotCurrentCanvas = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -377,7 +409,18 @@ function BroadcastCanvas() {
       mediaLayerRef.current !== null &&
       (!activeFilter || activeFilter.showMediaLayer)
 
-    if (activeMode.current === "media") {
+    if (clearForegroundRef.current) {
+      // Clear reveals the central base theme (its background + branding) with no
+      // content text — consistent across verse / slide / song. The media layer
+      // sits beneath it.
+      canvas.style.objectFit = previewFit
+      canvas.width = sw
+      canvas.height = sh
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0, 0, sw, sh)
+      if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
+      drawBaseTheme(ctx, sw, sh)
+    } else if (activeMode.current === "media") {
       // Media fills the full surface (image/video fit is applied within the frame).
       canvas.style.objectFit = previewFit
       canvas.width = sw
@@ -406,26 +449,43 @@ function BroadcastCanvas() {
       canvas.style.objectFit = previewFit
       canvas.width = sw
       canvas.height = sh
-      if (hasMediaLayer && slide.background.type === "transparent") {
-        ctx.fillStyle = "#000"
-        ctx.fillRect(0, 0, sw, sh)
-        drawMediaLayer(ctx, sw, sh)
-      }
       const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
       const tracker = slideAnimTracker.current
       if (tracker && isAnimationActive(tracker)) {
         renderOpts.animationStates = tracker.elementStates
         renderOpts.textBuildProgress = tracker.textBuildProgress
       }
-      renderSlide(
-        ctx,
-        slide,
-        sw,
-        sh,
-        imageCacheRef.current,
-        videoCacheRef.current,
-        renderOpts
-      )
+      if (slide.background.type === "transparent") {
+        // Transparent slide/song composits over the central base theme (media
+        // layer beneath it). We draw the slide's ELEMENTS directly rather than
+        // via renderSlide, because renderSlide's transparent background does a
+        // clearRect() that would wipe the base theme we just painted.
+        ctx.fillStyle = "#000"
+        ctx.fillRect(0, 0, sw, sh)
+        if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
+        drawBaseTheme(ctx, sw, sh)
+        drawSlideElements(
+          ctx,
+          slide,
+          sw,
+          sh,
+          {
+            imageCache: imageCacheRef.current,
+            videoCache: videoCacheRef.current,
+          },
+          renderOpts
+        )
+      } else {
+        renderSlide(
+          ctx,
+          slide,
+          sw,
+          sh,
+          imageCacheRef.current,
+          videoCacheRef.current,
+          renderOpts
+        )
+      }
     } else {
       // Verse reflows to the surface; the verse renderer projects the theme onto
       // it and (when enabled) auto-fits the font to fill the box height.
@@ -441,10 +501,16 @@ function BroadcastCanvas() {
         const { theme, verse } = data
         canvas.width = sw
         canvas.height = sh
-        if (hasMediaLayer && theme.background.type === "transparent") {
+        if (theme.background.type === "transparent") {
           ctx.fillStyle = "#000"
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          drawMediaLayer(ctx, canvas.width, canvas.height)
+          ctx.fillRect(0, 0, sw, sh)
+          if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
+          // Only draw the base theme when it differs from the verse's own theme,
+          // otherwise renderVerse below would draw that theme (and its elements)
+          // a second time.
+          if (baseThemeRef.current && baseThemeRef.current.id !== theme.id) {
+            drawBaseTheme(ctx, sw, sh)
+          }
         }
         const result = renderVerse(ctx, theme, verse, {
           // Decorative elements are re-anchored to the surface inside the verse
@@ -470,6 +536,26 @@ function BroadcastCanvas() {
     if (!lf || lf.showAlerts) drawAlertOverlay(ctx, canvas.width, canvas.height)
     if (!lf || lf.showCountdowns)
       drawCountdownOverlay(ctx, canvas.width, canvas.height)
+
+    // "Logo": a holding image over content + overlays, on black. Shown as a black
+    // holding screen until the image finishes loading. Black (below) still wins.
+    if (showLogoRef.current) {
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      if (logoImgRef.current) {
+        drawMediaSource(ctx, logoImgRef.current, canvas.width, canvas.height, {
+          ...DEFAULT_MEDIA_FIT,
+          fit: "contain",
+        })
+      }
+    }
+
+    // "Black": a full cut to black over content AND overlays — the final word.
+    // pushNdiFrame reads this same canvas, so the NDI feed blacks out too.
+    if (blackoutRef.current) {
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
   }, [
     logDebug,
     computeSurface,
@@ -478,6 +564,7 @@ function BroadcastCanvas() {
     drawPropsOverlay,
     drawMediaSource,
     drawMediaLayer,
+    drawBaseTheme,
   ])
 
   const preloadThemeImages = useCallback(
@@ -1063,7 +1150,8 @@ function BroadcastCanvas() {
             }
           }
           audio.onloadeddata = () => {
-            void audio.play()
+            // Cue paused: playback starts only when the operator presses Play
+            // (forwarded here as a "play" transport). Nothing auto-plays on air.
             emitMediaProgress(true)
           }
           audio.ontimeupdate = () => {
@@ -1127,8 +1215,11 @@ function BroadcastCanvas() {
             }
           }
           video.onloadeddata = () => {
-            void video.play()
-            runMediaVideoLoop()
+            // Cue paused on the first frame: draw it so the audience sees the
+            // still, but don't start playback. The operator's Play (a "play"
+            // transport) starts booth + audience together. Nothing auto-plays.
+            draw()
+            pushNdiBurst()
             emitMediaProgress(true)
           }
           video.onended = () => {
@@ -1432,6 +1523,64 @@ function BroadcastCanvas() {
       }
     )
 
+    // Live-output visibility (Black / Clear / Logo). Stash into refs and repaint;
+    // push a short NDI burst so the feed reflects the change even when idle. The
+    // logo image is loaded lazily and only when its path changes.
+    const unlistenVisibility = currentWindow.listen<{
+      blackout: boolean
+      clear: boolean
+      logo: boolean
+      logoImagePath: string | null
+    }>("broadcast:output-visibility", (event) => {
+      blackoutRef.current = event.payload.blackout
+      clearForegroundRef.current = event.payload.clear
+      showLogoRef.current = event.payload.logo
+      const path = event.payload.logoImagePath
+      if (path !== logoPathRef.current) {
+        logoPathRef.current = path
+        logoImgRef.current = null
+        if (path) {
+          const img = new Image()
+          img.onload = () => {
+            // Ignore a stale load if the path changed again meanwhile.
+            if (logoPathRef.current !== path) return
+            logoImgRef.current = img
+            drawRef.current()
+            pushNdiBurst()
+          }
+          img.src = convertFileSrc(path)
+        }
+      }
+      logDebug("Received broadcast:output-visibility", event.payload)
+      drawRef.current()
+      pushNdiBurst()
+    })
+
+    // Central base/master theme — the backdrop for Clear and transparent content.
+    // Preload its images so renderVerse can paint the background immediately.
+    const unlistenBaseTheme = currentWindow.listen<{ theme: BroadcastTheme }>(
+      "broadcast:base-theme",
+      (event) => {
+        baseThemeRef.current = event.payload.theme
+        preloadThemeImages(event.payload.theme)
+        // A video base background needs a per-frame redraw to animate; static
+        // backgrounds (solid/gradient/image/theme) don't. Start/stop accordingly.
+        cancelAnimationFrame(baseVideoRafRef.current)
+        if (event.payload.theme.background.type === "video") {
+          const tick = () => {
+            drawRef.current()
+            baseVideoRafRef.current = requestAnimationFrame(tick)
+          }
+          baseVideoRafRef.current = requestAnimationFrame(tick)
+        }
+        logDebug("Received broadcast:base-theme", {
+          themeId: event.payload.theme.id,
+        })
+        drawRef.current()
+        pushNdiBurst()
+      }
+    )
+
     const unlistenNdiConfig = currentWindow.listen<NdiConfigEventPayload>(
       "broadcast:ndi-config",
       (event) => {
@@ -1532,6 +1681,9 @@ function BroadcastCanvas() {
       unlistenProps.then((fn) => fn())
       unlistenMediaLayer.then((fn) => fn())
       unlistenMute.then((fn) => fn())
+      unlistenVisibility.then((fn) => fn())
+      unlistenBaseTheme.then((fn) => fn())
+      cancelAnimationFrame(baseVideoRafRef.current)
       unlistenStage.then((fn) => fn())
       unlistenNdiConfig.then((fn) => fn())
       unlistenDisplayConfig.then((fn) => fn())

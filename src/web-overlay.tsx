@@ -23,6 +23,8 @@ const START = Number(params.get("start")) || 0
 const END = Number(params.get("end")) || 0
 const IS_LIVE = params.get("live") === "1"
 const START_MUTED = params.get("muted") === "1"
+// Cue paused by default — the operator starts playback via the "play" transport.
+const AUTOPLAY = params.get("autoplay") === "1"
 
 const currentWindow = getCurrentWebviewWindow()
 
@@ -71,7 +73,7 @@ async function main() {
     width: "100%",
     height: "100%",
     playerVars: {
-      autoplay: 1,
+      autoplay: AUTOPLAY ? 1 : 0,
       controls: 0,
       rel: 0,
       modestbranding: 1,
@@ -93,7 +95,10 @@ async function main() {
             /* DVR may be disabled */
           }
         }
-        player.playVideo()
+        // Only auto-start when explicitly opted in; otherwise stay cued at the
+        // start until the operator sends "play". This is what stops YouTube from
+        // blaring the moment it goes on the audience output.
+        if (AUTOPLAY) player.playVideo()
         emitProgress()
       },
       onStateChange: () => {

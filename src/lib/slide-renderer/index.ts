@@ -183,5 +183,7 @@ export function renderSlide(
 ): void {
   const caches: SlideRenderCaches = { imageCache, videoCache }
   drawSlideBackground(ctx, slide, width, height, caches, opts)
+  // "Clear" hides the foreground (text/shapes/images) but keeps the backdrop.
+  if (opts?.hideElements) return
   drawSlideElements(ctx, slide, width, height, caches, opts)
 }

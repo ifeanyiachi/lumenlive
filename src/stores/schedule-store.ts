@@ -137,9 +137,12 @@ interface ScheduleState {
     scheduleId: string,
     item: ScheduleItem
   ) => ScheduleItem | undefined
-  goToItem: (index: number) => void
+  /** Select an item and stage it into the Program preview (never the audience). */
+  goToItem: (index: number) => Promise<void>
   nextItem: () => void
   prevItem: () => void
+  /** Stage an item, then take it to the live audience — the schedule play icon. */
+  presentLive: (index: number) => Promise<void>
   presentItem: (item: ScheduleItem) => Promise<void>
 
   getActiveSchedule: () => ServiceSchedule | undefined
@@ -339,7 +342,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     )
   },
 
-  goToItem: (index) => {
+  goToItem: async (index) => {
     const schedule = get().getActiveSchedule()
     if (!schedule || index < 0 || index >= schedule.items.length) return
     const item = schedule.items[index]
@@ -369,8 +372,18 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       selectedItemId: item.id,
       activeSongDeck,
     })
-    void get().presentItem(item)
+    const staged = get().presentItem(item)
     setStageNotesForItem(item)
+    return staged
+  },
+
+  presentLive: async (index) => {
+    const schedule = get().getActiveSchedule()
+    if (!schedule || index < 0 || index >= schedule.items.length) return
+    // Stage into the Program preview first, then push that staged item to the
+    // audience — the only path to live from the schedule.
+    await get().goToItem(index)
+    useBroadcastStore.getState().takeToLive()
   },
 
   nextItem: () => {
@@ -420,7 +433,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     ) {
       next++
     }
-    if (next < schedule.items.length) get().goToItem(next)
+    if (next < schedule.items.length) void get().goToItem(next)
   },
 
   prevItem: () => {
@@ -488,7 +501,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
           return
         }
       }
-      get().goToItem(prev)
+      void get().goToItem(prev)
     }
   },
 
@@ -507,10 +520,14 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
           if (verse) {
             useBibleStore.getState().selectVerse(verse)
             if (si.bookNumber > 0) {
+              // Update the book search to show the verse, but don't let it grab
+              // keyboard focus — the operator is navigating the schedule list and
+              // the arrow keys must stay with it (not hijack to verse/chapter).
               bibleActions.navigateToVerse(
                 si.bookNumber,
                 si.chapter,
-                si.verseStart
+                si.verseStart,
+                false
               )
             }
             const abbr =

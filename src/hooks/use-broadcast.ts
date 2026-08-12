@@ -120,6 +120,7 @@ export async function presentWeb(item: WebScheduleItem): Promise<void> {
       endTime: item.endTime,
       endAction: item.endAction,
       markers: item.markers,
+      autoplay: item.autoplay,
     },
     "schedule"
   )
@@ -139,13 +140,17 @@ export async function presentWebUrl(
   const videoId = extractVideoId(rawUrl) ?? undefined
   const muted = useBroadcastStore.getState().broadcastMuted
   const url = buildDisplayUrl(rawUrl, {
-    autoplay: true,
+    // Cue paused — the operator presses Play from the live transport.
+    autoplay: false,
     startTime: opts.config?.startTime,
     mute: muted,
   })
   useBroadcastStore
     .getState()
-    .setLiveWeb({ url, isYouTube: yt, videoId, ...opts.config }, "manual")
+    .setLiveWeb(
+      { url, isYouTube: yt, videoId, autoplay: false, ...opts.config },
+      "manual"
+    )
 }
 
 export function setMediaLayer(asset: MediaAsset): void {

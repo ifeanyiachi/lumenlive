@@ -21,7 +21,7 @@ export type {
 /**
  * How an output's render surface is sized (see `lib/broadcast-output/surface.ts`):
  * - `native` — render at the output window's real pixel size and reflow content
- *              to that aspect ratio (EasyWorship-style). Default.
+ *              to that aspect ratio. Default.
  * - `custom` — render at a fixed authored resolution ({@link BroadcastOutput.customResolution}),
  *              mapped onto the monitor per {@link BroadcastOutput.customFit}.
  *
@@ -43,9 +43,9 @@ export interface BroadcastOutput {
   /** How a `custom` surface maps onto a mismatched monitor. Missing = `"contain"`. */
   customFit?: "contain" | "cover"
   /**
-   * Vertical auto-fit for verse text (grow/shrink to fill the text box, like
-   * EasyWorship). Missing = `true`. When `false`, the authored px font size is
-   * kept and only wrapping reflows.
+   * Vertical auto-fit for verse text (grow/shrink to fill the text box).
+   * Missing = `true`. When `false`, the authored px font size is kept and only
+   * wrapping reflows.
    */
   verseAutoFit?: boolean
   /** Max verse-font growth vs the authored size when auto-fitting. Missing = 1.5. */
@@ -169,6 +169,16 @@ export const DEFAULT_STAGE_DISPLAY_CONFIG: StageDisplayConfig = {
 export type ThemeCategory =
   "general" | "song" | "scripture" | "sermon" | "overlay" | "countdown"
 
+/**
+ * The central base background shown on the audience output when text is cleared
+ * and behind any content with a transparent background. Either a full theme
+ * (keeps its branding/elements) or a bare background (solid/gradient/image/
+ * video — no branding). Null/absent = each output uses its own configured theme.
+ */
+export type BaseBackground =
+  | { kind: "theme"; themeId: string }
+  | { kind: "background"; background: Background }
+
 export interface ThemeElement extends CanvasBox {
   type: "image" | "shape"
   image?: {
@@ -236,6 +246,12 @@ export interface BroadcastTheme {
     textAreaWidth: number
     textAreaHeight: number
     referenceGap?: number
+    /**
+     * Start each verse on its own line when several verses are shown together.
+     * Missing/false = verses flow continuously as one wrapped block (the
+     * historical behaviour).
+     */
+    breakPerVerse?: boolean
   }
   transition: {
     type: "fade" | "slide" | "scale" | "none"

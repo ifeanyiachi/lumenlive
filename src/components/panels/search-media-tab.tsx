@@ -1,12 +1,23 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { FilmIcon, ImageIcon, MusicIcon, SearchIcon } from "lucide-react"
+import {
+  FilmIcon,
+  ImageIcon,
+  LoaderIcon,
+  MusicIcon,
+  SearchIcon,
+  UploadIcon,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useMediaStore } from "@/stores/media-store"
 import { useDragSource } from "@/stores/drag-store"
+import { useMediaImport, MEDIA_ACCEPT } from "@/hooks/use-media-import"
+import { useOsFileDrop } from "@/hooks/use-os-file-drop"
 import { addAssetsToSchedule } from "@/lib/schedule-media"
 import { cn } from "@/lib/utils"
 import type { MediaAsset, MediaType } from "@/types/media"
+
+const ALL_MEDIA_KINDS: MediaType[] = ["image", "video", "audio"]
 
 const FILTERS: { value: MediaType | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -78,6 +89,21 @@ export function SearchMediaTab() {
   const assets = useMediaStore((s) => s.assets)
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<MediaType | "all">("all")
+  const {
+    fileInputRef,
+    isImporting,
+    startImport,
+    handleFileChange,
+    needsFileInput,
+  } = useMediaImport()
+
+  // Drop OS files (from Explorer/Finder) straight into the library. Assets are
+  // deduped by path so re-dropping the same file is a no-op.
+  const dropRef = useRef<HTMLDivElement>(null)
+  const { isOver: fileDragOver, dropHandlers } = useOsFileDrop(dropRef, {
+    accept: ALL_MEDIA_KINDS,
+    onDrop: (assets) => useMediaStore.getState().mergeAssets(assets),
+  })
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -95,7 +121,22 @@ export function SearchMediaTab() {
   }, [assets, filter, query])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      ref={dropRef}
+      {...dropHandlers}
+      className={cn(
+        "relative flex min-h-0 flex-1 flex-col",
+        fileDragOver && "ring-2 ring-inset ring-primary/60"
+      )}
+    >
+      {fileDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-primary/10">
+          <div className="flex items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-xs font-medium shadow">
+            <UploadIcon className="size-4 text-primary" />
+            Drop to add to your media library
+          </div>
+        </div>
+      )}
       {/* Search + filters */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <div className="relative flex-1">
@@ -124,16 +165,49 @@ export function SearchMediaTab() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={startImport}
+          disabled={isImporting}
+          title="Upload media from this device"
+          className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[0.625rem] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+        >
+          {isImporting ? (
+            <LoaderIcon className="size-3 animate-spin" />
+          ) : (
+            <UploadIcon className="size-3" />
+          )}
+          {isImporting ? "Importing…" : "Upload"}
+        </button>
       </div>
 
       {/* Grid */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="p-6 text-center text-xs text-muted-foreground">
-            {assets.length === 0
-              ? "No media yet — import files from the Media view."
-              : "No media matches your search."}
-          </p>
+          assets.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-6 text-center">
+              <p className="text-xs text-muted-foreground">
+                No media yet — upload files to get started.
+              </p>
+              <button
+                type="button"
+                onClick={startImport}
+                disabled={isImporting}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+              >
+                {isImporting ? (
+                  <LoaderIcon className="size-3.5 animate-spin" />
+                ) : (
+                  <UploadIcon className="size-3.5" />
+                )}
+                {isImporting ? "Importing…" : "Upload media"}
+              </button>
+            </div>
+          ) : (
+            <p className="p-6 text-center text-xs text-muted-foreground">
+              No media matches your search.
+            </p>
+          )
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 p-2">
             {filtered.map((asset) => (
@@ -142,6 +216,17 @@ export function SearchMediaTab() {
           </div>
         )}
       </div>
+
+      {needsFileInput && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={MEDIA_ACCEPT}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      )}
     </div>
   )
 }

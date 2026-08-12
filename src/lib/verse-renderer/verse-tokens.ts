@@ -128,6 +128,17 @@ export interface RenderToken {
   underline?: boolean
   color?: string
   highlight?: string
+  /**
+   * Override the body font size for this token (e.g. a smaller, superscript
+   * verse number). Missing = the theme's verse-text size. A smaller size drawn
+   * on the shared top baseline naturally reads as a raised superscript.
+   */
+  fontSize?: number
+  /**
+   * A hard line-break marker (no glyphs): flushes the current wrapped line so
+   * the next token starts a new line. Used to put each verse on its own line.
+   */
+  break?: boolean
   /** Width of `text` in this token's font, set by {@link wrapStyledText}. */
   width?: number
 }
@@ -151,18 +162,64 @@ export function hasAnySpans(segments: VerseSegment[]): boolean {
   return segments.some((s) => s.spans && s.spans.length > 0)
 }
 
+/**
+ * Whether the verse number needs to be drawn as its own visual run rather than
+ * flowing in the body text: a colour distinct from the body, or a superscript
+ * (smaller/raised). When neither holds, the cheaper plain draw path renders the
+ * number inline in the body colour — byte-identical to the historical output.
+ */
+export function verseNumberStyled(
+  theme: BroadcastTheme,
+  segments: VerseSegment[]
+): boolean {
+  const vn = theme.verseNumbers
+  if (!vn.visible) return false
+  if (!segments.some((s) => s.verseNumber !== undefined)) return false
+  return vn.superscript || vn.color !== theme.verseText.color
+}
+
+/**
+ * Whether a verse must be rendered through the token/styled path (per-token
+ * fonts + colours + hard breaks) rather than the plain single-colour path.
+ * Interlinear always uses the plain path (it has its own tokeniser). Kept as one
+ * predicate so the draw pass and the measurement pass in `layout.ts` agree on
+ * the path — otherwise cached wrapping and drawing would disagree.
+ */
+export function usesTokenLayout(
+  theme: BroadcastTheme,
+  segments: VerseSegment[]
+): boolean {
+  if (segments.some((s) => s.isInterlinear)) return false
+  if (hasAnySpans(segments)) return true
+  if (verseNumberStyled(theme, segments)) return true
+  return !!theme.layout.breakPerVerse && segments.length > 1
+}
+
 export function buildRenderTokens(
   segments: VerseSegment[],
   theme: BroadcastTheme
 ): RenderToken[] {
+  const vt = theme.verseText
   const vn = theme.verseNumbers
-  const textTransform = resolveTextTransform(theme.verseText.textTransform)
+  const textTransform = resolveTextTransform(vt.textTransform)
+  // Each verse on its own line only makes sense with 2+ verses; a lone verse
+  // renders identically with or without the flag.
+  const breakPerVerse = !!theme.layout.breakPerVerse && segments.length > 1
+  // Superscript numbers render at the dedicated (smaller) size; otherwise the
+  // number keeps the body size and only its colour differs.
+  const numberFontSize = vn.superscript ? vn.fontSize : undefined
   const tokens: RenderToken[] = []
 
-  for (const segment of segments) {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    if (breakPerVerse && i > 0) {
+      tokens.push({ text: "", break: true })
+    }
     if (vn.visible && segment.verseNumber !== undefined) {
       tokens.push({
         text: applyTextTransform(`${segment.verseNumber} `, textTransform),
+        color: vn.color,
+        fontSize: numberFontSize,
       })
     }
 
@@ -224,13 +281,16 @@ export function buildFontForToken(
   const vt = theme.verseText
   const style = token.italic ? "italic " : ""
   const weight = token.bold ? Math.min(900, vt.fontWeight + 300) : vt.fontWeight
-  return `${style}${weight} ${vt.fontSize}px "${vt.fontFamily}", serif`
+  const size = token.fontSize ?? vt.fontSize
+  return `${style}${weight} ${size}px "${vt.fontFamily}", serif`
 }
 
 interface StyledWord {
   text: string
   width: number
   token: RenderToken
+  /** A hard line break rather than a real word (from a `break` token). */
+  isBreak?: boolean
 }
 
 export function wrapStyledText(
@@ -249,7 +309,7 @@ export function wrapStyledText(
   // measure/draw pass already brackets us with save()/restore()).
   const fontCache = new Map<string, string>()
   const fontFor = (token: RenderToken): string => {
-    const key = `${token.bold ? 1 : 0}${token.italic ? 1 : 0}`
+    const key = `${token.bold ? 1 : 0}${token.italic ? 1 : 0}:${token.fontSize ?? ""}`
     let font = fontCache.get(key)
     if (font === undefined) {
       font = buildFontForToken(token, theme)
@@ -271,11 +331,16 @@ export function wrapStyledText(
     underline: token.underline,
     color: token.color,
     highlight: token.highlight,
+    fontSize: token.fontSize,
     width,
   })
 
   const words: StyledWord[] = []
   for (const token of tokens) {
+    if (token.break) {
+      words.push({ text: "", width: 0, token, isBreak: true })
+      continue
+    }
     const parts = token.text.split(/( +)/)
     let accumulated = ""
     for (const part of parts) {
@@ -305,6 +370,24 @@ export function wrapStyledText(
   }
 
   for (const word of words) {
+    if (word.isBreak) {
+      // Force a new line: flush the current line (minus trailing spaces). An
+      // empty current line means we're already at a line start, so skip it
+      // rather than emit a blank line.
+      if (currentTokens.length > 0) {
+        while (
+          currentTokens.length > 0 &&
+          /^ *$/.test(currentTokens[currentTokens.length - 1].text)
+        ) {
+          const removed = currentTokens.pop()!
+          currentWidth -= removed.width ?? 0
+        }
+        lines.push({ tokens: currentTokens, totalWidth: currentWidth })
+        currentTokens = []
+        currentWidth = 0
+      }
+      continue
+    }
     const isSpace = /^ +$/.test(word.text)
     if (isSpace) {
       if (currentTokens.length > 0) {

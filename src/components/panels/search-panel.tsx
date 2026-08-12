@@ -123,7 +123,7 @@ export interface QuickNavHandle {
 }
 
 /**
- * EasyWorship-style quick-nav input. Owns its own `quickInput` +  autocomplete
+ * Quick-nav input. Owns its own `quickInput` + autocomplete
  * state so typing here re-renders ONLY this leaf — not the parent SearchPanel and
  * its ~176-row verse list. The parent pushes the selected verse's reference in via
  * the imperative `setValue` handle (a ref write, so it doesn't re-render the list).
@@ -136,11 +136,19 @@ const QuickNavInput = forwardRef<
   const [showQuickVerses, setShowQuickVerses] = useState(false)
   const [quickVersesList, setQuickVersesList] = useState<Verse[]>([])
   const quickInputRef = useRef<HTMLInputElement>(null)
+  // True when the pending `quickInput` change came from an imperative
+  // `setValue()` (a verse selected elsewhere — schedule list, verse list, arrow
+  // keys) rather than the user typing. An external update must NOT re-navigate
+  // or pull focus into the search box; the field activates only on a real click.
+  const externalUpdateRef = useRef(false)
 
   useImperativeHandle(
     ref,
     () => ({
-      setValue: (text: string) => setQuickInput(text),
+      setValue: (text: string) => {
+        externalUpdateRef.current = true
+        setQuickInput(text)
+      },
       focus: () => quickInputRef.current?.focus(),
       inputEl: () => quickInputRef.current,
     }),
@@ -158,6 +166,13 @@ const QuickNavInput = forwardRef<
   useEffect(() => {
     const result = autocompleteResult
 
+    // A completion pushed in via setValue() (a verse picked elsewhere) is
+    // already navigated by the caller — re-navigating and grabbing focus here is
+    // what made the search field steal keystrokes. Consume the flag and skip
+    // those steps; the verse dropdown fetch below still runs for browsing.
+    const isExternal = externalUpdateRef.current
+    externalUpdateRef.current = false
+
     // Only navigate on a fully-typed reference (Book Chapter:Verse). The "book"
     // and "chapter" stages carry a default verse of 1, so navigating on them
     // would fire on every keystroke — and the navigation subscription writes the
@@ -165,6 +180,7 @@ const QuickNavInput = forwardRef<
     // making deletion impossible (input snaps back to "Book C:1"). Partial input
     // still populates the verse dropdown below, so browsing is unaffected.
     if (
+      !isExternal &&
       result.stage === "complete" &&
       result.matchedBook &&
       result.chapter &&
@@ -226,11 +242,11 @@ const QuickNavInput = forwardRef<
         return
       }
 
-      // Enter clears input (verse is already showing in panel)
+      // Enter is a no-op: the verse is already showing in the panel, and
+      // clearing the field on Enter surprised users. Swallow it so it neither
+      // clears the input nor triggers any default/parent action.
       if (e.key === "Enter") {
         e.preventDefault()
-        setQuickInput("")
-        setShowQuickVerses(false)
         return
       }
 
@@ -257,7 +273,7 @@ const QuickNavInput = forwardRef<
 
   return (
     <div className="flex flex-1 items-center gap-2 pr-3">
-      {/* EasyWorship-style autocomplete */}
+      {/* Quick-nav autocomplete */}
       <div className="relative flex-1">
         {/* Suggestion overlay */}
         {quickSuggestion && quickSuggestion !== quickInput && (
@@ -276,7 +292,11 @@ const QuickNavInput = forwardRef<
           ref={quickInputRef}
           data-tour="quick-nav"
           value={quickInput}
-          onChange={(e) => setQuickInput(e.target.value)}
+          onChange={(e) => {
+            // Real typing: clear the external flag so navigation-on-complete works.
+            externalUpdateRef.current = false
+            setQuickInput(e.target.value)
+          }}
           onKeyDown={handleQuickKeyDown}
           placeholder="Type: J → John 3:16"
           className={cn(
@@ -382,7 +402,7 @@ export function SearchPanel() {
     lastClickedIdRef.current = null
   }, [selectedBook, chapter])
 
-  // EasyWorship-style autocomplete lives in the QuickNavInput leaf; the parent
+  // The autocomplete lives in the QuickNavInput leaf; the parent
   // only pushes the selected verse's reference into it via this imperative handle.
   const quickNavRef = useRef<QuickNavHandle>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -526,7 +546,13 @@ export function SearchPanel() {
               .getElementById(`verse-${target.id}`)
               ?.scrollIntoView({ behavior: "smooth", block: "center" })
           }
-          if (document.activeElement !== quickNavRef.current?.inputEl()) {
+          // Only grab keyboard focus for navigations the operator drove from the
+          // book search or a detection. Schedule-driven navigations pass
+          // focusPanel:false so the arrow keys stay with the schedule list.
+          if (
+            pendingNavigation.focusPanel !== false &&
+            document.activeElement !== quickNavRef.current?.inputEl()
+          ) {
             panelRef.current?.focus()
           }
         })

@@ -11,8 +11,14 @@ import type { MediaAsset } from "@/types/media"
  *
  * @param fromGallery when true the assets already live in the media library, so
  *   they are not re-added to it.
+ * @param insertIndex explicit position to insert at (a drop indicator's target);
+ *   when omitted, falls back to just after the active item.
  */
-export function addAssetsToSchedule(assets: MediaAsset[], fromGallery = false) {
+export function addAssetsToSchedule(
+  assets: MediaAsset[],
+  fromGallery = false,
+  insertIndex?: number
+) {
   const store = useScheduleStore.getState()
   const { activeScheduleId, activeItemIndex } = store
   if (!activeScheduleId) {
@@ -26,9 +32,10 @@ export function addAssetsToSchedule(assets: MediaAsset[], fromGallery = false) {
 
   const schedule = store.getActiveSchedule()
   let insertAt =
-    activeItemIndex !== null
+    insertIndex ??
+    (activeItemIndex !== null
       ? activeItemIndex + 1
-      : (schedule?.items.length ?? 0)
+      : (schedule?.items.length ?? 0))
 
   const defaultFit = getDefaultMediaFit()
   let added = 0

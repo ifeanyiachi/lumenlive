@@ -25,6 +25,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useBroadcastStore, type BroadcastProp } from "@/stores/broadcast-store"
+import { useMediaStore } from "@/stores/media-store"
 import { FontFamilyPicker } from "@/components/shared/font-family-picker"
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog"
 import { pickImageFile, pickVideoFile } from "@/lib/theme-designer-files"
@@ -268,6 +269,7 @@ function MediaLayerEditor() {
       name: path.split(/[\\/]/).pop() ?? (type === "image" ? "Image" : "Video"),
       active: true,
     })
+    void useMediaStore.getState().importPaths([path])
   }
 
   return (

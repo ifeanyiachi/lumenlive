@@ -246,27 +246,27 @@ export function LayoutProperties() {
 
       {/* Verse Numbers */}
       <div className="flex flex-col gap-0.5 border-t pt-3 pb-1">
-        <h4 className="text-xs font-semibold">Verse Numbers</h4>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-muted-foreground">
-          Show Verse Numbers
-        </label>
-        <input
-          type="checkbox"
-          checked={verseNumbers.visible}
-          onChange={(e) => update("verseNumbers.visible", e.target.checked)}
-          className="h-4 w-4 rounded border-input accent-primary"
-        />
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold">Verse Numbers</h4>
+          <input
+            type="checkbox"
+            checked={verseNumbers.visible}
+            onChange={(e) => update("verseNumbers.visible", e.target.checked)}
+            className="h-4 w-4 rounded border-input accent-primary"
+            aria-label="Show verse numbers"
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Style the verse number separately from the scripture text
+        </p>
       </div>
 
       {verseNumbers.visible && (
-        <>
-          {/* Verse Number Color */}
-          <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-3 rounded-md border border-border/60 p-2.5">
+          {/* Color — independent of superscript */}
+          <div className="flex items-center justify-between gap-2">
             <label className="text-xs font-medium text-muted-foreground">
-              Number Color
+              Color
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -289,10 +289,15 @@ export function LayoutProperties() {
           </div>
 
           {/* Superscript */}
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-muted-foreground">
-              Superscript
-            </label>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Superscript
+              </label>
+              <p className="text-[11px] text-muted-foreground">
+                Raise the number, smaller than the text
+              </p>
+            </div>
             <input
               type="checkbox"
               checked={verseNumbers.superscript}
@@ -305,10 +310,10 @@ export function LayoutProperties() {
 
           {/* Superscript Size */}
           {verseNumbers.superscript && (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Superscript Size
+                  Size
                 </label>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {superscriptSizePct}%
@@ -328,8 +333,30 @@ export function LayoutProperties() {
               />
             </div>
           )}
-        </>
+        </div>
       )}
+
+      {/* Multi-verse layout */}
+      <div className="flex flex-col gap-0.5 border-t pt-3 pb-1">
+        <h4 className="text-xs font-semibold">Multiple Verses</h4>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            Break each verse on a new line
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Start every verse on its own line instead of flowing together
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={!!layout.breakPerVerse}
+          onChange={(e) => update("layout.breakPerVerse", e.target.checked)}
+          className="h-4 w-4 rounded border-input accent-primary"
+        />
+      </div>
     </div>
   )
 }

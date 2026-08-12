@@ -21,6 +21,7 @@ import {
   DownloadIcon,
   UploadIcon,
   CheckCircleIcon,
+  StarIcon,
   PinIcon,
   PinOffIcon,
   EditIcon,
@@ -42,11 +43,13 @@ const THUMBNAIL_VERSE: VerseRenderData = {
 function ThemeCard({
   theme,
   isActive,
+  isDefault,
   isEditing,
   onSelect,
 }: {
   theme: BroadcastTheme
   isActive: boolean
+  isDefault: boolean
   isEditing: boolean
   onSelect: () => void
 }) {
@@ -64,12 +67,19 @@ function ThemeCard({
       <div className="relative aspect-video w-full overflow-hidden rounded-lg">
         <CanvasVerse theme={theme} verse={THUMBNAIL_VERSE} className="w-full" />
 
-        {/* Active badge */}
-        {isActive && (
-          <Badge className="absolute top-1.5 left-1.5 bg-emerald-600 text-[0.5rem] text-white hover:bg-emerald-600">
-            Active
-          </Badge>
-        )}
+        {/* Default / Active badges */}
+        <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1">
+          {isDefault && (
+            <Badge className="bg-primary text-[0.5rem] text-primary-foreground hover:bg-primary">
+              Default
+            </Badge>
+          )}
+          {isActive && (
+            <Badge className="bg-emerald-600 text-[0.5rem] text-white hover:bg-emerald-600">
+              Active
+            </Badge>
+          )}
+        </div>
 
         {/* Pin icon */}
         {theme.pinned && (
@@ -85,9 +95,6 @@ function ThemeCard({
           <p className="truncate text-xs font-medium text-foreground">
             {theme.name}
           </p>
-          {isActive && (
-            <p className="text-[0.5rem] text-muted-foreground">Default</p>
-          )}
         </div>
 
         {/* Tags */}
@@ -122,6 +129,17 @@ function ThemeCard({
               <CheckCircleIcon className="mr-2 size-3.5" />
               Set as Active
             </DropdownMenuItem>
+            {!isDefault && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  useBroadcastStore.getState().setDefaultTheme(theme.id)
+                }}
+              >
+                <StarIcon className="mr-2 size-3.5" />
+                Set as Default
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
@@ -190,6 +208,7 @@ export function ThemeLibrary() {
   const activeThemeId = useBroadcastStore(
     (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
   )
+  const defaultThemeId = useBroadcastStore((s) => s.defaultThemeId)
   const editingThemeId = useBroadcastStore((s) => s.editingThemeId)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterTab>("all")
@@ -221,8 +240,15 @@ export function ThemeLibrary() {
     return result
   }, [themes, search, filter])
 
-  const builtinThemes = filteredThemes.filter((t) => t.builtin)
-  const customThemes = filteredThemes.filter((t) => !t.builtin)
+  // The default theme is hoisted into its own section at the very top, so it is
+  // excluded from the built-in / custom groups below to avoid rendering twice.
+  const defaultTheme = filteredThemes.find((t) => t.id === defaultThemeId)
+  const builtinThemes = filteredThemes.filter(
+    (t) => t.builtin && t.id !== defaultThemeId
+  )
+  const customThemes = filteredThemes.filter(
+    (t) => !t.builtin && t.id !== defaultThemeId
+  )
 
   const handleNewTheme = () => {
     guardSwitch(() => useBroadcastStore.getState().createNewTheme())
@@ -347,6 +373,26 @@ export function ThemeLibrary() {
       {/* Theme list */}
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 px-2 pb-4">
+          {/* Default section — always pinned to the top of the list */}
+          {defaultTheme && (
+            <>
+              <p className="px-1.5 pt-2 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
+                Default
+              </p>
+              <ThemeCard
+                theme={defaultTheme}
+                isActive={defaultTheme.id === activeThemeId}
+                isDefault
+                isEditing={defaultTheme.id === editingThemeId}
+                onSelect={() =>
+                  guardSwitch(() =>
+                    useBroadcastStore.getState().startEditing(defaultTheme.id)
+                  )
+                }
+              />
+            </>
+          )}
+
           {/* Built-in section */}
           {builtinThemes.length > 0 && (
             <>
@@ -358,6 +404,7 @@ export function ThemeLibrary() {
                   key={theme.id}
                   theme={theme}
                   isActive={theme.id === activeThemeId}
+                  isDefault={false}
                   isEditing={theme.id === editingThemeId}
                   onSelect={() =>
                     guardSwitch(() =>
@@ -380,6 +427,7 @@ export function ThemeLibrary() {
                   key={theme.id}
                   theme={theme}
                   isActive={theme.id === activeThemeId}
+                  isDefault={false}
                   isEditing={theme.id === editingThemeId}
                   onSelect={() =>
                     guardSwitch(() =>

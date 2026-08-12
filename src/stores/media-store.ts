@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
+import { pathsToAssets } from "@/lib/media-import"
 import type { Collection, MediaAsset, MediaType } from "@/types/media"
 
 /**
@@ -42,6 +43,8 @@ interface MediaState {
   importProgress: ImportProgress | null
 
   addAssets: (assets: MediaAsset[]) => void
+  mergeAssets: (assets: MediaAsset[]) => MediaAsset[]
+  importPaths: (paths: string[]) => Promise<MediaAsset[]>
   removeAsset: (id: string) => void
   removeAssets: (ids: Set<string>) => void
   updateAsset: (id: string, updates: Partial<MediaAsset>) => void
@@ -73,6 +76,41 @@ export const useMediaStore = create<MediaState>((set, get) => ({
 
   addAssets: (newAssets) =>
     set((state) => ({ assets: [...state.assets, ...newAssets] })),
+
+  // Append only assets whose file isn't already in the library (dedup by
+  // filePath). Returns the assets actually added, so callers can react to
+  // genuinely-new imports. Used by drop zones and "add to library" affordances.
+  mergeAssets: (incoming) => {
+    const existingPaths = new Set(get().assets.map((a) => a.filePath))
+    const fresh = incoming.filter(
+      (a) => a.filePath && !existingPaths.has(a.filePath)
+    )
+    if (fresh.length > 0) {
+      set((state) => ({ assets: [...state.assets, ...fresh] }))
+    }
+    return fresh
+  },
+
+  // Register OS file paths into the library, converting them via the shared
+  // media-import pipeline (honouring copy/reference mode) and skipping any path
+  // already present. This is the single entry point every "an image was picked
+  // somewhere in the app" call site funnels through — logo, theme background,
+  // broadcast element image — so anything uploaded anywhere also shows up in the
+  // media library. Returns the newly-created assets.
+  //
+  // Note: in copy mode `pathsToAssets` copies each file and returns a fresh
+  // managed path, so re-picking the same original file can produce a second
+  // copy; dedup here is best-effort on the resulting filePath.
+  importPaths: async (paths) => {
+    const existingPaths = new Set(get().assets.map((a) => a.filePath))
+    const newPaths = paths.filter((p) => p && !existingPaths.has(p))
+    if (newPaths.length === 0) return []
+    const created = await pathsToAssets(newPaths)
+    if (created.length > 0) {
+      set((state) => ({ assets: [...state.assets, ...created] }))
+    }
+    return created
+  },
 
   removeAsset: (id) =>
     set((state) => {

@@ -16,11 +16,10 @@ export interface SlideDropData {
  * presentation adds each of its slides as a separate schedule item (not one
  * grouped deck); dropping a single slide adds just that one.
  */
-export function addSlideToSchedule({
-  presentationId,
-  presentationName,
-  slideIndex,
-}: SlideDropData) {
+export function addSlideToSchedule(
+  { presentationId, presentationName, slideIndex }: SlideDropData,
+  insertIndex?: number
+) {
   const store = useScheduleStore.getState()
   const { activeScheduleId, activeItemIndex } = store
   if (!activeScheduleId) {
@@ -30,9 +29,10 @@ export function addSlideToSchedule({
 
   const schedule = store.getActiveSchedule()
   let insertAt =
-    activeItemIndex !== null
+    insertIndex ??
+    (activeItemIndex !== null
       ? activeItemIndex + 1
-      : (schedule?.items.length ?? 0)
+      : (schedule?.items.length ?? 0))
 
   const presentation = usePresentationStore
     .getState()

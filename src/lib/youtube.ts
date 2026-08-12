@@ -30,7 +30,9 @@ export function buildEmbedUrl(
     modestbranding: "1",
     showinfo: "0",
     fs: "0",
-    autoplay: opts.autoplay !== false ? "1" : "0",
+    // Cue paused by default. Autoplay only when the caller explicitly opts in —
+    // playback is operator-driven (press Play), never automatic.
+    autoplay: opts.autoplay === true ? "1" : "0",
     controls: opts.controls ? "1" : "0",
   })
   if (opts.mute) {

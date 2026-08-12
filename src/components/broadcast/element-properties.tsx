@@ -1,4 +1,5 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useMediaStore } from "@/stores/media-store"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -52,6 +53,7 @@ export function ElementProperties() {
     })
     if (path) {
       update(`${prefix}.image.url`, convertFileSrc(path as string))
+      void useMediaStore.getState().importPaths([path as string])
     }
   }
 

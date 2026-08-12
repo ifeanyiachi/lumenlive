@@ -3,6 +3,10 @@ import { scheduleItemKey, type ScheduleItem } from "@/types/schedule"
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }))
 vi.mock("@tauri-apps/plugin-store", () => ({ load: vi.fn() }))
+vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: vi.fn(() => Promise.resolve()),
+  emit: vi.fn(() => Promise.resolve()),
+}))
 
 // Static imports (not dynamic `await import()`): the stores are singletons and
 // this file never calls `vi.resetModules()`, so there is no reason to re-import
@@ -15,6 +19,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({ load: vi.fn() }))
 import { useScheduleStore } from "./schedule-store"
 import { useSettingsStore } from "./settings-store"
 import { useSongStore } from "./song-store"
+import { useBroadcastStore } from "./broadcast-store"
 import { createDefaultSong } from "@/types/song"
 
 function scripture(
@@ -352,6 +357,43 @@ describe("schedule store song slide navigation", () => {
 
     store.prevItem()
     expect(useScheduleStore.getState().activeSlideIndex).toBe(1)
+  })
+
+  it("goToItem stages into the preview without touching the audience", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: null,
+      previewPending: false,
+    })
+
+    await store.goToItem(0)
+
+    // Selecting an item stages it (Program preview) but leaves the audience blank.
+    expect(useScheduleStore.getState().activeItemIndex).toBe(0)
+    expect(useBroadcastStore.getState().previewSlide).not.toBeNull()
+    expect(useBroadcastStore.getState().liveSlide).toBeNull()
+    expect(useBroadcastStore.getState().previewPending).toBe(true)
+  })
+
+  it("presentLive stages the item and then takes it to the audience", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: null,
+      previewPending: false,
+    })
+
+    await store.presentLive(0)
+
+    // The play icon path: goToItem staged it, then takeToLive committed to live.
+    expect(useScheduleStore.getState().activeItemIndex).toBe(0)
+    expect(useBroadcastStore.getState().liveSlide).not.toBeNull()
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
   })
 
   it("steps a song's slides even when the deck cache is empty", () => {

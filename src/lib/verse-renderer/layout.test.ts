@@ -30,6 +30,26 @@ const verse: VerseRenderData = {
   segments: [{ text: "For God so loved the world", verseNumber: 16 }],
 }
 
+describe("breakPerVerse layout", () => {
+  it("makes the verse block taller by forcing each verse onto its own line", () => {
+    __clearLayoutCacheForTests()
+    const twoVerse: VerseRenderData = {
+      reference: "John 3:16-17",
+      segments: [
+        { verseNumber: 16, text: "For God" },
+        { verseNumber: 17, text: "God sent" },
+      ],
+    }
+    const heightWith = (brk: boolean) => {
+      const t = structuredClone(BUILTIN_THEMES[0])
+      t.layout.breakPerVerse = brk
+      return computeVerseLayoutMetrics(fakeCtx(), t, twoVerse).verseRect?.height ?? 0
+    }
+    // Two short verses share one line when flowing; the break splits them in two.
+    expect(heightWith(true)).toBeGreaterThan(heightWith(false))
+  })
+})
+
 describe("anchorPosition", () => {
   const W = 1920
   const H = 1080

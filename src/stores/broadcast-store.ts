@@ -13,6 +13,7 @@ import type {
 import {
   DEFAULT_STAGE_DISPLAY_CONFIG,
   type OutputDisplayMode,
+  type BaseBackground,
 } from "@/types/broadcast"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
@@ -26,6 +27,7 @@ import type {
 } from "@/types/schedule"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import { paginateVerse } from "@/lib/verse-pagination"
+import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import {
   emitToOutput,
   emitToAllOutputs,
@@ -50,7 +52,7 @@ export interface BroadcastProp {
   /**
    * `text` is a static box, `image` a cached bitmap, and `marquee` a single
    * line of text that scrolls horizontally and loops seamlessly (a ticker /
-   * "crawl", like ProPresenter's scrolling Messages or EasyWorship Alerts).
+   * "crawl").
    */
   name: string
   type: "text" | "image" | "marquee"
@@ -159,6 +161,12 @@ export interface LiveWeb {
   /** Named cue points (absolute for VOD, DVR offsets for live). */
   markers?: MediaMarker[]
   /**
+   * Whether the video should start playing on its own when presented. Defaults
+   * to `false` (cue paused) — playback is operator-driven, so nothing auto-plays
+   * on the audience output unless this is explicitly opted in per item.
+   */
+  autoplay?: boolean
+  /**
    * Bumped on every {@link BroadcastState.setLiveWeb} call. Re-presenting the
    * same video keeps `videoId`/`url` identical, so this nonce is what the
    * operator preview keys its iframe on to force a remount — i.e. replay from
@@ -224,6 +232,14 @@ function pushDisplayConfig(
 
 interface BroadcastState {
   themes: BroadcastTheme[]
+  /**
+   * Id of the theme designated as the default. The default sorts to the top of
+   * the theme library, carries a "Default" badge, and is applied to the main
+   * output when explicitly set. Distinct from the *active* theme (the main
+   * output's `themeId`), which can drift as schedule items / remote control
+   * switch themes mid-service.
+   */
+  defaultThemeId: string | null
   stageLayouts: StageLayout[]
   outputs: BroadcastOutput[]
   isLive: boolean
@@ -238,24 +254,22 @@ interface BroadcastState {
   liveMedia: LiveMedia | null
   liveWeb: LiveWeb | null
   /**
-   * When true (and {@link isLive} is on), presenting an item stages it into the
-   * `preview*` fields only — the live output windows stay frozen on whatever was
-   * last taken. The operator can audition items in the Program preview without
-   * the audience seeing them, then push the staged item live via
-   * {@link BroadcastState.takeToLive} or by unlocking. Reset whenever live is
-   * turned off, since a lock only makes sense while broadcasting.
+   * Staged (preview-only) counterparts of the `live*` fields. Presenting an item
+   * always writes these — the Program preview reflects the staged item while the
+   * live output windows stay on whatever was last taken. The operator pushes the
+   * staged item to the audience via {@link BroadcastState.takeToLive} (the play
+   * icon, the Go Live button, or Enter). There is no auto-commit path: nothing
+   * reaches the audience without an explicit take.
    */
-  liveLocked: boolean
-  /** Staged (preview-only) counterparts of the `live*` fields; see {@link liveLocked}. */
   previewVerse: VerseRenderData | null
   previewSlide: Slide | null
   previewMedia: LiveMedia | null
   previewWeb: LiveWeb | null
   previewSource: BroadcastSource
   /**
-   * True when the staged preview has diverged from what's live (something was
-   * presented while locked). Gates the Take action and prevents unlock from
-   * needlessly re-committing — and thus restarting — the already-live item.
+   * True when the staged preview has diverged from what's live (an item was
+   * presented but not yet taken). Gates {@link BroadcastState.takeToLive} so a
+   * take never needlessly re-commits — and thus restarts — the already-live item.
    */
   previewPending: boolean
   mediaTransport: MediaTransportState | null
@@ -263,8 +277,27 @@ interface BroadcastState {
   broadcastSource: BroadcastSource
   interlinearText: string | null
   broadcastMuted: boolean
+  /**
+   * Live-output visibility toggles (Black / Clear). Ephemeral —
+   * deliberately NOT persisted, so the audience screen is never mysteriously
+   * blacked or cleared after a restart. `blackout` cuts the whole output to
+   * black; `clearForeground` hides the scripture/slide text while keeping the
+   * background/media. Black wins when both are on.
+   */
+  blackout: boolean
+  clearForeground: boolean
+  /** Show the holding-logo image on the audience output. Ephemeral (not persisted). */
+  showLogo: boolean
 
   mediaLayer: MediaLayerState | null
+  /** Path to the holding-logo image, persisted. Null = no logo configured. */
+  logoImagePath: string | null
+  /**
+   * Central base background, persisted. A theme (with branding) or a bare
+   * background (solid/gradient/image/video). Revealed on Clear and shown behind
+   * transparent content. Null = each output uses its own theme (the default).
+   */
+  baseBackground: BaseBackground | null
   props: BroadcastProp[]
 
   stageNotes: string | null
@@ -303,6 +336,12 @@ interface BroadcastState {
   // Theme management
   loadThemes: () => void
   saveTheme: (theme: BroadcastTheme) => void
+  /**
+   * Designate a theme as the default and apply it to the main output. Persisted
+   * so the badge/sort survives reloads. Unlike {@link saveTheme}, saving a
+   * theme never changes the default — that only happens through this action.
+   */
+  setDefaultTheme: (id: string) => void
   deleteTheme: (id: string) => void
   duplicateTheme: (id: string) => void
   createNewTheme: () => void
@@ -339,8 +378,6 @@ interface BroadcastState {
   setActiveTheme: (id: string) => void
   setAltActiveTheme: (id: string) => void
   setLive: (live: boolean) => void
-  /** Engage/release the live lock (see {@link liveLocked}). Unlocking takes any pending preview. */
-  setLiveLocked: (locked: boolean) => void
   /** Push the currently-staged preview item to the live output(s). No-op when nothing is pending. */
   takeToLive: () => void
   setLiveVerse: (
@@ -367,6 +404,16 @@ interface BroadcastState {
   followManualSelection: () => void
   setInterlinearText: (text: string | null) => void
   setBroadcastMuted: (muted: boolean) => void
+  /** Toggle the full black-screen cut on every live output (and the NDI feed). */
+  toggleBlackout: () => void
+  /** Toggle hiding the foreground text (scripture/slide) on every live output. */
+  toggleClearForeground: () => void
+  /** Set (or clear, with null) the persisted holding-logo image path. */
+  setLogoImage: (path: string | null) => void
+  /** Toggle the holding logo on the audience output. No-op if none configured. */
+  toggleLogo: () => void
+  /** Set (or clear, with null) the global base/master theme override. */
+  setBaseBackground: (bg: BaseBackground | null) => void
   sendMediaTransport: (
     action: "play" | "pause" | "seek",
     position?: number
@@ -516,6 +563,26 @@ function closeWebOverlays(outputs: BroadcastOutput[]): void {
   }
 }
 
+/** The audience-screen visibility payload sent to output windows. */
+function visibilityPayload(s: BroadcastState) {
+  return {
+    blackout: s.blackout,
+    clear: s.clearForeground,
+    logo: s.showLogo,
+    logoImagePath: s.logoImagePath,
+  }
+}
+
+/** Push the current black/clear/logo visibility to every enabled output. */
+function emitVisibility(get: () => BroadcastState): void {
+  const s = get()
+  emitToAllOutputs(
+    s.outputs,
+    "broadcast:output-visibility",
+    visibilityPayload(s)
+  )
+}
+
 export const useBroadcastStore = create<BroadcastState>((set, get) => {
   // ── Live-commit helpers ──
   // These perform the actual push to the live output(s): they set the `live*`
@@ -620,6 +687,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
 
   return {
     themes: [...BUILTIN_THEMES],
+    defaultThemeId: BUILTIN_THEMES[0].id,
     stageLayouts: [...BUILTIN_STAGE_LAYOUTS],
     outputs: DEFAULT_OUTPUTS.map((o) => ({ ...o })),
     isLive: false,
@@ -629,7 +697,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     liveSlide: null,
     liveMedia: null,
     liveWeb: null,
-    liveLocked: false,
     previewVerse: null,
     previewSlide: null,
     previewMedia: null,
@@ -641,7 +708,12 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     broadcastSource: null,
     interlinearText: null,
     broadcastMuted: false,
+    blackout: false,
+    clearForeground: false,
+    showLogo: false,
     mediaLayer: null,
+    logoImagePath: null,
+    baseBackground: null,
     props: [],
     stageNotes: null,
     stageTimer: null,
@@ -674,9 +746,20 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
           ? s.themes.map((t) => (t.id === theme.id ? theme : t))
           : [...s.themes, theme],
       })),
+    setDefaultTheme: (id) => {
+      if (!get().themes.some((t) => t.id === id)) return
+      set({ defaultThemeId: id })
+      // A default that isn't shown is meaningless — apply it to the main output.
+      get().setActiveTheme(id)
+    },
     deleteTheme: (id) =>
       set((s) => ({
         themes: s.themes.filter((t) => t.id !== id || t.builtin),
+        // Deleting the default falls back to the first built-in.
+        defaultThemeId:
+          s.defaultThemeId === id
+            ? (BUILTIN_THEMES[0]?.id ?? null)
+            : s.defaultThemeId,
       })),
     duplicateTheme: (id) => {
       const s = get()
@@ -1078,6 +1161,14 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       // settings. Re-sent on every sync/resync so a freshly opened window
       // inherits the saved settings.
       emitToOutput(outputId, "broadcast:display-config", outputDisplayConfig(output))
+      // Black/clear are ephemeral and the logo path is global; re-send so a
+      // just-opened or re-synced window inherits the current visibility (and the
+      // logo image) instead of flashing content the operator has hidden.
+      emitToOutput(
+        outputId,
+        "broadcast:output-visibility",
+        visibilityPayload(s)
+      )
       // A "mirror" output clones its source: follow the chain and drive this
       // window with the *source's* theme + layer filter. Content is shared by
       // all outputs, so mirroring only inherits the presentation. Falls back to
@@ -1086,6 +1177,13 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       const themeId = effective.themeId
       const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
       if (!theme) return
+
+      // Central base theme: the global override when set, else this output's own
+      // theme (Option A). Delivered every sync so the window can composite
+      // transparent content over it and reveal it on Clear, regardless of which
+      // content mode is live.
+      const baseTheme = resolveBaseTheme(s.baseBackground, theme, s.themes)
+      emitToOutput(outputId, "broadcast:base-theme", { theme: baseTheme })
 
       // A layer-filter output carries its per-output filter on EVERY content
       // payload (verse, slide, media) so the receiving window can suppress
@@ -1148,29 +1246,14 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     setLive: (isLive) => {
       set({ isLive })
       if (!isLive) {
-        // A lock only makes sense while broadcasting: drop it (and any pending
-        // stage) when going off-air so the next go-live starts in follow mode.
-        set({ liveLocked: false, previewPending: false })
+        // Going off-air clears any pending stage so the next go-live starts clean.
+        set({ previewPending: false })
         if (get().liveWeb) closeWebOverlays(get().outputs)
       }
       get().syncBroadcastOutput()
       if (isLive && get().liveWeb) {
         get().syncWebOutput()
       }
-    },
-    setLiveLocked: (locked) => {
-      if (locked) {
-        // Engage: preview already mirrors live (unlocked presents write both), so
-        // nothing is staged yet — just arm the lock.
-        set({ liveLocked: true, previewPending: false })
-        return
-      }
-      // Release: take whatever is staged (if anything) into the live output, then
-      // return to follow mode. Clear the lock first so the commit runs unguarded.
-      const pending = get().previewPending
-      set({ liveLocked: false })
-      if (pending) get().takeToLive()
-      else set({ previewPending: false })
     },
     takeToLive: () => {
       const s = get()
@@ -1212,6 +1295,51 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         }
       }
     },
+    // Black / Clear / Logo are mutually exclusive audience-screen states: the
+    // screen is in exactly one at a time, so turning one on clears the others.
+    // This keeps every key press visible (no hidden state under a higher layer);
+    // pressing the active one again returns to normal.
+    toggleBlackout: () => {
+      const on = !get().blackout
+      set(
+        on
+          ? { blackout: true, clearForeground: false, showLogo: false }
+          : { blackout: false }
+      )
+      emitVisibility(get)
+    },
+    toggleClearForeground: () => {
+      const on = !get().clearForeground
+      set(
+        on
+          ? { clearForeground: true, blackout: false, showLogo: false }
+          : { clearForeground: false }
+      )
+      emitVisibility(get)
+    },
+    setLogoImage: (logoImagePath) => {
+      set({ logoImagePath })
+      // Drop the holding logo if its image was cleared.
+      if (!logoImagePath && get().showLogo) set({ showLogo: false })
+      emitVisibility(get)
+    },
+    toggleLogo: () => {
+      // A logo with no configured image would just be a black holding screen —
+      // ignore until one is set (the UI also disables the control).
+      if (!get().showLogo && !get().logoImagePath) return
+      const on = !get().showLogo
+      set(
+        on
+          ? { showLogo: true, blackout: false, clearForeground: false }
+          : { showLogo: false }
+      )
+      emitVisibility(get)
+    },
+    setBaseBackground: (baseBackground) => {
+      set({ baseBackground })
+      // Re-sync so every output receives the new base background immediately.
+      get().syncBroadcastOutput()
+    },
     sendMediaTransport: (action, position) => {
       emitToAllOutputs(get().outputs, "broadcast:media-transport", {
         action,
@@ -1229,20 +1357,16 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     setWebTransport: (webTransport) => set({ webTransport }),
     setLiveVerse: (verse, source) => {
       // Always stage into the preview (clearing the other preview kinds) so the
-      // Program preview shows it. When locked+live we stop there — the audience
-      // stays frozen until Take/unlock; otherwise commit straight to live.
+      // Program preview shows it. Presenting never touches the audience — the
+      // operator pushes the staged item live with takeToLive (play / Enter).
       set({
         previewVerse: verse,
         previewSlide: null,
         previewMedia: null,
         previewWeb: null,
         previewSource: source ?? null,
+        previewPending: true,
       })
-      if (get().liveLocked && get().isLive) {
-        set({ previewPending: true })
-        return
-      }
-      commitVerseLive(verse, source)
     },
     setLiveSlide: (slide, source) => {
       set({
@@ -1251,12 +1375,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         previewMedia: null,
         previewWeb: null,
         previewSource: source ?? null,
+        previewPending: true,
       })
-      if (get().liveLocked && get().isLive) {
-        set({ previewPending: true })
-        return
-      }
-      commitSlideLive(slide, source)
     },
     setLiveMedia: (media, source) => {
       set({
@@ -1265,12 +1385,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         previewVerse: null,
         previewWeb: null,
         previewSource: source ?? null,
+        previewPending: true,
       })
-      if (get().liveLocked && get().isLive) {
-        set({ previewPending: true })
-        return
-      }
-      commitMediaLive(media, source)
     },
     updateLiveMediaFit: (fit) => {
       const s = get()
@@ -1300,12 +1416,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         previewVerse: null,
         previewMedia: null,
         previewSource: source ?? null,
+        previewPending: true,
       })
-      if (get().liveLocked && get().isLive) {
-        set({ previewPending: true })
-        return
-      }
-      commitWebLive(web, source)
     },
     clearLiveWeb: () => {
       set({ liveWeb: null, previewWeb: null, webTransport: null })
@@ -1325,6 +1437,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
               end: web.endTime,
               isLive: web.isLive,
               muted: s.broadcastMuted,
+              autoplay: web.autoplay ?? false,
             }
           : undefined
       for (const output of s.outputs) {
@@ -1640,6 +1753,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       const { draftTheme } = get()
       if (!draftTheme) return
       if (draftTheme.builtin) {
+        // Saving a built-in forks it into a new custom theme and keeps editing
+        // that fork. It does NOT touch the active/default output theme — making
+        // a theme the default is an explicit action (see setDefaultTheme).
         const customTheme = themeEditing.promoteBuiltinToCustom(
           draftTheme,
           crypto.randomUUID(),
@@ -1647,9 +1763,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         )
         set((s) => ({
           themes: [...s.themes, customTheme],
-          outputs: updateOutputInArray(s.outputs, "main", {
-            themeId: customTheme.id,
-          }),
           editingThemeId: customTheme.id,
           draftTheme: customTheme,
         }))
@@ -1798,8 +1911,17 @@ export function hydrateBroadcastThemes(): Promise<void> {
         BroadcastProp[] | undefined
       const savedMediaLayer = (await store.get("mediaLayer")) as
         MediaLayerState | undefined
+      const savedLogoPath = (await store.get("logoImagePath")) as
+        string | undefined
+      const savedBaseBackground = (await store.get("baseBackground")) as
+        BaseBackground | undefined
+      // Migrate the legacy theme-only key to the new base-background shape.
+      const legacyBaseThemeId = (await store.get("baseThemeId")) as
+        string | undefined
       const savedStageConfig = (await store.get("stageDisplayConfig")) as
         (StageDisplayConfig & { enabled?: boolean }) | undefined
+      const savedDefaultThemeId = (await store.get("defaultThemeId")) as
+        string | undefined
 
       const patch: Partial<BroadcastState> = {}
       if (
@@ -1871,11 +1993,23 @@ export function hydrateBroadcastThemes(): Promise<void> {
         await store.delete("stageDisplayConfig")
       }
 
+      // Restore the default theme, ignoring a stale id whose theme was deleted.
+      if (savedDefaultThemeId) {
+        const themePool = patch.themes ?? useBroadcastStore.getState().themes
+        if (themePool.some((t) => t.id === savedDefaultThemeId)) {
+          patch.defaultThemeId = savedDefaultThemeId
+        }
+      }
+
       if (savedGroups && Array.isArray(savedGroups)) {
         patch.stageMonitorGroups = savedGroups
       }
       if (savedProps && Array.isArray(savedProps)) patch.props = savedProps
       if (savedMediaLayer) patch.mediaLayer = savedMediaLayer
+      if (savedLogoPath) patch.logoImagePath = savedLogoPath
+      if (savedBaseBackground) patch.baseBackground = savedBaseBackground
+      else if (legacyBaseThemeId)
+        patch.baseBackground = { kind: "theme", themeId: legacyBaseThemeId }
 
       if (Object.keys(patch).length > 0) {
         useBroadcastStore.setState(patch)
@@ -1885,11 +2019,14 @@ export function hydrateBroadcastThemes(): Promise<void> {
       useBroadcastStore.subscribe((state, prevState) => {
         const changed =
           state.themes !== prevState.themes ||
+          state.defaultThemeId !== prevState.defaultThemeId ||
           state.stageLayouts !== prevState.stageLayouts ||
           state.outputs !== prevState.outputs ||
           state.stageMonitorGroups !== prevState.stageMonitorGroups ||
           state.props !== prevState.props ||
-          state.mediaLayer !== prevState.mediaLayer
+          state.mediaLayer !== prevState.mediaLayer ||
+          state.logoImagePath !== prevState.logoImagePath ||
+          state.baseBackground !== prevState.baseBackground
         if (!changed) return
         if (saveTimer) clearTimeout(saveTimer)
         saveTimer = setTimeout(() => {
@@ -1918,11 +2055,15 @@ async function persistBroadcastThemes(state: BroadcastState): Promise<void> {
     const customThemes = state.themes.filter((t) => !t.builtin)
     const customStageLayouts = state.stageLayouts.filter((l) => !l.builtin)
     await store.set("customThemes", customThemes)
+    await store.set("defaultThemeId", state.defaultThemeId)
     await store.set("customStageLayouts", customStageLayouts)
     await store.set("outputs", state.outputs)
     await store.set("stageMonitorGroups", state.stageMonitorGroups)
     await store.set("props", state.props)
     await store.set("mediaLayer", state.mediaLayer)
+    await store.set("logoImagePath", state.logoImagePath)
+    await store.set("baseBackground", state.baseBackground)
+    await store.delete("baseThemeId")
     await store.delete("activeThemeId")
     await store.delete("altActiveThemeId")
     await store.save()

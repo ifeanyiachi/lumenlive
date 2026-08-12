@@ -22,7 +22,7 @@ import {
   VolumeOffIcon,
   GlobeIcon,
   MusicIcon,
-  LockIcon,
+  PlayIcon,
 } from "lucide-react"
 import { ytMute, ytUnmute } from "@/lib/youtube-post-message"
 
@@ -230,13 +230,13 @@ export function PreviewPanel() {
   const selectedVerse = useBibleStore((s) => s.selectedVerse)
   const translations = useBibleStore((s) => s.translations)
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
-  // The Program preview reads the staged `preview*` fields (not `live*`): while
-  // the live output is locked these hold what the operator is auditioning, and
-  // while unlocked they mirror live exactly, so this stays correct either way.
+  // The Program preview reads the staged `preview*` fields (not `live*`):
+  // presenting an item always stages here, and it only reaches the audience when
+  // the operator takes it live (play icon / Enter / the Go Live button below).
   const liveMedia = useBroadcastStore((s) => s.previewMedia)
   const liveSlide = useBroadcastStore((s) => s.previewSlide)
   const liveWeb = useBroadcastStore((s) => s.previewWeb)
-  const liveLocked = useBroadcastStore((s) => s.liveLocked)
+  const previewPending = useBroadcastStore((s) => s.previewPending)
   const isLive = useBroadcastStore((s) => s.isLive)
 
   const [interlinearOn, setInterlinearOn] = useState(false)
@@ -400,14 +400,18 @@ export function PreviewPanel() {
     >
       <PanelHeader title="Program preview">
         <div className="flex items-center gap-1.5">
-          {liveLocked && isLive && (
-            <span
-              className="flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold tracking-wide text-amber-400 uppercase"
-              title="Live is locked — items you select stage here without going to the audience"
+          {isLive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => useBroadcastStore.getState().takeToLive()}
+              disabled={!previewPending}
+              title="Send the previewed item to the audience (Enter)"
+              className="h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider text-emerald-400 uppercase hover:text-emerald-300 disabled:text-muted-foreground"
             >
-              <LockIcon className="size-2.5" />
-              Staging
-            </span>
+              <PlayIcon className="size-3.5" />
+              Go Live
+            </Button>
           )}
           {showWeb && (
             <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground">

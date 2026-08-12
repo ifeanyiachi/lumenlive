@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from "react"
+import { useEffect, useMemo, useCallback, useState } from "react"
 import {
   GlobeIcon,
   ExternalLinkIcon,
@@ -59,6 +59,13 @@ function WebPlaybackEditor({
   const { currentTime, duration, isPlaying, isReady, isLoading } = state
   const isLive = item.isLive ?? false
 
+  // While the operator drags the scrubber, drive the thumb from a local value —
+  // NOT the 250ms-polled currentTime, which lags and would snap the thumb back
+  // ("moves once and gets stuck"). Cleared on release so it resumes following
+  // the real player position.
+  const [scrub, setScrub] = useState<number | null>(null)
+  const position = scrub ?? currentTime
+
   return (
     <FieldGroup label="Playback">
       <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-2">
@@ -111,13 +118,22 @@ function WebPlaybackEditor({
             min={0}
             max={duration || 0}
             step={0.05}
-            value={Math.min(currentTime, duration || 0)}
+            value={Math.min(position, duration || 0)}
             disabled={!isReady}
-            onChange={(e) => seekTo(Number(e.target.value))}
+            onChange={(e) => {
+              // Seek on every change (fires reliably during a drag) and hold the
+              // thumb via local state so it tracks the pointer instead of the
+              // lagging poll.
+              const t = Number(e.target.value)
+              setScrub(t)
+              seekTo(t)
+            }}
+            onPointerUp={() => setScrub(null)}
+            onKeyUp={() => setScrub(null)}
             className="h-1 flex-1 cursor-pointer accent-primary disabled:opacity-50"
           />
           <span className="shrink-0 text-[0.625rem] text-muted-foreground tabular-nums">
-            {formatTimecode(currentTime)} / {formatTimecode(duration)}
+            {formatTimecode(position)} / {formatTimecode(duration)}
           </span>
         </div>
 

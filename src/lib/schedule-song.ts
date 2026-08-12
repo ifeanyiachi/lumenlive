@@ -36,10 +36,10 @@ function resolveArrangement(
  * it right after the currently-active item — the same placement slides use. The
  * item caches the title/CCLI number; its lyric slides are generated at go-live.
  */
-export function addSongToSchedule({
-  songId,
-  arrangementId,
-}: SongDropData): void {
+export function addSongToSchedule(
+  { songId, arrangementId }: SongDropData,
+  insertIndex?: number
+): void {
   const song = useSongStore.getState().songs.find((s) => s.id === songId)
   if (!song) return
 
@@ -55,9 +55,10 @@ export function addSongToSchedule({
   const current = useScheduleStore.getState()
   const schedule = current.getActiveSchedule()
   const insertAt =
-    current.activeItemIndex !== null
+    insertIndex ??
+    (current.activeItemIndex !== null
       ? current.activeItemIndex + 1
-      : (schedule?.items.length ?? 0)
+      : (schedule?.items.length ?? 0))
 
   const item: SongScheduleItem = {
     id: crypto.randomUUID(),

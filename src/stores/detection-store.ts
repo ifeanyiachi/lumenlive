@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import type { DetectionResult } from "@/types"
 
-// Holds live detection *results* only. Detection *settings* (autoMode,
+// Holds live detection *results* only. Detection *settings* (directAutoDisplay,
 // confidenceThreshold, cooldownMs, …) live solely in settings-store, which is
 // what the live pipeline reads — keep them there to avoid a second, divergent
 // source of truth.

@@ -87,18 +87,21 @@ export function MediaPickerDialog({
       const path = await pickVideoFile()
       if (path) {
         onSelectFromDevice(path)
+        void useMediaStore.getState().importPaths([path])
         onOpenChange(false)
       }
     } else if (!mediaType) {
       const path = await pickMediaFile()
       if (path) {
         onSelectFromDevice(path)
+        void useMediaStore.getState().importPaths([path])
         onOpenChange(false)
       }
     } else {
-      const dataUrl = await pickThemeBackgroundImage()
-      if (dataUrl) {
-        onSelectFromDevice(dataUrl)
+      const picked = await pickThemeBackgroundImage()
+      if (picked) {
+        onSelectFromDevice(picked.url)
+        void useMediaStore.getState().importPaths([picked.path])
         onOpenChange(false)
       }
     }

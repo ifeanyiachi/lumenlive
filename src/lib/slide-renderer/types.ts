@@ -16,4 +16,10 @@ export interface SlideRenderOptions {
    * must pass this on every RAF tick; omitting it renders a static frame at t=0.
    */
   frameTime?: number
+  /**
+   * Draw only the slide background, skipping all foreground elements (text,
+   * shapes, images). Used by the live-output "Clear" toggle to hide the text
+   * while keeping the backdrop. Missing/false = draw everything (unchanged).
+   */
+  hideElements?: boolean
 }

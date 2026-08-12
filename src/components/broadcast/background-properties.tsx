@@ -1,4 +1,5 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useMediaStore } from "@/stores/media-store"
 import {
   pickThemeBackgroundImage,
   pickVideoFile,
@@ -112,8 +113,11 @@ function ImageSection() {
           className="w-full"
           onClick={() => {
             void (async () => {
-              const dataUrl = await pickThemeBackgroundImage()
-              if (dataUrl) update("background.image.url", dataUrl)
+              const picked = await pickThemeBackgroundImage()
+              if (picked) {
+                update("background.image.url", picked.url)
+                void useMediaStore.getState().importPaths([picked.path])
+              }
             })()
           }}
         >
@@ -285,7 +289,10 @@ function VideoSection() {
             onClick={() => {
               void (async () => {
                 const path = await pickVideoFile()
-                if (path) update("background.video.url", path)
+                if (path) {
+                  update("background.video.url", path)
+                  void useMediaStore.getState().importPaths([path])
+                }
               })()
             }}
           >
