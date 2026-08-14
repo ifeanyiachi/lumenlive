@@ -3,9 +3,8 @@ import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
 import { PlayIcon, PlusIcon } from "lucide-react"
 import { useDetection, detectionActions } from "@/hooks/use-detection"
-import { bibleActions } from "@/hooks/use-bible"
-import { useQueueStore, useBroadcastStore, useBibleStore } from "@/stores"
-import { toVerseRenderData } from "@/hooks/use-broadcast"
+import { useQueueStore, useBibleStore } from "@/stores"
+import { presentDetectionLive } from "@/hooks/use-broadcast"
 import type { DetectionResult } from "@/types"
 
 const SOURCE_COLORS: Record<
@@ -36,49 +35,9 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 function DetectionCard({ detection }: { detection: DetectionResult }) {
-  const handlePresent = () => {
-    // Select this verse for preview
-    bibleActions.selectVerse({
-      id: 0,
-      translation_id: useBibleStore.getState().activeTranslationId,
-      book_number: detection.book_number,
-      book_name: detection.book_name,
-      book_abbreviation: "",
-      chapter: detection.chapter,
-      verse: detection.verse,
-      text: detection.verse_text,
-    })
-    // Navigate book search panel to this verse
-    if (detection.book_number > 0) {
-      bibleActions.navigateToVerse(
-        detection.book_number,
-        detection.chapter,
-        detection.verse
-      )
-    }
-    // Set broadcast live verse
-    const translation =
-      useBibleStore
-        .getState()
-        .translations.find(
-          (t) => t.id === useBibleStore.getState().activeTranslationId
-        )?.abbreviation ?? "KJV"
-    useBroadcastStore.getState().setLiveVerse(
-      toVerseRenderData(
-        {
-          id: 0,
-          translation_id: useBibleStore.getState().activeTranslationId,
-          book_number: detection.book_number,
-          book_name: detection.book_name,
-          book_abbreviation: "",
-          chapter: detection.chapter,
-          verse: detection.verse,
-          text: detection.verse_text,
-        },
-        translation
-      )
-    )
-  }
+  // Present goes straight to the audience for AI detections (the one exception
+  // to the stage-then-take flow); it also mirrors the verse into selection/search.
+  const handlePresent = () => presentDetectionLive(detection)
 
   return (
     <div className="border-b border-border p-3 last:border-0">

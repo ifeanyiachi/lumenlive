@@ -1,7 +1,10 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBibleStore, useQueueStore } from "@/stores"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
+import { bibleActions } from "@/hooks/use-bible"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import { verseEditKey } from "@/types/verse-edit"
-import type { VerseRenderData } from "@/types"
+import type { VerseRenderData, QueueItem, DetectionResult } from "@/types"
 import type { Verse } from "@/types"
 import type { StyledVerseSegment } from "@/types/verse-edit"
 import type { Slide } from "@/types/slide"
@@ -64,6 +67,65 @@ export function deriveLiveVerse({
 }): VerseRenderData | null {
   if (!isLive || !selectedVerse) return null
   return toVerseRenderData(selectedVerse, translation, interlinearText)
+}
+
+/**
+ * Stage a queue item into the Program preview — the shared "present" step for
+ * an AI-detections / queue verse. It marks the row active, mirrors the verse
+ * into the book search, and pins the preview to the "queue" source. It never
+ * touches the audience: the operator commits it with takeToLive (play / Enter /
+ * Go Live). Shared by the queue panel's row click and the keyboard path so both
+ * stage identically.
+ */
+export function presentQueueVerse(item: QueueItem, index: number): void {
+  useQueueStore.getState().setActive(index)
+  bibleActions.selectVerse(item.verse)
+  const bible = useBibleStore.getState()
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  const renderData = item.verses
+    ? toMultiVerseRenderData(item.verses, translation)
+    : toVerseRenderData(item.verse, translation)
+  useBroadcastStore.getState().setLiveVerse(renderData, "queue")
+}
+
+/**
+ * Present an AI detection straight to the audience. This is the deliberate
+ * exception to the locked-by-default "stage-then-take" flow: queue/schedule
+ * presents stage into the Program preview and wait for an explicit take, but an
+ * AI-detection Present is the operator's live call, so it stages the verse and
+ * commits it live in one step. It also mirrors the verse into the book search
+ * and selection like the other present paths.
+ */
+export function presentDetectionLive(detection: DetectionResult): void {
+  const bible = useBibleStore.getState()
+  const verse: Verse = {
+    id: 0,
+    translation_id: bible.activeTranslationId,
+    book_number: detection.book_number,
+    book_name: detection.book_name,
+    book_abbreviation: "",
+    chapter: detection.chapter,
+    verse: detection.verse,
+    text: detection.verse_text,
+  }
+  bibleActions.selectVerse(verse)
+  if (detection.book_number > 0) {
+    bibleActions.navigateToVerse(
+      detection.book_number,
+      detection.chapter,
+      detection.verse
+    )
+  }
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  const bs = useBroadcastStore.getState()
+  // Stage then immediately take: reuse the exact live-push path the manual
+  // "Go Live" uses, so the audience push is identical.
+  bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
+  bs.takeToLive()
 }
 
 export async function presentSlide(slide: Slide): Promise<void> {

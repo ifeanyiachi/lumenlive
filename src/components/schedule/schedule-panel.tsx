@@ -26,7 +26,6 @@ import { useScheduleStore } from "@/stores/schedule-store"
 import { usePresentationStore } from "@/stores/presentation-store"
 import {
   useQueueStore,
-  useBroadcastStore,
   useBibleStore,
   useSettingsStore,
   useSongStore,
@@ -45,9 +44,7 @@ import {
   type DragPayload,
   type DragKind,
 } from "@/stores/drag-store"
-import { toVerseRenderData } from "@/hooks/use-broadcast"
-import { toMultiVerseRenderData } from "@/lib/multi-verse"
-import { bibleActions } from "@/hooks/use-bible"
+import { presentQueueVerse } from "@/hooks/use-broadcast"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
@@ -959,18 +956,7 @@ function AIVersesTab() {
   const [editVerse, setEditVerse] = useState<QueueItem | null>(null)
 
   const handlePresent = (item: QueueItem, index: number) => {
-    useQueueStore.getState().setActive(index)
-    bibleActions.selectVerse(item.verse)
-    const translation =
-      useBibleStore
-        .getState()
-        .translations.find(
-          (t) => t.id === useBibleStore.getState().activeTranslationId
-        )?.abbreviation ?? "KJV"
-    const renderData = item.verses
-      ? toMultiVerseRenderData(item.verses, translation)
-      : toVerseRenderData(item.verse, translation)
-    useBroadcastStore.getState().setLiveVerse(renderData, "queue")
+    presentQueueVerse(item, index)
   }
 
   const handleAddToSchedule = (item: QueueItem) => {

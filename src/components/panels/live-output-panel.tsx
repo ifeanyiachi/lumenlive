@@ -13,12 +13,16 @@ import {
   DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useBroadcastStore, useBibleStore } from "@/stores"
+import { useBroadcastStore, useBibleStore, useQueueStore } from "@/stores"
 import { useAlertStore } from "@/stores/alert-store"
 import { alertBarLayout } from "@/lib/broadcast-output/overlays"
 import type { LiveMedia, LiveWeb } from "@/stores/broadcast-store"
-import { deriveLiveVerse } from "@/hooks/use-broadcast"
+import {
+  toVerseRenderData,
+  presentQueueVerse,
+} from "@/hooks/use-broadcast"
 import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
+import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import {
   renderSlide,
@@ -1020,17 +1024,33 @@ export function LiveOutputPanel() {
 
   const liveVerse = useBroadcastStore((s) => s.liveVerse)
 
-  const derivedVerse = useMemo(
-    () =>
-      deriveLiveVerse({ isLive, selectedVerse, translation, interlinearText }),
-    [isLive, selectedVerse, translation, interlinearText]
-  )
-
+  // Mirror the operator's manual Bible selection into the Program preview so it
+  // is ready to take live — but only as a genuine *follow* of the selection, not
+  // as a side effect of flipping Live on (which would otherwise auto-stage the
+  // always-present default selection; see shouldStageManualVerse). Track the
+  // previous Live state to detect the off→on transition, and read preview state
+  // via getState() so this effect isn't re-bound on every store tick.
+  const wasLiveRef = useRef(isLive)
   useEffect(() => {
-    const { broadcastSource } = useBroadcastStore.getState()
-    if (broadcastSource !== null && broadcastSource !== "manual") return
-    useBroadcastStore.getState().setLiveVerse(derivedVerse, "manual")
-  }, [derivedVerse])
+    const bs = useBroadcastStore.getState()
+    const wasLive = wasLiveRef.current
+    wasLiveRef.current = isLive
+    if (
+      !shouldStageManualVerse({
+        isLive,
+        wasLive,
+        hasSelection: selectedVerse !== null,
+        previewPending: bs.previewPending,
+        previewSource: bs.previewSource,
+      })
+    ) {
+      return
+    }
+    bs.setLiveVerse(
+      toVerseRenderData(selectedVerse!, translation, interlinearText),
+      "manual"
+    )
+  }, [isLive, selectedVerse, translation, interlinearText])
 
   // Preview mute now rides on each LiveWebMonitor's own player (it mirrors
   // broadcastMuted internally); the audience overlay is muted separately in
@@ -1051,8 +1071,14 @@ export function LiveOutputPanel() {
 
   const [propsOpen, setPropsOpen] = useState(false)
 
-  // Enter takes the staged Program-preview item to the audience — the keyboard
-  // path to live (mirrors the schedule play icon and the Go Live button).
+  // Enter is the keyboard path to live (mirrors the schedule play icon and the
+  // Go Live button). It is a deliberate two-step so a verse never reaches the
+  // audience on a single stray keypress:
+  //   1st Enter — with nothing staged but a verse "active" in the AI-detections
+  //   queue (e.g. one that just auto-detected), stage that verse into the
+  //   Program preview so the operator can see it. This is why Enter used to do
+  //   nothing after an auto-detection: the active row was never staged.
+  //   2nd Enter — commit the staged preview to the audience.
   // Space/←/→ are reserved by the media/web monitors. Ignored while typing.
   useEffect(() => {
     if (!isLive) return
@@ -1067,7 +1093,16 @@ export function LiveOutputPanel() {
           t.isContentEditable)
       )
         return
-      if (!useBroadcastStore.getState().previewPending) return
+      if (!useBroadcastStore.getState().previewPending) {
+        // Nothing staged yet — fall back to the active queue verse and stage it
+        // (first Enter). A second Enter then commits it below.
+        const q = useQueueStore.getState()
+        const item = q.activeIndex != null ? q.items[q.activeIndex] : undefined
+        if (!item || q.activeIndex == null) return
+        e.preventDefault()
+        presentQueueVerse(item, q.activeIndex)
+        return
+      }
       e.preventDefault()
       useBroadcastStore.getState().takeToLive()
     }

@@ -5,7 +5,7 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { CanvasVerse } from "@/components/ui/canvas-verse"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useBibleStore, useBroadcastStore } from "@/stores"
+import { useBibleStore, useBroadcastStore, useSettingsStore } from "@/stores"
 import type { LiveMedia } from "@/stores/broadcast-store"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
@@ -238,6 +238,9 @@ export function PreviewPanel() {
   const liveWeb = useBroadcastStore((s) => s.previewWeb)
   const previewPending = useBroadcastStore((s) => s.previewPending)
   const isLive = useBroadcastStore((s) => s.isLive)
+  // The Greek/Hebrew interlinear toggle is part of the lexicon feature — hidden
+  // everywhere when the feature is off in Bible settings.
+  const lexiconEnabled = useSettingsStore((s) => s.lexiconEnabled)
 
   const [interlinearOn, setInterlinearOn] = useState(false)
   const [interlinearText, setInterlinearText] = useState<string | null>(null)
@@ -282,6 +285,16 @@ export function PreviewPanel() {
     setInterlinearOn(false)
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedVerse?.id])
+
+  // Turning the lexicon feature off mid-session drops any active interlinear
+  // overlay so it doesn't linger on the preview (and output).
+  useEffect(() => {
+    if (lexiconEnabled) return
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setInterlinearOn(false)
+    setInterlinearText(null)
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [lexiconEnabled])
 
   const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore(
@@ -436,7 +449,7 @@ export function PreviewPanel() {
               )}
             </Button>
           )}
-          {!showMedia && !showWeb && selectedVerse && (
+          {!showMedia && !showWeb && selectedVerse && lexiconEnabled && (
             <Button
               variant="ghost"
               size="sm"
