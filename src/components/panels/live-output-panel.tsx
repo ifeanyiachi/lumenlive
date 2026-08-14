@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { CanvasVerse } from "@/components/ui/canvas-verse"
 import { Switch } from "@/components/ui/switch"
@@ -13,14 +13,12 @@ import {
   DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { useBroadcastStore, useBibleStore, useQueueStore } from "@/stores"
 import { useAlertStore } from "@/stores/alert-store"
 import { alertBarLayout } from "@/lib/broadcast-output/overlays"
 import type { LiveMedia, LiveWeb } from "@/stores/broadcast-store"
-import {
-  toVerseRenderData,
-  presentQueueVerse,
-} from "@/hooks/use-broadcast"
+import { toVerseRenderData, presentQueueVerse } from "@/hooks/use-broadcast"
 import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
@@ -200,13 +198,7 @@ function LiveMediaMonitor({
     })
   )
 
-  const src = useMemo(() => {
-    try {
-      return convertFileSrc(media.filePath)
-    } catch {
-      return media.filePath
-    }
-  }, [media.filePath])
+  const src = useMemo(() => safeFileSrc(media.filePath), [media.filePath])
 
   const markers = useMemo(
     () => sortMarkers(media.markers ?? []),
@@ -328,15 +320,7 @@ function LiveMediaMonitor({
   useEffect(() => {
     if (media.mediaType === "image") return
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       if (e.code === "Space") {
         e.preventDefault()
         togglePlay()
@@ -656,15 +640,7 @@ function LiveWebMonitor({
   // Operator keyboard shortcuts: space = play/pause, ←/→ = jump markers.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       if (e.code === "Space") {
         e.preventDefault()
         togglePlay()
@@ -916,13 +892,7 @@ function PropsOverlay() {
             style={boxStyle}
           >
             <img
-              src={(() => {
-                try {
-                  return convertFileSrc(prop.imageUrl!)
-                } catch {
-                  return prop.imageUrl!
-                }
-              })()}
+              src={safeFileSrc(prop.imageUrl!)}
               alt=""
               className="size-full object-contain"
               style={{ opacity: prop.opacity ?? 1 }}
@@ -1084,15 +1054,7 @@ export function LiveOutputPanel() {
     if (!isLive) return
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Enter" && e.code !== "NumpadEnter") return
-      const t = e.target as HTMLElement | null
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       if (!useBroadcastStore.getState().previewPending) {
         // Nothing staged yet — fall back to the active queue verse and stage it
         // (first Enter). A second Enter then commits it below.
@@ -1116,15 +1078,7 @@ export function LiveOutputPanel() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "ArrowRight" && e.code !== "ArrowLeft") return
-      const t = e.target as HTMLElement | null
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       const st = useBroadcastStore.getState()
       if (!st.liveVersePages) return
       e.preventDefault()
@@ -1143,15 +1097,7 @@ export function LiveOutputPanel() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "KeyB" && e.code !== "KeyC" && e.code !== "KeyL") return
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      const t = e.target as HTMLElement | null
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       e.preventDefault()
       const st = useBroadcastStore.getState()
       if (e.code === "KeyB") st.toggleBlackout()
@@ -1310,13 +1256,7 @@ export function LiveOutputPanel() {
             {mediaLayer.mediaType === "video" ? (
               <video
                 key={mediaLayer.filePath}
-                src={(() => {
-                  try {
-                    return convertFileSrc(mediaLayer.filePath)
-                  } catch {
-                    return mediaLayer.filePath
-                  }
-                })()}
+                src={safeFileSrc(mediaLayer.filePath)}
                 autoPlay
                 muted
                 loop
@@ -1325,13 +1265,7 @@ export function LiveOutputPanel() {
               />
             ) : (
               <img
-                src={(() => {
-                  try {
-                    return convertFileSrc(mediaLayer.filePath)
-                  } catch {
-                    return mediaLayer.filePath
-                  }
-                })()}
+                src={safeFileSrc(mediaLayer.filePath)}
                 alt=""
                 className="size-full object-cover"
               />
@@ -1383,13 +1317,7 @@ export function LiveOutputPanel() {
         {isLive && showLogo && logoImagePath && (
           <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center bg-black">
             <img
-              src={(() => {
-                try {
-                  return convertFileSrc(logoImagePath)
-                } catch {
-                  return logoImagePath
-                }
-              })()}
+              src={safeFileSrc(logoImagePath)}
               alt=""
               className="max-h-full max-w-full object-contain"
             />

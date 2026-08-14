@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useBroadcastStore } from "@/stores"
+import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,12 +44,7 @@ export function ThemeDesigner() {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!isDesignerOpen || !useBroadcastStore.getState().draftTheme) return
-      const target = e.target as HTMLElement
-      const isInput =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT" ||
-        target.isContentEditable
+      const isInput = isEditableTarget(e.target)
       const store = useBroadcastStore.getState()
 
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
@@ -355,9 +351,7 @@ export function ThemeDesigner() {
               <PresentationEditor
                 embedded
                 themeMode
-                onClose={() =>
-                  usePresentationStore.getState().discardDraft()
-                }
+                onClose={() => usePresentationStore.getState().discardDraft()}
               />
             ) : isEditing ? (
               <>

@@ -1,5 +1,4 @@
 import { create } from "zustand"
-import { invoke } from "@tauri-apps/api/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type {
   BroadcastTheme,
@@ -42,6 +41,11 @@ import {
   resolveEffectiveOutput,
   updateOutputInArray,
 } from "@/lib/broadcast/output-selectors"
+import {
+  openWebOverlay,
+  closeWebOverlay,
+  muteWebOverlay,
+} from "@/services/web-overlay-gateway"
 
 export type BroadcastSource = "schedule" | "queue" | "manual" | null
 type SelectedElement = string | null
@@ -216,10 +220,7 @@ function outputDisplayConfig(output: BroadcastOutput) {
 }
 
 /** Push an output's current display config to its live window immediately. */
-function pushDisplayConfig(
-  get: () => BroadcastState,
-  outputId: string
-): void {
+function pushDisplayConfig(get: () => BroadcastState, outputId: string): void {
   const output = findOutput(get().outputs, outputId)
   if (output) {
     emitToOutput(
@@ -559,7 +560,7 @@ function emitDraftToBroadcast(state: BroadcastState): void {
 
 function closeWebOverlays(outputs: BroadcastOutput[]): void {
   for (const output of outputs) {
-    void invoke("close_web_overlay", { outputId: output.id }).catch(() => {})
+    void closeWebOverlay(output.id).catch(() => {})
   }
 }
 
@@ -1160,7 +1161,11 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       // monitor), not to any mirrored source, so it uses the output's OWN
       // settings. Re-sent on every sync/resync so a freshly opened window
       // inherits the saved settings.
-      emitToOutput(outputId, "broadcast:display-config", outputDisplayConfig(output))
+      emitToOutput(
+        outputId,
+        "broadcast:display-config",
+        outputDisplayConfig(output)
+      )
       // Black/clear are ephemeral and the logo path is global; re-send so a
       // just-opened or re-synced window inherits the current visibility (and the
       // logo image) instead of flashing content the operator has hidden.
@@ -1287,10 +1292,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         } else {
           // Plain navigated overlay: fall back to the eval-based mute.
           for (const output of get().outputs) {
-            void invoke("mute_web_overlay", {
-              outputId: output.id,
-              muted: broadcastMuted,
-            }).catch(() => {})
+            void muteWebOverlay(output.id, broadcastMuted).catch(() => {})
           }
         }
       }
@@ -1447,11 +1449,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
           u.searchParams.set("mute", "1")
           url = u.toString()
         }
-        void invoke("open_web_overlay", {
-          outputId: output.id,
-          url,
-          config,
-        }).catch(() => {})
+        void openWebOverlay(output.id, url, config).catch(() => {})
       }
     },
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { closeBroadcastWindow } from "@/services/broadcast-window-gateway"
 import {
   Dialog,
   DialogContent,
@@ -70,7 +70,7 @@ export function OutputManager({
 
   const handleRemoveOutput = async (outputId: string) => {
     try {
-      await invoke("close_broadcast_window", { outputId }).catch(() => {})
+      await closeBroadcastWindow(outputId).catch(() => {})
     } catch {
       /* ignore */
     }
@@ -81,7 +81,7 @@ export function OutputManager({
   const handleToggleEnabled = (outputId: string, enabled: boolean) => {
     updateOutput(outputId, { enabled })
     if (!enabled) {
-      void invoke("close_broadcast_window", { outputId }).catch(() => {})
+      void closeBroadcastWindow(outputId).catch(() => {})
     }
   }
 

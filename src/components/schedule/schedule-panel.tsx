@@ -31,6 +31,7 @@ import {
   useSongStore,
 } from "@/stores"
 import { useOsFileDrop } from "@/hooks/use-os-file-drop"
+import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { addAssetsToSchedule } from "@/lib/schedule-media"
 import { addSlideToSchedule } from "@/lib/schedule-slide"
 import { addSongToSchedule } from "@/lib/schedule-song"
@@ -302,27 +303,21 @@ function ScheduleAllTab({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!activeSchedule) return
       // Don't hijack arrow keys while the operator is typing in a field.
-      const target = e.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable)
-      )
-        return
+      if (isEditableTarget(e.target)) return
       // Up/Down move the selection through the schedule list (staging each item
       // into the Program preview), replacing the prev/next buttons. preventDefault
       // stops the arrow keys from scrolling the list instead. Skip when the book
       // search panel is focused — it owns the arrows for verse navigation.
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        if (document.activeElement?.closest('[data-slot="search-panel"]')) return
+        if (document.activeElement?.closest('[data-slot="search-panel"]'))
+          return
         e.preventDefault()
         const items = activeSchedule.items
         if (e.key === "ArrowDown") {
           let next = (activeItemIndex ?? -1) + 1
           while (next < items.length && items[next].type === "header") next++
-          if (next < items.length) void useScheduleStore.getState().goToItem(next)
+          if (next < items.length)
+            void useScheduleStore.getState().goToItem(next)
         } else {
           let prev = (activeItemIndex ?? items.length) - 1
           while (prev >= 0 && items[prev].type === "header") prev--
@@ -602,7 +597,8 @@ function ScheduleAllTab({
                 // Dynamic label truncation: when the slide-count badge is shown
                 // (active multi-slide item), cut the label further so the badge
                 // and the trailing action icons always have room.
-                const showsBadge = activeItemIndex === index && hasMultipleSlides
+                const showsBadge =
+                  activeItemIndex === index && hasMultipleSlides
                 const labelMaxChars = showsBadge ? 18 : 25
                 const displayLabel =
                   item.label.length > labelMaxChars
@@ -780,7 +776,8 @@ function ScheduleAllTab({
                     dragOverIndex === index && "border-2 border-primary",
                     // Quick-add drop indicator: a line before this cell, or
                     // after the last cell when appending to the end.
-                    externalDropIndex === index && "border-t-2 border-t-primary",
+                    externalDropIndex === index &&
+                      "border-t-2 border-t-primary",
                     externalDropIndex === itemCount &&
                       index === itemCount - 1 &&
                       "border-b-2 border-b-primary",
