@@ -15,10 +15,15 @@ use crate::keyterms::bible_keyterms;
 use crate::provider::SttProvider;
 use crate::types::{SttConfig, TranscriptEvent, Word};
 
-const MAX_RECONNECT_ATTEMPTS: u32 = 5;
+/// Kept low so a truly-offline connection gives up in ~3s and the orchestrator
+/// can fail over to the local engine, rather than stalling a live service.
+const MAX_RECONNECT_ATTEMPTS: u32 = 3;
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
-/// Batch up to 250ms of audio before sending (at 16kHz, that is 4000 samples).
-const BATCH_SAMPLES: usize = 4000;
+/// Batch up to 100ms of audio before sending (at 16kHz, that is 1600 samples).
+/// Kept small so interim results stream promptly — a larger batch adds a fixed
+/// latency floor to every partial without saving cost (Deepgram bills per
+/// audio-second regardless of chunk size).
+const BATCH_SAMPLES: usize = 1600;
 
 pub struct DeepgramClient {
     config: SttConfig,
@@ -137,12 +142,10 @@ impl DeepgramClient {
                     let _ = event_tx.send(TranscriptEvent::Disconnected).await;
 
                     if attempts >= MAX_RECONNECT_ATTEMPTS {
+                        // Give up so the caller can fail over to the local engine.
+                        // Deliberately no user-facing Error event here — the
+                        // failover path owns that messaging.
                         log::error!("DeepgramClient: max reconnection attempts reached");
-                        let _ = event_tx
-                            .send(TranscriptEvent::Error(format!(
-                                "Max reconnection attempts reached: {e}"
-                            )))
-                            .await;
                         return Err(e);
                     }
 
@@ -320,11 +323,13 @@ impl DeepgramClient {
                         // Ignore binary/ping/pong frames
                     }
                     Err(e) => {
-                        log::error!("DeepgramClient receiver: WebSocket error: {e}");
+                        // Log only — do NOT surface a user-facing error here. A
+                        // dropped socket is a recoverable event: the connect loop
+                        // retries and, if the network is truly gone, the caller
+                        // fails over to the on-device engine. Emitting an error
+                        // toast on every drop was noisy and read as a hard failure.
+                        log::warn!("DeepgramClient receiver: WebSocket error: {e}");
                         recv_err.store(true, Ordering::SeqCst);
-                        let _ = event_tx
-                            .send(TranscriptEvent::Error(format!("WebSocket error: {e}")))
-                            .await;
                         break;
                     }
                 }
@@ -457,56 +462,19 @@ impl SttProvider for DeepgramClient {
         audio_rx: Receiver<Vec<i16>>,
         event_tx: mpsc::Sender<TranscriptEvent>,
     ) -> Result<(), SttError> {
-        let result = self.connect(audio_rx.clone(), event_tx.clone()).await;
+        // Re-arm the cancel flag: the supervisor reuses the same client instance
+        // across failover→failback cycles, and a previous run may have set it.
+        self.cancelled.store(false, Ordering::SeqCst);
 
-        // On max reconnect failure, fall back to REST mode (hybrid).
-        if let Err(ref e) = result {
-            log::warn!(
-                "[STT-Deepgram] WebSocket failed after retries: {e}, switching to REST fallback"
-            );
-            let _ = event_tx
-                .send(TranscriptEvent::Error(
-                    "Connection unstable, switching to Hybrid mode".into(),
-                ))
-                .await;
-
-            let rest_client = crate::rest::DeepgramRestClient::new(self.config.clone());
-            let mut audio_buffer: Vec<i16> = Vec::new();
-            let flush_interval = std::time::Duration::from_secs(5);
-            let mut last_flush = std::time::Instant::now();
-            let cancelled = self.cancelled.clone();
-
-            loop {
-                if cancelled.load(Ordering::SeqCst) {
-                    break;
-                }
-
-                match audio_rx.recv_timeout(Duration::from_millis(100)) {
-                    Ok(samples) => audio_buffer.extend(samples),
-                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                }
-
-                // Flush on a fixed interval regardless of whether this tick
-                // delivered new samples (Ok) or timed out idle (Timeout).
-                if last_flush.elapsed() >= flush_interval && !audio_buffer.is_empty() {
-                    match rest_client.transcribe(&audio_buffer).await {
-                        Ok(events) => {
-                            for evt in events {
-                                let _ = event_tx.send(evt).await;
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("[STT-REST] Transcription failed: {e}");
-                        }
-                    }
-                    audio_buffer.clear();
-                    last_flush = std::time::Instant::now();
-                }
-            }
-        }
-
-        Ok(())
+        // Stream over the WebSocket, retrying transient drops. When the network
+        // is genuinely down the retries are exhausted and this returns Err — the
+        // caller (start_transcription) then fails over to the bundled on-device
+        // Moonshine engine so a live service keeps transcribing offline.
+        //
+        // The previous behaviour here was an online-only REST fallback, which
+        // could never help when the connection was actually lost; it has been
+        // replaced by that offline failover.
+        self.connect(audio_rx, event_tx).await
     }
 
     fn stop(&self) {

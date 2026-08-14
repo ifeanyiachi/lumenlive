@@ -39,6 +39,179 @@ const DIRECT_DETECTION_CONFIDENCE: f64 = 0.95;
 /// being treated as a low-confidence false positive.
 const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.90;
 
+/// Resolve the bundled Moonshine model directory (dev tree first, then packaged
+/// resources). Shared by the sherpa primary path and the Deepgram→Moonshine
+/// offline fallback so both look in exactly the same place.
+///   - Dev:  `{CARGO_MANIFEST_DIR}/../models/sherpa/<model>`
+///   - Prod: `resource_dir()/models/sherpa/<model>`
+#[cfg(feature = "sherpa")]
+fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let model_subdir = std::path::Path::new("models")
+        .join("sherpa")
+        .join("sherpa-onnx-moonshine-base-en-int8");
+    let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(&model_subdir);
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+    app.path()
+        .resource_dir()
+        .map(|p| p.join(&model_subdir))
+        .ok()
+        .filter(|p| p.exists())
+        .ok_or_else(|| "Moonshine model not found. Run: bun run download:sherpa".to_string())
+}
+
+/// Inference threads for Moonshine — half the logical CPUs, at least one.
+#[cfg(feature = "sherpa")]
+fn moonshine_thread_count() -> i32 {
+    let parallelism = std::thread::available_parallelism().map_or(4, usize::from);
+    i32::try_from(parallelism / 2).unwrap_or(2).max(1)
+}
+
+/// Lightweight connectivity probe: can we open a TCP connection to the Deepgram
+/// API host? Used to detect when the network returns so the supervisor can fail
+/// back from on-device Moonshine to the cloud provider. When offline, DNS
+/// resolution / the connect fails fast; success means the link is back. Runs on
+/// a blocking thread (DNS + connect block) and never touches the STT quota.
+async fn deepgram_reachable() -> bool {
+    tokio::task::spawn_blocking(|| {
+        use std::net::ToSocketAddrs;
+        let Ok(mut addrs) = ("api.deepgram.com", 443u16).to_socket_addrs() else {
+            return false;
+        };
+        let Some(addr) = addrs.next() else { return false };
+        std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(3)).is_ok()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Supervise the STT engines for one transcription session.
+///
+/// Runs the operator-selected `primary` provider. If it returns an error while
+/// `active` is still set — i.e. the cloud provider lost the network, not a user
+/// stop — it fails over to the on-device Moonshine `fallback` (when present) and
+/// starts a background probe. Once the probe sees connectivity return, it stops
+/// Moonshine and loops back to the cloud provider. The on-device dwell backs off
+/// when the cloud link keeps failing right after a failback, so a flaky
+/// connection doesn't ping-pong. Emits `stt_failover` / `stt_failback` so the UI
+/// can show which engine is live. Both providers re-arm on `start()`, so the
+/// same instances are reused across cycles (no per-cycle model reload beyond the
+/// first Moonshine load).
+async fn run_stt_supervisor(
+    primary: Box<dyn SttProvider>,
+    fallback: Option<std::sync::Arc<dyn SttProvider>>,
+    audio_rx: crossbeam_channel::Receiver<Vec<i16>>,
+    event_tx: tokio::sync::mpsc::Sender<TranscriptEvent>,
+    active: Arc<AtomicBool>,
+    app: AppHandle,
+    primary_name: String,
+) {
+    // Longest we'll stay on-device between probes on a flaky link, and how long
+    // between probes for the network's return.
+    const MAX_DWELL: Duration = Duration::from_secs(60);
+    const PROBE_INTERVAL: Duration = Duration::from_secs(5);
+
+    // Minimum time on-device before we start probing for the network. Grows when
+    // the cloud link proves flaky (fails again right after a failback).
+    let mut on_device_dwell = Duration::from_secs(5);
+
+    loop {
+        if !active.load(Ordering::SeqCst) {
+            break;
+        }
+
+        // ── Cloud/primary phase ──
+        let cloud_started = Instant::now();
+        let result = primary.start(audio_rx.clone(), event_tx.clone()).await;
+
+        // A clean return (Ok) or a user stop ends the session.
+        if !active.load(Ordering::SeqCst) || result.is_ok() {
+            break;
+        }
+        log::error!("[STT-{primary_name}] provider failed: {:?}", result.err());
+
+        let Some(fallback) = fallback.clone() else {
+            // No on-device engine to fall back to — surface a real error and stop.
+            let _ = app.emit(
+                "stt_error",
+                "Connection lost and no on-device fallback is available.",
+            );
+            break;
+        };
+
+        // Flaky-link back-off: if the cloud phase died almost immediately after a
+        // failback, lengthen the on-device dwell; otherwise reset it.
+        if cloud_started.elapsed() < Duration::from_secs(8) {
+            on_device_dwell = (on_device_dwell * 2).min(MAX_DWELL);
+        } else {
+            on_device_dwell = Duration::from_secs(5);
+        }
+
+        log::warn!(
+            "[STT] {primary_name} unreachable — failing over to on-device Moonshine (dwell {on_device_dwell:?})"
+        );
+        let _ = app.emit(
+            "stt_failover",
+            "Network lost — switched to on-device transcription",
+        );
+
+        // ── On-device phase: run Moonshine and probe for the network in parallel ──
+        let net_back = Arc::new(AtomicBool::new(false));
+
+        let moon = {
+            let fallback = fallback.clone();
+            let audio_rx = audio_rx.clone();
+            let event_tx = event_tx.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = fallback.start(audio_rx, event_tx).await;
+            })
+        };
+
+        let probe = {
+            let net_back = net_back.clone();
+            let active = active.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(on_device_dwell).await;
+                while active.load(Ordering::SeqCst) && !net_back.load(Ordering::SeqCst) {
+                    if deepgram_reachable().await {
+                        net_back.store(true, Ordering::SeqCst);
+                        break;
+                    }
+                    tokio::time::sleep(PROBE_INTERVAL).await;
+                }
+            })
+        };
+
+        // Wait for the network to return or the user to stop, then tear down
+        // Moonshine so the next cloud phase (or shutdown) can proceed.
+        loop {
+            if !active.load(Ordering::SeqCst) || net_back.load(Ordering::SeqCst) {
+                fallback.stop();
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        probe.abort();
+        let _ = moon.await;
+
+        if !active.load(Ordering::SeqCst) {
+            break;
+        }
+
+        log::info!("[STT] network restored — returning to {primary_name}");
+        let _ = app.emit(
+            "stt_failback",
+            "Network restored — switched back to cloud transcription",
+        );
+    }
+
+    active.store(false, Ordering::SeqCst);
+    log::info!("[STT-{primary_name}] supervisor exited");
+}
+
 /// Start the full audio-capture-to-transcription pipeline.
 ///
 /// 1. Opens the microphone via cpal (on a dedicated thread so the non-Send
@@ -73,33 +246,8 @@ pub async fn start_transcription(
     let stt_provider: Box<dyn SttProvider> = match provider_name {
         #[cfg(feature = "sherpa")]
         "sherpa" => {
-            // Resolve the bundled Moonshine model directory.
-            // Dev: {CARGO_MANIFEST_DIR}/../models/sherpa/<model>
-            // Prod: resource_dir()/models/sherpa/<model>
-            let model_subdir = std::path::Path::new("models")
-                .join("sherpa")
-                .join("sherpa-onnx-moonshine-base-en-int8");
-            let model_dir = {
-                let base_dir =
-                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-                let dev_path = base_dir.join(&model_subdir);
-                if dev_path.exists() {
-                    dev_path
-                } else {
-                    app.path()
-                        .resource_dir()
-                        .map(|p| p.join(&model_subdir))
-                        .ok()
-                        .filter(|p| p.exists())
-                        .ok_or_else(|| {
-                            "Moonshine model not found. Run: bun run download:sherpa"
-                                .to_string()
-                        })?
-                }
-            };
-
-            let parallelism = std::thread::available_parallelism().map_or(4, usize::from);
-            let n_threads = i32::try_from(parallelism / 2).unwrap_or(2).max(1);
+            let model_dir = resolve_moonshine_model_dir(&app)?;
+            let n_threads = moonshine_thread_count();
 
             log::info!(
                 "Starting sherpa (Moonshine) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}",
@@ -149,6 +297,30 @@ pub async fn start_transcription(
             Box::new(DeepgramClient::new(stt_config))
         }
     };
+
+    // Offline failover: if the cloud provider loses the network mid-service,
+    // continue transcribing on-device with Moonshine instead of going dark.
+    // Built eagerly here (cheap — it only stores paths; the model is loaded
+    // lazily when the fallback's start() actually runs). `None` when the primary
+    // is already Moonshine, or when the model isn't available.
+    #[cfg(feature = "sherpa")]
+    let stt_fallback: Option<Box<dyn SttProvider>> = if provider_name == "sherpa" {
+        None
+    } else {
+        match resolve_moonshine_model_dir(&app) {
+            Ok(dir) => Some(Box::new(lumenlive_stt::SherpaProvider::new(
+                dir,
+                moonshine_thread_count(),
+                pause_silence_ms,
+            ))),
+            Err(e) => {
+                log::warn!("[STT] Offline fallback unavailable: {e}");
+                None
+            }
+        }
+    };
+    #[cfg(not(feature = "sherpa"))]
+    let stt_fallback: Option<Box<dyn SttProvider>> = None;
 
     stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);
@@ -304,16 +476,25 @@ pub async fn start_transcription(
 
     let conn_active = stt_active.clone();
     let provider_log_name = stt_provider.name().to_string();
+    let supervisor_app = app.clone();
 
-    // Task A: run the STT provider (Deepgram WS+REST or Moonshine local).
-    tauri::async_runtime::spawn(async move {
-        let result = stt_provider.start(audio_send_rx, event_tx).await;
-        if let Err(e) = result {
-            log::error!("[STT-{provider_log_name}] Provider failed: {e}");
-        }
-        conn_active.store(false, Ordering::SeqCst);
-        log::info!("[STT-{provider_log_name}] Provider task exited");
-    });
+    // Share the on-device fallback so the supervisor can both run it and stop it
+    // (to fail back) from separate tasks.
+    let stt_fallback: Option<std::sync::Arc<dyn SttProvider>> =
+        stt_fallback.map(std::sync::Arc::from);
+
+    // Task A: supervise the STT engines — run the selected provider, fail over to
+    // on-device Moonshine when the cloud provider loses the network, and fail
+    // back to the cloud provider once connectivity returns.
+    tauri::async_runtime::spawn(run_stt_supervisor(
+        stt_provider,
+        stt_fallback,
+        audio_send_rx,
+        event_tx,
+        conn_active,
+        supervisor_app,
+        provider_log_name,
+    ));
 
     // Task B: consume TranscriptEvents, emit to frontend, run detection
     let evt_active = stt_active.clone();
@@ -368,6 +549,16 @@ pub async fn start_transcription(
     let semantic_dropped_evt = semantic_dropped.clone();
 
     tauri::async_runtime::spawn(async move {
+        // [LATENCY] First-transcript instrumentation. Attributes "slow first
+        // transcript" to its real cause by timing the first partial/final
+        // against three reference points: session start, the cloud connect, and
+        // when the speaker actually started talking. Logged once per session.
+        let session_start = Instant::now();
+        let mut connected_at: Option<Instant> = None;
+        let mut speech_started_at: Option<Instant> = None;
+        let mut first_partial_logged = false;
+        let mut first_final_logged = false;
+
         while let Some(event) = event_rx.recv().await {
             if !evt_active.load(Ordering::SeqCst) {
                 break;
@@ -376,6 +567,21 @@ pub async fn start_transcription(
             match event {
                 TranscriptEvent::Partial { transcript, .. } => {
                     if !transcript.is_empty() {
+                        if !first_partial_logged {
+                            first_partial_logged = true;
+                            let after_connect = connected_at.map_or_else(
+                                || "n/a".to_string(),
+                                |t| format!("{:?}", t.elapsed()),
+                            );
+                            let after_speech = speech_started_at.map_or_else(
+                                || "n/a".to_string(),
+                                |t| format!("{:?}", t.elapsed()),
+                            );
+                            log::info!(
+                                "[LATENCY] first partial: {:?} after start | {after_connect} after connect | {after_speech} after speech-start",
+                                session_start.elapsed()
+                            );
+                        }
                         let t0 = std::time::Instant::now();
                         let _ = event_app.emit(
                             EVENT_TRANSCRIPT_PARTIAL,
@@ -399,6 +605,21 @@ pub async fn start_transcription(
                     ..
                 } => {
                     if !transcript.is_empty() {
+                        if !first_final_logged {
+                            first_final_logged = true;
+                            let after_connect = connected_at.map_or_else(
+                                || "n/a".to_string(),
+                                |t| format!("{:?}", t.elapsed()),
+                            );
+                            let after_speech = speech_started_at.map_or_else(
+                                || "n/a".to_string(),
+                                |t| format!("{:?}", t.elapsed()),
+                            );
+                            log::info!(
+                                "[LATENCY] first final: {:?} after start | {after_connect} after connect | {after_speech} after speech-start",
+                                session_start.elapsed()
+                            );
+                        }
                         let t0 = std::time::Instant::now();
                         // Emit as permanent transcript segment IMMEDIATELY
                         // (never blocked by detection work)
@@ -464,6 +685,10 @@ pub async fn start_transcription(
                 }
                 TranscriptEvent::UtteranceEnd => {}
                 TranscriptEvent::SpeechStarted => {
+                    // Capture the first utterance's onset for latency attribution.
+                    if speech_started_at.is_none() {
+                        speech_started_at = Some(Instant::now());
+                    }
                     let _ = event_app.emit("stt_speech_started", ());
                 }
                 TranscriptEvent::Error(msg) => {
@@ -471,6 +696,9 @@ pub async fn start_transcription(
                     let _ = event_app.emit("stt_error", msg);
                 }
                 TranscriptEvent::Connected => {
+                    if connected_at.is_none() {
+                        connected_at = Some(Instant::now());
+                    }
                     log::info!("[STT] Connected");
                     let _ = event_app.emit("stt_connected", ());
                 }

@@ -12,11 +12,16 @@ interface TranscriptState {
   currentPartial: string
   isTranscribing: boolean
   connectionStatus: ConnectionStatus
+  /** True while the cloud provider is unreachable and transcription has failed
+   *  over to the bundled on-device (Moonshine) engine. Drives the "offline"
+   *  indicator; cleared when the network returns and we fail back to cloud. */
+  isOnDeviceFallback: boolean
 
   addSegment: (segment: TranscriptSegment) => void
   setPartial: (text: string) => void
   setTranscribing: (transcribing: boolean) => void
   setConnectionStatus: (status: ConnectionStatus) => void
+  setOnDeviceFallback: (onDevice: boolean) => void
   clearTranscript: () => void
 }
 
@@ -25,6 +30,7 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   currentPartial: "",
   isTranscribing: false,
   connectionStatus: "disconnected",
+  isOnDeviceFallback: false,
 
   addSegment: (segment) =>
     set((state) => {
@@ -38,5 +44,6 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   setPartial: (currentPartial) => set({ currentPartial }),
   setTranscribing: (isTranscribing) => set({ isTranscribing }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
+  setOnDeviceFallback: (isOnDeviceFallback) => set({ isOnDeviceFallback }),
   clearTranscript: () => set({ segments: [], currentPartial: "" }),
 }))

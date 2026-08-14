@@ -28,6 +28,7 @@ export const transcriptionActions = {
   async start(onMissingApiKey?: () => void): Promise<void> {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("connecting")
+    transcript.setOnDeviceFallback(false)
 
     const settings = useSettingsStore.getState()
     try {
@@ -65,6 +66,7 @@ export const transcriptionActions = {
     transcript.setTranscribing(false)
     transcript.setPartial("")
     transcript.setConnectionStatus("disconnected")
+    transcript.setOnDeviceFallback(false)
   },
 }
 
@@ -83,6 +85,28 @@ export function useTranscription(options?: UseTranscriptionOptions) {
   useTauriEvent<string>("stt_error", (msg) => {
     useTranscriptStore.getState().setConnectionStatus("error")
     toast.error("Transcription error", { description: msg })
+  })
+
+  // Offline failover: the cloud provider lost the network and the pipeline
+  // switched to the bundled on-device engine. Transcription keeps running (the
+  // local engine re-emits `stt_connected`), so this is an informational notice,
+  // not an error. The flag drives a persistent "offline" indicator.
+  useTauriEvent<string>("stt_failover", (msg) => {
+    useTranscriptStore.getState().setOnDeviceFallback(true)
+    toast.warning("Now transcribing on-device", {
+      description: msg,
+      id: "stt-engine", // shared id so failover/failback replace, not stack
+    })
+  })
+
+  // Failback: connectivity returned and the pipeline switched back to the cloud
+  // provider (higher accuracy). Clear the offline indicator.
+  useTauriEvent<string>("stt_failback", (msg) => {
+    useTranscriptStore.getState().setOnDeviceFallback(false)
+    toast.success("Back online — cloud transcription", {
+      description: msg,
+      id: "stt-engine",
+    })
   })
 
   // Audio source lifecycle: when the OS device disappears (mic unplugged,

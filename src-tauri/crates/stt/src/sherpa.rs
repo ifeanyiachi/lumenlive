@@ -109,6 +109,10 @@ impl SttProvider for SherpaProvider {
         audio_rx: Receiver<Vec<i16>>,
         event_tx: mpsc::Sender<TranscriptEvent>,
     ) -> Result<(), SttError> {
+        // Re-arm the cancel flag: the supervisor stops this provider to fail back
+        // to the cloud engine, then reuses the same instance on the next failover.
+        self.cancelled.store(false, Ordering::SeqCst);
+
         // All five model files must be present before we announce Connected.
         for name in [PREPROCESS, ENCODE, UNCACHED_DECODE, CACHED_DECODE, TOKENS] {
             let path = self.model_dir.join(name);

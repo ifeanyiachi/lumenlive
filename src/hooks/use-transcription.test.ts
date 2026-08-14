@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockInvoke = vi.fn()
 const mockToastError = vi.fn()
+const mockToastWarning = vi.fn()
+const mockToastSuccess = vi.fn()
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
@@ -10,6 +12,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
   },
 }))
 
@@ -33,6 +37,8 @@ describe("use-transcription", () => {
   beforeEach(() => {
     mockInvoke.mockReset()
     mockToastError.mockReset()
+    mockToastWarning.mockReset()
+    mockToastSuccess.mockReset()
   })
 
   describe("transcriptionActions.start", () => {
@@ -217,6 +223,50 @@ describe("use-transcription", () => {
       expect(mockToastError).toHaveBeenCalledWith("Transcription error", {
         description: "WebSocket closed unexpectedly",
       })
+    })
+  })
+
+  describe("stt engine failover/failback contract", () => {
+    it("failover flags on-device mode and warns (not errors)", async () => {
+      const { useTranscriptStore } = await loadModules()
+
+      // What the stt_failover handler does: flag on-device mode and surface an
+      // informational warning — never an error (transcription keeps running).
+      useTranscriptStore.getState().setOnDeviceFallback(true)
+      mockToastWarning("Now transcribing on-device", {
+        description: "Network lost — switched to on-device transcription",
+        id: "stt-engine",
+      })
+
+      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(true)
+      expect(mockToastWarning).toHaveBeenCalled()
+      expect(mockToastError).not.toHaveBeenCalled()
+    })
+
+    it("failback clears on-device mode and reports back online", async () => {
+      const { useTranscriptStore } = await loadModules()
+      useTranscriptStore.getState().setOnDeviceFallback(true)
+
+      // What the stt_failback handler does: clear the flag, report recovery.
+      useTranscriptStore.getState().setOnDeviceFallback(false)
+      mockToastSuccess("Back online — cloud transcription", {
+        description: "Network restored — switched back to cloud transcription",
+        id: "stt-engine",
+      })
+
+      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
+      expect(mockToastSuccess).toHaveBeenCalled()
+    })
+
+    it("start() clears any stale on-device fallback flag from a prior session", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useTranscriptStore, transcriptionActions } = await loadModules()
+
+      useTranscriptStore.setState({ isOnDeviceFallback: true })
+
+      await transcriptionActions.start()
+
+      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
     })
   })
 })

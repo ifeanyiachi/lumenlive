@@ -66,6 +66,7 @@ export function TranscriptPanel() {
     stopTranscription,
   } = useTranscription({ onMissingApiKey })
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
+  const isOnDeviceFallback = useTranscriptStore((s) => s.isOnDeviceFallback)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useTauriEvent<{ rms: number; peak: number }>("audio_level", (payload) => {
@@ -233,6 +234,14 @@ export function TranscriptPanel() {
         icon={<MicIcon className="size-3" />}
       >
         <div className="flex items-end gap-2 pb-px">
+          {isTranscribing && isOnDeviceFallback && (
+            <span
+              className="mb-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[0.5625rem] font-medium tracking-wide text-amber-600 uppercase dark:text-amber-400"
+              title="Network unavailable — transcribing with the on-device engine. Reconnects to cloud automatically."
+            >
+              Offline · On-device
+            </span>
+          )}
           {isTranscribing && (
             <span
               className={`mb-1 size-1.5 rounded-full ${
