@@ -1089,14 +1089,14 @@ export function LiveOutputPanel() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // B = Black (cut to black), C = Clear (hide text), L = Logo (holding image).
-  // Only while live, never with a modifier held (so Ctrl+C still copies) and not
-  // while typing in a field.
+  // Ctrl/Cmd+B = Black (cut to black), Ctrl/Cmd+C = Clear (hide text),
+  // Ctrl/Cmd+L = Logo (holding image). Only while live, requires the Ctrl/Cmd
+  // modifier (Alt excluded), and ignored while typing in a field.
   useEffect(() => {
     if (!isLive) return
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "KeyB" && e.code !== "KeyC" && e.code !== "KeyL") return
-      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
       if (isEditableTarget(e.target)) return
       e.preventDefault()
       const st = useBroadcastStore.getState()
@@ -1193,7 +1193,7 @@ export function LiveOutputPanel() {
                   >
                     <EyeOffIcon className="size-3.5" />
                     Clear (hide text)
-                    <DropdownMenuShortcut>C</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={blackout}
@@ -1203,7 +1203,7 @@ export function LiveOutputPanel() {
                   >
                     <MonitorOffIcon className="size-3.5" />
                     Black (cut to black)
-                    <DropdownMenuShortcut>B</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>Ctrl+B</DropdownMenuShortcut>
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={showLogo}
@@ -1219,7 +1219,7 @@ export function LiveOutputPanel() {
                   >
                     <ImageIcon className="size-3.5" />
                     Logo (holding image)
-                    <DropdownMenuShortcut>L</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>Ctrl+L</DropdownMenuShortcut>
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
               </DropdownMenu>
