@@ -56,11 +56,9 @@ import {
   SolidControls,
   GradientControls,
 } from "@/components/shared/gradient-controls"
-import {
-  pickThemeBackgroundImage,
-  pickVideoFile,
-} from "@/lib/theme-designer-files"
 import type { Background, BaseBackground } from "@/types/broadcast"
+import type { MediaAsset } from "@/types/media"
+import { MediaPickerDialog } from "@/components/media/media-picker-dialog"
 import { OutputManager } from "@/components/broadcast/output-manager"
 import { toast } from "sonner"
 
@@ -253,8 +251,8 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
               className="h-8 text-xs"
             />
             <p className="text-[10px] leading-tight text-muted-foreground">
-              Verses won&apos;t shrink below this. Long passages split into pages
-              instead.
+              Verses won&apos;t shrink below this. Long passages split into
+              pages instead.
             </p>
           </div>
 
@@ -274,7 +272,6 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
     </div>
   )
 }
-
 
 /** The current source kind for the base-background editor's type select. */
 function baseSourceOf(bb: BaseBackground | null): string {
@@ -330,6 +327,38 @@ function BaseBackgroundSection() {
     baseBackground?.kind === "background" ? baseBackground.background : null
   const setBg = (next: Background) =>
     setBase({ kind: "background", background: next })
+  const [imagePickerOpen, setImagePickerOpen] = useState(false)
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false)
+
+  // Apply a chosen image/video URL to the current base background, preserving
+  // any existing fit/brightness/etc. options. Library picks arrive as file
+  // paths (converted here); device picks arrive already converted for images.
+  const setBaseImageUrl = (url: string) => {
+    if (bg?.type !== "image") return
+    setBg({
+      ...bg,
+      image: {
+        fit: "cover",
+        blur: 0,
+        brightness: 100,
+        tint: null,
+        ...(bg.image ?? {}),
+        url,
+      },
+    })
+  }
+  const setBaseVideoUrl = (url: string) => {
+    if (bg?.type !== "video") return
+    setBg({
+      ...bg,
+      video: {
+        fit: "cover",
+        brightness: 100,
+        ...(bg.video ?? {}),
+        url,
+      },
+    })
+  }
 
   const onSource = (v: string) => {
     if (v === "output") setBase(null)
@@ -346,26 +375,29 @@ function BaseBackgroundSection() {
     <div className="space-y-2.5 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-2">
         <MonitorIcon className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Base / Master Background</span>
+        <span className="text-sm font-medium">Clear &amp; Idle Background</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        Shown when you Clear text, and behind any content with a transparent
-        background. Default: each output uses its own theme.
+        What the audience sees when you Clear the text — and behind any content
+        set to a transparent background. Applies to all outputs.
       </p>
 
+      <label className="text-xs text-muted-foreground">
+        When cleared, show
+      </label>
       <Select value={source} onValueChange={onSource}>
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="output">
-            Each output&apos;s own theme (default)
+            Nothing extra — each output&apos;s own theme
           </SelectItem>
           <SelectItem value="theme">A theme…</SelectItem>
           <SelectItem value="solid">Solid color</SelectItem>
           <SelectItem value="gradient">Gradient</SelectItem>
-          <SelectItem value="image">Image</SelectItem>
-          <SelectItem value="video">Video</SelectItem>
+          <SelectItem value="image">An image (logo / holding slide)</SelectItem>
+          <SelectItem value="video">A video loop</SelectItem>
         </SelectContent>
       </Select>
 
@@ -419,23 +451,7 @@ function BaseBackgroundSection() {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              const picked = await pickThemeBackgroundImage()
-              if (picked) {
-                setBg({
-                  ...bg,
-                  image: {
-                    fit: "cover",
-                    blur: 0,
-                    brightness: 100,
-                    tint: null,
-                    ...(bg.image ?? {}),
-                    url: picked.url,
-                  },
-                })
-                void useMediaStore.getState().importPaths([picked.path])
-              }
-            }}
+            onClick={() => setImagePickerOpen(true)}
           >
             {bg.image?.url ? "Change image…" : "Choose image…"}
           </Button>
@@ -450,26 +466,36 @@ function BaseBackgroundSection() {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              const path = await pickVideoFile()
-              if (path) {
-                setBg({
-                  ...bg,
-                  video: {
-                    fit: "cover",
-                    brightness: 100,
-                    ...(bg.video ?? {}),
-                    url: convertFileSrc(path),
-                  },
-                })
-                void useMediaStore.getState().importPaths([path])
-              }
-            }}
+            onClick={() => setVideoPickerOpen(true)}
           >
             {bg.video?.url ? "Change video…" : "Choose video…"}
           </Button>
         </div>
       )}
+
+      {/* Library-or-device pickers for the image/video base background. The
+          dialog imports device picks into the library itself, so the handlers
+          only need to apply the resulting URL. */}
+      <MediaPickerDialog
+        open={imagePickerOpen}
+        onOpenChange={setImagePickerOpen}
+        mediaType="image"
+        onSelect={(asset: MediaAsset) =>
+          setBaseImageUrl(convertFileSrc(asset.filePath))
+        }
+        onSelectFromDevice={(dataUrl) => setBaseImageUrl(dataUrl)}
+      />
+      <MediaPickerDialog
+        open={videoPickerOpen}
+        onOpenChange={setVideoPickerOpen}
+        mediaType="video"
+        onSelect={(asset: MediaAsset) =>
+          setBaseVideoUrl(convertFileSrc(asset.filePath))
+        }
+        onSelectFromDevice={(filePath) =>
+          setBaseVideoUrl(convertFileSrc(filePath))
+        }
+      />
     </div>
   )
 }
@@ -1427,8 +1453,9 @@ export function BroadcastSettings({
               <span className="text-sm font-medium">Logo / Holding Image</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Shown full-screen on the audience output when you toggle Logo (press
-              L, or the Screen menu on the Live panel, while broadcasting).
+              Shown full-screen on the audience output when you toggle Logo
+              (press L, or the Screen menu on the Live panel, while
+              broadcasting).
             </p>
             <div className="flex items-center gap-3">
               {logoImagePath ? (
