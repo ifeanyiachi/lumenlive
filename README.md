@@ -177,4 +177,4 @@ See [SECURITY.md](.github/SECURITY.md) for the CSP policy and how to report vuln
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Noncommercial License 1.0.0](LICENSE)
