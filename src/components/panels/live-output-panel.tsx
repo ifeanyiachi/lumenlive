@@ -477,7 +477,6 @@ function LiveWebMonitor({
   onAir: boolean
 }) {
   const sendWeb = useBroadcastStore((s) => s.sendWebTransport)
-  const broadcastMuted = useBroadcastStore((s) => s.broadcastMuted)
 
   const isYouTube = web.isYouTube && !!web.videoId
   const containerId = useMemo(
@@ -547,12 +546,16 @@ function LiveWebMonitor({
     }
   }, [isReady, startTime, seekTo, sendWeb])
 
-  // Mirror the broadcast mute onto the operator preview so the operator hears
-  // what the audience hears.
+  // Keep the operator's live booth player silent. The audience output plays the
+  // program audio (through the same speakers on a single-machine setup), so a
+  // second audible player here just doubles/echoes it — and tying it to the
+  // audience mute meant silencing the audience also killed the operator's audio.
+  // The operator monitors program audio from the staged Program preview instead
+  // (which has its own independent audio toggle).
   useEffect(() => {
     if (!isReady) return
-    if (broadcastMuted !== isMuted) toggleMute()
-  }, [broadcastMuted, isReady, isMuted, toggleMute])
+    if (!isMuted) toggleMute()
+  }, [isReady, isMuted, toggleMute])
 
   const togglePlay = useCallback(() => {
     if (playing) {
@@ -1022,9 +1025,9 @@ export function LiveOutputPanel() {
     )
   }, [isLive, selectedVerse, translation, interlinearText])
 
-  // Preview mute now rides on each LiveWebMonitor's own player (it mirrors
-  // broadcastMuted internally); the audience overlay is muted separately in
-  // setBroadcastMuted. Nothing to do here.
+  // The operator's live booth player stays muted (see LiveWebMonitor); the
+  // audience overlay is muted separately in setBroadcastMuted. Nothing to do
+  // here.
 
   // Position echo from the controllable YouTube overlay (audience output). The
   // operator monitor drives itself now, so this is kept only so `webTransport`

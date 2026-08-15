@@ -5,9 +5,7 @@
   "windows": [
     "main",
     "broadcast",
-    "broadcast-*",
-    "web-overlay",
-    "web-overlay-*"
+    "broadcast-*"
   ],
   "permissions": [
     "core:default",

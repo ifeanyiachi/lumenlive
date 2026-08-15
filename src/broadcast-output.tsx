@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client"
 import { useRef, useEffect, useCallback } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
+import { OutputWebLayer } from "@/components/broadcast/output-web-layer"
 import { renderVerse } from "@/lib/verse-renderer"
 import {
   renderSlide,
@@ -37,6 +38,7 @@ import {
   type Surface,
   type ResolvedSurface,
 } from "@/lib/broadcast-output/surface"
+import { shouldSendTransparentNdi } from "@/lib/broadcast-output/ndi-key"
 import { sendNdiFrame, getNdiStatus } from "@/services/ndi-output-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { SlideRenderOptions } from "@/lib/slide-renderer"
@@ -192,6 +194,7 @@ function BroadcastCanvas() {
     fps: 24,
     width: 1920,
     height: 1080,
+    alphaMode: "noneOpaque",
   })
   const ndiCanvasRef = useRef<HTMLCanvasElement | null>(null)
   // The output window's real inner size in device px (native-mode surface).
@@ -341,24 +344,27 @@ function BroadcastCanvas() {
   // when the incoming slide shares the same animated background. The transition
   // then draws one continuous live background (via draw()) and fades out just the
   // old text over it, instead of cross-fading two frozen backgrounds (a ghost).
-  const snapshotElementsOnly = useCallback((slide: Slide) => {
-    if (!prevCanvasRef.current) {
-      prevCanvasRef.current = document.createElement("canvas")
-    }
-    const prev = prevCanvasRef.current
-    // Snapshot at the live surface size so the transition blends against a
-    // same-sized current frame (no scale/ghost on non-16:9 surfaces).
-    const { width: sw, height: sh } = computeSurface()
-    prev.width = sw
-    prev.height = sh
-    const pCtx = prev.getContext("2d")
-    if (!pCtx) return
-    pCtx.clearRect(0, 0, prev.width, prev.height)
-    drawSlideElements(pCtx, slide, prev.width, prev.height, {
-      imageCache: imageCacheRef.current,
-      videoCache: videoCacheRef.current,
-    })
-  }, [computeSurface])
+  const snapshotElementsOnly = useCallback(
+    (slide: Slide) => {
+      if (!prevCanvasRef.current) {
+        prevCanvasRef.current = document.createElement("canvas")
+      }
+      const prev = prevCanvasRef.current
+      // Snapshot at the live surface size so the transition blends against a
+      // same-sized current frame (no scale/ghost on non-16:9 surfaces).
+      const { width: sw, height: sh } = computeSurface()
+      prev.width = sw
+      prev.height = sh
+      const pCtx = prev.getContext("2d")
+      if (!pCtx) return
+      pCtx.clearRect(0, 0, prev.width, prev.height)
+      drawSlideElements(pCtx, slide, prev.width, prev.height, {
+        imageCache: imageCacheRef.current,
+        videoCache: videoCacheRef.current,
+      })
+    },
+    [computeSurface]
+  )
 
   const drawTransitionFrame = useCallback(
     (
@@ -580,6 +586,9 @@ function BroadcastCanvas() {
         const url = bg.image.url
         if (!cache.has(url)) {
           const img = new Image()
+          // CORS-clean so the canvas stays readable for the NDI getImageData
+          // capture (a tainted canvas still displays but can't be read back).
+          img.crossOrigin = "anonymous"
           img.onload = () => {
             cache.set(url, img)
             logDebug("Background image loaded", { url })
@@ -598,6 +607,9 @@ function BroadcastCanvas() {
         const cacheKey = `video:${url}`
         if (!cache.has(cacheKey)) {
           const video = document.createElement("video")
+          // CORS-clean so the drawn video frames keep the canvas readable for
+          // the NDI getImageData capture.
+          video.crossOrigin = "anonymous"
           video.src = url
           video.muted = true
           video.loop = true
@@ -619,6 +631,7 @@ function BroadcastCanvas() {
         if (el.type === "image" && el.image?.url && !cache.has(el.image.url)) {
           const url = el.image.url
           const img = new Image()
+          img.crossOrigin = "anonymous"
           img.onload = () => {
             cache.set(url, img)
             logDebug("Theme element image loaded", { url })
@@ -636,70 +649,182 @@ function BroadcastCanvas() {
     [draw, logDebug]
   )
 
-  const pushNdiFrame = useCallback(async (force = false) => {
-    if (!ndiConfigRef.current.active) return
-    if (pushingRef.current) return // back-pressure: skip if already pushing
-
-    // Rate-limit continuous (RAF-driven) pushes to the configured NDI fps.
-    if (
-      !shouldPushNdiFrame(
-        Date.now(),
-        lastPushRef.current,
-        ndiConfigRef.current.fps,
-        force
-      )
-    )
-      return
-
-    pushingRef.current = true
-    try {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      const targetWidth = ndiConfigRef.current.width
-      const targetHeight = ndiConfigRef.current.height
-
-      let sourceCtx = ctx
-      let sourceWidth = canvas.width
-      let sourceHeight = canvas.height
-
-      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-        const ndiCanvas =
-          ndiCanvasRef.current ?? document.createElement("canvas")
-        ndiCanvas.width = targetWidth
-        ndiCanvas.height = targetHeight
-        // willReadFrequently: this canvas exists only to be read back via
-        // getImageData, so keep it CPU-backed and skip the GPU->CPU roundtrip.
-        const ndiCtx = ndiCanvas.getContext("2d", { willReadFrequently: true })
-        if (!ndiCtx) return
-        ndiCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
-        ndiCanvasRef.current = ndiCanvas
-        sourceCtx = ndiCtx
-        sourceWidth = targetWidth
-        sourceHeight = targetHeight
+  // Render ONLY the foreground graphics (verse text / slide elements + overlays)
+  // onto a transparent canvas, for a see-through (keyable) NDI feed. Deliberately
+  // omits the black floor, the central base theme, and the media layer that the
+  // opaque program draws — those are the backdrop a downstream switcher supplies.
+  // Only ever called when `shouldSendTransparentNdi` says the content qualifies.
+  const drawNdiForeground = useCallback(
+    (ctx: CanvasRenderingContext2D, sw: number, sh: number) => {
+      ctx.clearRect(0, 0, sw, sh)
+      const activeFilter = layerFilterRef.current
+      if (activeMode.current === "slide" && latestSlide.current) {
+        const { slide } = latestSlide.current
+        const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
+        const tracker = slideAnimTracker.current
+        if (tracker && isAnimationActive(tracker)) {
+          renderOpts.animationStates = tracker.elementStates
+          renderOpts.textBuildProgress = tracker.textBuildProgress
+        }
+        drawSlideElements(
+          ctx,
+          slide,
+          sw,
+          sh,
+          {
+            imageCache: imageCacheRef.current,
+            videoCache: videoCacheRef.current,
+          },
+          renderOpts
+        )
+      } else if (activeMode.current === "verse" && latestData.current) {
+        const { theme, verse } = latestData.current
+        renderVerse(ctx, theme, verse, {
+          scale: 1,
+          imageCache: imageCacheRef.current,
+          surface: { width: sw, height: sh },
+          verseAutoFit: displayConfigRef.current.verseAutoFit,
+          maxVerseScale: displayConfigRef.current.maxVerseScale,
+          minVerseFontSize: displayConfigRef.current.minVerseFontSize,
+          frameTime: performance.now(),
+        })
       }
+      // Foreground overlays belong in the keyed feed too.
+      if (!activeFilter || activeFilter.showProps) drawPropsOverlay(ctx, sw, sh)
+      if (!activeFilter || activeFilter.showAlerts)
+        drawAlertOverlay(ctx, sw, sh)
+      if (!activeFilter || activeFilter.showCountdowns)
+        drawCountdownOverlay(ctx, sw, sh)
+    },
+    [drawPropsOverlay, drawAlertOverlay, drawCountdownOverlay]
+  )
 
-      // Read raw RGBA pixels and hand the underlying ArrayBuffer straight to
-      // Tauri's binary IPC. No base64 (33% inflation + string churn) and no
-      // JSON serialization of a multi-megabyte payload — the bytes cross the
-      // bridge as a raw request body, with metadata in headers.
-      const imageData = sourceCtx.getImageData(0, 0, sourceWidth, sourceHeight)
+  const pushNdiFrame = useCallback(
+    async (force = false) => {
+      if (!ndiConfigRef.current.active) return
+      if (pushingRef.current) return // back-pressure: skip if already pushing
 
-      await sendNdiFrame(
-        OUTPUT_ID,
-        imageData.data.buffer,
-        sourceWidth,
-        sourceHeight
+      // Rate-limit continuous (RAF-driven) pushes to the configured NDI fps.
+      if (
+        !shouldPushNdiFrame(
+          Date.now(),
+          lastPushRef.current,
+          ndiConfigRef.current.fps,
+          force
+        )
       )
-      lastPushRef.current = Date.now()
-    } catch (error) {
-      console.warn("[broadcast-output] push_ndi_frame failed", error)
-    } finally {
-      pushingRef.current = false
-    }
-  }, [])
+        return
+
+      pushingRef.current = true
+      try {
+        const targetWidth = ndiConfigRef.current.width
+        const targetHeight = ndiConfigRef.current.height
+
+        // See-through (keyable) path: when the operator picked "transparent
+        // background" AND the live content actually has a transparent background,
+        // render foreground-only onto a fresh transparent canvas and ship that,
+        // instead of copying the opaque preview. The opaque path below is left
+        // byte-identical for every other case.
+        const keyed =
+          OUTPUT_MODE !== "stage" &&
+          shouldSendTransparentNdi({
+            alphaMode: ndiConfigRef.current.alphaMode ?? "noneOpaque",
+            blackout: blackoutRef.current,
+            showLogo: showLogoRef.current,
+            clearForeground: clearForegroundRef.current,
+            mode: activeMode.current,
+            backgroundType:
+              activeMode.current === "slide"
+                ? latestSlide.current?.slide.background.type
+                : activeMode.current === "verse"
+                  ? latestData.current?.theme.background.type
+                  : undefined,
+            hasOpaqueBaseTheme:
+              activeMode.current === "verse" &&
+              !!baseThemeRef.current &&
+              !!latestData.current &&
+              baseThemeRef.current.id !== latestData.current.theme.id,
+            hasMediaLayer:
+              mediaLayerRef.current !== null &&
+              (!layerFilterRef.current ||
+                layerFilterRef.current.showMediaLayer),
+          })
+
+        if (keyed) {
+          const ndiCanvas =
+            ndiCanvasRef.current ?? document.createElement("canvas")
+          ndiCanvas.width = targetWidth
+          ndiCanvas.height = targetHeight
+          const ndiCtx = ndiCanvas.getContext("2d", {
+            willReadFrequently: true,
+          })
+          if (!ndiCtx) return
+          drawNdiForeground(ndiCtx, targetWidth, targetHeight)
+          ndiCanvasRef.current = ndiCanvas
+          const imageData = ndiCtx.getImageData(0, 0, targetWidth, targetHeight)
+          await sendNdiFrame(
+            OUTPUT_ID,
+            imageData.data.buffer,
+            targetWidth,
+            targetHeight
+          )
+          lastPushRef.current = Date.now()
+          return
+        }
+
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+
+        let sourceCtx = ctx
+        let sourceWidth = canvas.width
+        let sourceHeight = canvas.height
+
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          const ndiCanvas =
+            ndiCanvasRef.current ?? document.createElement("canvas")
+          ndiCanvas.width = targetWidth
+          ndiCanvas.height = targetHeight
+          // willReadFrequently: this canvas exists only to be read back via
+          // getImageData, so keep it CPU-backed and skip the GPU->CPU roundtrip.
+          const ndiCtx = ndiCanvas.getContext("2d", {
+            willReadFrequently: true,
+          })
+          if (!ndiCtx) return
+          ndiCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
+          ndiCanvasRef.current = ndiCanvas
+          sourceCtx = ndiCtx
+          sourceWidth = targetWidth
+          sourceHeight = targetHeight
+        }
+
+        // Read raw RGBA pixels and hand the underlying ArrayBuffer straight to
+        // Tauri's binary IPC. No base64 (33% inflation + string churn) and no
+        // JSON serialization of a multi-megabyte payload — the bytes cross the
+        // bridge as a raw request body, with metadata in headers.
+        const imageData = sourceCtx.getImageData(
+          0,
+          0,
+          sourceWidth,
+          sourceHeight
+        )
+
+        await sendNdiFrame(
+          OUTPUT_ID,
+          imageData.data.buffer,
+          sourceWidth,
+          sourceHeight
+        )
+        lastPushRef.current = Date.now()
+      } catch (error) {
+        console.warn("[broadcast-output] push_ndi_frame failed", error)
+      } finally {
+        pushingRef.current = false
+      }
+    },
+    [drawNdiForeground]
+  )
 
   /** Push a burst of 3 frames after content changes (NDI receivers need a few frames to sync) */
   const pushNdiBurst = useCallback(() => {
@@ -988,6 +1113,7 @@ function BroadcastCanvas() {
             !imageCacheRef.current.has(el.imageUrl)
           ) {
             const img = new Image()
+            img.crossOrigin = "anonymous"
             img.onload = () => {
               imageCacheRef.current.set(el.imageUrl, img)
               draw()
@@ -1006,6 +1132,7 @@ function BroadcastCanvas() {
             startSlideVideoLoop()
           } else {
             const video = document.createElement("video")
+            video.crossOrigin = "anonymous"
             video.muted = true
             video.loop = true
             video.playsInline = true
@@ -1133,6 +1260,7 @@ function BroadcastCanvas() {
 
         if (mediaType === "image") {
           const img = new Image()
+          img.crossOrigin = "anonymous"
           img.onload = () => {
             latestMedia.current = { img }
             draw()
@@ -1211,6 +1339,7 @@ function BroadcastCanvas() {
           mediaBlankRef.current = false
           if (!videoRef.current) {
             videoRef.current = document.createElement("video")
+            videoRef.current.crossOrigin = "anonymous"
             videoRef.current.playsInline = true
           }
           const video = videoRef.current
@@ -1438,6 +1567,7 @@ function BroadcastCanvas() {
             !imageCacheRef.current.has(prop.imageUrl)
           ) {
             const img = new Image()
+            img.crossOrigin = "anonymous"
             img.onload = () => {
               imageCacheRef.current.set(prop.imageUrl!, img)
               draw()
@@ -1495,6 +1625,7 @@ function BroadcastCanvas() {
 
       if (layer.mediaType === "image") {
         const img = new Image()
+        img.crossOrigin = "anonymous"
         img.onload = () => {
           mediaLayerImgRef.current = img
           draw()
@@ -1503,6 +1634,7 @@ function BroadcastCanvas() {
         img.src = src
       } else {
         const video = document.createElement("video")
+        video.crossOrigin = "anonymous"
         video.muted = true
         video.loop = true
         video.playsInline = true
@@ -1560,6 +1692,12 @@ function BroadcastCanvas() {
         logoImgRef.current = null
         if (path) {
           const img = new Image()
+          // Load CORS-clean so the logo doesn't taint the canvas. The projector
+          // displays a tainted canvas fine, but NDI reads it back via
+          // getImageData, which throws on a tainted canvas — silently dropping
+          // the frame (logo shows on the projector but not on NDI). Tauri's
+          // asset protocol serves the CORS headers this needs.
+          img.crossOrigin = "anonymous"
           img.onload = () => {
             // Ignore a stale load if the path changed again meanwhile.
             if (logoPathRef.current !== path) return
@@ -1640,6 +1778,7 @@ function BroadcastCanvas() {
             fps: status.fps,
             width: status.width,
             height: status.height,
+            alphaMode: status.alphaMode,
           }
           logDebug("Fetched NDI status on mount", status)
         }
@@ -1677,7 +1816,10 @@ function BroadcastCanvas() {
       windowSizeRef.current = { width: size.width, height: size.height }
       drawRef.current()
     }
-    void currentWindow.innerSize().then(applyWindowSize).catch(() => {})
+    void currentWindow
+      .innerSize()
+      .then(applyWindowSize)
+      .catch(() => {})
     const unlistenResized = currentWindow.onResized((event) => {
       applyWindowSize(event.payload)
     })
@@ -1775,15 +1917,18 @@ function BroadcastCanvas() {
   }, [pushNdiFrame])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: "100vw",
-        height: "100vh",
-        display: "block",
-        objectFit: "contain",
-      }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: "100vw",
+          height: "100vh",
+          display: "block",
+          objectFit: "contain",
+        }}
+      />
+      <OutputWebLayer />
+    </>
   )
 }
 

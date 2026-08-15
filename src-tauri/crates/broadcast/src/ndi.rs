@@ -1,5 +1,6 @@
 use std::ffi::{c_void, CString};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use libloading::{Library, Symbol};
 use serde::{Deserialize, Serialize};
@@ -85,8 +86,9 @@ impl NdiFrameRate {
 #[serde(rename_all = "camelCase")]
 pub enum NdiAlphaMode {
     NoneOpaque,
+    /// Straight (non-premultiplied) alpha — the only alpha model NDI's BGRA
+    /// fourcc supports, and what canvas `getImageData` already produces.
     StraightAlpha,
-    PremultipliedAlpha,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -130,15 +132,87 @@ pub enum NdiError {
     InvalidFrameBufferSize { width: u32, height: u32 },
 }
 
+/// The loaded NDI shared library: the DLL handle plus the send/destroy function
+/// pointers, loaded and `NDIlib_initialize`d exactly once and then shared by
+/// every session via `Arc`.
+///
+/// NDI's `NDIlib_initialize`/`NDIlib_destroy` are process-global. The previous
+/// design loaded the library and called both per-session, so stopping one of two
+/// concurrent outputs (`main` + `alt`) called `NDIlib_destroy()` globally and
+/// could tear NDI down under the still-running output. Centralizing here means
+/// `initialize` runs once on first use and `destroy` runs once — when the last
+/// reference (held by `NdiRuntime`, outliving all sessions) is dropped at
+/// shutdown.
+struct NdiLibrary {
+    _library: Library,
+    send_create: NdiSendCreateFn,
+    send_destroy: NdiSendDestroyFn,
+    send_video: NdiSendVideoV2Fn,
+    ndi_destroy: NdiDestroyFn,
+}
+
+// SAFETY: NdiLibrary is only ever reached behind the app-state Mutex. It owns the
+// library handle and raw C function pointers, which have no thread affinity.
+unsafe impl Send for NdiLibrary {}
+unsafe impl Sync for NdiLibrary {}
+
+impl NdiLibrary {
+    /// Load the NDI DLL, resolve the required symbols, and call
+    /// `NDIlib_initialize` once. Fails if the library is missing, a symbol is
+    /// absent, or initialization is refused.
+    fn load() -> Result<Self, NdiError> {
+        let library_path = resolve_library_path()?;
+        // SAFETY: library_path was validated to exist by resolve_library_path()
+        let library = unsafe { Library::new(&library_path) }
+            .map_err(|e| NdiError::LibraryLoad(e.to_string()))?;
+
+        let initialize = *load_symbol::<NdiInitializeFn>(&library, b"NDIlib_initialize\0", "NDIlib_initialize")?;
+        let ndi_destroy = *load_symbol::<NdiDestroyFn>(&library, b"NDIlib_destroy\0", "NDIlib_destroy")?;
+        let send_create = *load_symbol::<NdiSendCreateFn>(&library, b"NDIlib_send_create\0", "NDIlib_send_create")?;
+        let send_destroy = *load_symbol::<NdiSendDestroyFn>(&library, b"NDIlib_send_destroy\0", "NDIlib_send_destroy")?;
+        let send_video =
+            *load_symbol::<NdiSendVideoV2Fn>(&library, b"NDIlib_send_send_video_v2\0", "NDIlib_send_send_video_v2")?;
+
+        // SAFETY: initialize is a valid function pointer loaded from the NDI library.
+        if !unsafe { initialize() } {
+            return Err(NdiError::InitializeFailed);
+        }
+
+        Ok(Self {
+            _library: library,
+            send_create,
+            send_destroy,
+            send_video,
+            ndi_destroy,
+        })
+    }
+}
+
+impl Drop for NdiLibrary {
+    fn drop(&mut self) {
+        // Runs once, when the last Arc (held by NdiRuntime, which outlives every
+        // session) is dropped — i.e. at app shutdown, after all senders are gone.
+        // SAFETY: ndi_destroy is a valid function pointer; the library is dropped
+        // after this via the `_library` field.
+        unsafe { (self.ndi_destroy)() };
+    }
+}
+
 #[derive(Default)]
 pub struct NdiRuntime {
+    // Declared before `library` so sessions (and their senders) drop first, then
+    // the shared library's `NDIlib_destroy` runs last.
     sessions: std::collections::HashMap<String, ActiveNdiSession>,
+    /// Lazily loaded on first `start`, then reused by every session and kept
+    /// alive for the runtime's lifetime.
+    library: Option<Arc<NdiLibrary>>,
 }
 
 impl std::fmt::Debug for NdiRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NdiRuntime")
             .field("active_sessions", &self.sessions.len())
+            .field("library_loaded", &self.library.is_some())
             .finish()
     }
 }
@@ -166,7 +240,18 @@ impl NdiRuntime {
         }
 
         log::info!("NDI[{session_id}]: starting session '{}'", request.source_name);
-        let session = ActiveNdiSession::create(request)?;
+
+        // Load (and NDIlib_initialize) the shared library once; reuse it for
+        // every subsequent session so init/destroy are never per-session.
+        let library = if let Some(lib) = &self.library {
+            Arc::clone(lib)
+        } else {
+            let lib = Arc::new(NdiLibrary::load()?);
+            self.library = Some(Arc::clone(&lib));
+            lib
+        };
+
+        let session = ActiveNdiSession::create(library, request)?;
         let info = session.info.clone();
         log::info!(
             "NDI[{session_id}]: session active — {}x{} @ {}fps",
@@ -209,12 +294,11 @@ impl NdiRuntime {
 }
 
 struct ActiveNdiSession {
-    _library: Library,
+    /// Shared NDI library (owns the send/destroy fn pointers). Keeps the library
+    /// alive for this session and, collectively, until the last session ends.
+    library: Arc<NdiLibrary>,
     _sender_name: CString,
     sender: NdiSendInstance,
-    send_destroy: NdiSendDestroyFn,
-    send_video: NdiSendVideoV2Fn,
-    ndi_destroy: NdiDestroyFn,
     info: NdiSessionInfo,
     frame_count: u64,
     frame_buffer: Vec<u8>,
@@ -231,27 +315,10 @@ unsafe impl Sync for NdiRuntime {}
 
 impl ActiveNdiSession {
     #[expect(clippy::needless_pass_by_value, reason = "request fields are destructured and moved into the session")]
-    fn create(request: NdiStartRequest) -> Result<Self, NdiError> {
+    fn create(library: Arc<NdiLibrary>, request: NdiStartRequest) -> Result<Self, NdiError> {
         let source_name = request.source_name.trim().to_string();
         if source_name.is_empty() {
             return Err(NdiError::EmptySourceName);
-        }
-
-        let library_path = resolve_library_path()?;
-        // SAFETY: library_path was validated to exist by resolve_library_path()
-        let library = unsafe { Library::new(&library_path) }
-            .map_err(|e| NdiError::LibraryLoad(e.to_string()))?;
-
-        let initialize_fn = *load_symbol::<NdiInitializeFn>(&library, b"NDIlib_initialize\0", "NDIlib_initialize")?;
-        let ndi_destroy_fn = *load_symbol::<NdiDestroyFn>(&library, b"NDIlib_destroy\0", "NDIlib_destroy")?;
-        let send_create_fn = *load_symbol::<NdiSendCreateFn>(&library, b"NDIlib_send_create\0", "NDIlib_send_create")?;
-        let send_destroy_fn = *load_symbol::<NdiSendDestroyFn>(&library, b"NDIlib_send_destroy\0", "NDIlib_send_destroy")?;
-        let send_video_fn =
-            *load_symbol::<NdiSendVideoV2Fn>(&library, b"NDIlib_send_send_video_v2\0", "NDIlib_send_send_video_v2")?;
-
-        // SAFETY: initialize_fn is a valid function pointer loaded from the NDI library
-        if !unsafe { initialize_fn() } {
-            return Err(NdiError::InitializeFailed);
         }
 
         let name = CString::new(source_name.clone()).map_err(|_| NdiError::EmptySourceName)?;
@@ -262,14 +329,13 @@ impl ActiveNdiSession {
             clock_audio: false,
         };
 
-        // SAFETY: send_create_fn is a valid function pointer. The NdiSendCreate struct has valid
-        // pointers (name is a CString kept alive by _sender_name field). p_groups is null which
-        // NDI accepts.
+        // SAFETY: send_create is a valid function pointer from the shared library. The
+        // NdiSendCreate struct has valid pointers (name is a CString kept alive by the
+        // _sender_name field). p_groups is null, which NDI accepts. On failure the shared
+        // library is left loaded/initialized for the next attempt (destroyed once at shutdown).
         let create_ptr = std::ptr::from_ref(&create);
-        let sender = unsafe { send_create_fn(create_ptr) };
+        let sender = unsafe { (library.send_create)(create_ptr) };
         if sender.is_null() {
-            // SAFETY: NDI was initialized successfully above, so ndi_destroy is safe to call
-            unsafe { ndi_destroy_fn() };
             return Err(NdiError::SenderCreateFailed);
         }
 
@@ -277,12 +343,9 @@ impl ActiveNdiSession {
         let fps = request.frame_rate.fps();
 
         Ok(Self {
-            _library: library,
+            library,
             _sender_name: name,
             sender,
-            send_destroy: send_destroy_fn,
-            send_video: send_video_fn,
-            ndi_destroy: ndi_destroy_fn,
             info: NdiSessionInfo {
                 source_name,
                 resolution: request.resolution,
@@ -303,33 +366,21 @@ impl ActiveNdiSession {
         height: u32,
         rgba_data: &[u8],
     ) -> Result<(), NdiError> {
-        if width != self.info.width || height != self.info.height {
-            return Err(NdiError::FrameDimensionsMismatch {
-                expected_width: self.info.width,
-                expected_height: self.info.height,
-            });
+        validate_frame_dimensions(
+            self.info.width,
+            self.info.height,
+            width,
+            height,
+            rgba_data.len(),
+        )?;
+
+        if self.frame_buffer.len() != rgba_data.len() {
+            self.frame_buffer.resize(rgba_data.len(), 0);
         }
 
-        let expected = (width * height * 4) as usize;
-        if rgba_data.len() != expected {
-            return Err(NdiError::InvalidFrameBufferSize { width, height });
-        }
+        rgba_to_bgra(&mut self.frame_buffer, rgba_data, self.info.alpha_mode);
 
-        if self.frame_buffer.len() != expected {
-            self.frame_buffer.resize(expected, 0);
-        }
-
-        // Convert RGBA -> BGRA for NDIlib_FourCC_type_BGRA.
-        for (idx, px) in rgba_data.chunks_exact(4).enumerate() {
-            let offset = idx * 4;
-            self.frame_buffer[offset] = px[2];
-            self.frame_buffer[offset + 1] = px[1];
-            self.frame_buffer[offset + 2] = px[0];
-            self.frame_buffer[offset + 3] = match self.info.alpha_mode {
-                NdiAlphaMode::NoneOpaque => 255,
-                NdiAlphaMode::StraightAlpha | NdiAlphaMode::PremultipliedAlpha => px[3],
-            };
-        }
+        let (frame_rate_n, frame_rate_d) = ndi_frame_rate(self.info.fps);
 
         #[expect(
             clippy::cast_possible_wrap,
@@ -343,8 +394,8 @@ impl ActiveNdiSession {
             xres: width as i32,
             yres: height as i32,
             fourcc: u32::from_le_bytes(*b"BGRA"),
-            frame_rate_n: (self.info.fps * 1000) as i32,
-            frame_rate_d: 1001,
+            frame_rate_n,
+            frame_rate_d,
             picture_aspect_ratio: (width as f32) / (height as f32),
             frame_format_type: 1, // NDIlib_frame_format_type_progressive
             timecode: i64::MAX, // NDIlib_send_timecode_synthesize
@@ -359,7 +410,7 @@ impl ActiveNdiSession {
         let sender = self.sender;
         let frame_ptr = std::ptr::from_ref(&frame);
         unsafe {
-            (self.send_video)(sender, frame_ptr);
+            (self.library.send_video)(sender, frame_ptr);
         }
         self.frame_count += 1;
         if self.frame_count == 1 {
@@ -373,13 +424,16 @@ impl ActiveNdiSession {
 
 impl Drop for ActiveNdiSession {
     fn drop(&mut self) {
-        // SAFETY: sender was created by NDIlib_send_create and is non-null (validated in create()).
-        // send_destroy and ndi_destroy are valid function pointers loaded from the NDI library.
-        // The library (_library field) is kept alive by this struct and will be dropped after this.
+        // Destroy ONLY this session's sender. The shared library (and its
+        // NDIlib_destroy) stays alive for any other active session and is torn
+        // down once, when the last Arc drops. This is the fix for F5: stopping
+        // one of two concurrent outputs no longer deinitializes NDI globally.
+        // SAFETY: sender was created by NDIlib_send_create and is non-null (validated
+        // in create()). send_destroy is a valid fn pointer; the library is kept alive
+        // by the `library` Arc until after this call.
         let sender = self.sender;
         unsafe {
-            (self.send_destroy)(sender);
-            (self.ndi_destroy)();
+            (self.library.send_destroy)(sender);
         }
     }
 }
@@ -422,6 +476,62 @@ fn resolve_library_path() -> Result<PathBuf, NdiError> {
     Err(NdiError::LibraryNotFound(candidates.join(", ")))
 }
 
+/// NDI frame rate as a rational `(numerator, denominator)`.
+///
+/// Returns an *integer* rate (`fps/1`), matching the cadence the frontend
+/// actually pushes frames at (`frame.ts` gates on `1000/fps`). We deliberately
+/// do NOT use the NTSC-fractional `fps*1000 / 1001` convention: that would
+/// declare 23.976/29.97/59.94 to receivers while the app produces exactly
+/// 24/30/60, causing steady clock drift and periodic frame reconcile.
+fn ndi_frame_rate(fps: u32) -> (i32, i32) {
+    (i32::try_from(fps).unwrap_or(30), 1)
+}
+
+/// Validate an incoming frame against the session's negotiated dimensions.
+///
+/// Pure (no `self`) so the guard logic is unit-testable without a live NDI
+/// session. Widths/heights are widened to `usize` before multiplying so the
+/// expected-size math can never wrap.
+fn validate_frame_dimensions(
+    expected_width: u32,
+    expected_height: u32,
+    width: u32,
+    height: u32,
+    buffer_len: usize,
+) -> Result<(), NdiError> {
+    if width != expected_width || height != expected_height {
+        return Err(NdiError::FrameDimensionsMismatch {
+            expected_width,
+            expected_height,
+        });
+    }
+    let expected = (width as usize) * (height as usize) * 4;
+    if buffer_len != expected {
+        return Err(NdiError::InvalidFrameBufferSize { width, height });
+    }
+    Ok(())
+}
+
+/// Convert a packed RGBA buffer into BGRA in place, applying the alpha mode.
+///
+/// `dst` must be at least as long as `rgba` (callers size `frame_buffer` to
+/// exactly `rgba.len()`). BGRA is the byte order NDI's `NDIlib_FourCC_type_BGRA`
+/// expects. Pure and total so it can be parity-tested against the reference
+/// swap.
+fn rgba_to_bgra(dst: &mut [u8], rgba: &[u8], alpha: NdiAlphaMode) {
+    debug_assert!(dst.len() >= rgba.len(), "dst must fit the converted frame");
+    for (idx, px) in rgba.chunks_exact(4).enumerate() {
+        let offset = idx * 4;
+        dst[offset] = px[2];
+        dst[offset + 1] = px[1];
+        dst[offset + 2] = px[0];
+        dst[offset + 3] = match alpha {
+            NdiAlphaMode::NoneOpaque => 255,
+            NdiAlphaMode::StraightAlpha => px[3],
+        };
+    }
+}
+
 fn load_symbol<'a, T>(
     library: &'a Library,
     symbol: &'static [u8],
@@ -432,4 +542,130 @@ fn load_symbol<'a, T>(
         symbol: name,
         message: e.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frame_rate_is_integer_not_ntsc() {
+        // Must match the integer fps the frontend pushes at, not the NTSC
+        // fractional (fps*1000/1001) rate we used to declare.
+        assert_eq!(ndi_frame_rate(24), (24, 1));
+        assert_eq!(ndi_frame_rate(30), (30, 1));
+        assert_eq!(ndi_frame_rate(60), (60, 1));
+    }
+
+    #[test]
+    fn frame_rate_matches_frame_rate_enum() {
+        for rate in [NdiFrameRate::Fps24, NdiFrameRate::Fps30, NdiFrameRate::Fps60] {
+            let (n, d) = ndi_frame_rate(rate.fps());
+            assert_eq!(d, 1);
+            assert_eq!(n, i32::try_from(rate.fps()).unwrap());
+        }
+    }
+
+    #[test]
+    fn resolution_dimensions_are_stable() {
+        assert_eq!(NdiResolution::R720p.dimensions(), (1280, 720));
+        assert_eq!(NdiResolution::R1080p.dimensions(), (1920, 1080));
+        assert_eq!(NdiResolution::R4k.dimensions(), (3840, 2160));
+    }
+
+    // Reference implementation — the original inline loop. `rgba_to_bgra` must
+    // stay byte-identical to this (a parity test, per CLAUDE.md testing rules).
+    fn reference_rgba_to_bgra(rgba: &[u8], alpha: NdiAlphaMode) -> Vec<u8> {
+        let mut dst = vec![0u8; rgba.len()];
+        for (idx, px) in rgba.chunks_exact(4).enumerate() {
+            let offset = idx * 4;
+            dst[offset] = px[2];
+            dst[offset + 1] = px[1];
+            dst[offset + 2] = px[0];
+            dst[offset + 3] = match alpha {
+                NdiAlphaMode::NoneOpaque => 255,
+                NdiAlphaMode::StraightAlpha => px[3],
+            };
+        }
+        dst
+    }
+
+    fn sample_rgba() -> Vec<u8> {
+        // Two pixels with distinct channels and non-trivial alpha.
+        vec![10, 20, 30, 40, 200, 150, 100, 128]
+    }
+
+    #[test]
+    fn rgba_to_bgra_swaps_channels() {
+        let rgba = sample_rgba();
+        let mut dst = vec![0u8; rgba.len()];
+        rgba_to_bgra(&mut dst, &rgba, NdiAlphaMode::StraightAlpha);
+        // R,G,B,A -> B,G,R,A
+        assert_eq!(&dst[0..4], &[30, 20, 10, 40]);
+        assert_eq!(&dst[4..8], &[100, 150, 200, 128]);
+    }
+
+    #[test]
+    fn rgba_to_bgra_opaque_forces_full_alpha() {
+        let rgba = sample_rgba();
+        let mut dst = vec![0u8; rgba.len()];
+        rgba_to_bgra(&mut dst, &rgba, NdiAlphaMode::NoneOpaque);
+        assert_eq!(dst[3], 255);
+        assert_eq!(dst[7], 255);
+    }
+
+    #[test]
+    fn rgba_to_bgra_straight_passes_alpha_through() {
+        let rgba = sample_rgba();
+        let mut dst = vec![0u8; rgba.len()];
+        rgba_to_bgra(&mut dst, &rgba, NdiAlphaMode::StraightAlpha);
+        assert_eq!(dst[3], 40);
+        assert_eq!(dst[7], 128);
+    }
+
+    #[test]
+    fn rgba_to_bgra_matches_reference_for_all_modes() {
+        let rgba = sample_rgba();
+        for alpha in [NdiAlphaMode::NoneOpaque, NdiAlphaMode::StraightAlpha] {
+            let mut dst = vec![0u8; rgba.len()];
+            rgba_to_bgra(&mut dst, &rgba, alpha);
+            assert_eq!(dst, reference_rgba_to_bgra(&rgba, alpha));
+        }
+    }
+
+    #[test]
+    fn validate_accepts_matching_frame() {
+        // 1280x720x4 = 3_686_400 bytes.
+        assert!(validate_frame_dimensions(1280, 720, 1280, 720, 1280 * 720 * 4).is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_dimension_mismatch() {
+        let err = validate_frame_dimensions(1920, 1080, 1280, 720, 1280 * 720 * 4);
+        assert!(matches!(
+            err,
+            Err(NdiError::FrameDimensionsMismatch {
+                expected_width: 1920,
+                expected_height: 1080,
+            })
+        ));
+    }
+
+    #[test]
+    fn validate_rejects_wrong_buffer_size() {
+        let err = validate_frame_dimensions(1280, 720, 1280, 720, 1280 * 720 * 4 - 1);
+        assert!(matches!(
+            err,
+            Err(NdiError::InvalidFrameBufferSize {
+                width: 1280,
+                height: 720,
+            })
+        ));
+    }
+
+    #[test]
+    fn validate_size_math_does_not_overflow_at_4k() {
+        // 3840*2160*4 = 33_177_600; the widened usize math must not wrap.
+        assert!(validate_frame_dimensions(3840, 2160, 3840, 2160, 3840 * 2160 * 4).is_ok());
+    }
 }

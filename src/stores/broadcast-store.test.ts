@@ -729,3 +729,120 @@ describe("broadcast store — stage monitor targeting", () => {
     ])
   })
 })
+
+/**
+ * YouTube plays inside each output window now (an embedded `OutputWebLayer`),
+ * not a separate overlay window. `syncWebOutput` therefore fans the cue out over
+ * the `broadcast:web-content` event to the ENABLED outputs, and teardown clears
+ * every output. These guard the routing (and the enabled filter that a stray
+ * unfiltered loop had been leaking through).
+ */
+describe("broadcast store — embedded web output routing", () => {
+  beforeEach(() => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("routes a live YouTube item to every enabled output via web-content", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: true }))
+    useBroadcastStore.setState({
+      isLive: true,
+      outputs,
+      liveWeb: {
+        url: "https://youtu.be/abc123",
+        isYouTube: true,
+        videoId: "abc123",
+        startTime: 12,
+        endTime: 340,
+        isLive: false,
+        autoplay: false,
+        nonce: 1,
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncWebOutput()
+
+    const payload = expect.objectContaining({
+      videoId: "abc123",
+      start: 12,
+      end: 340,
+      muted: false,
+      autoplay: false,
+      nonce: 1,
+    })
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:web-content",
+      payload
+    )
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:web-content",
+      payload
+    )
+  })
+
+  it("skips a disabled output when routing web content", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore
+      .getState()
+      .outputs.map((o) => ({ ...o, enabled: o.id === "main" }))
+    useBroadcastStore.setState({
+      isLive: true,
+      outputs,
+      liveWeb: {
+        url: "https://youtu.be/xyz",
+        isYouTube: true,
+        videoId: "xyz",
+        isLive: false,
+        autoplay: false,
+        nonce: 2,
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncWebOutput()
+
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:web-content",
+      expect.any(Object)
+    )
+    expect(emitToMock).not.toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:web-content",
+      expect.any(Object)
+    )
+  })
+
+  it("clearLiveWeb tears down the embedded player on every output", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore.getState().outputs
+    useBroadcastStore.setState({
+      liveWeb: {
+        url: "https://youtu.be/abc",
+        isYouTube: true,
+        videoId: "abc",
+        nonce: 1,
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().clearLiveWeb()
+
+    for (const o of outputs) {
+      const label = o.id === "main" ? "broadcast" : `broadcast-${o.id}`
+      expect(emitToMock).toHaveBeenCalledWith(
+        label,
+        "broadcast:web-content",
+        null
+      )
+    }
+    expect(useBroadcastStore.getState().liveWeb).toBeNull()
+  })
+})

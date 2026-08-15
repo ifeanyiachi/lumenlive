@@ -61,6 +61,7 @@ import { SearchMediaTab } from "@/components/panels/search-media-tab"
 import { SearchSlideTab } from "@/components/panels/search-slide-tab"
 import { SearchSongTab } from "@/components/panels/search-song-tab"
 import { VerseEditModal } from "@/components/verse-edit/verse-edit-modal"
+import { MultiVerseEditModal } from "@/components/verse-edit/multi-verse-edit-modal"
 import {
   toMultiVerseRenderData,
   buildMultiVerseReference,
@@ -387,6 +388,7 @@ export function SearchPanel() {
 
   // Multi-verse selection
   const [multiSelected, setMultiSelected] = useState<Set<number>>(new Set())
+  const [multiEditOpen, setMultiEditOpen] = useState(false)
   const lastClickedIdRef = useRef<number | null>(null)
 
   // Clear multi-select when the book/chapter changes. Adjusted during render
@@ -625,22 +627,6 @@ export function SearchPanel() {
       bibleActions.selectVerse(multiSelectedVerses[0])
     }
   }, [multiSelectedVerses, translations, activeTranslationId])
-
-  const handleMultiQueue = useCallback(() => {
-    if (multiSelectedVerses.length === 0) return
-    const store = useQueueStore.getState()
-    for (const verse of multiSelectedVerses) {
-      store.addItem({
-        id: crypto.randomUUID(),
-        verse,
-        reference: verseReference(verse),
-        confidence: 1,
-        source: "manual",
-        added_at: Date.now(),
-      })
-    }
-    setMultiSelected(new Set())
-  }, [multiSelectedVerses])
 
   const handleMultiQueueGroup = useCallback(() => {
     if (multiSelectedVerses.length === 0) return
@@ -1202,10 +1188,10 @@ export function SearchPanel() {
                 variant="ghost"
                 size="sm"
                 className="h-7 gap-1.5 text-xs hover:bg-sky-500/20 hover:text-sky-300"
-                onClick={handleMultiQueue}
+                onClick={() => setMultiEditOpen(true)}
               >
-                <PlusIcon className="size-3" />
-                Queue
+                <PencilIcon className="size-3" />
+                Edit
               </Button>
               <Button
                 variant="ghost"
@@ -1423,6 +1409,15 @@ export function SearchPanel() {
           verse={editingVerse}
           translationAbbreviation={activeTranslationAbbr}
           translationId={activeTranslationId}
+        />
+      )}
+      {multiEditOpen && multiSelectedVerses.length > 0 && (
+        <MultiVerseEditModal
+          open={multiEditOpen}
+          onOpenChange={setMultiEditOpen}
+          verses={multiSelectedVerses}
+          translationAbbreviation={activeTranslationAbbr}
+          onApplied={() => setMultiSelected(new Set())}
         />
       )}
     </div>

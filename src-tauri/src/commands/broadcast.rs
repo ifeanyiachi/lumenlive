@@ -2,7 +2,7 @@
 
 use std::sync::Mutex;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::State;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use lumenlive_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
@@ -16,65 +16,11 @@ fn window_label(output_id: &str) -> String {
     }
 }
 
-/// Map `output_id` to the web overlay window label. Supports N outputs.
-fn web_overlay_label(output_id: &str) -> String {
-    if output_id == "main" {
-        "web-overlay".to_string()
-    } else {
-        format!("web-overlay-{output_id}")
-    }
-}
-
 /// Map `output_id` to broadcast-output.html URL with hash fragment.
 /// Uses a fragment instead of query params so the `PathBuf` conversion
 /// on Windows does not interfere with URL resolution.
 fn window_url(output_id: &str, mode: &str) -> String {
     format!("broadcast-output.html#output={output_id}&mode={mode}")
-}
-
-/// Config for a controllable `YouTube` overlay. When `video_id` is present the
-/// overlay loads the bundled web-overlay.html (hosting the YT `IFrame` Player
-/// API) instead of navigating straight to youtube.com/embed.
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct WebOverlayConfig {
-    pub video_id: Option<String>,
-    pub start: Option<f64>,
-    pub end: Option<f64>,
-    pub is_live: Option<bool>,
-    pub muted: Option<bool>,
-    /// Start playing on load. Defaults to false (cue paused) — playback is
-    /// operator-driven via the `broadcast:web-transport` "play" action.
-    pub autoplay: Option<bool>,
-}
-
-/// Build the web-overlay.html URL with hash fragment from the overlay config.
-fn web_overlay_url(output_id: &str, cfg: &WebOverlayConfig) -> String {
-    use std::fmt::Write;
-    let mut hash = format!("output={output_id}");
-    if let Some(v) = &cfg.video_id {
-        let _ = write!(hash, "&videoId={v}");
-    }
-    if let Some(s) = cfg.start {
-        if s > 0.0 {
-            let _ = write!(hash, "&start={s}");
-        }
-    }
-    if let Some(e) = cfg.end {
-        if e > 0.0 {
-            let _ = write!(hash, "&end={e}");
-        }
-    }
-    if cfg.is_live.unwrap_or(false) {
-        hash.push_str("&live=1");
-    }
-    if cfg.muted.unwrap_or(false) {
-        hash.push_str("&muted=1");
-    }
-    if cfg.autoplay.unwrap_or(false) {
-        hash.push_str("&autoplay=1");
-    }
-    format!("web-overlay.html#{hash}")
 }
 
 #[derive(Serialize)]
@@ -147,59 +93,85 @@ pub async fn open_broadcast_window(
     let pos = monitor.position();
     let size = monitor.size();
 
-    // If window already exists (e.g. hidden for NDI), reuse it.
+    // Reuse an existing window (e.g. one created hidden for NDI) or create it.
     // A window created by `ensure_broadcast_window` for NDI is borderless,
-    // non-closable/minimizable and hidden from the taskbar. Restore those
-    // properties here so a reused window is actually usable as a preview
-    // (otherwise it opens with no title bar, no min/close buttons and no
-    // taskbar entry — appearing blank and stuck).
-    if let Some(window) = app.get_webview_window(&label) {
+    // non-closable/minimizable and hidden from the taskbar. Whether reused or
+    // freshly built, the geometry below is applied the same way so both paths
+    // fill the target monitor identically.
+    let window = if let Some(window) = app.get_webview_window(&label) {
         window
-            .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: pos.x,
-                y: pos.y,
-            }))
-            .map_err(|e| e.to_string())?;
-        window
-            .set_size(tauri::Size::Physical(tauri::PhysicalSize {
-                width: size.width,
-                height: size.height,
-            }))
-            .map_err(|e| e.to_string())?;
-        let _ = window.set_decorations(false);
-        let _ = window.set_closable(false);
-        let _ = window.set_minimizable(false);
-        let _ = window.set_skip_taskbar(false);
-        window.show().map_err(|e| e.to_string())?;
-        let _ = window.set_focus();
-        return Ok(());
-    }
+    } else {
+        let mode_str = mode.as_deref().unwrap_or("normal");
+        let title = name.as_deref().map_or_else(
+            || match mode_str {
+                "stage" => "Stage Display".to_string(),
+                _ => format!("Projector - {output_id}"),
+            },
+            |n| format!("LumenLive - {n}"),
+        );
 
-    let mode_str = mode.as_deref().unwrap_or("normal");
-    let title = name
-        .as_deref().map_or_else(|| match mode_str {
-            "stage" => "Stage Display".to_string(),
-            _ => format!("Projector - {output_id}"),
-        }, |n| format!("LumenLive - {n}"));
+        WebviewWindowBuilder::new(
+            &app,
+            &label,
+            WebviewUrl::App(window_url(&output_id, mode_str).into()),
+        )
+        .title(&title)
+        .decorations(false)
+        .closable(false)
+        .minimizable(false)
+        .always_on_top(false)
+        .skip_taskbar(false)
+        .focused(false)
+        // Build hidden; the exact monitor geometry is applied in *physical*
+        // pixels below, then the window is shown. The builder's `.position` /
+        // `.inner_size` take *logical* units, so passing a monitor's physical
+        // size/position through them mis-sizes the window on any display whose
+        // DPI scale factor isn't 100% — the window overflows or lands partly
+        // off-screen. Setting physical geometry after build avoids that.
+        .visible(false)
+        .build()
+        .map_err(|e| e.to_string())?
+    };
 
-    WebviewWindowBuilder::new(
-        &app,
-        &label,
-        WebviewUrl::App(window_url(&output_id, mode_str).into()),
-    )
-    .title(&title)
-    // Fill the target monitor exactly (edge-to-edge, borderless) — no inset
-    // offset. Matches the reused-window path above.
-    .position(f64::from(pos.x), f64::from(pos.y))
-    .inner_size(f64::from(size.width), f64::from(size.height))
-    .decorations(false)
-    .closable(false)
-    .minimizable(false)
-    .always_on_top(false)
-    .skip_taskbar(false)
-    .focused(false)
-    .build()
-    .map_err(|e| e.to_string())?;
+    let _ = window.set_decorations(false);
+    let _ = window.set_closable(false);
+    let _ = window.set_minimizable(false);
+    let _ = window.set_skip_taskbar(false);
+
+    // Clear any prior fullscreen first: a window that is already fullscreen
+    // ignores set_position/set_size, so a reused window (or one being moved to a
+    // different monitor) would stay put. Drop out of fullscreen, reposition, then
+    // re-enter below.
+    let _ = window.set_fullscreen(false);
+
+    // First place the window *on* the target monitor using physical coordinates
+    // (scale-factor-independent), sized to that monitor. This both seeds the
+    // borderless-fill fallback and — crucially — puts the window on the correct
+    // display so the fullscreen call below covers the right monitor.
+    window
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: pos.x,
+            y: pos.y,
+        }))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: size.width,
+            height: size.height,
+        }))
+        .map_err(|e| e.to_string())?;
+
+    window.show().map_err(|e| e.to_string())?;
+
+    // Then lock it into true fullscreen on that monitor. A borderless window
+    // merely *sized* to the monitor can still be nudged by the OS window frame /
+    // drop shadow, leaving a few-pixel offset — the symptom reported. Real
+    // fullscreen has the compositor own the whole display, so the output is
+    // edge-to-edge with no offset regardless of DPI or window chrome. Tauri uses
+    // borderless (not exclusive) fullscreen on Windows, so always-on-top overlays
+    // and alt-tab still behave normally.
+    let _ = window.set_fullscreen(true);
+    let _ = window.set_focus();
 
     Ok(())
 }
@@ -210,12 +182,6 @@ pub async fn close_broadcast_window(
     output_id: String,
     runtime: State<'_, Mutex<NdiRuntime>>,
 ) -> Result<(), String> {
-    // Close any web overlay sitting on top of this broadcast window
-    let overlay_label = web_overlay_label(&output_id);
-    if let Some(overlay) = app.get_webview_window(&overlay_label) {
-        let _ = overlay.close();
-    }
-
     let label = window_label(&output_id);
     if let Some(window) = app.get_webview_window(&label) {
         let ndi_active = runtime
@@ -227,86 +193,6 @@ pub async fn close_broadcast_window(
         } else {
             window.close().map_err(|e| e.to_string())?;
         }
-    }
-    Ok(())
-}
-
-/// Open a borderless web overlay window on top of the broadcast output.
-/// Uses a real Tauri webview (not an iframe) so X-Frame-Options cannot block it.
-#[tauri::command]
-pub async fn open_web_overlay(
-    app: tauri::AppHandle,
-    output_id: String,
-    url: String,
-    config: Option<WebOverlayConfig>,
-) -> Result<(), String> {
-    let label = web_overlay_label(&output_id);
-    let broadcast_label = window_label(&output_id);
-
-    // Close existing overlay if any
-    if let Some(existing) = app.get_webview_window(&label) {
-        let _ = existing.close();
-    }
-
-    // Require the broadcast window to be open
-    let Some(broadcast_win) = app.get_webview_window(&broadcast_label) else {
-        return Ok(());
-    };
-
-    let pos = broadcast_win.outer_position().map_err(|e| e.to_string())?;
-    let size = broadcast_win.outer_size().map_err(|e| e.to_string())?;
-
-    // YouTube → controllable bundled page (hosts the IFrame Player API).
-    // Anything else → navigate the webview straight to the URL.
-    let webview_url = match &config {
-        Some(cfg) if cfg.video_id.is_some() => {
-            WebviewUrl::App(web_overlay_url(&output_id, cfg).into())
-        }
-        _ => {
-            let parsed: url::Url = url.parse().map_err(|e: url::ParseError| e.to_string())?;
-            WebviewUrl::External(parsed)
-        }
-    };
-
-    WebviewWindowBuilder::new(&app, &label, webview_url)
-        .title("Web Overlay")
-        .position(f64::from(pos.x), f64::from(pos.y))
-        .inner_size(f64::from(size.width), f64::from(size.height))
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .focused(false)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-/// Mute or unmute the web overlay by toggling the <video> element's muted property.
-/// Retries a few times since the video element may not exist yet when the page is loading.
-#[tauri::command]
-pub async fn mute_web_overlay(app: tauri::AppHandle, output_id: String, muted: bool) -> Result<(), String> {
-    let label = web_overlay_label(&output_id);
-    if let Some(overlay) = app.get_webview_window(&label) {
-        let val = if muted { "true" } else { "false" };
-        let js = format!(
-            r"(function m(n){{
-                var vids=document.querySelectorAll('video');
-                vids.forEach(function(v){{v.muted={val};}});
-                if(vids.length===0&&n<10)setTimeout(function(){{m(n+1);}},500);
-            }})(0);"
-        );
-        overlay.eval(&js).map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-/// Close the web overlay window for a given output.
-#[tauri::command]
-pub async fn close_web_overlay(app: tauri::AppHandle, output_id: String) -> Result<(), String> {
-    let label = web_overlay_label(&output_id);
-    if let Some(overlay) = app.get_webview_window(&label) {
-        overlay.close().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -331,11 +217,13 @@ pub fn stop_ndi(output_id: String, runtime: State<'_, Mutex<NdiRuntime>>) -> Res
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NdiStatusResponse {
     pub active: bool,
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    pub alpha_mode: lumenlive_broadcast::ndi::NdiAlphaMode,
 }
 
 #[tauri::command]
@@ -350,6 +238,7 @@ pub fn get_ndi_status(
             width: info.width,
             height: info.height,
             fps: info.fps,
+            alpha_mode: info.alpha_mode,
         })),
         None => Ok(None),
     }
@@ -365,8 +254,12 @@ fn frame_header_u32(request: &tauri::ipc::Request<'_>, name: &str) -> Result<u32
         .ok_or_else(|| format!("push_ndi_frame: missing/invalid header {name}"))
 }
 
+// Async so Tauri runs the frame conversion + blocking NDI send on a worker
+// thread instead of the main (UI event-loop) thread. The `NdiRuntime` mutex is
+// locked and released within this call with no `.await` held across the guard,
+// so a `std::sync::Mutex` is safe here.
 #[tauri::command]
-pub fn push_ndi_frame(
+pub async fn push_ndi_frame(
     runtime: State<'_, Mutex<NdiRuntime>>,
     request: tauri::ipc::Request<'_>,
 ) -> Result<(), String> {

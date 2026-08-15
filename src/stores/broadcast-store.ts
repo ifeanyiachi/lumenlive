@@ -13,6 +13,7 @@ import {
   DEFAULT_STAGE_DISPLAY_CONFIG,
   type OutputDisplayMode,
   type BaseBackground,
+  type WebContentPayload,
 } from "@/types/broadcast"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
@@ -30,7 +31,6 @@ import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import {
   emitToOutput,
   emitToAllOutputs,
-  emitToAllOverlays,
 } from "@/lib/broadcast-routing"
 import * as themeEditing from "@/lib/broadcast/theme-editing"
 import * as stageEditing from "@/lib/stage-layout/editing"
@@ -41,11 +41,6 @@ import {
   resolveEffectiveOutput,
   updateOutputInArray,
 } from "@/lib/broadcast/output-selectors"
-import {
-  openWebOverlay,
-  closeWebOverlay,
-  muteWebOverlay,
-} from "@/services/web-overlay-gateway"
 
 export type BroadcastSource = "schedule" | "queue" | "manual" | null
 type SelectedElement = string | null
@@ -558,9 +553,13 @@ function emitDraftToBroadcast(state: BroadcastState): void {
   }
 }
 
-function closeWebOverlays(outputs: BroadcastOutput[]): void {
+// Tear down all web output everywhere: clear each output window's embedded
+// YouTube player (`broadcast:web-content` = null). Emits to every output
+// regardless of `enabled` so a just-disabled output can't keep a player running
+// (emitting to a closed window is a harmless no-op).
+function clearWebOutputs(outputs: BroadcastOutput[]): void {
   for (const output of outputs) {
-    void closeWebOverlay(output.id).catch(() => {})
+    emitToOutput(output.id, "broadcast:web-content", null)
   }
 }
 
@@ -626,7 +625,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       webTransport: null,
       broadcastSource: source ?? null,
     })
-    if (hadWeb) closeWebOverlays(get().outputs)
+    if (hadWeb) clearWebOutputs(get().outputs)
     get().syncBroadcastOutput()
   }
   const commitSlideLive = (
@@ -645,7 +644,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       webTransport: null,
       broadcastSource: source ?? null,
     })
-    if (hadWeb) closeWebOverlays(get().outputs)
+    if (hadWeb) clearWebOutputs(get().outputs)
     get().syncBroadcastOutput()
   }
   const commitMediaLive = (
@@ -664,7 +663,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       webTransport: null,
       broadcastSource: source ?? null,
     })
-    if (hadWeb) closeWebOverlays(get().outputs)
+    if (hadWeb) clearWebOutputs(get().outputs)
     get().syncBroadcastOutput()
   }
   const commitWebLive = (web: LiveWeb | null, source?: BroadcastSource) => {
@@ -1253,7 +1252,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
       if (!isLive) {
         // Going off-air clears any pending stage so the next go-live starts clean.
         set({ previewPending: false })
-        if (get().liveWeb) closeWebOverlays(get().outputs)
+        if (get().liveWeb) clearWebOutputs(get().outputs)
       }
       get().syncBroadcastOutput()
       if (isLive && get().liveWeb) {
@@ -1285,16 +1284,10 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
         muted: broadcastMuted,
       })
       const web = get().liveWeb
-      if (web) {
-        if (web.isYouTube && web.videoId) {
-          // Controllable overlay: mute via the IFrame Player API.
-          get().sendWebTransport("mute", { muted: broadcastMuted })
-        } else {
-          // Plain navigated overlay: fall back to the eval-based mute.
-          for (const output of get().outputs) {
-            void muteWebOverlay(output.id, broadcastMuted).catch(() => {})
-          }
-        }
+      if (web?.isYouTube && web.videoId) {
+        // The embedded output player follows broadcast:mute above; send an
+        // explicit transport mute too so its state is unambiguous.
+        get().sendWebTransport("mute", { muted: broadcastMuted })
       }
     },
     // Black / Clear / Logo are mutually exclusive audience-screen states: the
@@ -1350,7 +1343,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     },
     setMediaTransport: (mediaTransport) => set({ mediaTransport }),
     sendWebTransport: (action, opts) => {
-      emitToAllOverlays(get().outputs, "broadcast:web-transport", {
+      // Routed to the output windows: the embedded YouTube player (OutputWebLayer)
+      // now lives inside each output, not in a separate overlay window.
+      emitToAllOutputs(get().outputs, "broadcast:web-transport", {
         action,
         position: opts?.position,
         muted: opts?.muted,
@@ -1423,34 +1418,26 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => {
     },
     clearLiveWeb: () => {
       set({ liveWeb: null, previewWeb: null, webTransport: null })
-      closeWebOverlays(get().outputs)
+      clearWebOutputs(get().outputs)
     },
     syncWebOutput: () => {
       const s = get()
       if (!s.liveWeb || !s.isLive) return
       const web = s.liveWeb
-      // Controllable overlay for YouTube (hosts the IFrame Player API);
-      // plain navigation for any other web URL.
-      const config =
-        web.isYouTube && web.videoId
-          ? {
-              videoId: web.videoId,
-              start: web.startTime,
-              end: web.endTime,
-              isLive: web.isLive,
-              muted: s.broadcastMuted,
-              autoplay: web.autoplay ?? false,
-            }
-          : undefined
-      for (const output of s.outputs) {
-        let url = web.url
-        if (s.broadcastMuted && web.isYouTube && !config) {
-          const u = new URL(url)
-          u.searchParams.set("mute", "1")
-          url = u.toString()
-        }
-        void openWebOverlay(output.id, url, config).catch(() => {})
+      // Web output is YouTube-only. It plays inside each output window (no
+      // separate overlay window): push the cue to every ENABLED output and its
+      // `OutputWebLayer` mounts and drives the IFrame Player API.
+      if (!web.isYouTube || !web.videoId) return
+      const payload: WebContentPayload = {
+        videoId: web.videoId,
+        start: web.startTime ?? 0,
+        end: web.endTime ?? 0,
+        isLive: web.isLive ?? false,
+        muted: s.broadcastMuted,
+        autoplay: web.autoplay ?? false,
+        nonce: web.nonce ?? 0,
       }
+      emitToAllOutputs(s.outputs, "broadcast:web-content", payload)
     },
 
     // Output management

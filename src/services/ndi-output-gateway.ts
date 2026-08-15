@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import type { NdiAlphaMode } from "@/types"
 
 /**
  * Gateway for the broadcast output window's NDI IPC: shipping raw RGBA frames to
@@ -11,6 +12,7 @@ export interface NdiStatus {
   width: number
   height: number
   fps: number
+  alphaMode: NdiAlphaMode
 }
 
 /**

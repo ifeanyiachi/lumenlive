@@ -82,6 +82,27 @@ export type ContentRouting =
   | { type: "layer-filter"; layers: LayerFilter }
 
 /**
+ * Payload for the `broadcast:web-content` event. Tells an output window to mount,
+ * replace, or (when the payload is `null`) tear down its embedded YouTube player.
+ *
+ * YouTube plays *inside* the output window now — the player is a DOM layer over
+ * the canvas rather than a separate always-on-top overlay window. Fields mirror
+ * the IFrame Player API cue we build in the store's `syncWebOutput`.
+ */
+export interface WebContentPayload {
+  videoId: string
+  /** Start offset in seconds (join-late / skip pre-service); 0 = from the top. */
+  start: number
+  /** VOD out-point in seconds; 0 = play to the natural end. */
+  end: number
+  isLive: boolean
+  muted: boolean
+  autoplay: boolean
+  /** Bumped on every re-present so the output remounts the player (replay). */
+  nonce: number
+}
+
+/**
  * A named set of stage monitors, so the operator can push a private stage cue
  * (message/announcement) to several presenter screens at once — e.g. "Musicians"
  * or "Hosts". Membership is by output id; stale ids are pruned when an output is

@@ -96,9 +96,11 @@ const NDI_FRAME_RATE_OPTIONS: Array<{ value: NdiFrameRate; label: string }> = [
 ]
 
 const NDI_ALPHA_OPTIONS: Array<{ value: NdiAlphaMode; label: string }> = [
-  { value: "noneOpaque", label: "None (Opaque)" },
-  { value: "straightAlpha", label: "Straight Alpha" },
-  { value: "premultipliedAlpha", label: "Premultiplied Alpha" },
+  { value: "noneOpaque", label: "Solid background (full picture)" },
+  {
+    value: "straightAlpha",
+    label: "Transparent background (for overlay/keying)",
+  },
 ]
 
 const MAX_VERSE_SCALE_OPTIONS = [
@@ -556,7 +558,8 @@ export function BroadcastSettings({
       outputId: string,
       active: boolean,
       frameRate: NdiFrameRate,
-      resolution: NdiResolution
+      resolution: NdiResolution,
+      alphaMode: NdiAlphaMode
     ) => {
       const dims = ndiResolutionToDimensions(resolution)
       void emitNdiConfig(outputId, {
@@ -564,6 +567,7 @@ export function BroadcastSettings({
         fps: ndiFrameRateToNumber(frameRate),
         width: dims.width,
         height: dims.height,
+        alphaMode,
       }).catch(() => {})
     },
     []
@@ -630,12 +634,19 @@ export function BroadcastSettings({
       useBroadcastStore.getState().syncBroadcastOutput()
       // Re-push any live countdowns so a just-opened output isn't blank.
       useCountdownStore.getState().resyncOutputs()
-      syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
+      syncNdiConfigToOutput(
+        "main",
+        ndiActive,
+        ndiFrameRate,
+        ndiResolution,
+        ndiAlphaMode
+      )
       syncNdiConfigToOutput(
         "alt",
         altNdiActive,
         altNdiFrameRate,
-        altNdiResolution
+        altNdiResolution,
+        altNdiAlphaMode
       )
       timeoutId = setTimeout(() => {
         useBroadcastStore.getState().syncBroadcastOutput()
@@ -652,9 +663,11 @@ export function BroadcastSettings({
     ndiActive,
     ndiFrameRate,
     ndiResolution,
+    ndiAlphaMode,
     altNdiActive,
     altNdiFrameRate,
     altNdiResolution,
+    altNdiAlphaMode,
     syncBroadcastOutput,
     syncNdiConfigToOutput,
   ])
@@ -704,7 +717,13 @@ export function BroadcastSettings({
     const unlisten = await onOutputReady(() => {
       synced = true
       useBroadcastStore.getState().syncBroadcastOutputFor("main")
-      syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
+      syncNdiConfigToOutput(
+        "main",
+        ndiActive,
+        ndiFrameRate,
+        ndiResolution,
+        ndiAlphaMode
+      )
       unlisten()
     })
     await openBroadcastWindow("main", Number(selectedMonitor))
@@ -721,7 +740,13 @@ export function BroadcastSettings({
       setTimeout(() => {
         if (!synced) {
           useBroadcastStore.getState().syncBroadcastOutputFor("main")
-          syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
+          syncNdiConfigToOutput(
+            "main",
+            ndiActive,
+            ndiFrameRate,
+            ndiResolution,
+            ndiAlphaMode
+          )
           unlisten()
         }
       }, 500)
@@ -732,7 +757,13 @@ export function BroadcastSettings({
     try {
       if (ndiActive) {
         await stopNdi("main")
-        syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
+        syncNdiConfigToOutput(
+          "main",
+          false,
+          ndiFrameRate,
+          ndiResolution,
+          ndiAlphaMode
+        )
         setNdiActive(false)
         if (!isPreviewOpen) {
           await closeBroadcastWindow("main").catch(() => {})
@@ -753,10 +784,17 @@ export function BroadcastSettings({
           fps: session.fps,
           width: session.width,
           height: session.height,
+          alphaMode: session.alphaMode,
         }).catch(() => {})
         setTimeout(() => {
           useBroadcastStore.getState().syncBroadcastOutputFor("main")
-          syncNdiConfigToOutput("main", true, ndiFrameRate, ndiResolution)
+          syncNdiConfigToOutput(
+            "main",
+            true,
+            ndiFrameRate,
+            ndiResolution,
+            ndiAlphaMode
+          )
         }, 300)
       }
     } catch (error) {
@@ -780,7 +818,13 @@ export function BroadcastSettings({
         }
         if (ndiActive) {
           await stopNdi("main")
-          syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
+          syncNdiConfigToOutput(
+            "main",
+            false,
+            ndiFrameRate,
+            ndiResolution,
+            ndiAlphaMode
+          )
           setNdiActive(false)
         }
       }
@@ -812,7 +856,8 @@ export function BroadcastSettings({
         "alt",
         altNdiActive,
         altNdiFrameRate,
-        altNdiResolution
+        altNdiResolution,
+        altNdiAlphaMode
       )
       unlisten()
     })
@@ -836,7 +881,8 @@ export function BroadcastSettings({
             "alt",
             altNdiActive,
             altNdiFrameRate,
-            altNdiResolution
+            altNdiResolution,
+            altNdiAlphaMode
           )
           unlisten()
         }
@@ -848,7 +894,13 @@ export function BroadcastSettings({
     try {
       if (altNdiActive) {
         await stopNdi("alt")
-        syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
+        syncNdiConfigToOutput(
+          "alt",
+          false,
+          altNdiFrameRate,
+          altNdiResolution,
+          altNdiAlphaMode
+        )
         setAltNdiActive(false)
         if (!altIsPreviewOpen) {
           await closeBroadcastWindow("alt").catch(() => {})
@@ -875,10 +927,17 @@ export function BroadcastSettings({
           fps: session.fps,
           width: session.width,
           height: session.height,
+          alphaMode: session.alphaMode,
         }).catch(() => {})
         setTimeout(() => {
           useBroadcastStore.getState().syncBroadcastOutputFor("alt")
-          syncNdiConfigToOutput("alt", true, altNdiFrameRate, altNdiResolution)
+          syncNdiConfigToOutput(
+            "alt",
+            true,
+            altNdiFrameRate,
+            altNdiResolution,
+            altNdiAlphaMode
+          )
         }, 300)
       }
     } catch (error) {
@@ -900,7 +959,13 @@ export function BroadcastSettings({
         }
         if (altNdiActive) {
           await stopNdi("alt")
-          syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
+          syncNdiConfigToOutput(
+            "alt",
+            false,
+            altNdiFrameRate,
+            altNdiResolution,
+            altNdiAlphaMode
+          )
           setAltNdiActive(false)
         }
       }
@@ -1196,6 +1261,8 @@ export function BroadcastSettings({
                       </>
                     )}
                   </Button>
+
+                  {mainOutput && <OutputDisplaySettings output={mainOutput} />}
                 </div>
               )}
             </div>
@@ -1436,6 +1503,8 @@ export function BroadcastSettings({
                       </>
                     )}
                   </Button>
+
+                  {altOutput && <OutputDisplaySettings output={altOutput} />}
                 </div>
               )}
             </div>

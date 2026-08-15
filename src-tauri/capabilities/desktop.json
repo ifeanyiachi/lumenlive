@@ -8,9 +8,7 @@
   "windows": [
     "main",
     "broadcast",
-    "broadcast-*",
-    "web-overlay",
-    "web-overlay-*"
+    "broadcast-*"
   ],
   "permissions": [
     "global-shortcut:default"
