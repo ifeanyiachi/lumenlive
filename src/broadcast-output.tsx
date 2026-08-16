@@ -31,6 +31,10 @@ import {
   createRenderLoop,
   type RenderLoop,
 } from "@/lib/broadcast-output/render-loop"
+import { parseBroadcastConfig } from "@/lib/broadcast-output/config"
+import { useStageClock } from "@/hooks/use-stage-clock"
+import { useNdiKeepalive } from "@/hooks/use-ndi-keepalive"
+import { useWindowSurface } from "@/hooks/use-window-surface"
 import { toFitConfig, shouldPushNdiFrame } from "@/lib/broadcast-output/frame"
 import {
   resolveSurface,
@@ -75,10 +79,10 @@ import type {
 } from "@/types/alert"
 import type { NdiConfigEventPayload } from "@/types"
 
-/** Read output config from URL hash fragment (#output=main&mode=normal). Defaults to "main"/"normal". */
-const _hashParams = new URLSearchParams(window.location.hash.slice(1))
-const OUTPUT_ID = _hashParams.get("output") ?? "main"
-const OUTPUT_MODE = _hashParams.get("mode") ?? "normal"
+// Output config from the URL hash fragment (#output=main&mode=normal).
+const { outputId: OUTPUT_ID, outputMode: OUTPUT_MODE } = parseBroadcastConfig(
+  window.location.hash
+)
 
 // Cross-window payload shapes now live in the broadcast-content gateway (the
 // shared contract, compiler-enforced on both ends). Aliased here for the refs
@@ -1357,24 +1361,8 @@ function BroadcastCanvas() {
       }
     )
 
-    // Track the window's real inner size so native mode renders at the true
-    // output resolution and reflows when the window is resized or moved to a
-    // different monitor.
-    const applyWindowSize = (size: { width: number; height: number }) => {
-      windowSizeRef.current = { width: size.width, height: size.height }
-      drawRef.current()
-    }
-    void currentWindow
-      .innerSize()
-      .then(applyWindowSize)
-      .catch(() => {})
-    const unlistenResized = currentWindow.onResized((event) => {
-      applyWindowSize(event.payload)
-    })
-
     return () => {
       unlistenResync.then((fn) => fn())
-      unlistenResized.then((fn) => fn())
       unlisten.then((fn) => fn())
       unlistenSlide.then((fn) => fn())
       unlistenMedia.then((fn) => fn())
@@ -1439,27 +1427,14 @@ function BroadcastCanvas() {
     snapshotElementsOnly,
   ])
 
-  // Stage mode: tick every second to update the clock
-  useEffect(() => {
-    if (OUTPUT_MODE !== "stage") return
-    const timer = setInterval(() => {
-      if (stageDataRef.current) {
-        draw()
-        void pushNdiFrame()
-      }
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [draw, pushNdiFrame])
+  // Track the window's real inner size (native-mode resolution + reflow).
+  useWindowSurface(windowSizeRef, drawRef)
 
-  // Slow keepalive: push one frame every 2s if idle (prevents NDI receivers from dropping the source)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (!ndiConfigRef.current.active) return
-      const elapsed = Date.now() - lastPushRef.current
-      if (elapsed > 2000) void pushNdiFrame()
-    }, 2000)
-    return () => clearInterval(timer)
-  }, [pushNdiFrame])
+  // Stage mode: tick every second to update the clock.
+  useStageClock(OUTPUT_MODE === "stage", stageDataRef, draw, pushNdiFrame)
+
+  // Slow keepalive: push one idle frame so NDI receivers don't drop the source.
+  useNdiKeepalive(ndiConfigRef, lastPushRef, pushNdiFrame)
 
   return (
     <>
