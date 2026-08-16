@@ -1,4 +1,5 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useBibleStore, useQueueStore } from "@/stores"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { bibleActions } from "@/hooks/use-bible"
@@ -88,6 +89,18 @@ export function presentQueueVerse(item: QueueItem, index: number): void {
     ? toMultiVerseRenderData(item.verses, translation)
     : toVerseRenderData(item.verse, translation)
   useBroadcastStore.getState().setLiveVerse(renderData, "queue")
+}
+
+/**
+ * Stage a queued verse into the Program preview and immediately take it live.
+ * This is the double-click / "send live" path for the AI-verses queue: it
+ * reuses presentQueueVerse for identical staging, then commits with takeToLive
+ * so the audience push matches the manual "Go Live" exactly. Single-click still
+ * only stages (presentQueueVerse); this is the deliberate one-step live call.
+ */
+export function presentQueueVerseLive(item: QueueItem, index: number): void {
+  presentQueueVerse(item, index)
+  useBroadcastStore.getState().takeToLive()
 }
 
 /**
@@ -235,7 +248,7 @@ export const broadcastActions = {
   setLive: (live: boolean) => useBroadcastStore.getState().setLive(live),
   getActiveTheme: () => {
     const s = useBroadcastStore.getState()
-    const mainOutput = s.outputs.find((o) => o.id === "main")
+    const mainOutput = findOutput(s.outputs, "main")
     return s.themes.find((t) => t.id === mainOutput?.themeId) ?? s.themes[0]
   },
   presentSlide,

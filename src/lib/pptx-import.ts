@@ -3,10 +3,11 @@ import type {
   Presentation,
   Slide,
   SlideBackground,
+  SlideElement,
   SlideImageElement,
   SlideTextElement,
 } from "@/types/slide"
-import { createDefaultSlide } from "@/types/slide"
+import { createDefaultSlide } from "@/lib/slide-defaults"
 
 // ── PowerPoint (.pptx) import ────────────────────────────────────────────────
 //
@@ -175,6 +176,21 @@ function resolveColor(
   return null
 }
 
+/**
+ * Resolve a bare scheme-colour *name* (e.g. `tx1`, `bg1`, `accent1`) to hex via
+ * the master's colour map then the theme. Used for values that aren't wrapped in
+ * a colour container — chiefly the implicit `tx1` default a placeholder's text
+ * takes when nothing sets an explicit colour.
+ */
+function resolveScheme(
+  name: string,
+  theme: ThemeColors,
+  clrMap: Map<string, string>
+): string | null {
+  const mapped = clrMap.get(name) ?? name
+  return theme.get(mapped) ?? null
+}
+
 function readLum(el: Element, tag: string): number | null {
   const node = firstDesc(el, tag)
   if (!node) return null
@@ -237,7 +253,8 @@ function resolvePath(fromPart: string, target: string): string {
 // ── Text extraction ──────────────────────────────────────────────────────────
 
 interface RunStyle {
-  bold: boolean
+  /** null = not specified on the run, so an inherited default may apply. */
+  bold: boolean | null
   italic: boolean
   underline: boolean
   color: string | null
@@ -256,12 +273,21 @@ interface ExtractedText {
   text: string
   align: SlideTextElement["horizontalAlign"]
   style: RunStyle
+  /** Explicit paragraph bullet, if the first text paragraph sets one. */
+  listType: SlideTextElement["listType"]
 }
 
 /**
- * Pull the plaintext plus a representative run style from a `<p:txBody>`.
- * Paragraphs join with newlines; the style is taken from the first styled run
- * (good enough for the mid-fidelity target — the model has one style per box).
+ * Pull the plaintext plus a *representative* run style from a `<p:txBody>`.
+ *
+ * The Slide model carries one style per text box, so mixed inline formatting
+ * can't be preserved verbatim. We pick the **dominant** run — the one with the
+ * largest explicit point size (falling back to the first styled run) — because
+ * a slide's headline run is what a viewer reads the box's size/weight/colour
+ * from; letting a trailing empty or footnote run win looked "distorted".
+ * Paragraphs join with newlines; per-paragraph alignment is taken from the
+ * first paragraph that sets it, and an explicitly bulleted first paragraph
+ * surfaces as the box's list type.
  */
 function extractText(
   txBody: Element,
@@ -272,7 +298,10 @@ function extractText(
   const lines: string[] = []
   let align: SlideTextElement["horizontalAlign"] = "left"
   let alignSet = false
-  let style: RunStyle | null = null
+  let dominant: RunStyle | null = null
+  let firstStyled: RunStyle | null = null
+  let listType: SlideTextElement["listType"] = "none"
+  let listTypeSet = false
 
   for (const p of paragraphs) {
     const pPr = firstChild(p, "a:pPr")
@@ -288,8 +317,23 @@ function extractText(
     for (const run of childrenByTag(p, "a:r")) {
       const t = firstChild(run, "a:t")
       if (t?.textContent) lineText += t.textContent
-      if (!style) style = readRunStyle(run, theme, clrMap)
+      const rs = readRunStyle(run, theme, clrMap)
+      if (!firstStyled) firstStyled = rs
+      // "Dominant" = largest explicit size seen so far.
+      if (
+        rs.sizePt !== null &&
+        (dominant?.sizePt == null || rs.sizePt > dominant.sizePt)
+      ) {
+        dominant = rs
+      }
     }
+
+    // The first paragraph that actually contains text decides the box's bullet.
+    if (!listTypeSet && lineText.trim()) {
+      listType = paragraphBullet(pPr)
+      listTypeSet = true
+    }
+
     // A break-only paragraph (<a:br/>) or an empty paragraph still adds a line.
     lines.push(lineText)
   }
@@ -300,13 +344,29 @@ function extractText(
   return {
     text,
     align,
-    style: style ?? emptyStyle(),
+    style: dominant ?? firstStyled ?? emptyStyle(),
+    listType,
   }
+}
+
+/**
+ * Explicit list type from a paragraph's `<a:pPr>` bullet definition. Only
+ * *explicit* bullets count (`<a:buChar>` / `<a:buAutoNum>` / `<a:buNone>`);
+ * we deliberately do not inherit bullets from the master's list styles, so
+ * un-bulleted content (e.g. song lyrics in a body placeholder whose template
+ * happens to define bullets) is never given phantom bullets.
+ */
+function paragraphBullet(pPr: Element | null): SlideTextElement["listType"] {
+  if (!pPr) return "none"
+  if (firstChild(pPr, "a:buNone")) return "none"
+  if (firstChild(pPr, "a:buAutoNum")) return "numbered"
+  if (firstChild(pPr, "a:buChar")) return "bullet"
+  return "none"
 }
 
 function emptyStyle(): RunStyle {
   return {
-    bold: false,
+    bold: null,
     italic: false,
     underline: false,
     color: null,
@@ -325,8 +385,9 @@ function readRunStyle(
   const sz = Number(rPr.getAttribute("sz"))
   const fill = firstChild(rPr, "a:solidFill")
   const latin = firstChild(rPr, "a:latin")
+  const b = rPr.getAttribute("b")
   return {
-    bold: rPr.getAttribute("b") === "1",
+    bold: b === null ? null : b === "1",
     italic: rPr.getAttribute("i") === "1",
     underline: !!rPr.getAttribute("u") && rPr.getAttribute("u") !== "none",
     color: resolveColor(fill, theme, clrMap),
@@ -373,7 +434,78 @@ function resolvePlaceholderXfrm(
   )
 }
 
+// ── Placeholder text-style inheritance ───────────────────────────────────────
+
+/** The master's default level-1 run styling for one style block. */
+function lvl1DefStyle(
+  style: Element | null,
+  theme: ThemeColors,
+  clrMap: Map<string, string>
+): TxStyle {
+  const empty: TxStyle = { sizePt: null, color: null, bold: null, font: null }
+  if (!style) return empty
+  const lvl1 = firstChild(style, "a:lvl1pPr")
+  const defRPr = lvl1 ? firstChild(lvl1, "a:defRPr") : null
+  if (!defRPr) return empty
+  const sz = Number(defRPr.getAttribute("sz"))
+  const b = defRPr.getAttribute("b")
+  const latin = firstChild(defRPr, "a:latin")
+  return {
+    sizePt: Number.isFinite(sz) && sz > 0 ? sz : null,
+    color: resolveColor(firstChild(defRPr, "a:solidFill"), theme, clrMap),
+    bold: b === null ? null : b === "1",
+    font: latin?.getAttribute("typeface") ?? null,
+  }
+}
+
+/** Parse the master's `<p:txStyles>` into per-family default styling. */
+function parseTxStyles(
+  masterDoc: Document | null,
+  theme: ThemeColors,
+  clrMap: Map<string, string>
+): TxStyleMap {
+  const empty: TxStyle = { sizePt: null, color: null, bold: null, font: null }
+  if (!masterDoc) return { title: empty, body: empty, other: empty }
+  const txStyles = masterDoc.getElementsByTagName("p:txStyles").item(0)
+  if (!txStyles) return { title: empty, body: empty, other: empty }
+  return {
+    title: lvl1DefStyle(firstChild(txStyles, "p:titleStyle"), theme, clrMap),
+    body: lvl1DefStyle(firstChild(txStyles, "p:bodyStyle"), theme, clrMap),
+    other: lvl1DefStyle(firstChild(txStyles, "p:otherStyle"), theme, clrMap),
+  }
+}
+
+/** Pick the inherited default style for a placeholder by its `type`. */
+function txStyleFor(ph: Element, styles: TxStyleMap): TxStyle {
+  const type = ph.getAttribute("type") ?? "body"
+  if (type === "title" || type === "ctrTitle") return styles.title
+  // subTitle, body, and idx-only content placeholders all follow bodyStyle;
+  // anything else (footers, dates, …) follows otherStyle.
+  if (type === "subTitle" || type === "body") return styles.body
+  return ph.getAttribute("idx") ? styles.body : styles.other
+}
+
 // ── Slide parsing ────────────────────────────────────────────────────────────
+
+/**
+ * Default run styling inherited by placeholder text from the master's
+ * `<p:txStyles>` level-1 paragraph defaults. A title placeholder with no
+ * explicit `<a:rPr>` inherits `title`; body/content placeholders inherit
+ * `body`; everything else `other`. Any field may be null (not specified).
+ */
+interface TxStyle {
+  /** Size in OOXML hundredths of a point. */
+  sizePt: number | null
+  color: string | null
+  bold: boolean | null
+  font: string | null
+}
+
+interface TxStyleMap {
+  title: TxStyle
+  body: TxStyle
+  other: TxStyle
+}
 
 interface SlideContext {
   size: SlideSize
@@ -382,11 +514,101 @@ interface SlideContext {
   layoutPh: PlaceholderMap
   masterPh: PlaceholderMap
   slideRels: Map<string, string>
+  /** Background resolved from the slide layout, if it defines one. */
+  layoutBg: BgResult
+  /** Background resolved from the slide master, if it defines one. */
+  masterBg: BgResult
+  /** Placeholder default text styles from the master's `<p:txStyles>`. */
+  txStyles: TxStyleMap
+  /** Implicit `tx1` text colour for placeholders that set none. */
+  defaultTextColor: string | null
 }
 
+/** A picture / background image whose bytes are resolved to a URL post-parse. */
 interface PendingImage {
-  element: SlideImageElement
   zipPath: string
+  apply: (url: string) => void
+}
+
+/** A background either resolved to a fill, or pending an embedded image. */
+type BgResult =
+  | { kind: "fill"; bg: SlideBackground }
+  | { kind: "image"; zipPath: string }
+  | null
+
+// ── Group coordinate transforms ──────────────────────────────────────────────
+//
+// A <p:grpSp> establishes a child coordinate space (chOff/chExt) mapped onto the
+// group's placed rectangle (off/ext) on the parent surface; nested groups
+// compose. We flatten everything to absolute slide-EMU before converting to the
+// model's percentages, so grouped content lands where PowerPoint drew it instead
+// of being dropped.
+
+interface GroupTransform {
+  ox: number
+  oy: number
+  sx: number
+  sy: number
+}
+
+const IDENTITY_TF: GroupTransform = { ox: 0, oy: 0, sx: 1, sy: 1 }
+
+/** Map a shape's local xfrm to absolute slide-EMU under `tf`. */
+function applyTransform(xfrm: Xfrm, tf: GroupTransform): Xfrm {
+  return {
+    x: tf.ox + xfrm.x * tf.sx,
+    y: tf.oy + xfrm.y * tf.sy,
+    cx: xfrm.cx * tf.sx,
+    cy: xfrm.cy * tf.sy,
+  }
+}
+
+/**
+ * Compose the child-space transform declared by a `<p:grpSp>` with the incoming
+ * `parent` transform. Returns `parent` unchanged when the group carries no
+ * usable xfrm, so its children keep the parent's mapping rather than vanishing.
+ */
+function composeGroupTransform(
+  grpSp: Element,
+  parent: GroupTransform
+): GroupTransform {
+  const grpSpPr = firstChild(grpSp, "p:grpSpPr")
+  const xfrm = grpSpPr ? firstChild(grpSpPr, "a:xfrm") : null
+  if (!xfrm) return parent
+  const off = firstChild(xfrm, "a:off")
+  const ext = firstChild(xfrm, "a:ext")
+  const chOff = firstChild(xfrm, "a:chOff")
+  const chExt = firstChild(xfrm, "a:chExt")
+  if (!off || !ext || !chOff || !chExt) return parent
+  const chCx = Number(chExt.getAttribute("cx"))
+  const chCy = Number(chExt.getAttribute("cy"))
+  if (!chCx || !chCy) return parent
+
+  // Local transform: childCoord → this group's parent space.
+  const sx = Number(ext.getAttribute("cx")) / chCx
+  const sy = Number(ext.getAttribute("cy")) / chCy
+  const ox =
+    Number(off.getAttribute("x")) - Number(chOff.getAttribute("x")) * sx
+  const oy =
+    Number(off.getAttribute("y")) - Number(chOff.getAttribute("y")) * sy
+  if (![sx, sy, ox, oy].every(Number.isFinite)) return parent
+
+  // Apply local first, then the parent transform.
+  return {
+    ox: parent.ox + ox * parent.sx,
+    oy: parent.oy + oy * parent.sy,
+    sx: sx * parent.sx,
+    sy: sy * parent.sy,
+  }
+}
+
+/** Rotation in clockwise degrees from a shape's own `<a:xfrm rot="…">`, if set. */
+function readRot(spPr: Element | null): number | undefined {
+  const xfrm = spPr ? firstChild(spPr, "a:xfrm") : null
+  const rot = Number(xfrm?.getAttribute("rot"))
+  // OOXML `rot` is 60000ths of a degree, clockwise — as is the renderer.
+  if (!Number.isFinite(rot) || rot === 0) return undefined
+  return rot / 60000
 }
 
 async function parseSlide(
@@ -400,47 +622,76 @@ async function parseSlide(
   const images: PendingImage[] = []
 
   const cSld = xml?.getElementsByTagName("p:cSld").item(0) ?? null
-  slide.background = parseBackground(cSld, ctx)
+  // Background inheritance mirrors PowerPoint: a slide with no <p:bg> of its own
+  // inherits the layout's, then the master's, before the app default.
+  const slideBg = resolveBg(cSld, ctx.theme, ctx.clrMap, ctx.slideRels)
+  slide.background = materializeBg(
+    slideBg ?? ctx.layoutBg ?? ctx.masterBg,
+    images
+  )
 
   const tree = xml?.getElementsByTagName("p:spTree").item(0)
-  if (tree) {
-    for (const node of Array.from(tree.children)) {
-      if (node.tagName === "p:sp") {
-        const el = parseShape(node, ctx)
-        if (el) slide.elements.push(el)
-      } else if (node.tagName === "p:pic") {
-        const pending = parsePicture(node, ctx)
-        if (pending) {
-          slide.elements.push(pending.element)
-          images.push(pending)
-        }
-      }
-    }
-  }
+  if (tree) walkTree(tree, ctx, IDENTITY_TF, slide.elements, images)
 
   return { slide, images }
 }
 
-function parseShape(sp: Element, ctx: SlideContext): SlideTextElement | null {
+/** Recursively flatten a shape tree, descending into groups with their transform. */
+function walkTree(
+  tree: Element,
+  ctx: SlideContext,
+  tf: GroupTransform,
+  elements: SlideElement[],
+  images: PendingImage[]
+): void {
+  for (const node of Array.from(tree.children)) {
+    if (node.tagName === "p:sp") {
+      const el = parseShape(node, ctx, tf)
+      if (el) elements.push(el)
+    } else if (node.tagName === "p:pic") {
+      const res = parsePicture(node, ctx, tf)
+      if (res) {
+        elements.push(res.element)
+        images.push(res.pending)
+      }
+    } else if (node.tagName === "p:grpSp") {
+      walkTree(node, ctx, composeGroupTransform(node, tf), elements, images)
+    }
+  }
+}
+
+function parseShape(
+  sp: Element,
+  ctx: SlideContext,
+  tf: GroupTransform
+): SlideTextElement | null {
   const txBody = firstDesc(sp, "p:txBody")
   if (!txBody) return null
   const extracted = extractText(txBody, ctx.theme, ctx.clrMap)
   if (!extracted) return null
 
   const spPr = firstChild(sp, "p:spPr")
+  const ph = firstDesc(sp, "p:ph")
   let xfrm = readXfrm(spPr)
-  if (!xfrm) {
-    const ph = firstDesc(sp, "p:ph")
-    if (ph) xfrm = resolvePlaceholderXfrm(ph, ctx.layoutPh, ctx.masterPh)
+  if (!xfrm && ph) {
+    xfrm = resolvePlaceholderXfrm(ph, ctx.layoutPh, ctx.masterPh)
   }
   // Fall back to a centered box when geometry can't be resolved at all.
   const geom = xfrm
-    ? rectFromXfrm(xfrm, ctx.size)
+    ? rectFromXfrm(applyTransform(xfrm, tf), ctx.size)
     : { x: 5, y: 5, width: 90, height: 90 }
 
   const { style } = extracted
-  const fontSize =
-    style.sizePt !== null ? ptToPx(style.sizePt, ctx.size.cy) : 40
+  const inherited = ph ? txStyleFor(ph, ctx.txStyles) : null
+
+  // Per-attribute precedence: the dominant run's explicit value, then the
+  // placeholder's inherited default from <p:txStyles>, then a neutral fallback.
+  const sizePt = style.sizePt ?? inherited?.sizePt ?? null
+  const fontSize = sizePt !== null ? ptToPx(sizePt, ctx.size.cy) : 40
+  const bold = style.bold ?? inherited?.bold ?? false
+  const color =
+    style.color ?? inherited?.color ?? ctx.defaultTextColor ?? "#ffffff"
+  const fontFamily = style.font ?? inherited?.font ?? "Inter"
 
   // Vertical anchor from the body's <a:bodyPr anchor="…">.
   const bodyPr = firstDesc(txBody, "a:bodyPr")
@@ -454,28 +705,36 @@ function parseShape(sp: Element, ctx: SlideContext): SlideTextElement | null {
     ctx.theme,
     ctx.clrMap
   )
+  const rotation = readRot(spPr)
+  const listType = extracted.listType
 
   return {
     id: crypto.randomUUID(),
     type: "text",
     text: extracted.text,
     ...geom,
-    fontFamily: style.font ?? "Inter",
+    ...(rotation !== undefined ? { rotation } : {}),
+    fontFamily,
     fontSize,
-    fontWeight: style.bold ? 700 : 400,
-    bold: style.bold,
+    fontWeight: bold ? 700 : 400,
+    bold,
     italic: style.italic,
     underline: style.underline,
-    color: style.color ?? "#ffffff",
+    color,
     horizontalAlign: extracted.align,
     verticalAlign,
     lineHeight: 1.2,
     textTransform: "none",
+    ...(listType && listType !== "none" ? { listType } : {}),
     ...(shapeFill ? { backgroundColor: shapeFill } : {}),
   }
 }
 
-function parsePicture(pic: Element, ctx: SlideContext): PendingImage | null {
+function parsePicture(
+  pic: Element,
+  ctx: SlideContext,
+  tf: GroupTransform
+): { element: SlideImageElement; pending: PendingImage } | null {
   const blip = firstDesc(pic, "a:blip")
   const embed = blip?.getAttribute("r:embed")
   if (!embed) return null
@@ -485,19 +744,36 @@ function parsePicture(pic: Element, ctx: SlideContext): PendingImage | null {
   const spPr = firstDesc(pic, "p:spPr")
   const xfrm = readXfrm(spPr)
   const geom = xfrm
-    ? rectFromXfrm(xfrm, ctx.size)
+    ? rectFromXfrm(applyTransform(xfrm, tf), ctx.size)
     : { x: 20, y: 20, width: 60, height: 60 }
+  const rotation = readRot(spPr)
 
   const element: SlideImageElement = {
     id: crypto.randomUUID(),
     type: "image",
     imageUrl: "",
     ...geom,
+    ...(rotation !== undefined ? { rotation } : {}),
     objectFit: "contain",
     opacity: 1,
     borderRadius: 0,
   }
-  return { element, zipPath }
+  return {
+    element,
+    pending: { zipPath, apply: (url) => (element.imageUrl = url) },
+  }
+}
+
+/** Turn a resolved/pending background into a concrete {@link SlideBackground}. */
+function materializeBg(
+  result: BgResult,
+  images: PendingImage[]
+): SlideBackground {
+  if (!result) return { type: "solid", color: "#1a1a2e" }
+  if (result.kind === "fill") return result.bg
+  const bg: SlideBackground = { type: "image", imageUrl: "" }
+  images.push({ zipPath: result.zipPath, apply: (url) => (bg.imageUrl = url) })
+  return bg
 }
 
 function rectFromXfrm(xfrm: Xfrm, size: SlideSize) {
@@ -509,34 +785,63 @@ function rectFromXfrm(xfrm: Xfrm, size: SlideSize) {
   }
 }
 
-function parseBackground(
+/**
+ * Resolve a background from a part's `<p:cSld>`: a solid/gradient/bgRef fill,
+ * or an embedded picture (`<a:blipFill>`) surfaced as a pending image via the
+ * part's own `rels`. Returns null when the part defines none, so the caller can
+ * fall through the slide → layout → master → default inheritance chain. Takes
+ * theme/color-map/rels directly rather than a full {@link SlideContext} so it
+ * can also resolve layout/master backgrounds while the context is assembling.
+ */
+function resolveBg(
   cSld: Element | null,
-  ctx: SlideContext
-): SlideBackground {
+  theme: ThemeColors,
+  clrMap: Map<string, string>,
+  rels: Map<string, string>
+): BgResult {
   const bg = cSld ? firstChild(cSld, "p:bg") : null
-  if (bg) {
-    const bgPr = firstDesc(bg, "p:bgPr")
-    if (bgPr) {
-      const solid = firstChild(bgPr, "a:solidFill")
-      const color = resolveColor(solid, ctx.theme, ctx.clrMap)
-      if (color) return { type: "solid", color }
+  if (!bg) return null
 
-      const grad = parseGradient(firstChild(bgPr, "a:gradFill"), ctx)
-      if (grad) return grad
-    }
-    // <p:bgRef> pointing at a theme fill: resolve just its color override.
-    const bgRef = firstChild(bg, "p:bgRef")
-    if (bgRef) {
-      const color = resolveColor(bgRef, ctx.theme, ctx.clrMap)
-      if (color) return { type: "solid", color }
+  const bgPr = firstDesc(bg, "p:bgPr")
+  if (bgPr) {
+    const solid = firstChild(bgPr, "a:solidFill")
+    const color = resolveColor(solid, theme, clrMap)
+    if (color) return { kind: "fill", bg: { type: "solid", color } }
+
+    const grad = parseGradient(firstChild(bgPr, "a:gradFill"), theme, clrMap)
+    if (grad) return { kind: "fill", bg: grad }
+
+    const blip = firstDesc(firstChild(bgPr, "a:blipFill"), "a:blip")
+    const embed = blip?.getAttribute("r:embed")
+    if (embed) {
+      const zipPath = rels.get(embed)
+      if (zipPath) return { kind: "image", zipPath }
     }
   }
-  return { type: "solid", color: "#1a1a2e" }
+  // <p:bgRef> pointing at a theme fill: resolve just its color override.
+  const bgRef = firstChild(bg, "p:bgRef")
+  if (bgRef) {
+    const color = resolveColor(bgRef, theme, clrMap)
+    if (color) return { kind: "fill", bg: { type: "solid", color } }
+  }
+  return null
+}
+
+/** Resolve a background from a whole layout/master document. */
+function bgResultFromDoc(
+  doc: Document | null,
+  theme: ThemeColors,
+  clrMap: Map<string, string>,
+  rels: Map<string, string>
+): BgResult {
+  const cSld = doc?.getElementsByTagName("p:cSld").item(0) ?? null
+  return resolveBg(cSld, theme, clrMap, rels)
 }
 
 function parseGradient(
   gradFill: Element | null,
-  ctx: SlideContext
+  theme: ThemeColors,
+  clrMap: Map<string, string>
 ): SlideBackground | null {
   if (!gradFill) return null
   const gsList = firstChild(gradFill, "a:gsLst")
@@ -544,7 +849,7 @@ function parseGradient(
   const stops: { offset: number; color: string }[] = []
   for (const gs of childrenByTag(gsList, "a:gs")) {
     const pos = Number(gs.getAttribute("pos"))
-    const color = resolveColor(gs, ctx.theme, ctx.clrMap)
+    const color = resolveColor(gs, theme, clrMap)
     if (color)
       stops.push({
         offset: Number.isFinite(pos) ? pos / 100000 : stops.length,
@@ -628,7 +933,7 @@ export async function parsePptx(
   // Resolve images (persist bytes → URL). Dedupe by zip path so an image reused
   // across slides is only written once.
   const urlCache = new Map<string, string>()
-  for (const { element, zipPath } of allImages) {
+  for (const { apply, zipPath } of allImages) {
     try {
       let url = urlCache.get(zipPath)
       if (url === undefined) {
@@ -641,7 +946,7 @@ export async function parsePptx(
         url = await resolveImage(bytes, name)
         urlCache.set(zipPath, url)
       }
-      element.imageUrl = url
+      apply(url)
     } catch {
       // Leave imageUrl empty; the slide still imports.
     }
@@ -686,13 +991,23 @@ async function buildSlideContext(
     themePath ? await readXml(zip, themePath) : null
   )
   const masterDoc = masterPath ? await readXml(zip, masterPath) : null
+  const layoutDoc = layoutPath ? await readXml(zip, layoutPath) : null
   const clrMap = parseClrMap(masterDoc)
-  const layoutPh = buildPlaceholderMap(
-    layoutPath ? await readXml(zip, layoutPath) : null
-  )
+  const layoutPh = buildPlaceholderMap(layoutDoc)
   const masterPh = buildPlaceholderMap(masterDoc)
 
-  return { size, theme, clrMap, layoutPh, masterPh, slideRels }
+  return {
+    size,
+    theme,
+    clrMap,
+    layoutPh,
+    masterPh,
+    slideRels,
+    layoutBg: bgResultFromDoc(layoutDoc, theme, clrMap, layoutRels),
+    masterBg: bgResultFromDoc(masterDoc, theme, clrMap, masterRels),
+    txStyles: parseTxStyles(masterDoc, theme, clrMap),
+    defaultTextColor: resolveScheme("tx1", theme, clrMap),
+  }
 }
 
 /** Path of the `.rels` part for a given part (e.g. slides/slide1.xml). */

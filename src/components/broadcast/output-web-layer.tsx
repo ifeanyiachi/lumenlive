@@ -13,18 +13,14 @@
 // YouTube API mutates.
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import type { WebContentPayload } from "@/types/broadcast"
+import {
+  listenOutputEvent,
+  BROADCAST_EVENTS,
+  emitWebProgress,
+} from "@/services/broadcast-content-gateway"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-interface WebTransportPayload {
-  action: "play" | "pause" | "seek" | "mute" | "jumpLive"
-  position?: number
-  muted?: boolean
-}
-
-const currentWindow = getCurrentWebviewWindow()
 
 // Load the YouTube IFrame API once per window, resolving when it's ready. The
 // output window has a single consumer (this component), so the global
@@ -76,15 +72,13 @@ export function OutputWebLayer() {
     try {
       const duration = Number(player.getDuration()) || 0
       const state = player.getPlayerState() // 1 = playing
-      void currentWindow
-        .emitTo("main", "broadcast:web-progress", {
-          position: Number(player.getCurrentTime()) || 0,
-          duration,
-          playing: state === 1,
-          isLive: cfg.isLive,
-          liveEdge: cfg.isLive ? duration : 0,
-        })
-        .catch(() => {})
+      emitWebProgress({
+        position: Number(player.getCurrentTime()) || 0,
+        duration,
+        playing: state === 1,
+        isLive: cfg.isLive,
+        liveEdge: cfg.isLive ? duration : 0,
+      })
     } catch {
       // player may be mid-navigation
     }
@@ -93,9 +87,8 @@ export function OutputWebLayer() {
   // Content channel: the control window tells us which video to host (or `null`
   // to tear down).
   useEffect(() => {
-    const unlisten = currentWindow.listen<WebContentPayload | null>(
-      "broadcast:web-content",
-      (event) => setContent(event.payload)
+    const unlisten = listenOutputEvent(BROADCAST_EVENTS.webContent, (event) =>
+      setContent(event.payload)
     )
     return () => {
       void unlisten.then((fn) => fn())
@@ -104,8 +97,8 @@ export function OutputWebLayer() {
 
   // Transport channel: play/pause/seek/jumpLive/mute from the control window.
   useEffect(() => {
-    const unlisten = currentWindow.listen<WebTransportPayload>(
-      "broadcast:web-transport",
+    const unlisten = listenOutputEvent(
+      BROADCAST_EVENTS.webTransport,
       (event) => {
         const player = playerRef.current
         if (!player) return
@@ -150,19 +143,16 @@ export function OutputWebLayer() {
   // Audience mute rides the shared `broadcast:mute` event (same one that mutes
   // canvas media), so the embedded player follows the live mute toggle.
   useEffect(() => {
-    const unlisten = currentWindow.listen<{ muted: boolean }>(
-      "broadcast:mute",
-      (event) => {
-        const player = playerRef.current
-        if (!player) return
-        try {
-          if (event.payload.muted) player.mute()
-          else player.unMute()
-        } catch {
-          // player may be mid-navigation
-        }
+    const unlisten = listenOutputEvent(BROADCAST_EVENTS.mute, (event) => {
+      const player = playerRef.current
+      if (!player) return
+      try {
+        if (event.payload.muted) player.mute()
+        else player.unMute()
+      } catch {
+        // player may be mid-navigation
       }
-    )
+    })
     return () => {
       void unlisten.then((fn) => fn())
     }

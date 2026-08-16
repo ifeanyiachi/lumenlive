@@ -7,7 +7,10 @@ import {
   computeRemainingSeconds,
   resolveTargetEpoch,
 } from "@/lib/countdown/timer"
-import { emitToAllOutputs } from "@/lib/broadcast-routing"
+import {
+  broadcastOutputEvent,
+  BROADCAST_EVENTS,
+} from "@/services/broadcast-content-gateway"
 import { useBroadcastStore } from "./broadcast-store"
 
 /**
@@ -44,9 +47,9 @@ const countdownIntervals = new Map<string, ReturnType<typeof setInterval>>()
 
 /** Fan a single countdown's latest state out to every enabled broadcast output. */
 function emitUpdate(countdown: ActiveCountdown, timer: CountdownTimer): void {
-  emitToAllOutputs(
+  broadcastOutputEvent(
     useBroadcastStore.getState().outputs,
-    "broadcast:countdown-update",
+    BROADCAST_EVENTS.countdownUpdate,
     { countdown, timer, theme: resolveTimerTheme(timer) }
   )
 }
@@ -86,9 +89,9 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
 
     set((s) => ({ activeCountdowns: [...s.activeCountdowns, countdown] }))
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:countdown",
+      BROADCAST_EVENTS.countdown,
       { countdown, timer, theme: resolveTimerTheme(timer) }
     )
 
@@ -184,9 +187,9 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
       activeCountdowns: s.activeCountdowns.filter((c) => c.id !== countdownId),
     }))
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:countdown-dismiss",
+      BROADCAST_EVENTS.countdownDismiss,
       { countdownId }
     )
   },
@@ -198,9 +201,9 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
     }
     set({ activeCountdowns: [] })
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:countdown-dismiss-all",
+      BROADCAST_EVENTS.countdownDismissAll,
       {}
     )
   },
@@ -227,9 +230,9 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
         } => Boolean(x)
       )
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:countdown-sync",
+      BROADCAST_EVENTS.countdownSync,
       { items }
     )
   },

@@ -70,12 +70,19 @@ describe("drawBackground — animated", () => {
     // The animated engine paints a base wash + drifting glow blobs (radial
     // gradients), so a real animated render does far more than a solid fill.
     expect(log.some((c) => c.startsWith("createRadialGradient"))).toBe(true)
-    expect(log.filter((c) => c.startsWith("fillRect")).length).toBeGreaterThan(1)
+    expect(log.filter((c) => c.startsWith("fillRect")).length).toBeGreaterThan(
+      1
+    )
   })
 
   it("threads frameTime — the scene evolves over time", () => {
     const a = recordingCtx()
-    drawBackground(a.ctx, theme({ ...animated, type: "animated" }), undefined, 0)
+    drawBackground(
+      a.ctx,
+      theme({ ...animated, type: "animated" }),
+      undefined,
+      0
+    )
     const b = recordingCtx()
     drawBackground(
       b.ctx,
@@ -90,9 +97,19 @@ describe("drawBackground — animated", () => {
 
   it("is deterministic for identical inputs (same frameTime → same calls)", () => {
     const a = recordingCtx()
-    drawBackground(a.ctx, theme({ ...animated, type: "animated" }), undefined, 250)
+    drawBackground(
+      a.ctx,
+      theme({ ...animated, type: "animated" }),
+      undefined,
+      250
+    )
     const b = recordingCtx()
-    drawBackground(b.ctx, theme({ ...animated, type: "animated" }), undefined, 250)
+    drawBackground(
+      b.ctx,
+      theme({ ...animated, type: "animated" }),
+      undefined,
+      250
+    )
     expect(b.log).toEqual(a.log)
   })
 

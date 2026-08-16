@@ -15,7 +15,7 @@ import type {
   ActiveCountdown,
   CountdownTimer,
 } from "@/types/alert"
-import type { BroadcastProp } from "@/stores/broadcast-store"
+import type { BroadcastProp } from "@/types/broadcast"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 
 /** Recording 2D context: records method names + fillText strings; measureText

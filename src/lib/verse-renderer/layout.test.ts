@@ -43,7 +43,9 @@ describe("breakPerVerse layout", () => {
     const heightWith = (brk: boolean) => {
       const t = structuredClone(BUILTIN_THEMES[0])
       t.layout.breakPerVerse = brk
-      return computeVerseLayoutMetrics(fakeCtx(), t, twoVerse).verseRect?.height ?? 0
+      return (
+        computeVerseLayoutMetrics(fakeCtx(), t, twoVerse).verseRect?.height ?? 0
+      )
     }
     // Two short verses share one line when flowing; the break splits them in two.
     expect(heightWith(true)).toBeGreaterThan(heightWith(false))
@@ -189,7 +191,10 @@ describe("native surface reflow", () => {
     __clearLayoutCacheForTests()
     const plain = computeVerseLayoutMetrics(fakeCtx(), theme, verse)
     const projected = computeVerseLayoutMetrics(fakeCtx(), theme, verse, {
-      surface: { width: theme.resolution.width, height: theme.resolution.height },
+      surface: {
+        width: theme.resolution.width,
+        height: theme.resolution.height,
+      },
     })
     expect(projected.textRect).toEqual(plain.textRect)
     expect(projected.textAreaRect).toEqual(plain.textAreaRect)
@@ -222,7 +227,9 @@ describe("native surface reflow", () => {
         height: theme.resolution.height * 2,
       },
     })
-    expect(big.scaledTheme.verseText.fontSize).toBe(theme.verseText.fontSize * 2)
+    expect(big.scaledTheme.verseText.fontSize).toBe(
+      theme.verseText.fontSize * 2
+    )
   })
 })
 

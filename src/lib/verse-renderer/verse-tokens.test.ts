@@ -97,7 +97,11 @@ describe("usesTokenLayout", () => {
 
   it("is true when a segment has styled spans", () => {
     const seg: VerseSegment[] = [
-      { verseNumber: 1, text: "abc", spans: [{ start: 0, end: 1, style: { bold: true } }] },
+      {
+        verseNumber: 1,
+        text: "abc",
+        spans: [{ start: 0, end: 1, style: { bold: true } }],
+      },
     ]
     expect(usesTokenLayout(neutralTheme(), seg)).toBe(true)
   })
@@ -109,7 +113,9 @@ describe("buildRenderTokens verse numbers", () => {
     t.verseNumbers.color = "#ff0000"
     t.verseNumbers.superscript = true
     t.verseNumbers.fontSize = 24
-    const num = buildRenderTokens(oneVerse, t).find((tk) => tk.text.trim() === "16")
+    const num = buildRenderTokens(oneVerse, t).find(
+      (tk) => tk.text.trim() === "16"
+    )
     expect(num).toBeDefined()
     expect(num!.color).toBe("#ff0000")
     expect(num!.fontSize).toBe(24)
@@ -118,7 +124,9 @@ describe("buildRenderTokens verse numbers", () => {
   it("keeps the body size (no fontSize override) when superscript is off", () => {
     const t = neutralTheme()
     t.verseNumbers.color = "#ff0000"
-    const num = buildRenderTokens(oneVerse, t).find((tk) => tk.text.trim() === "16")
+    const num = buildRenderTokens(oneVerse, t).find(
+      (tk) => tk.text.trim() === "16"
+    )
     expect(num!.color).toBe("#ff0000")
     expect(num!.fontSize).toBeUndefined()
   })

@@ -20,7 +20,7 @@ import {
   createDefaultPresentation,
   createDefaultSlide,
   createDefaultTextElement,
-} from "@/types/slide"
+} from "@/lib/slide-defaults"
 import type { Presentation, SlideElement } from "@/types/slide"
 
 /** Build a presentation whose first slide has elements with the given ids. */

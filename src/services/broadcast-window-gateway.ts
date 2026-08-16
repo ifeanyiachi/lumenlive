@@ -6,6 +6,7 @@ import {
   type Monitor,
 } from "@tauri-apps/api/window"
 import { outputWindowLabel } from "@/lib/broadcast-routing"
+import { BROADCAST_EVENTS } from "@/services/broadcast-content-gateway"
 
 /**
  * Gateway for the broadcast output *windows*: their lifecycle, discovery, and
@@ -43,14 +44,26 @@ export function closeBroadcastWindow(outputId: string): Promise<unknown> {
   return invoke("close_broadcast_window", { outputId })
 }
 
+/**
+ * Bring the broadcast output window back to the front on its monitor.
+ *
+ * The projector is a shared display: the operator can move another app (a
+ * browser video, a Chrome page) over the output mid-service, then return to
+ * Lumen. The output is hidden from the taskbar/alt-tab, so this is the only
+ * handle to raise it again. Fire-and-forget from the UI.
+ */
+export function focusBroadcastWindow(outputId: string): Promise<unknown> {
+  return invoke("focus_broadcast_window", { outputId })
+}
+
 /** Ask an already-mounted output window to re-announce readiness. */
 export function requestOutputResync(outputId: string): Promise<unknown> {
-  return emitTo(outputWindowLabel(outputId), "broadcast:request-resync")
+  return emitTo(outputWindowLabel(outputId), BROADCAST_EVENTS.requestResync)
 }
 
 /** Subscribe to the "an output window is ready" event. */
 export function onOutputReady(handler: () => void): Promise<UnlistenFn> {
-  return listen("broadcast:output-ready", handler)
+  return listen(BROADCAST_EVENTS.outputReady, handler)
 }
 
 /** Whether the output window for `outputId` is currently open. */

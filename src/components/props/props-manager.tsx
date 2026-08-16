@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   TrashIcon,
   EyeIcon,
@@ -253,7 +253,7 @@ function MediaLayerEditor() {
   const previewSrc = useMemo(() => {
     if (!mediaLayer) return null
     try {
-      return convertFileSrc(mediaLayer.filePath)
+      return safeFileSrc(mediaLayer.filePath)
     } catch {
       return mediaLayer.filePath
     }

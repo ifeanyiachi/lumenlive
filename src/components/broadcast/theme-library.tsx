@@ -37,6 +37,7 @@ import {
 } from "@/lib/theme"
 import { SlideThemeThumbnail } from "@/components/broadcast/slide-theme-thumbnail"
 import { usePresentationStore } from "@/stores/presentation-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import type { VerseRenderData } from "@/types"
 import type { ThemeCategory } from "@/types/broadcast"
 import type { SlideTheme } from "@/types/slide"
@@ -104,9 +105,7 @@ function ThemeCard({
   const broadcastTheme = isSlide ? null : toBroadcastTheme(theme)
   const isCustomSlide = isSlide && !theme.builtin
 
-  const handleClick = !isSlide
-    ? onSelect
-    : () => editSlideTheme(theme.slide!)
+  const handleClick = !isSlide ? onSelect : () => editSlideTheme(theme.slide!)
 
   return (
     <div
@@ -119,7 +118,7 @@ function ThemeCard({
           : undefined
       }
       className={cn(
-        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors cursor-pointer hover:bg-muted/50",
+        "group relative flex w-full cursor-pointer flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors hover:bg-muted/50",
         isEditing && "ring-2 ring-primary"
       )}
     >
@@ -183,88 +182,88 @@ function ThemeCard({
 
         {/* More menu — broadcast themes only (slide themes have no CRUD here) */}
         {!isSlide && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Theme options"
-              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontalIcon className="size-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-50">
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                useBroadcastStore.getState().setActiveTheme(theme.id)
-              }}
-            >
-              <CheckCircleIcon className="mr-2 size-3.5" />
-              Set as Active
-            </DropdownMenuItem>
-            {!isDefault && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Theme options"
+                className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontalIcon className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-50">
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
-                  useBroadcastStore.getState().setDefaultTheme(theme.id)
+                  useBroadcastStore.getState().setActiveTheme(theme.id)
                 }}
               >
-                <StarIcon className="mr-2 size-3.5" />
-                Set as Default
+                <CheckCircleIcon className="mr-2 size-3.5" />
+                Set as Active
               </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                useBroadcastStore.getState().togglePinTheme(theme.id)
-              }}
-            >
-              {theme.pinned ? (
+              {!isDefault && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    useBroadcastStore.getState().setDefaultTheme(theme.id)
+                  }}
+                >
+                  <StarIcon className="mr-2 size-3.5" />
+                  Set as Default
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  useBroadcastStore.getState().togglePinTheme(theme.id)
+                }}
+              >
+                {theme.pinned ? (
+                  <>
+                    <PinOffIcon className="mr-2 size-3.5" />
+                    Unpin
+                  </>
+                ) : (
+                  <>
+                    <PinIcon className="mr-2 size-3.5" />
+                    Pin
+                  </>
+                )}
+              </DropdownMenuItem>
+              {!theme.builtin && (
                 <>
-                  <PinOffIcon className="mr-2 size-3.5" />
-                  Unpin
-                </>
-              ) : (
-                <>
-                  <PinIcon className="mr-2 size-3.5" />
-                  Pin
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const newName = window.prompt("Rename theme:", theme.name)
+                      if (newName?.trim()) {
+                        useBroadcastStore
+                          .getState()
+                          .renameTheme(theme.id, newName.trim())
+                      }
+                    }}
+                  >
+                    <EditIcon className="mr-2 size-3.5" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      useBroadcastStore.getState().deleteTheme(theme.id)
+                    }}
+                  >
+                    <Trash2Icon className="mr-2 size-3.5" />
+                    Delete
+                  </DropdownMenuItem>
                 </>
               )}
-            </DropdownMenuItem>
-            {!theme.builtin && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const newName = window.prompt("Rename theme:", theme.name)
-                    if (newName?.trim()) {
-                      useBroadcastStore
-                        .getState()
-                        .renameTheme(theme.id, newName.trim())
-                    }
-                  }}
-                >
-                  <EditIcon className="mr-2 size-3.5" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    useBroadcastStore.getState().deleteTheme(theme.id)
-                  }}
-                >
-                  <Trash2Icon className="mr-2 size-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         {/* Slide/song theme menu — edit in the slide editor, not the broadcast one */}
@@ -364,7 +363,7 @@ export function ThemeLibrary() {
     [themes, customSlideThemes]
   )
   const activeThemeId = useBroadcastStore(
-    (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
+    (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
   const defaultThemeId = useBroadcastStore((s) => s.defaultThemeId)
   const editingThemeId = useBroadcastStore((s) => s.editingThemeId)

@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   ImageIcon,
   FilmIcon,
@@ -270,7 +270,7 @@ export function MediaProperties({
     if (currentAsset.thumbnailDataUrl) return currentAsset.thumbnailDataUrl
     if (currentAsset.type === "image") {
       try {
-        return convertFileSrc(currentAsset.filePath)
+        return safeFileSrc(currentAsset.filePath)
       } catch {
         return null
       }
@@ -492,7 +492,7 @@ function RecentThumb({ asset }: { asset: MediaAsset }) {
     if (asset.thumbnailDataUrl) return asset.thumbnailDataUrl
     if (asset.type === "image") {
       try {
-        return convertFileSrc(asset.filePath)
+        return safeFileSrc(asset.filePath)
       } catch {
         return null
       }

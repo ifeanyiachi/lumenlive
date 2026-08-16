@@ -232,13 +232,17 @@ describe("drawVerseText layout reuse parity", () => {
     t.layout.breakPerVerse = false
 
     const rec = drawWith(t, plainVerse)
-    const num = rec.ops.find((o) => o.op === "fillText" && o.text.trim() === "16")
+    const num = rec.ops.find(
+      (o) => o.op === "fillText" && o.text.trim() === "16"
+    )
     expect(num).toBeDefined()
     expect(num!.fillStyle).toBe("#ff3366")
     expect(num!.font).toContain("24px")
 
     // The body text stays the body colour — the number colour is scoped to it.
-    const body = rec.ops.find((o) => o.op === "fillText" && o.text.trim() === "For")
+    const body = rec.ops.find(
+      (o) => o.op === "fillText" && o.text.trim() === "For"
+    )
     expect(body!.fillStyle).toBe("#ffffff")
   })
 
@@ -256,7 +260,9 @@ describe("drawVerseText layout reuse parity", () => {
     const rec = drawWith(t, plainVerse)
     // Plain path draws whole wrapped lines: the first line starts with the number
     // concatenated onto the body text in a single op, not a standalone "16".
-    const first = rec.ops.find((o) => o.op === "fillText" && o.text.includes("16"))
+    const first = rec.ops.find(
+      (o) => o.op === "fillText" && o.text.includes("16")
+    )
     expect(first!.text.startsWith("16 For")).toBe(true)
   })
 

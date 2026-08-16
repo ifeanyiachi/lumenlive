@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   FilmIcon,
   ImageIcon,
@@ -37,7 +37,7 @@ function DraggableMediaCard({ asset }: { asset: MediaAsset }) {
     if (asset.thumbnailDataUrl) return asset.thumbnailDataUrl
     if (asset.type === "image") {
       try {
-        return convertFileSrc(asset.filePath)
+        return safeFileSrc(asset.filePath)
       } catch {
         /* browser */
       }
@@ -126,7 +126,7 @@ export function SearchMediaTab() {
       {...dropHandlers}
       className={cn(
         "relative flex min-h-0 flex-1 flex-col",
-        fileDragOver && "ring-2 ring-inset ring-primary/60"
+        fileDragOver && "ring-2 ring-primary/60 ring-inset"
       )}
     >
       {fileDragOver && (

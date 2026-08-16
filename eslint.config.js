@@ -32,6 +32,47 @@ export default defineConfig([
           ignoreRestSiblings: true,
         },
       ],
+      // `convertFileSrc` throws outside a Tauri context; embedding its result
+      // directly in `src`/`url` is also where the prod-only asset.localhost/CSP
+      // bug bites. Route all path→URL conversion through `safeFileSrc`, which
+      // centralizes both concerns. The wrapper itself is exempted below.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@tauri-apps/api/core',
+              importNames: ['convertFileSrc'],
+              message:
+                'Import { safeFileSrc } from "@/lib/media/safe-file-src" instead of using convertFileSrc directly.',
+            },
+            {
+              // The raw broadcast transport must only be used by the
+              // broadcast-content gateway (exempted below). Everyone else emits
+              // through the gateway's typed emitters so the cross-window event
+              // contract stays compiler-enforced.
+              name: '@/lib/broadcast-routing',
+              importNames: ['emitToOutput', 'emitToAllOutputs'],
+              message:
+                'Emit broadcast events via emitOutputEvent/broadcastOutputEvent from "@/services/broadcast-content-gateway" instead of the raw transport.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The single sanctioned wrapper around `convertFileSrc`.
+    files: ['src/lib/media/safe-file-src.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
+  {
+    // The single sanctioned consumer of the raw broadcast transport.
+    files: ['src/services/broadcast-content-gateway.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 ])

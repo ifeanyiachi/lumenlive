@@ -5,8 +5,8 @@ import type {
   Presentation,
   SlideTheme,
 } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import {
-  BUILTIN_SLIDE_THEMES,
   createDefaultPresentation,
   createDefaultSlide,
   createDefaultTextElement,
@@ -14,7 +14,7 @@ import {
   createDefaultScriptureElement,
   createDefaultShapeElement,
   createDefaultVideoElement,
-} from "@/types/slide"
+} from "@/lib/slide-defaults"
 import type { SlideLayoutVariant } from "@/types/slide"
 import * as history from "@/lib/presentation/history"
 import * as slides from "@/lib/presentation/slide-mutations"

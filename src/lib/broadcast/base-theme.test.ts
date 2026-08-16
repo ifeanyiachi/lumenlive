@@ -8,7 +8,9 @@ const otherTheme = BUILTIN_THEMES[1] ?? BUILTIN_THEMES[0]
 
 describe("resolveBaseTheme", () => {
   it("returns the output's own theme when no base is set (default)", () => {
-    expect(resolveBaseTheme(null, outputTheme, BUILTIN_THEMES)).toBe(outputTheme)
+    expect(resolveBaseTheme(null, outputTheme, BUILTIN_THEMES)).toBe(
+      outputTheme
+    )
     expect(resolveBaseTheme(undefined, outputTheme, BUILTIN_THEMES)).toBe(
       outputTheme
     )

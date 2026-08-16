@@ -15,12 +15,12 @@ import { useSettingsStore } from "@/stores/settings-store"
 import { useSongStore } from "@/stores/song-store"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
-import {
-  BUILTIN_SLIDE_THEMES,
-  type SlideTransitionType,
-  type AnimatedBackground,
-  type AnimatedBackgroundPreset,
-  type SlideTheme,
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import type {
+  SlideTransitionType,
+  AnimatedBackground,
+  AnimatedBackgroundPreset,
+  SlideTheme,
 } from "@/types/slide"
 import type { Song, SongSlideOptions } from "@/types/song"
 

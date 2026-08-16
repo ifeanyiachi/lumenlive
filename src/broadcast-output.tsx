@@ -1,12 +1,9 @@
 import { createRoot } from "react-dom/client"
 import { useRef, useEffect, useCallback } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { OutputWebLayer } from "@/components/broadcast/output-web-layer"
-import { renderVerse } from "@/lib/verse-renderer"
 import {
-  renderSlide,
-  drawSlideElements,
   slideHasVideoBackground,
   slideHasScrollingText,
   slideHasAnimatedBackground,
@@ -14,24 +11,27 @@ import {
   getTextLineCount,
   getTextWordCount,
 } from "@/lib/slide-renderer"
-import { drawStageDisplay } from "@/lib/stage-display-renderer"
+import { DEFAULT_MEDIA_FIT, type MediaFitConfig } from "@/lib/media-fit"
+import { drawTransitionFrame as paintTransitionFrame } from "@/lib/broadcast-output/overlays"
 import {
-  drawMediaFitted,
-  DEFAULT_MEDIA_FIT,
-  type MediaFitConfig,
-  type ContainBackground,
-} from "@/lib/media-fit"
+  composeFrame,
+  composeNdiForeground,
+  type CompositorState,
+} from "@/lib/broadcast-output/compositor"
 import {
-  drawAlertOverlay as paintAlertOverlay,
-  drawCountdownOverlay as paintCountdownOverlay,
-  drawPropsOverlay as paintPropsOverlay,
-  drawTransitionFrame as paintTransitionFrame,
-} from "@/lib/broadcast-output/overlays"
+  snapshotCanvas,
+  snapshotSlideElements,
+} from "@/lib/broadcast-output/transitions"
 import {
-  toFitConfig,
-  shouldPushNdiFrame,
-  type MediaFitPayload,
-} from "@/lib/broadcast-output/frame"
+  preloadImage,
+  preloadThemeAssets,
+} from "@/lib/broadcast-output/asset-cache"
+import { captureAndSendNdiFrame } from "@/lib/broadcast-output/ndi-push"
+import {
+  createRenderLoop,
+  type RenderLoop,
+} from "@/lib/broadcast-output/render-loop"
+import { toFitConfig, shouldPushNdiFrame } from "@/lib/broadcast-output/frame"
 import {
   resolveSurface,
   resolvePreviewObjectFit,
@@ -40,19 +40,27 @@ import {
 } from "@/lib/broadcast-output/surface"
 import { shouldSendTransparentNdi } from "@/lib/broadcast-output/ndi-key"
 import { sendNdiFrame, getNdiStatus } from "@/services/ndi-output-gateway"
+import {
+  listenOutputEvent,
+  BROADCAST_EVENTS,
+  emitMediaProgress as sendMediaProgress,
+  emitMediaEnded as sendMediaEnded,
+  emitOutputReady as sendOutputReady,
+  type VerseUpdatePayload,
+  type SlideUpdatePayload,
+} from "@/services/broadcast-content-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
-import type { SlideRenderOptions } from "@/lib/slide-renderer"
 import {
   createSlideAnimationTracker,
   updateAnimationTracker,
-  isAnimationActive,
 } from "@/lib/slide-animation"
 import type { SlideAnimationTracker } from "@/lib/slide-animation"
 import type {
   BroadcastTheme,
-  VerseRenderData,
   LayerFilter,
   OutputDisplayMode,
+  BroadcastProp,
+  MediaLayerState,
 } from "@/types/broadcast"
 import type {
   Slide,
@@ -65,7 +73,6 @@ import type {
   ActiveCountdown,
   CountdownTimer,
 } from "@/types/alert"
-import type { BroadcastProp, MediaLayerState } from "@/stores/broadcast-store"
 import type { NdiConfigEventPayload } from "@/types"
 
 /** Read output config from URL hash fragment (#output=main&mode=normal). Defaults to "main"/"normal". */
@@ -73,48 +80,12 @@ const _hashParams = new URLSearchParams(window.location.hash.slice(1))
 const OUTPUT_ID = _hashParams.get("output") ?? "main"
 const OUTPUT_MODE = _hashParams.get("mode") ?? "normal"
 
-interface BroadcastPayload {
-  theme: BroadcastTheme
-  verse: VerseRenderData | null
-  layerFilter?: LayerFilter
-}
-
-interface SlidePayload {
-  slide: Slide
-  prevSlide?: Slide
-  layerFilter?: LayerFilter
-}
-
-interface MediaPayload {
-  filePath: string
-  mediaType: "image" | "video" | "audio"
-  name: string
-  trimStart?: number
-  trimEnd?: number
-  loop?: boolean
-  endAction?: "hold" | "stop" | "loop" | "next"
-  fit?: MediaFitConfig["fit"]
-  zoom?: number
-  focalX?: number
-  focalY?: number
-  containBackground?: ContainBackground
-  containBackgroundColor?: string
-  layerFilter?: LayerFilter
-}
-
-interface MediaTransportPayload {
-  action: "play" | "pause" | "seek"
-  position?: number
-}
-
-interface AlertPayload {
-  alert: ActiveAlert
-  template: AlertTemplate
-}
-
-interface AlertDismissPayload {
-  alertId: string
-}
+// Cross-window payload shapes now live in the broadcast-content gateway (the
+// shared contract, compiler-enforced on both ends). Aliased here for the refs
+// that cache the latest received payload; every listener below is typed by
+// `listenOutputEvent`.
+type BroadcastPayload = VerseUpdatePayload
+type SlidePayload = SlideUpdatePayload
 
 // This is a window entry point (defines the component and calls createRoot at
 // the bottom), so it is not a Fast Refresh module boundary.
@@ -151,12 +122,6 @@ function BroadcastCanvas() {
   // Central base/master theme: the backdrop revealed on Clear and composited
   // behind transparent content. Delivered via broadcast:base-theme.
   const baseThemeRef = useRef<BroadcastTheme | null>(null)
-  // Redraw loop for a video base background (the theme render path has none of
-  // its own). Runs only while the base background is a video.
-  const baseVideoRafRef = useRef(0)
-  // Redraw loop for the live verse theme's own procedural animated background.
-  // Runs only while the current (verse-mode) theme background is `animated`.
-  const themeAnimRafRef = useRef(0)
   const mediaKindRef = useRef<"image" | "video" | "audio" | null>(null)
   const mediaFitRef = useRef<MediaFitConfig>(DEFAULT_MEDIA_FIT)
   const activeAlerts = useRef<
@@ -170,15 +135,11 @@ function BroadcastCanvas() {
     }[]
   >([])
   const activeProps = useRef<BroadcastProp[]>([])
-  const marqueeRafRef = useRef<number>(0)
-  const countdownRafRef = useRef<number>(0)
   const activeMode = useRef<"verse" | "slide" | "media">("verse")
   const slideAnimTracker = useRef<SlideAnimationTracker | null>(null)
-  const slideAnimRafRef = useRef<number>(0)
   const mediaLayerRef = useRef<MediaLayerState | null>(null)
   const mediaLayerImgRef = useRef<HTMLImageElement | null>(null)
   const mediaLayerVideoRef = useRef<HTMLVideoElement | null>(null)
-  const mediaLayerRafRef = useRef<number>(0)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const videoCacheRef = useRef<Map<string, HTMLVideoElement>>(new Map())
   const prevCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -188,7 +149,6 @@ function BroadcastCanvas() {
     startTime: number
     rafId: number
   } | null>(null)
-  const slideVideoRafRef = useRef<number>(0)
   const ndiConfigRef = useRef<NdiConfigEventPayload>({
     active: false,
     fps: 24,
@@ -250,81 +210,45 @@ function BroadcastCanvas() {
     })
   }, [])
 
-  const drawAlertOverlay = useCallback(
-    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-      paintAlertOverlay(ctx, w, h, activeAlerts.current)
-    },
-    []
-  )
-
-  const drawCountdownOverlay = useCallback(
-    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-      paintCountdownOverlay(ctx, w, h, activeCountdowns.current, Date.now())
-    },
-    []
-  )
-
-  const drawPropsOverlay = useCallback(
-    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-      paintPropsOverlay(
-        ctx,
-        w,
-        h,
-        activeProps.current,
-        imageCacheRef.current,
-        Date.now()
-      )
-    },
-    []
-  )
-
-  const drawMediaSource = useCallback(
-    (
-      ctx: CanvasRenderingContext2D,
-      source: HTMLImageElement | HTMLVideoElement,
-      w: number,
-      h: number,
-      fit: MediaFitConfig = DEFAULT_MEDIA_FIT
-    ) => {
-      drawMediaFitted(ctx, source, w, h, fit)
-    },
-    []
-  )
-
-  const drawMediaLayer = useCallback(
-    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-      if (!mediaLayerRef.current) return
-      if (
-        mediaLayerRef.current.mediaType === "image" &&
-        mediaLayerImgRef.current
-      ) {
-        drawMediaSource(ctx, mediaLayerImgRef.current, w, h)
-      } else if (
-        mediaLayerRef.current.mediaType === "video" &&
-        mediaLayerVideoRef.current &&
-        mediaLayerVideoRef.current.readyState >= 2
-      ) {
-        drawMediaSource(ctx, mediaLayerVideoRef.current, w, h)
-      }
-    },
-    [drawMediaSource]
-  )
-
-  // Draw the central base theme's backdrop (background + decorative elements,
-  // no verse text) onto the surface. Used for Clear and behind transparent
-  // content. No-op until a base theme is delivered.
-  const drawBaseTheme = useCallback(
-    (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-      const bt = baseThemeRef.current
-      if (!bt) return
-      renderVerse(ctx, bt, null, {
-        scale: 1,
-        imageCache: imageCacheRef.current,
-        surface: { width: w, height: h },
-        frameTime: performance.now(),
-      })
-    },
-    []
+  // Build the read-only snapshot the compositor paints from. Reads every live
+  // ref at draw time; the compositor never reaches back for state, so this is
+  // the single place refs → compositor. `frameTime`/`now` are injected here so
+  // the compositor stays deterministic (and golden-frame testable).
+  const readCompositorState = useCallback(
+    (): CompositorState => ({
+      outputMode: OUTPUT_MODE,
+      stageData: stageDataRef.current,
+      imageCache: imageCacheRef.current,
+      videoCache: videoCacheRef.current,
+      layerFilter: layerFilterRef.current,
+      clearForeground: clearForegroundRef.current,
+      activeMode: activeMode.current,
+      latestData: latestData.current,
+      latestSlide: latestSlide.current,
+      latestMedia: latestMedia.current,
+      mediaBlank: mediaBlankRef.current,
+      mediaVideo: videoRef.current,
+      mediaFit: mediaFitRef.current,
+      slideAnimTracker: slideAnimTracker.current,
+      baseTheme: baseThemeRef.current,
+      mediaLayer: mediaLayerRef.current,
+      mediaLayerImg: mediaLayerImgRef.current,
+      mediaLayerVideo: mediaLayerVideoRef.current,
+      props: activeProps.current,
+      alerts: activeAlerts.current,
+      countdowns: activeCountdowns.current,
+      showLogo: showLogoRef.current,
+      logoImg: logoImgRef.current,
+      blackout: blackoutRef.current,
+      verseAutoFit: displayConfigRef.current.verseAutoFit,
+      maxVerseScale: displayConfigRef.current.maxVerseScale,
+      minVerseFontSize: displayConfigRef.current.minVerseFontSize,
+      frameTime: performance.now(),
+      now: Date.now(),
+      onNullVerse: () =>
+        logDebug("renderVerse returned null; drew fallback frame"),
+    }),
+    [logDebug]
   )
 
   const snapshotCurrentCanvas = useCallback(() => {
@@ -333,11 +257,7 @@ function BroadcastCanvas() {
     if (!prevCanvasRef.current) {
       prevCanvasRef.current = document.createElement("canvas")
     }
-    const prev = prevCanvasRef.current
-    prev.width = canvas.width
-    prev.height = canvas.height
-    const pCtx = prev.getContext("2d")
-    if (pCtx) pCtx.drawImage(canvas, 0, 0)
+    snapshotCanvas(prevCanvasRef.current, canvas)
   }, [])
 
   // Snapshot only the outgoing slide's ELEMENTS onto a transparent canvas — used
@@ -349,16 +269,10 @@ function BroadcastCanvas() {
       if (!prevCanvasRef.current) {
         prevCanvasRef.current = document.createElement("canvas")
       }
-      const prev = prevCanvasRef.current
       // Snapshot at the live surface size so the transition blends against a
       // same-sized current frame (no scale/ghost on non-16:9 surfaces).
       const { width: sw, height: sh } = computeSurface()
-      prev.width = sw
-      prev.height = sh
-      const pCtx = prev.getContext("2d")
-      if (!pCtx) return
-      pCtx.clearRect(0, 0, prev.width, prev.height)
-      drawSlideElements(pCtx, slide, prev.width, prev.height, {
+      snapshotSlideElements(prevCanvasRef.current, slide, sw, sh, {
         imageCache: imageCacheRef.current,
         videoCache: videoCacheRef.current,
       })
@@ -380,6 +294,17 @@ function BroadcastCanvas() {
   )
 
   const drawRef = useRef<() => void>(() => {})
+  const pushNdiFrameRef = useRef<(force?: boolean) => Promise<void>>(
+    async () => {}
+  )
+
+  // One RAF scheduler for every animation driver (slide/media-layer video, slide
+  // entry animation, marquee, countdown, animated verse theme, video base
+  // background). The instance is created in the main effect (below) and held here
+  // so the render-scope loop starters can reach it; reasons are (de)activated by
+  // the listeners. The loop draws at most once per frame and pushes NDI iff any
+  // active reason wants it.
+  const renderLoopRef = useRef<RenderLoop | null>(null)
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -388,7 +313,10 @@ function BroadcastCanvas() {
     if (!ctx) return
 
     // Resolve the render surface for this output (native monitor / custom / NDI).
-    // NDI wins while active so the feed is never distorted (surface.ts §7).
+    // NDI wins while active so the feed is never distorted (surface.ts §7). Every
+    // compositor branch renders at this size, so size the canvas once here (which
+    // also clears it) before handing off — byte-identical to the old per-branch
+    // sizing that every path performed first.
     const surface = computeSurface()
     const previewFit = resolvePreviewObjectFit(
       surface.source,
@@ -396,257 +324,18 @@ function BroadcastCanvas() {
     )
     const sw = surface.width
     const sh = surface.height
+    canvas.style.objectFit = previewFit
+    canvas.width = sw
+    canvas.height = sh
 
-    if (OUTPUT_MODE === "stage" && stageDataRef.current) {
-      // Stage reflows to the surface (drawStageDisplay applies a uniform scale +
-      // zone re-anchor). Native fills the monitor; NDI/custom follow the surface.
-      canvas.style.objectFit = previewFit
-      canvas.width = sw
-      canvas.height = sh
-      drawStageDisplay(
-        ctx,
-        sw,
-        sh,
-        stageDataRef.current,
-        imageCacheRef.current,
-        videoCacheRef.current
-      )
-      return
-    }
-
-    const activeFilter = layerFilterRef.current
-    const hasMediaLayer =
-      mediaLayerRef.current !== null &&
-      (!activeFilter || activeFilter.showMediaLayer)
-
-    if (clearForegroundRef.current) {
-      // Clear reveals the central base theme (its background + branding) with no
-      // content text — consistent across verse / slide / song. The media layer
-      // sits beneath it.
-      canvas.style.objectFit = previewFit
-      canvas.width = sw
-      canvas.height = sh
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, sw, sh)
-      if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
-      drawBaseTheme(ctx, sw, sh)
-    } else if (activeMode.current === "media") {
-      // Media fills the full surface (image/video fit is applied within the frame).
-      canvas.style.objectFit = previewFit
-      canvas.width = sw
-      canvas.height = sh
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, sw, sh)
-      if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
-      if ((!activeFilter || activeFilter.showContent) && latestMedia.current) {
-        drawMediaSource(
-          ctx,
-          latestMedia.current.img,
-          sw,
-          sh,
-          mediaFitRef.current
-        )
-      } else if (
-        !mediaBlankRef.current &&
-        videoRef.current &&
-        videoRef.current.readyState >= 2
-      ) {
-        drawMediaSource(ctx, videoRef.current, sw, sh, mediaFitRef.current)
-      }
-    } else if (activeMode.current === "slide" && latestSlide.current) {
-      // Slides are percentage-based, so they reflow to the surface natively.
-      const { slide } = latestSlide.current
-      canvas.style.objectFit = previewFit
-      canvas.width = sw
-      canvas.height = sh
-      const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
-      const tracker = slideAnimTracker.current
-      if (tracker && isAnimationActive(tracker)) {
-        renderOpts.animationStates = tracker.elementStates
-        renderOpts.textBuildProgress = tracker.textBuildProgress
-      }
-      if (slide.background.type === "transparent") {
-        // Transparent slide/song composits over the central base theme (media
-        // layer beneath it). We draw the slide's ELEMENTS directly rather than
-        // via renderSlide, because renderSlide's transparent background does a
-        // clearRect() that would wipe the base theme we just painted.
-        ctx.fillStyle = "#000"
-        ctx.fillRect(0, 0, sw, sh)
-        if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
-        drawBaseTheme(ctx, sw, sh)
-        drawSlideElements(
-          ctx,
-          slide,
-          sw,
-          sh,
-          {
-            imageCache: imageCacheRef.current,
-            videoCache: videoCacheRef.current,
-          },
-          renderOpts
-        )
-      } else {
-        renderSlide(
-          ctx,
-          slide,
-          sw,
-          sh,
-          imageCacheRef.current,
-          videoCacheRef.current,
-          renderOpts
-        )
-      }
-    } else {
-      // Verse reflows to the surface; the verse renderer projects the theme onto
-      // it and (when enabled) auto-fits the font to fill the box height.
-      canvas.style.objectFit = previewFit
-      const data = latestData.current
-      if (!data) {
-        canvas.width = sw
-        canvas.height = sh
-        ctx.fillStyle = "#000"
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        if (hasMediaLayer) drawMediaLayer(ctx, canvas.width, canvas.height)
-      } else {
-        const { theme, verse } = data
-        canvas.width = sw
-        canvas.height = sh
-        if (theme.background.type === "transparent") {
-          ctx.fillStyle = "#000"
-          ctx.fillRect(0, 0, sw, sh)
-          if (hasMediaLayer) drawMediaLayer(ctx, sw, sh)
-          // Only draw the base theme when it differs from the verse's own theme,
-          // otherwise renderVerse below would draw that theme (and its elements)
-          // a second time.
-          if (baseThemeRef.current && baseThemeRef.current.id !== theme.id) {
-            drawBaseTheme(ctx, sw, sh)
-          }
-        }
-        const result = renderVerse(ctx, theme, verse, {
-          // Decorative elements are re-anchored to the surface inside the verse
-          // renderer (per-element anchors), so no uniform element scale here.
-          scale: 1,
-          imageCache: imageCacheRef.current,
-          surface: { width: sw, height: sh },
-          verseAutoFit: displayConfigRef.current.verseAutoFit,
-          maxVerseScale: displayConfigRef.current.maxVerseScale,
-          minVerseFontSize: displayConfigRef.current.minVerseFontSize,
-          frameTime: performance.now(),
-        })
-        if (!result) {
-          ctx.fillStyle = "#000"
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          if (hasMediaLayer) drawMediaLayer(ctx, canvas.width, canvas.height)
-          logDebug("renderVerse returned null; drew fallback frame")
-        }
-      }
-    }
-
-    const lf = layerFilterRef.current
-    if (!lf || lf.showProps) drawPropsOverlay(ctx, canvas.width, canvas.height)
-    if (!lf || lf.showAlerts) drawAlertOverlay(ctx, canvas.width, canvas.height)
-    if (!lf || lf.showCountdowns)
-      drawCountdownOverlay(ctx, canvas.width, canvas.height)
-
-    // "Logo": a holding image over content + overlays, on black. Shown as a black
-    // holding screen until the image finishes loading. Black (below) still wins.
-    if (showLogoRef.current) {
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      if (logoImgRef.current) {
-        drawMediaSource(ctx, logoImgRef.current, canvas.width, canvas.height, {
-          ...DEFAULT_MEDIA_FIT,
-          fit: "contain",
-        })
-      }
-    }
-
-    // "Black": a full cut to black over content AND overlays — the final word.
-    // pushNdiFrame reads this same canvas, so the NDI feed blacks out too.
-    if (blackoutRef.current) {
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-  }, [
-    logDebug,
-    computeSurface,
-    drawAlertOverlay,
-    drawCountdownOverlay,
-    drawPropsOverlay,
-    drawMediaSource,
-    drawMediaLayer,
-    drawBaseTheme,
-  ])
+    composeFrame(ctx, sw, sh, readCompositorState())
+  }, [computeSurface, readCompositorState])
 
   const preloadThemeImages = useCallback(
     (theme: BroadcastTheme) => {
-      const bg = theme.background
-      const cache = imageCacheRef.current
-      if (bg.type === "image" && bg.image?.url) {
-        const url = bg.image.url
-        if (!cache.has(url)) {
-          const img = new Image()
-          // CORS-clean so the canvas stays readable for the NDI getImageData
-          // capture (a tainted canvas still displays but can't be read back).
-          img.crossOrigin = "anonymous"
-          img.onload = () => {
-            cache.set(url, img)
-            logDebug("Background image loaded", { url })
-            draw()
-          }
-          img.onerror = () => {
-            console.warn("[broadcast-output] failed to load background image", {
-              url,
-            })
-          }
-          img.src = url
-        }
-      }
-      if (bg.type === "video" && bg.video?.url) {
-        const url = bg.video.url
-        const cacheKey = `video:${url}`
-        if (!cache.has(cacheKey)) {
-          const video = document.createElement("video")
-          // CORS-clean so the drawn video frames keep the canvas readable for
-          // the NDI getImageData capture.
-          video.crossOrigin = "anonymous"
-          video.src = url
-          video.muted = true
-          video.loop = true
-          video.playsInline = true
-          video.addEventListener(
-            "canplay",
-            () => {
-              cache.set(cacheKey, video as unknown as HTMLImageElement)
-              void video.play().catch(() => {})
-              logDebug("Background video loaded", { url })
-              draw()
-            },
-            { once: true }
-          )
-          video.load()
-        }
-      }
-      for (const el of theme.elements ?? []) {
-        if (el.type === "image" && el.image?.url && !cache.has(el.image.url)) {
-          const url = el.image.url
-          const img = new Image()
-          img.crossOrigin = "anonymous"
-          img.onload = () => {
-            cache.set(url, img)
-            logDebug("Theme element image loaded", { url })
-            draw()
-          }
-          img.onerror = () => {
-            console.warn("[broadcast-output] failed to load element image", {
-              url,
-            })
-          }
-          img.src = url
-        }
-      }
+      preloadThemeAssets(theme, imageCacheRef.current, draw)
     },
-    [draw, logDebug]
+    [draw]
   )
 
   // Render ONLY the foreground graphics (verse text / slide elements + overlays)
@@ -656,47 +345,9 @@ function BroadcastCanvas() {
   // Only ever called when `shouldSendTransparentNdi` says the content qualifies.
   const drawNdiForeground = useCallback(
     (ctx: CanvasRenderingContext2D, sw: number, sh: number) => {
-      ctx.clearRect(0, 0, sw, sh)
-      const activeFilter = layerFilterRef.current
-      if (activeMode.current === "slide" && latestSlide.current) {
-        const { slide } = latestSlide.current
-        const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
-        const tracker = slideAnimTracker.current
-        if (tracker && isAnimationActive(tracker)) {
-          renderOpts.animationStates = tracker.elementStates
-          renderOpts.textBuildProgress = tracker.textBuildProgress
-        }
-        drawSlideElements(
-          ctx,
-          slide,
-          sw,
-          sh,
-          {
-            imageCache: imageCacheRef.current,
-            videoCache: videoCacheRef.current,
-          },
-          renderOpts
-        )
-      } else if (activeMode.current === "verse" && latestData.current) {
-        const { theme, verse } = latestData.current
-        renderVerse(ctx, theme, verse, {
-          scale: 1,
-          imageCache: imageCacheRef.current,
-          surface: { width: sw, height: sh },
-          verseAutoFit: displayConfigRef.current.verseAutoFit,
-          maxVerseScale: displayConfigRef.current.maxVerseScale,
-          minVerseFontSize: displayConfigRef.current.minVerseFontSize,
-          frameTime: performance.now(),
-        })
-      }
-      // Foreground overlays belong in the keyed feed too.
-      if (!activeFilter || activeFilter.showProps) drawPropsOverlay(ctx, sw, sh)
-      if (!activeFilter || activeFilter.showAlerts)
-        drawAlertOverlay(ctx, sw, sh)
-      if (!activeFilter || activeFilter.showCountdowns)
-        drawCountdownOverlay(ctx, sw, sh)
+      composeNdiForeground(ctx, sw, sh, readCompositorState())
     },
-    [drawPropsOverlay, drawAlertOverlay, drawCountdownOverlay]
+    [readCompositorState]
   )
 
   const pushNdiFrame = useCallback(
@@ -750,73 +401,17 @@ function BroadcastCanvas() {
                 layerFilterRef.current.showMediaLayer),
           })
 
-        if (keyed) {
-          const ndiCanvas =
-            ndiCanvasRef.current ?? document.createElement("canvas")
-          ndiCanvas.width = targetWidth
-          ndiCanvas.height = targetHeight
-          const ndiCtx = ndiCanvas.getContext("2d", {
-            willReadFrequently: true,
-          })
-          if (!ndiCtx) return
-          drawNdiForeground(ndiCtx, targetWidth, targetHeight)
-          ndiCanvasRef.current = ndiCanvas
-          const imageData = ndiCtx.getImageData(0, 0, targetWidth, targetHeight)
-          await sendNdiFrame(
-            OUTPUT_ID,
-            imageData.data.buffer,
-            targetWidth,
-            targetHeight
-          )
-          lastPushRef.current = Date.now()
-          return
-        }
-
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return
-
-        let sourceCtx = ctx
-        let sourceWidth = canvas.width
-        let sourceHeight = canvas.height
-
-        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-          const ndiCanvas =
-            ndiCanvasRef.current ?? document.createElement("canvas")
-          ndiCanvas.width = targetWidth
-          ndiCanvas.height = targetHeight
-          // willReadFrequently: this canvas exists only to be read back via
-          // getImageData, so keep it CPU-backed and skip the GPU->CPU roundtrip.
-          const ndiCtx = ndiCanvas.getContext("2d", {
-            willReadFrequently: true,
-          })
-          if (!ndiCtx) return
-          ndiCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
-          ndiCanvasRef.current = ndiCanvas
-          sourceCtx = ndiCtx
-          sourceWidth = targetWidth
-          sourceHeight = targetHeight
-        }
-
-        // Read raw RGBA pixels and hand the underlying ArrayBuffer straight to
-        // Tauri's binary IPC. No base64 (33% inflation + string churn) and no
-        // JSON serialization of a multi-megabyte payload — the bytes cross the
-        // bridge as a raw request body, with metadata in headers.
-        const imageData = sourceCtx.getImageData(
-          0,
-          0,
-          sourceWidth,
-          sourceHeight
-        )
-
-        await sendNdiFrame(
-          OUTPUT_ID,
-          imageData.data.buffer,
-          sourceWidth,
-          sourceHeight
-        )
-        lastPushRef.current = Date.now()
+        const sent = await captureAndSendNdiFrame({
+          targetWidth,
+          targetHeight,
+          keyed,
+          drawForeground: drawNdiForeground,
+          sourceCanvas: canvasRef.current,
+          scratch: ndiCanvasRef,
+          send: (buffer, width, height) =>
+            sendNdiFrame(OUTPUT_ID, buffer, width, height),
+        })
+        if (sent) lastPushRef.current = Date.now()
       } catch (error) {
         console.warn("[broadcast-output] push_ndi_frame failed", error)
       } finally {
@@ -834,30 +429,22 @@ function BroadcastCanvas() {
   }, [pushNdiFrame])
 
   const startSlideVideoLoop = useCallback(() => {
-    cancelAnimationFrame(slideVideoRafRef.current)
-    const tick = () => {
-      if (activeMode.current !== "slide") return
-      draw()
-      void pushNdiFrame()
-      slideVideoRafRef.current = requestAnimationFrame(tick)
-    }
-    slideVideoRafRef.current = requestAnimationFrame(tick)
-  }, [draw, pushNdiFrame])
+    // Runs while a slide-background video is live; self-stops on leaving slide mode.
+    renderLoopRef.current?.activate("slideVideo", {
+      keepAlive: () => activeMode.current === "slide",
+    })
+  }, [])
 
   const startMediaLayerVideoLoop = useCallback(() => {
-    cancelAnimationFrame(mediaLayerRafRef.current)
-    const tick = () => {
-      draw()
-      void pushNdiFrame()
-      mediaLayerRafRef.current = requestAnimationFrame(tick)
-    }
-    mediaLayerRafRef.current = requestAnimationFrame(tick)
-  }, [draw, pushNdiFrame])
+    // Runs until the media layer changes/clears (deactivated by that listener).
+    renderLoopRef.current?.activate("mediaLayer")
+  }, [])
 
-  // Keep drawRef current without writing during render; it's read only from
-  // requestAnimationFrame ticks (after commit).
+  // Keep drawRef/pushNdiFrameRef current without writing during render; they are
+  // read only from the render-loop's frame callback (after commit).
   useEffect(() => {
     drawRef.current = draw
+    pushNdiFrameRef.current = pushNdiFrame
   })
 
   const startTransition = useCallback(
@@ -925,6 +512,18 @@ function BroadcastCanvas() {
       }
     }
 
+    // Create the single render loop for this listener lifetime and publish it to
+    // the ref the render-scope loop starters read. The frame callback reads
+    // `draw`/`push` through refs (kept current after commit), so a fresh `draw`
+    // identity doesn't need a new loop.
+    const renderLoop = createRenderLoop({
+      onFrame: (shouldPush) => {
+        drawRef.current()
+        if (shouldPush) void pushNdiFrameRef.current()
+      },
+    })
+    renderLoopRef.current = renderLoop
+
     const currentWindow = getCurrentWebviewWindow()
     logDebug("Listener registration started", { label: currentWindow.label })
 
@@ -945,14 +544,12 @@ function BroadcastCanvas() {
       const now = Date.now()
       if (!force && now - lastProgressTs < 250) return
       lastProgressTs = now
-      void currentWindow
-        .emitTo("main", "broadcast:media-progress", {
-          position: el.currentTime,
-          duration: Number.isFinite(el.duration) ? el.duration : 0,
-          playing: !el.paused && !el.ended,
-          ended: el.ended,
-        })
-        .catch(() => {})
+      sendMediaProgress({
+        position: el.currentTime,
+        duration: Number.isFinite(el.duration) ? el.duration : 0,
+        playing: !el.paused && !el.ended,
+        ended: el.ended,
+      })
     }
 
     // Mutually recursive, so declared as hoisted functions.
@@ -1006,14 +603,12 @@ function BroadcastCanvas() {
       pushNdiBurst()
       emitMediaProgress(true)
       if (cfg?.endAction === "next") {
-        void currentWindow
-          .emitTo("main", "broadcast:media-ended", {})
-          .catch(() => {})
+        sendMediaEnded()
       }
     }
 
-    const unlisten = currentWindow.listen<BroadcastPayload>(
-      "broadcast:verse-update",
+    const unlisten = listenOutputEvent(
+      BROADCAST_EVENTS.verseUpdate,
       (event) => {
         latestData.current = event.payload
         layerFilterRef.current = event.payload.layerFilter ?? null
@@ -1029,7 +624,7 @@ function BroadcastCanvas() {
           audioRef.current.src = ""
         }
         cancelAnimationFrame(videoRafRef.current)
-        cancelAnimationFrame(slideVideoRafRef.current)
+        renderLoop.deactivate("slideVideo")
         for (const [, v] of videoCacheRef.current) {
           v.pause()
         }
@@ -1039,14 +634,11 @@ function BroadcastCanvas() {
           themeId: event.payload.theme.id,
         })
         // A procedural animated background is clock-driven, so it needs a
-        // per-frame redraw; static backgrounds don't. Start/stop accordingly.
-        cancelAnimationFrame(themeAnimRafRef.current)
+        // per-frame redraw (draw-only — it never pushed NDI on its own); static
+        // backgrounds don't. Start/stop accordingly.
+        renderLoop.deactivate("themeAnim")
         if (event.payload.theme.background.type === "animated") {
-          const tick = () => {
-            drawRef.current()
-            themeAnimRafRef.current = requestAnimationFrame(tick)
-          }
-          themeAnimRafRef.current = requestAnimationFrame(tick)
+          renderLoop.activate("themeAnim", { push: false })
         }
         draw()
         pushNdiBurst()
@@ -1059,8 +651,8 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenSlide = currentWindow.listen<SlidePayload>(
-      "broadcast:slide-update",
+    const unlistenSlide = listenOutputEvent(
+      BROADCAST_EVENTS.slideUpdate,
       (event) => {
         const hasTransition =
           event.payload.slide.transition &&
@@ -1090,7 +682,7 @@ function BroadcastCanvas() {
         activeMode.current = "slide"
         latestMedia.current = null
         // Leaving verse mode: stop the verse theme's animated-background loop.
-        cancelAnimationFrame(themeAnimRafRef.current)
+        renderLoop.deactivate("themeAnim")
         if (videoRef.current) {
           videoRef.current.pause()
           videoRef.current.src = ""
@@ -1100,26 +692,23 @@ function BroadcastCanvas() {
           audioRef.current.src = ""
         }
         cancelAnimationFrame(videoRafRef.current)
-        cancelAnimationFrame(slideVideoRafRef.current)
+        renderLoop.deactivate("slideVideo")
         logDebug("Received broadcast:slide-update", {
           slideName: event.payload.slide.name,
         })
 
         const slide = event.payload.slide
         for (const el of slide.elements) {
-          if (
-            el.type === "image" &&
-            el.imageUrl &&
-            !imageCacheRef.current.has(el.imageUrl)
-          ) {
-            const img = new Image()
-            img.crossOrigin = "anonymous"
-            img.onload = () => {
-              imageCacheRef.current.set(el.imageUrl, img)
-              draw()
-              pushNdiBurst()
-            }
-            img.src = el.imageUrl
+          if (el.type === "image") {
+            preloadImage(
+              imageCacheRef.current,
+              el.imageUrl,
+              () => {
+                draw()
+                pushNdiBurst()
+              },
+              "slide element image"
+            )
           }
         }
 
@@ -1165,7 +754,7 @@ function BroadcastCanvas() {
         }
 
         // Start element animation loop if any elements have entry animations or text builds
-        cancelAnimationFrame(slideAnimRafRef.current)
+        renderLoop.deactivate("slideAnim")
         const hasAnimatedElements = slide.elements.some(
           (el) =>
             (el.animation?.entry && el.animation.entry.type !== "none") ||
@@ -1212,26 +801,28 @@ function BroadcastCanvas() {
             })),
           }
 
-          const animTick = () => {
-            updateAnimationTracker(tracker, animInfo, performance.now())
-            draw()
-            void pushNdiFrame()
-            if (!tracker.isComplete || hasScrolling || hasAnimatedBg) {
-              slideAnimRafRef.current = requestAnimationFrame(animTick)
-            }
-          }
-          slideAnimRafRef.current = requestAnimationFrame(animTick)
+          // Advance the tracker each frame (beforeFrame), draw+push (default),
+          // then keep going until the entry animation completes — unless the
+          // slide scrolls or has an animated background, which run indefinitely.
+          // "after" timing preserves the original's draw-then-decide order.
+          renderLoop.activate("slideAnim", {
+            beforeFrame: () =>
+              updateAnimationTracker(tracker, animInfo, performance.now()),
+            keepAlive: () =>
+              !tracker.isComplete || hasScrolling || hasAnimatedBg,
+            keepAliveTiming: "after",
+          })
         } else {
           slideAnimTracker.current = null
         }
       }
     )
 
-    const unlistenMedia = currentWindow.listen<MediaPayload>(
-      "broadcast:media-update",
+    const unlistenMedia = listenOutputEvent(
+      BROADCAST_EVENTS.mediaUpdate,
       (event) => {
         const { filePath, mediaType, name } = event.payload
-        const src = convertFileSrc(filePath)
+        const src = safeFileSrc(filePath)
         logDebug("Received broadcast:media-update", { name, mediaType })
 
         latestData.current = null
@@ -1247,13 +838,13 @@ function BroadcastCanvas() {
           audioRef.current.src = ""
         }
         cancelAnimationFrame(videoRafRef.current)
-        cancelAnimationFrame(slideVideoRafRef.current)
+        renderLoop.deactivate("slideVideo")
         for (const [, v] of videoCacheRef.current) {
           v.pause()
         }
         activeMode.current = "media"
         // Leaving verse mode: stop the verse theme's animated-background loop.
-        cancelAnimationFrame(themeAnimRafRef.current)
+        renderLoop.deactivate("themeAnim")
 
         mediaKindRef.current = mediaType
         mediaFitRef.current = toFitConfig(event.payload)
@@ -1326,9 +917,7 @@ function BroadcastCanvas() {
               }
               void audio.play()
             } else if (cfg?.endAction === "next") {
-              void currentWindow
-                .emitTo("main", "broadcast:media-ended", {})
-                .catch(() => {})
+              sendMediaEnded()
             }
             emitMediaProgress(true)
           }
@@ -1378,8 +967,8 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenMediaFit = currentWindow.listen<MediaFitPayload>(
-      "broadcast:media-fit-update",
+    const unlistenMediaFit = listenOutputEvent(
+      BROADCAST_EVENTS.mediaFitUpdate,
       (event) => {
         if (activeMode.current !== "media") return
         mediaFitRef.current = toFitConfig(event.payload)
@@ -1388,8 +977,8 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenTransport = currentWindow.listen<MediaTransportPayload>(
-      "broadcast:media-transport",
+    const unlistenTransport = listenOutputEvent(
+      BROADCAST_EVENTS.mediaTransport,
       (event) => {
         if (activeMode.current !== "media") return
         const kind = mediaKindRef.current
@@ -1429,20 +1018,17 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenAlert = currentWindow.listen<AlertPayload>(
-      "broadcast:alert",
-      (event) => {
-        activeAlerts.current = [...activeAlerts.current, event.payload]
-        logDebug("Received broadcast:alert", {
-          message: event.payload.alert.message,
-        })
-        draw()
-        pushNdiBurst()
-      }
-    )
+    const unlistenAlert = listenOutputEvent(BROADCAST_EVENTS.alert, (event) => {
+      activeAlerts.current = [...activeAlerts.current, event.payload]
+      logDebug("Received broadcast:alert", {
+        message: event.payload.alert.message,
+      })
+      draw()
+      pushNdiBurst()
+    })
 
-    const unlistenAlertDismiss = currentWindow.listen<AlertDismissPayload>(
-      "broadcast:alert-dismiss",
+    const unlistenAlertDismiss = listenOutputEvent(
+      BROADCAST_EVENTS.alertDismiss,
       (event) => {
         activeAlerts.current = activeAlerts.current.filter(
           (a) => a.alert.id !== event.payload.alertId
@@ -1455,8 +1041,8 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenAlertDismissAll = currentWindow.listen(
-      "broadcast:alert-dismiss-all",
+    const unlistenAlertDismissAll = listenOutputEvent(
+      BROADCAST_EVENTS.alertDismissAll,
       () => {
         activeAlerts.current = []
         logDebug("Received broadcast:alert-dismiss-all")
@@ -1465,86 +1051,76 @@ function BroadcastCanvas() {
       }
     )
 
-    // A countdown re-renders every frame (the time text changes), so one
-    // self-sustaining RAF runs while any countdown is active — the same shape
-    // as the marquee ticker. Cancel-first so start/update/sync never stack loops.
+    // A countdown re-renders every frame (the time text changes), so the render
+    // loop runs a "countdown" reason while any countdown is active; its keepAlive
+    // self-stops (before the frame) once the set empties — the same shape as the
+    // marquee ticker.
     const ensureCountdownLoop = () => {
-      cancelAnimationFrame(countdownRafRef.current)
-      countdownRafRef.current = 0
-      const tickCountdown = () => {
-        if (activeCountdowns.current.length === 0) {
-          countdownRafRef.current = 0
-          return
-        }
-        draw()
-        void pushNdiFrame()
-        countdownRafRef.current = requestAnimationFrame(tickCountdown)
-      }
       if (activeCountdowns.current.length > 0) {
-        countdownRafRef.current = requestAnimationFrame(tickCountdown)
+        renderLoop.activate("countdown", {
+          keepAlive: () => activeCountdowns.current.length > 0,
+        })
+      } else {
+        renderLoop.deactivate("countdown")
       }
     }
 
-    const unlistenCountdown = currentWindow.listen<{
-      countdown: ActiveCountdown
-      timer: CountdownTimer
-      theme?: BroadcastTheme
-    }>("broadcast:countdown", (event) => {
-      activeCountdowns.current = [...activeCountdowns.current, event.payload]
-      logDebug("Received broadcast:countdown", {
-        label: event.payload.timer.label,
-      })
-      ensureCountdownLoop()
-    })
+    const unlistenCountdown = listenOutputEvent(
+      BROADCAST_EVENTS.countdown,
+      (event) => {
+        activeCountdowns.current = [...activeCountdowns.current, event.payload]
+        logDebug("Received broadcast:countdown", {
+          label: event.payload.timer.label,
+        })
+        ensureCountdownLoop()
+      }
+    )
 
     // Pause/resume/±time all arrive as a full-state replace for one countdown.
-    const unlistenCountdownUpdate = currentWindow.listen<{
-      countdown: ActiveCountdown
-      timer: CountdownTimer
-      theme?: BroadcastTheme
-    }>("broadcast:countdown-update", (event) => {
-      activeCountdowns.current = activeCountdowns.current.map((c) =>
-        c.countdown.id === event.payload.countdown.id ? event.payload : c
-      )
-      logDebug("Received broadcast:countdown-update", {
-        label: event.payload.timer.label,
-        state: event.payload.countdown.state,
-      })
-      ensureCountdownLoop()
-    })
+    const unlistenCountdownUpdate = listenOutputEvent(
+      BROADCAST_EVENTS.countdownUpdate,
+      (event) => {
+        activeCountdowns.current = activeCountdowns.current.map((c) =>
+          c.countdown.id === event.payload.countdown.id ? event.payload : c
+        )
+        logDebug("Received broadcast:countdown-update", {
+          label: event.payload.timer.label,
+          state: event.payload.countdown.state,
+        })
+        ensureCountdownLoop()
+      }
+    )
 
     // Full replace of the active set — sent when this window (re)announces
     // readiness so a countdown that started before it opened still appears.
     // Replace (not append) keeps already-synced windows from doubling entries.
-    const unlistenCountdownSync = currentWindow.listen<{
-      items: {
-        countdown: ActiveCountdown
-        timer: CountdownTimer
-        theme?: BroadcastTheme
-      }[]
-    }>("broadcast:countdown-sync", (event) => {
-      activeCountdowns.current = event.payload.items
-      logDebug("Received broadcast:countdown-sync", {
-        count: event.payload.items.length,
-      })
-      ensureCountdownLoop()
-    })
+    const unlistenCountdownSync = listenOutputEvent(
+      BROADCAST_EVENTS.countdownSync,
+      (event) => {
+        activeCountdowns.current = event.payload.items
+        logDebug("Received broadcast:countdown-sync", {
+          count: event.payload.items.length,
+        })
+        ensureCountdownLoop()
+      }
+    )
 
-    const unlistenCountdownDismiss = currentWindow.listen<{
-      countdownId: string
-    }>("broadcast:countdown-dismiss", (event) => {
-      activeCountdowns.current = activeCountdowns.current.filter(
-        (c) => c.countdown.id !== event.payload.countdownId
-      )
-      logDebug("Received broadcast:countdown-dismiss", {
-        countdownId: event.payload.countdownId,
-      })
-      draw()
-      pushNdiBurst()
-    })
+    const unlistenCountdownDismiss = listenOutputEvent(
+      BROADCAST_EVENTS.countdownDismiss,
+      (event) => {
+        activeCountdowns.current = activeCountdowns.current.filter(
+          (c) => c.countdown.id !== event.payload.countdownId
+        )
+        logDebug("Received broadcast:countdown-dismiss", {
+          countdownId: event.payload.countdownId,
+        })
+        draw()
+        pushNdiBurst()
+      }
+    )
 
-    const unlistenCountdownDismissAll = currentWindow.listen(
-      "broadcast:countdown-dismiss-all",
+    const unlistenCountdownDismissAll = listenOutputEvent(
+      BROADCAST_EVENTS.countdownDismissAll,
       () => {
         activeCountdowns.current = []
         logDebug("Received broadcast:countdown-dismiss-all")
@@ -1553,103 +1129,95 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenProps = currentWindow.listen<{ props: BroadcastProp[] }>(
-      "broadcast:props-update",
+    const unlistenProps = listenOutputEvent(
+      BROADCAST_EVENTS.propsUpdate,
       (event) => {
         activeProps.current = event.payload.props
         logDebug("Received broadcast:props-update", {
           count: event.payload.props.length,
         })
         for (const prop of event.payload.props) {
-          if (
-            prop.type === "image" &&
-            prop.imageUrl &&
-            !imageCacheRef.current.has(prop.imageUrl)
-          ) {
-            const img = new Image()
-            img.crossOrigin = "anonymous"
-            img.onload = () => {
-              imageCacheRef.current.set(prop.imageUrl!, img)
-              draw()
-              pushNdiBurst()
-            }
-            img.src = prop.imageUrl
+          if (prop.type === "image") {
+            preloadImage(
+              imageCacheRef.current,
+              prop.imageUrl,
+              () => {
+                draw()
+                pushNdiBurst()
+              },
+              "prop image"
+            )
           }
         }
         draw()
         pushNdiBurst()
 
-        // A marquee scrolls every frame, so keep a self-sustaining RAF running
-        // while any active prop is a marquee (mirrors the countdown ticker).
-        // Cancel first so repeated updates never stack multiple loops.
-        cancelAnimationFrame(marqueeRafRef.current)
-        marqueeRafRef.current = 0
-        const tickMarquee = () => {
-          if (!activeProps.current.some((p) => p.type === "marquee")) {
-            marqueeRafRef.current = 0
-            return
-          }
-          draw()
-          void pushNdiFrame()
-          marqueeRafRef.current = requestAnimationFrame(tickMarquee)
-        }
+        // A marquee scrolls every frame, so run a "marquee" render-loop reason
+        // while any active prop is a marquee (mirrors the countdown ticker); its
+        // keepAlive self-stops (before the frame) once none remain.
         if (activeProps.current.some((p) => p.type === "marquee")) {
-          marqueeRafRef.current = requestAnimationFrame(tickMarquee)
+          renderLoop.activate("marquee", {
+            keepAlive: () =>
+              activeProps.current.some((p) => p.type === "marquee"),
+          })
+        } else {
+          renderLoop.deactivate("marquee")
         }
       }
     )
 
-    const unlistenMediaLayer = currentWindow.listen<{
-      layer: MediaLayerState | null
-    }>("broadcast:media-layer-update", (event) => {
-      const { layer } = event.payload
-      logDebug("Received broadcast:media-layer-update", {
-        layer: layer?.name ?? null,
-      })
+    const unlistenMediaLayer = listenOutputEvent(
+      BROADCAST_EVENTS.mediaLayerUpdate,
+      (event) => {
+        const { layer } = event.payload
+        logDebug("Received broadcast:media-layer-update", {
+          layer: layer?.name ?? null,
+        })
 
-      cancelAnimationFrame(mediaLayerRafRef.current)
-      if (mediaLayerVideoRef.current) {
-        mediaLayerVideoRef.current.pause()
-        mediaLayerVideoRef.current.src = ""
-      }
-      mediaLayerImgRef.current = null
-      mediaLayerRef.current = layer
+        renderLoop.deactivate("mediaLayer")
+        if (mediaLayerVideoRef.current) {
+          mediaLayerVideoRef.current.pause()
+          mediaLayerVideoRef.current.src = ""
+        }
+        mediaLayerImgRef.current = null
+        mediaLayerRef.current = layer
 
-      if (!layer) {
-        draw()
-        pushNdiBurst()
-        return
-      }
-
-      const src = convertFileSrc(layer.filePath)
-
-      if (layer.mediaType === "image") {
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.onload = () => {
-          mediaLayerImgRef.current = img
+        if (!layer) {
           draw()
           pushNdiBurst()
+          return
         }
-        img.src = src
-      } else {
-        const video = document.createElement("video")
-        video.crossOrigin = "anonymous"
-        video.muted = true
-        video.loop = true
-        video.playsInline = true
-        video.src = src
-        video.onloadeddata = () => {
-          mediaLayerVideoRef.current = video
-          void video.play()
-          startMediaLayerVideoLoop()
-        }
-        video.load()
-      }
-    })
 
-    const unlistenStage = currentWindow.listen<StageDisplayData>(
-      "broadcast:stage-update",
+        const src = safeFileSrc(layer.filePath)
+
+        if (layer.mediaType === "image") {
+          const img = new Image()
+          img.crossOrigin = "anonymous"
+          img.onload = () => {
+            mediaLayerImgRef.current = img
+            draw()
+            pushNdiBurst()
+          }
+          img.src = src
+        } else {
+          const video = document.createElement("video")
+          video.crossOrigin = "anonymous"
+          video.muted = true
+          video.loop = true
+          video.playsInline = true
+          video.src = src
+          video.onloadeddata = () => {
+            mediaLayerVideoRef.current = video
+            void video.play()
+            startMediaLayerVideoLoop()
+          }
+          video.load()
+        }
+      }
+    )
+
+    const unlistenStage = listenOutputEvent(
+      BROADCAST_EVENTS.stageUpdate,
       (event) => {
         stageDataRef.current = event.payload
         logDebug("Received broadcast:stage-update")
@@ -1660,76 +1228,68 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenMute = currentWindow.listen<{ muted: boolean }>(
-      "broadcast:mute",
-      (event) => {
-        broadcastMutedRef.current = event.payload.muted
-        if (videoRef.current) {
-          videoRef.current.muted = event.payload.muted
-        }
-        if (audioRef.current) {
-          audioRef.current.muted = event.payload.muted
-        }
-        logDebug("Received broadcast:mute", { muted: event.payload.muted })
+    const unlistenMute = listenOutputEvent(BROADCAST_EVENTS.mute, (event) => {
+      broadcastMutedRef.current = event.payload.muted
+      if (videoRef.current) {
+        videoRef.current.muted = event.payload.muted
       }
-    )
+      if (audioRef.current) {
+        audioRef.current.muted = event.payload.muted
+      }
+      logDebug("Received broadcast:mute", { muted: event.payload.muted })
+    })
 
     // Live-output visibility (Black / Clear / Logo). Stash into refs and repaint;
     // push a short NDI burst so the feed reflects the change even when idle. The
     // logo image is loaded lazily and only when its path changes.
-    const unlistenVisibility = currentWindow.listen<{
-      blackout: boolean
-      clear: boolean
-      logo: boolean
-      logoImagePath: string | null
-    }>("broadcast:output-visibility", (event) => {
-      blackoutRef.current = event.payload.blackout
-      clearForegroundRef.current = event.payload.clear
-      showLogoRef.current = event.payload.logo
-      const path = event.payload.logoImagePath
-      if (path !== logoPathRef.current) {
-        logoPathRef.current = path
-        logoImgRef.current = null
-        if (path) {
-          const img = new Image()
-          // Load CORS-clean so the logo doesn't taint the canvas. The projector
-          // displays a tainted canvas fine, but NDI reads it back via
-          // getImageData, which throws on a tainted canvas — silently dropping
-          // the frame (logo shows on the projector but not on NDI). Tauri's
-          // asset protocol serves the CORS headers this needs.
-          img.crossOrigin = "anonymous"
-          img.onload = () => {
-            // Ignore a stale load if the path changed again meanwhile.
-            if (logoPathRef.current !== path) return
-            logoImgRef.current = img
-            drawRef.current()
-            pushNdiBurst()
+    const unlistenVisibility = listenOutputEvent(
+      BROADCAST_EVENTS.outputVisibility,
+      (event) => {
+        blackoutRef.current = event.payload.blackout
+        clearForegroundRef.current = event.payload.clear
+        showLogoRef.current = event.payload.logo
+        const path = event.payload.logoImagePath
+        if (path !== logoPathRef.current) {
+          logoPathRef.current = path
+          logoImgRef.current = null
+          if (path) {
+            const img = new Image()
+            // Load CORS-clean so the logo doesn't taint the canvas. The projector
+            // displays a tainted canvas fine, but NDI reads it back via
+            // getImageData, which throws on a tainted canvas — silently dropping
+            // the frame (logo shows on the projector but not on NDI). Tauri's
+            // asset protocol serves the CORS headers this needs.
+            img.crossOrigin = "anonymous"
+            img.onload = () => {
+              // Ignore a stale load if the path changed again meanwhile.
+              if (logoPathRef.current !== path) return
+              logoImgRef.current = img
+              drawRef.current()
+              pushNdiBurst()
+            }
+            img.src = safeFileSrc(path)
           }
-          img.src = convertFileSrc(path)
         }
+        logDebug("Received broadcast:output-visibility", event.payload)
+        drawRef.current()
+        pushNdiBurst()
       }
-      logDebug("Received broadcast:output-visibility", event.payload)
-      drawRef.current()
-      pushNdiBurst()
-    })
+    )
 
     // Central base/master theme — the backdrop for Clear and transparent content.
     // Preload its images so renderVerse can paint the background immediately.
-    const unlistenBaseTheme = currentWindow.listen<{ theme: BroadcastTheme }>(
-      "broadcast:base-theme",
+    const unlistenBaseTheme = listenOutputEvent(
+      BROADCAST_EVENTS.baseTheme,
       (event) => {
         baseThemeRef.current = event.payload.theme
         preloadThemeImages(event.payload.theme)
         // A video or procedural animated base background needs a per-frame
-        // redraw; static backgrounds (solid/gradient/image/theme) don't.
-        cancelAnimationFrame(baseVideoRafRef.current)
+        // redraw (draw-only — it never pushed NDI on its own); static backgrounds
+        // (solid/gradient/image/theme) don't.
+        renderLoop.deactivate("baseVideo")
         const baseBgType = event.payload.theme.background.type
         if (baseBgType === "video" || baseBgType === "animated") {
-          const tick = () => {
-            drawRef.current()
-            baseVideoRafRef.current = requestAnimationFrame(tick)
-          }
-          baseVideoRafRef.current = requestAnimationFrame(tick)
+          renderLoop.activate("baseVideo", { push: false })
         }
         logDebug("Received broadcast:base-theme", {
           themeId: event.payload.theme.id,
@@ -1739,8 +1299,8 @@ function BroadcastCanvas() {
       }
     )
 
-    const unlistenNdiConfig = currentWindow.listen<NdiConfigEventPayload>(
-      "broadcast:ndi-config",
+    const unlistenNdiConfig = listenOutputEvent(
+      BROADCAST_EVENTS.ndiConfig,
       (event) => {
         ndiConfigRef.current = event.payload
         logDebug("Received broadcast:ndi-config", event.payload)
@@ -1755,18 +1315,14 @@ function BroadcastCanvas() {
     // How this output sizes its surface (native / custom / fit). Applied via the
     // draw loop (surface + object-fit are computed there), so we just stash it
     // and redraw. Defaults to native until the first message arrives.
-    const unlistenDisplayConfig = currentWindow.listen<{
-      displayMode: OutputDisplayMode
-      customResolution: Surface | null
-      customFit: "contain" | "cover"
-      verseAutoFit: boolean
-      maxVerseScale: number
-      minVerseFontSize: number
-    }>("broadcast:display-config", (event) => {
-      displayConfigRef.current = event.payload
-      logDebug("Received broadcast:display-config", event.payload)
-      drawRef.current()
-    })
+    const unlistenDisplayConfig = listenOutputEvent(
+      BROADCAST_EVENTS.displayConfig,
+      (event) => {
+        displayConfigRef.current = event.payload
+        logDebug("Received broadcast:display-config", event.payload)
+        drawRef.current()
+      }
+    )
 
     // Request current NDI status on mount (fixes race condition
     // where NDI is started before this window opens)
@@ -1787,25 +1343,17 @@ function BroadcastCanvas() {
         // Command may not exist yet
       })
 
-    void currentWindow
-      .emitTo("main", "broadcast:output-ready")
-      .then(() => {
-        logDebug("Sent broadcast:output-ready")
-      })
-      .catch(() => {
-        console.warn("[broadcast-output] failed to send output-ready event")
-      })
+    sendOutputReady()
+    logDebug("Sent broadcast:output-ready")
 
     // When an already-mounted window is shown again (e.g. hidden NDI window
     // reused as preview), the useEffect above won't re-run, so the main window
     // can ask us to re-announce readiness via this event.
-    const unlistenResync = currentWindow.listen(
-      "broadcast:request-resync",
+    const unlistenResync = listenOutputEvent(
+      BROADCAST_EVENTS.requestResync,
       () => {
         logDebug("Received resync request, re-emitting output-ready")
-        void currentWindow
-          .emitTo("main", "broadcast:output-ready")
-          .catch(() => {})
+        sendOutputReady()
       }
     )
 
@@ -1845,8 +1393,10 @@ function BroadcastCanvas() {
       unlistenMute.then((fn) => fn())
       unlistenVisibility.then((fn) => fn())
       unlistenBaseTheme.then((fn) => fn())
-      cancelAnimationFrame(baseVideoRafRef.current)
-      cancelAnimationFrame(themeAnimRafRef.current)
+      // Tears down every coalesced animation reason (slide/media-layer video,
+      // slide-anim, marquee, countdown, theme-anim, base-video) in one call.
+      renderLoop.stop()
+      renderLoopRef.current = null
       unlistenStage.then((fn) => fn())
       unlistenNdiConfig.then((fn) => fn())
       unlistenDisplayConfig.then((fn) => fn())
@@ -1855,11 +1405,6 @@ function BroadcastCanvas() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       cancelAnimationFrame(stageClockRafRef.current)
       cancelAnimationFrame(videoRafRef.current)
-      cancelAnimationFrame(slideVideoRafRef.current)
-      cancelAnimationFrame(mediaLayerRafRef.current)
-      cancelAnimationFrame(slideAnimRafRef.current)
-      cancelAnimationFrame(marqueeRafRef.current)
-      cancelAnimationFrame(countdownRafRef.current)
       if (transitionRef.current)
         cancelAnimationFrame(transitionRef.current.rafId)
       // eslint-disable-next-line react-hooks/exhaustive-deps

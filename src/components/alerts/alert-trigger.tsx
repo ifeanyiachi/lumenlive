@@ -173,7 +173,10 @@ export function AlertTrigger() {
 
       <AlertTemplatesManager open={managerOpen} onOpenChange={setManagerOpen} />
       {/* Rendered outside the popover so it survives the popover closing. */}
-      <StageMonitorGroupsDialog open={groupsOpen} onOpenChange={setGroupsOpen} />
+      <StageMonitorGroupsDialog
+        open={groupsOpen}
+        onOpenChange={setGroupsOpen}
+      />
     </>
   )
 }

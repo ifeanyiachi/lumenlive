@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
-import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import {
   broadcastThemeToUnified,
   slideThemeToUnified,

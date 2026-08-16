@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PlayIcon, PauseIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
@@ -27,7 +27,7 @@ export function MediaTrimEditor({
 
   const src = useMemo(() => {
     try {
-      return convertFileSrc(asset.filePath)
+      return safeFileSrc(asset.filePath)
     } catch {
       return asset.filePath
     }

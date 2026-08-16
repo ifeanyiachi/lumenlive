@@ -94,7 +94,8 @@ export function buildShapePath(
       break
     }
     case "rounded-rect": {
-      const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
+      const r =
+        element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
       ctx.roundRect(x, y, w, h, r)
       break
     }
@@ -133,7 +134,8 @@ export function drawShapeElement(
       break
     }
     case "rounded-rect": {
-      const r = element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
+      const r =
+        element.borderRadius * surfaceFontScale(canvasWidth, canvasHeight)
       ctx.roundRect(x, y, w, h, r)
       break
     }
@@ -153,7 +155,8 @@ export function drawShapeElement(
 
   if (element.strokeWidth > 0 && element.strokeColor) {
     ctx.strokeStyle = element.strokeColor
-    ctx.lineWidth = element.strokeWidth * surfaceFontScale(canvasWidth, canvasHeight)
+    ctx.lineWidth =
+      element.strokeWidth * surfaceFontScale(canvasWidth, canvasHeight)
     ctx.stroke()
   }
 

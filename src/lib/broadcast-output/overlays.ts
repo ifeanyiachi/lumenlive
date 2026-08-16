@@ -4,7 +4,7 @@ import type {
   ActiveCountdown,
   CountdownTimer,
 } from "@/types/alert"
-import type { BroadcastProp } from "@/stores/broadcast-store"
+import type { BroadcastProp } from "@/types/broadcast"
 import type { BroadcastTheme } from "@/types/broadcast"
 import type { SlideTransitionType } from "@/types/slide"
 import {

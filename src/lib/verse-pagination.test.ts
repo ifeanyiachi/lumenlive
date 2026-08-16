@@ -31,7 +31,13 @@ const longSeg = (n: number): VerseSegment => ({
 
 describe("paginateVerse", () => {
   it("returns the block unchanged when pagination is disabled", () => {
-    const v = verse([longSeg(1), longSeg(2), longSeg(3), longSeg(4), longSeg(5)])
+    const v = verse([
+      longSeg(1),
+      longSeg(2),
+      longSeg(3),
+      longSeg(4),
+      longSeg(5),
+    ])
     expect(
       paginateVerse(v, theme, { minFontSize: 40, enabled: false }, fakeCtx())
     ).toEqual([v])
@@ -96,8 +102,8 @@ describe("paginateVerse", () => {
   it("falls back to one page when no canvas is available", () => {
     const v = verse([longSeg(1), longSeg(2), longSeg(3)])
     // No ctx override, and jsdom's canvas has no 2d context → single page.
-    expect(paginateVerse(v, theme, { minFontSize: 40, enabled: true })).toEqual([
-      v,
-    ])
+    expect(paginateVerse(v, theme, { minFontSize: 40, enabled: true })).toEqual(
+      [v]
+    )
   })
 })

@@ -6,7 +6,7 @@ import {
   DESIGN_WIDTH,
   DESIGN_HEIGHT,
 } from "@/lib/canvas-constants"
-import { createDefaultTextElement } from "@/types/slide"
+import { createDefaultTextElement } from "@/lib/slide-defaults"
 import type { SlideTextElement } from "@/types/slide"
 
 const { autoShrinkFontSize, clearShrinkCache } = __textDrawingTesting

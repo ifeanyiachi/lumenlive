@@ -110,6 +110,7 @@ export function ScheduleSongsTab({
                     isSelected={selectedItemId === item.id}
                     isHighlighted={highlightedId === item.id}
                     onPresent={() => store.goToItem(index)}
+                    onPresentLive={() => void store.presentLive(index)}
                     onSelect={() => {
                       store.setSelectedItem(item.id)
                       store.goToItem(index)
@@ -153,6 +154,7 @@ function SongScheduleRow({
   isSelected,
   isHighlighted,
   onPresent,
+  onPresentLive,
   onSelect,
   onEdit,
   onRemove,
@@ -164,6 +166,7 @@ function SongScheduleRow({
   isSelected: boolean
   isHighlighted: boolean
   onPresent: () => void
+  onPresentLive: () => void
   onSelect: () => void
   onEdit: () => void
   onRemove: () => void
@@ -175,6 +178,7 @@ function SongScheduleRow({
   return (
     <div
       onClick={onSelect}
+      onDoubleClick={onPresentLive}
       title={title}
       className={cn(
         "group flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors",

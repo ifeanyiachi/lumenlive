@@ -113,8 +113,7 @@ export function StageMonitorControls({
   const validTarget =
     target.kind === "all" ||
     (target.kind === "group" && groups.some((g) => g.id === target.id)) ||
-    (target.kind === "output" &&
-      stageOutputs.some((o) => o.id === target.id))
+    (target.kind === "output" && stageOutputs.some((o) => o.id === target.id))
   const effTarget: Target = validTarget ? target : { kind: "all" }
 
   const resolveIds = (t: Target): string[] => {
@@ -198,7 +197,10 @@ export function StageMonitorControls({
 
       {showPicker && (
         <div className="flex items-center gap-1.5">
-          <Select value={serializeTarget(effTarget)} onValueChange={selectTarget}>
+          <Select
+            value={serializeTarget(effTarget)}
+            onValueChange={selectTarget}
+          >
             <SelectTrigger size="sm" className="h-8 flex-1 text-xs">
               <SelectValue />
             </SelectTrigger>

@@ -531,7 +531,8 @@ export function getTextLineCount(
   canvasHeight: number
 ): number {
   const w = (element.width / 100) * canvasWidth
-  const fontSize = element.fontSize * surfaceFontScale(canvasWidth, canvasHeight)
+  const fontSize =
+    element.fontSize * surfaceFontScale(canvasWidth, canvasHeight)
   ctx.font = buildFontString(
     fontSize,
     element.fontWeight,

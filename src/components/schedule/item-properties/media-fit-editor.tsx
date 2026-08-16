@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
 import { useScheduleStore } from "@/stores/schedule-store"
@@ -329,7 +329,7 @@ function FitPreview({
     let cancelled = false
     const src = (() => {
       try {
-        return convertFileSrc(asset.filePath)
+        return safeFileSrc(asset.filePath)
       } catch {
         return asset.filePath
       }

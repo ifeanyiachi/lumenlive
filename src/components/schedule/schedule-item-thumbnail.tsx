@@ -1,7 +1,8 @@
 import { useRef, useEffect, useCallback, memo } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { usePresentationStore } from "@/stores/presentation-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useMediaStore } from "@/stores/media-store"
 import { useSongStore } from "@/stores/song-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -76,8 +77,8 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         const si = item as ScriptureScheduleItem
         const themes = useBroadcastStore.getState().themes
         const activeThemeId =
-          useBroadcastStore.getState().outputs.find((o) => o.id === "main")
-            ?.themeId ?? ""
+          findOutput(useBroadcastStore.getState().outputs, "main")?.themeId ??
+          ""
         const theme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
         if (!theme) break
         const fakeVerse = {
@@ -118,12 +119,12 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         if (asset?.type === "image") {
           const img = new Image()
           img.onload = () => ctx.drawImage(img, 0, 0, w, h)
-          img.src = convertFileSrc(asset.filePath)
+          img.src = safeFileSrc(asset.filePath)
         } else if (asset?.type === "video") {
           const video = document.createElement("video")
           video.muted = true
           video.playsInline = true
-          video.src = convertFileSrc(asset.filePath)
+          video.src = safeFileSrc(asset.filePath)
           video.onloadeddata = () => {
             video.currentTime = 0
           }

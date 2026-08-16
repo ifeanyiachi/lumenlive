@@ -1,6 +1,6 @@
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { Presentation, Slide, SlideTheme } from "@/types/slide"
-import { migrateSlideElements } from "@/types/slide"
+import { migrateSlideElements } from "@/lib/slide-migration"
 
 /**
  * Tauri plugin-store adapter for presentation persistence.

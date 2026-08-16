@@ -2,7 +2,10 @@ import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { AlertTemplate, ActiveAlert } from "@/types/alert"
 import { DEFAULT_TEMPLATES } from "@/types/alert"
-import { emitToAllOutputs } from "@/lib/broadcast-routing"
+import {
+  broadcastOutputEvent,
+  BROADCAST_EVENTS,
+} from "@/services/broadcast-content-gateway"
 import { useBroadcastStore } from "./broadcast-store"
 
 interface AlertState {
@@ -55,9 +58,9 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     set((s) => ({ activeAlerts: [...s.activeAlerts, alert] }))
 
     const payload = { alert, template }
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:alert",
+      BROADCAST_EVENTS.alert,
       payload
     )
 
@@ -80,9 +83,9 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       activeAlerts: s.activeAlerts.filter((a) => a.id !== alertId),
     }))
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:alert-dismiss",
+      BROADCAST_EVENTS.alertDismiss,
       { alertId }
     )
   },
@@ -94,9 +97,9 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     }
     set({ activeAlerts: [] })
 
-    emitToAllOutputs(
+    broadcastOutputEvent(
       useBroadcastStore.getState().outputs,
-      "broadcast:alert-dismiss-all",
+      BROADCAST_EVENTS.alertDismissAll,
       {}
     )
   },

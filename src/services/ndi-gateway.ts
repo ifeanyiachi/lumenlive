@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import { emitTo } from "@tauri-apps/api/event"
 import { outputWindowLabel } from "@/lib/broadcast-routing"
+import { BROADCAST_EVENTS } from "@/services/broadcast-content-gateway"
 import type {
   NdiConfigEventPayload,
   NdiSessionInfo,
@@ -31,5 +32,5 @@ export function emitNdiConfig(
   outputId: string,
   config: NdiConfigEventPayload
 ): Promise<unknown> {
-  return emitTo(outputWindowLabel(outputId), "broadcast:ndi-config", config)
+  return emitTo(outputWindowLabel(outputId), BROADCAST_EVENTS.ndiConfig, config)
 }

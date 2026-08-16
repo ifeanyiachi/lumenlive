@@ -28,6 +28,7 @@ import {
 } from "@/lib/multi-verse"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useQueueStore } from "@/stores/queue-store"
 import { verseEditKey } from "@/types/verse-edit"
 import type { StyledVerseSegment } from "@/types/verse-edit"
@@ -71,7 +72,9 @@ const baseSegmentFor = (verse: Verse): StyledVerseSegment => ({
 
 /** Read the current segment (edited text + spans) out of one verse's editor. */
 function segmentFromEditor(editor: Editor, verse: Verse): StyledVerseSegment {
-  const [seg] = tiptapToStyledSegments(editor.getJSON(), [baseSegmentFor(verse)])
+  const [seg] = tiptapToStyledSegments(editor.getJSON(), [
+    baseSegmentFor(verse),
+  ])
   return seg
 }
 
@@ -102,7 +105,7 @@ export function MultiVerseEditModal({
 
   const activeTheme = useBroadcastStore((s) => {
     const theme = s.themes.find(
-      (t) => t.id === s.outputs.find((o) => o.id === "main")?.themeId
+      (t) => t.id === findOutput(s.outputs, "main")?.themeId
     )
     return theme ?? s.themes[0]
   })

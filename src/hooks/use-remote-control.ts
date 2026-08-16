@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useBibleStore } from "@/stores/bible-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useScheduleStore } from "@/stores/schedule-store"
@@ -264,7 +265,7 @@ function syncStatusSnapshot() {
   const alerts = useAlertStore.getState()
 
   const activeTheme = broadcast.themes.find(
-    (t) => t.id === broadcast.outputs.find((o) => o.id === "main")?.themeId
+    (t) => t.id === findOutput(broadcast.outputs, "main")?.themeId
   )
 
   const activeSchedule = schedule.getActiveSchedule()

@@ -16,7 +16,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 async function freshStore() {
   vi.resetModules()
   const { usePresentationStore } = await import("./presentation-store")
-  const { BUILTIN_SLIDE_THEMES } = await import("@/types/slide")
+  const { BUILTIN_SLIDE_THEMES } = await import("@/lib/slide-themes")
   const songTheme = BUILTIN_SLIDE_THEMES.find((t) => t.category === "song")!
   return { store: usePresentationStore, songTheme }
 }
@@ -59,7 +59,10 @@ describe("presentation-store — song theme editing", () => {
     expect(s.themeEditSession).toEqual({ themeId: saved.id, isNew: false })
     expect(s.editingPresentationId).toBe(`__theme__${saved.id}`)
     // The blank variant is derived (same bg, no elements).
-    expect(saved.variants.map((v) => v.layout)).toEqual(["content-only", "blank"])
+    expect(saved.variants.map((v) => v.layout)).toEqual([
+      "content-only",
+      "blank",
+    ])
 
     // A second save updates the fork in place (no second custom theme).
     store.getState().saveDraft()
@@ -157,7 +160,11 @@ describe("presentation-store — song theme editing", () => {
 
   it("deleting the theme being edited closes the editor", async () => {
     const { store, songTheme } = await freshStore()
-    const custom = { ...structuredClone(songTheme), id: "c-edit", builtin: false }
+    const custom = {
+      ...structuredClone(songTheme),
+      id: "c-edit",
+      builtin: false,
+    }
     store.getState().saveCustomSlideTheme(custom)
     store.getState().startEditingSlideTheme(custom, false)
     store.getState().deleteCustomSlideTheme("c-edit")

@@ -51,8 +51,8 @@ export function StageMonitorGroupsDialog({
         <DialogHeader>
           <DialogTitle>Stage monitor groups</DialogTitle>
           <DialogDescription>
-            Name a set of presenter screens so you can send a stage cue to all of
-            them at once.
+            Name a set of presenter screens so you can send a stage cue to all
+            of them at once.
           </DialogDescription>
         </DialogHeader>
 

@@ -541,7 +541,10 @@ function computeVerseLayoutMetricsUncached(
     const maxFs = Math.max(
       minFs,
       Math.round(
-        Math.max(AUTO_FIT_MIN_FS, proportionalFs * (options.maxVerseScale ?? 1.5))
+        Math.max(
+          AUTO_FIT_MIN_FS,
+          proportionalFs * (options.maxVerseScale ?? 1.5)
+        )
       )
     )
     const refReserve =
@@ -724,5 +727,8 @@ export function computeVerseTextBox(theme: BroadcastTheme): {
   )
   const refReserve =
     referenceHeight + (theme.reference.position === "below" ? referenceGap : 0)
-  return { textRectW, availableVerseHeight: Math.max(1, textRectH - refReserve) }
+  return {
+    textRectW,
+    availableVerseHeight: Math.max(1, textRectH - refReserve),
+  }
 }

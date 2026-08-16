@@ -1,5 +1,5 @@
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
-import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import type { BroadcastTheme } from "@/types/broadcast"
 import type { SlideTheme } from "@/types/slide"
 import type { UnifiedTheme } from "@/types/theme"

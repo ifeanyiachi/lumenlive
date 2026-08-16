@@ -208,8 +208,11 @@ describe("presentation store — inline text editing", () => {
     const useStore = await freshStore()
     const id = useStore.getState().createPresentation("Deck")
     useStore.getState().startEditing(id)
-    const el = useStore.getState().draftPresentation!.slides[0]
-      .elements[0] as { id: string; type: string; text: string }
+    const el = useStore.getState().draftPresentation!.slides[0].elements[0] as {
+      id: string
+      type: string
+      text: string
+    }
     const original = el.text
 
     useStore.getState().beginTextEdit(el.id)
@@ -248,8 +251,10 @@ describe("presentation store — inline text editing", () => {
     // A prior real edit gives the undo stack a known top-of-stack to detect a
     // phantom snapshot from an unchanged commit.
     useStore.getState().addElement()
-    const el = useStore.getState().draftPresentation!.slides[0]
-      .elements[0] as { id: string; text: string }
+    const el = useStore.getState().draftPresentation!.slides[0].elements[0] as {
+      id: string
+      text: string
+    }
     const elementCount =
       useStore.getState().draftPresentation!.slides[0].elements.length
 
@@ -270,8 +275,10 @@ describe("presentation store — inline text editing", () => {
     const useStore = await freshStore()
     const id = useStore.getState().createPresentation("Deck")
     useStore.getState().startEditing(id)
-    const el = useStore.getState().draftPresentation!.slides[0]
-      .elements[0] as { id: string; text: string }
+    const el = useStore.getState().draftPresentation!.slides[0].elements[0] as {
+      id: string
+      text: string
+    }
     const original = el.text
 
     useStore.getState().beginTextEdit(el.id)

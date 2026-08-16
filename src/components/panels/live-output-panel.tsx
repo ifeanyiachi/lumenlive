@@ -15,10 +15,17 @@ import {
 import { cn } from "@/lib/utils"
 import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { useBroadcastStore, useBibleStore, useQueueStore } from "@/stores"
+import { findOutput } from "@/lib/broadcast/output-selectors"
+import {
+  BROADCAST_EVENTS,
+  type MediaProgressPayload,
+  type WebProgressPayload,
+} from "@/services/broadcast-content-gateway"
 import { useAlertStore } from "@/stores/alert-store"
 import { alertBarLayout } from "@/lib/broadcast-output/overlays"
 import type { LiveMedia, LiveWeb } from "@/stores/broadcast-store"
 import { toVerseRenderData, presentQueueVerse } from "@/hooks/use-broadcast"
+import { focusBroadcastWindow } from "@/services/broadcast-window-gateway"
 import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
@@ -44,7 +51,10 @@ import {
   EyeOffIcon,
   SlidersHorizontalIcon,
   ChevronDownIcon,
+  MonitorUpIcon,
 } from "lucide-react"
+
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { PropsManager } from "@/components/props/props-manager"
 import {
@@ -185,12 +195,7 @@ function LiveMediaMonitor({
   const transport = useBroadcastStore((s) => s.mediaTransport)
 
   // Track the true output position echoed back by the broadcast window.
-  useTauriEvent<{
-    position: number
-    duration: number
-    playing: boolean
-    ended: boolean
-  }>("broadcast:media-progress", (p) =>
+  useTauriEvent<MediaProgressPayload>(BROADCAST_EVENTS.mediaProgress, (p) =>
     setMediaTransport({
       position: p.position,
       duration: p.duration,
@@ -350,12 +355,15 @@ function LiveMediaMonitor({
 
   if (media.mediaType === "image") {
     return (
-      <div className="relative size-full overflow-hidden">
+      <div className="relative flex size-full items-center justify-center overflow-hidden">
         <MediaFitBackdrop media={media} src={src} />
+        {/* 16:9 output frame, letterboxed into the panel: the image fits inside
+            this frame exactly as it does on the audience 1920×1080 canvas, so the
+            operator sees the same crop instead of one cropped to the panel shape. */}
         <img
           src={src}
           alt=""
-          className="relative size-full"
+          className="relative aspect-video max-h-full max-w-full"
           style={mediaFitStyle(media)}
         />
       </div>
@@ -370,12 +378,13 @@ function LiveMediaMonitor({
         {isVideo ? (
           <>
             <MediaFitBackdrop media={media} src={src} />
+            {/* 16:9 output frame (see LiveMediaMonitor's image branch). */}
             <video
               ref={setElRef}
               src={src}
               muted
               playsInline
-              className="relative size-full"
+              className="relative aspect-video max-h-full max-w-full"
               style={mediaFitStyle(media)}
               onLoadedMetadata={handleLoaded}
               onTimeUpdate={handleTime}
@@ -959,11 +968,9 @@ export function LiveOutputPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
   const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore(
-    (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
+    (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
-  const mainOutput = useBroadcastStore((s) =>
-    s.outputs.find((o) => o.id === "main")
-  )
+  const mainOutput = useBroadcastStore((s) => findOutput(s.outputs, "main"))
   const interlinearText = useBroadcastStore((s) => s.interlinearText)
   const liveVersePages = useBroadcastStore((s) => s.liveVersePages)
   const liveVersePageIndex = useBroadcastStore((s) => s.liveVersePageIndex)
@@ -1032,13 +1039,7 @@ export function LiveOutputPanel() {
   // Position echo from the controllable YouTube overlay (audience output). The
   // operator monitor drives itself now, so this is kept only so `webTransport`
   // reflects the true audience position for any external readers.
-  useTauriEvent<{
-    position: number
-    duration: number
-    playing: boolean
-    isLive: boolean
-    liveEdge: number
-  }>("broadcast:web-progress", (payload) =>
+  useTauriEvent<WebProgressPayload>(BROADCAST_EVENTS.webProgress, (payload) =>
     useBroadcastStore.getState().setWebTransport(payload)
   )
 
@@ -1140,6 +1141,22 @@ export function LiveOutputPanel() {
             <LayersIcon className="size-3.5" />
           </Button>
           <PropsManager open={propsOpen} onOpenChange={setPropsOpen} />
+          {/* Bring the projector output back to the front. The projector is a
+              shared display — the operator can switch another app (a browser
+              video, a Chrome page) onto it mid-service, then tap this to return
+              the congregation to Lumen. The output window is hidden from the
+              taskbar/alt-tab, so this is the only way to raise it again. Shown
+              only when the Display Output is active. */}
+          {isTauri && mainOutput?.enabled && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => void focusBroadcastWindow("main").catch(() => {})}
+              title="Show LumenLive on the projector (bring output to front)"
+            >
+              <MonitorUpIcon className="size-3.5" />
+            </Button>
+          )}
           {(showVideoControls || showWebControls) && (
             <Button
               variant="ghost"

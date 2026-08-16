@@ -14,7 +14,7 @@ import {
   createDefaultSlide,
   createDefaultTextElement,
   createDefaultVideoElement,
-} from "@/types/slide"
+} from "@/lib/slide-defaults"
 import type { Slide, SlideTextElement } from "@/types/slide"
 
 /**

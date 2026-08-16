@@ -21,7 +21,9 @@ describe("isYouTubeUrl / extractVideoId", () => {
     )
     expect(isYouTubeUrl(`https://youtu.be/${VIDEO_ID}`)).toBe(true)
     expect(isYouTubeUrl(`https://www.youtube.com/embed/${VIDEO_ID}`)).toBe(true)
-    expect(isYouTubeUrl(`https://www.youtube.com/shorts/${VIDEO_ID}`)).toBe(true)
+    expect(isYouTubeUrl(`https://www.youtube.com/shorts/${VIDEO_ID}`)).toBe(
+      true
+    )
     expect(isYouTubeUrl("https://example.com/video")).toBe(false)
   })
 

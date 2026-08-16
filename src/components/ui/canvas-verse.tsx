@@ -80,7 +80,14 @@ export const CanvasVerse = memo(function CanvasVerse({
       minVerseFontSize,
       frameTime: performance.now(),
     })
-  }, [theme, verse, containerWidth, verseAutoFit, maxVerseScale, minVerseFontSize])
+  }, [
+    theme,
+    verse,
+    containerWidth,
+    verseAutoFit,
+    maxVerseScale,
+    minVerseFontSize,
+  ])
 
   // Opt-in per-frame loop for procedural animated backgrounds, so the preview
   // moves with the live output. Runs only while `animate` is set and the theme

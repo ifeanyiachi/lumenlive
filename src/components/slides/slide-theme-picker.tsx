@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { PaletteIcon, CheckIcon } from "lucide-react"
 import { usePresentationStore } from "@/stores/presentation-store"
-import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import type { SlideThemeCategory, SlideLayoutVariant } from "@/types/slide"
 import { cn } from "@/lib/utils"
 

@@ -14,6 +14,8 @@ import {
   ndiFrameRateToNumber,
   ndiResolutionToDimensions,
 } from "@/lib/broadcast/ndi"
+import { operatorScreenIndex } from "@/lib/broadcast/monitors"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import {
   Dialog,
   DialogContent,
@@ -50,7 +52,7 @@ import {
   LayersIcon,
   ImageIcon,
 } from "lucide-react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog"
 import {
   SolidControls,
@@ -483,7 +485,7 @@ function BaseBackgroundSection() {
         onOpenChange={setImagePickerOpen}
         mediaType="image"
         onSelect={(asset: MediaAsset) =>
-          setBaseImageUrl(convertFileSrc(asset.filePath))
+          setBaseImageUrl(safeFileSrc(asset.filePath))
         }
         onSelectFromDevice={(dataUrl) => setBaseImageUrl(dataUrl)}
       />
@@ -492,10 +494,10 @@ function BaseBackgroundSection() {
         onOpenChange={setVideoPickerOpen}
         mediaType="video"
         onSelect={(asset: MediaAsset) =>
-          setBaseVideoUrl(convertFileSrc(asset.filePath))
+          setBaseVideoUrl(safeFileSrc(asset.filePath))
         }
         onSelectFromDevice={(filePath) =>
-          setBaseVideoUrl(convertFileSrc(filePath))
+          setBaseVideoUrl(safeFileSrc(filePath))
         }
       />
     </div>
@@ -512,7 +514,7 @@ export function BroadcastSettings({
   const themes = useBroadcastStore((s) => s.themes)
   const logoImagePath = useBroadcastStore((s) => s.logoImagePath)
   const outputs = useBroadcastStore((s) => s.outputs)
-  const mainOutput = outputs.find((o) => o.id === "main")
+  const mainOutput = findOutput(outputs, "main")
   const altOutput = outputs.find((o) => o.id === "alt")
 
   // Main output state
@@ -599,6 +601,25 @@ export function BroadcastSettings({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) fetchMonitors()
   }, [open, fetchMonitors])
+
+  // When displays change, steer each output's target to a real external monitor
+  // (never the operator's screen) so plugging in a projector "just works" — the
+  // experience users migrating from EasyWorship expect. Only nudges a selection
+  // that currently points at the operator's screen; a deliberate external pick
+  // is left alone.
+  useEffect(() => {
+    if (monitors.length === 0) return
+    const operator = operatorScreenIndex(monitors)
+    const external = monitors.findIndex((_m, i) => i !== operator)
+    if (external < 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedMonitor((prev) =>
+      Number(prev) === operator ? String(external) : prev
+    )
+    setAltSelectedMonitor((prev) =>
+      Number(prev) === operator ? String(external) : prev
+    )
+  }, [monitors])
 
   // The enable switch is now the activation control (no separate preview
   // button), so reflect the real output-window state whenever the dialog opens
@@ -803,6 +824,18 @@ export function BroadcastSettings({
   }
 
   const handleMainToggle = async (enabled: boolean) => {
+    // Never open display output onto the operator's own screen. With no external
+    // display connected, output stays off and the operator works from the in-app
+    // preview (+ NDI) — the EasyWorship / ProPresenter default. The switch is
+    // also disabled in this state; this guards the programmatic path too.
+    if (
+      enabled &&
+      outputType === "display" &&
+      monitors.length > 0 &&
+      Number(selectedMonitor) === operatorScreenIndex(monitors)
+    ) {
+      return
+    }
     setMainEnabled(enabled)
     try {
       if (enabled) {
@@ -946,6 +979,15 @@ export function BroadcastSettings({
   }
 
   const handleAltToggle = async (enabled: boolean) => {
+    // See handleMainToggle: don't fullscreen output over the operator's screen.
+    if (
+      enabled &&
+      altOutputType === "display" &&
+      monitors.length > 0 &&
+      Number(altSelectedMonitor) === operatorScreenIndex(monitors)
+    ) {
+      return
+    }
     setAltEnabled(enabled)
     try {
       if (enabled) {
@@ -980,6 +1022,18 @@ export function BroadcastSettings({
   const primaryMonitorIndex = monitors.findIndex(
     (m) => m.position.x === 0 && m.position.y === 0
   )
+
+  // The operator's screen (origin, or index 0 as fallback). Display output onto
+  // this screen is blocked — see operatorScreenIndex / handleMainToggle.
+  const operatorIdx = operatorScreenIndex(monitors)
+  const mainDisplayOnOperatorScreen =
+    outputType === "display" &&
+    monitors.length > 0 &&
+    Number(selectedMonitor) === operatorIdx
+  const altDisplayOnOperatorScreen =
+    altOutputType === "display" &&
+    monitors.length > 0 &&
+    Number(altSelectedMonitor) === operatorIdx
 
   const monitorLabel = (m: Monitor, i: number) =>
     `${m.name ?? `Display ${i + 1}`} (${m.size.width}×${m.size.height})${
@@ -1034,6 +1088,7 @@ export function BroadcastSettings({
                   <Switch
                     checked={mainEnabled}
                     onCheckedChange={handleMainToggle}
+                    disabled={mainDisplayOnOperatorScreen && !mainEnabled}
                   />
                 </div>
               </div>
@@ -1145,13 +1200,13 @@ export function BroadcastSettings({
                         LumenLive desktop app.
                       </p>
                     )}
-                    {monitors.length > 0 &&
-                      Number(selectedMonitor) === primaryMonitorIndex && (
-                        <p className="text-[0.625rem] text-amber-500">
-                          This is your primary display — the output will open on
-                          the same screen as your controls.
-                        </p>
-                      )}
+                    {mainDisplayOnOperatorScreen && (
+                      <p className="text-[0.625rem] text-amber-500">
+                        This is your control screen — output stays off so it
+                        won't cover your workspace. Connect a second display to
+                        send output there, or switch to NDI.
+                      </p>
+                    )}
                   </div>
 
                   {mainOutput && <OutputDisplaySettings output={mainOutput} />}
@@ -1286,6 +1341,7 @@ export function BroadcastSettings({
                   <Switch
                     checked={altEnabled}
                     onCheckedChange={handleAltToggle}
+                    disabled={altDisplayOnOperatorScreen && !altEnabled}
                   />
                 </div>
               </div>
@@ -1391,13 +1447,13 @@ export function BroadcastSettings({
                         LumenLive desktop app.
                       </p>
                     )}
-                    {monitors.length > 0 &&
-                      Number(altSelectedMonitor) === primaryMonitorIndex && (
-                        <p className="text-[0.625rem] text-amber-500">
-                          This is your primary display — the output will open on
-                          the same screen as your controls.
-                        </p>
-                      )}
+                    {altDisplayOnOperatorScreen && (
+                      <p className="text-[0.625rem] text-amber-500">
+                        This is your control screen — output stays off so it
+                        won't cover your workspace. Connect a second display to
+                        send output there, or switch to NDI.
+                      </p>
+                    )}
                   </div>
                   {altOutput && <OutputDisplaySettings output={altOutput} />}
                 </div>
@@ -1532,7 +1588,7 @@ export function BroadcastSettings({
                   <img
                     src={(() => {
                       try {
-                        return convertFileSrc(logoImagePath)
+                        return safeFileSrc(logoImagePath)
                       } catch {
                         return logoImagePath
                       }

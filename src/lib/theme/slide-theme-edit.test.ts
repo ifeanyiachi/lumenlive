@@ -4,7 +4,7 @@ import {
   editableSlideToSlideTheme,
   createDraftSlideTheme,
 } from "./slide-theme-edit"
-import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import type { SlideTheme } from "@/types/slide"
 
 function counter(prefix = "id") {
@@ -44,7 +44,10 @@ describe("slide theme ↔ editable slide round-trip", () => {
   it("always emits a content-only + blank pair, custom (non-builtin)", () => {
     const theme = BUILTIN_SLIDE_THEMES.find((t) => t.category === "song")!
     const slide = slideThemeToEditableSlide(theme, counter())
-    const rebuilt = editableSlideToSlideTheme(slide, { id: "custom-1", name: "Mine" })
+    const rebuilt = editableSlideToSlideTheme(slide, {
+      id: "custom-1",
+      name: "Mine",
+    })
     expect(rebuilt.builtin).toBe(false)
     expect(rebuilt.id).toBe("custom-1")
     expect(rebuilt.name).toBe("Mine")

@@ -6,11 +6,11 @@ import {
   importFromJson,
   resolveThemeSlideContent,
 } from "./presentation-mutations"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import {
-  BUILTIN_SLIDE_THEMES,
   createDefaultPresentation,
   createDefaultSlide,
-} from "@/types/slide"
+} from "@/lib/slide-defaults"
 
 const NOW = 12000
 
@@ -136,6 +136,9 @@ describe("theme application", () => {
       NOW,
       [...BUILTIN_SLIDE_THEMES, custom]
     )!
-    expect(next.slides[0].background).toEqual({ type: "solid", color: "#abcabc" })
+    expect(next.slides[0].background).toEqual({
+      type: "solid",
+      color: "#abcabc",
+    })
   })
 })

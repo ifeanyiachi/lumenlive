@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -42,7 +42,7 @@ export function SlideImageProperties({
   }
 
   const handleSelectAsset = async (asset: MediaAsset) => {
-    const url = convertFileSrc(asset.filePath)
+    const url = safeFileSrc(asset.filePath)
     await preloadSlideImage(url)
     update({ imageUrl: url })
   }

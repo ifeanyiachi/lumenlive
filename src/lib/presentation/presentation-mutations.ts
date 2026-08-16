@@ -5,7 +5,8 @@ import type {
   SlideLayoutVariant,
   SlideTheme,
 } from "@/types/slide"
-import { BUILTIN_SLIDE_THEMES, migrateSlideElements } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { migrateSlideElements } from "@/lib/slide-migration"
 
 /**
  * Pure presentation-catalog transforms: duplication, JSON import/export, and

@@ -174,7 +174,10 @@ describe("generateSlidesFromSong", () => {
       NOW,
       [customSongTheme]
     )
-    expect(deck.slides[0].background).toEqual({ type: "solid", color: "#ff0000" })
+    expect(deck.slides[0].background).toEqual({
+      type: "solid",
+      color: "#ff0000",
+    })
     const el = deck.slides[0].elements[0] as { color: string; fontSize: number }
     expect(el.color).toBe("#00ff00")
     expect(el.fontSize).toBe(61)
@@ -189,7 +192,10 @@ describe("generateSlidesFromSong", () => {
       NOW
       // no customThemes → unknown id → fallback background
     )
-    expect(deck.slides[0].background).toEqual({ type: "solid", color: "#000000" })
+    expect(deck.slides[0].background).toEqual({
+      type: "solid",
+      color: "#000000",
+    })
   })
 
   it("skips empty sections and unresolved section ids without crashing", () => {

@@ -1,6 +1,12 @@
 import type { StyledSpan } from "./verse-edit"
 import type { NdiResolution, NdiFrameRate, NdiAlphaMode } from "./ndi"
 import type { CanvasBox, Background, TextStyle } from "./canvas"
+import type {
+  MediaEndAction,
+  MediaMarker,
+  MediaFit,
+  ContainBackground,
+} from "./schedule"
 
 // Re-export the shared canvas primitives so existing `@/types/broadcast`
 // imports keep resolving after the extraction (see types/canvas.ts).
@@ -287,4 +293,140 @@ export interface BroadcastTheme {
     easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
     direction: "up" | "down" | "left" | "right"
   }
+}
+
+// ── Live output content ──
+// These describe content pushed to the output window(s). They live here (not in
+// the store) so the broadcast-content gateway and the output window can share
+// the exact same shapes without importing zustand. Re-exported from
+// `stores/broadcast-store` for back-compat.
+
+export interface BroadcastProp {
+  id: string
+  /**
+   * `text` is a static box, `image` a cached bitmap, and `marquee` a single
+   * line of text that scrolls horizontally and loops seamlessly (a ticker /
+   * "crawl").
+   */
+  name: string
+  type: "text" | "image" | "marquee"
+  x: number
+  y: number
+  width: number
+  height: number
+  active: boolean
+  text?: string
+  fontFamily?: string
+  fontSize?: number
+  fontWeight?: number
+  color?: string
+  backgroundColor?: string
+  /** Horizontal alignment of the text within the box. Defaults to "center". */
+  textAlign?: "left" | "center" | "right"
+  imageUrl?: string
+  opacity?: number
+  /** Marquee scroll speed in px/sec at a 1920px-wide canvas (scaled to output). */
+  scrollSpeed?: number
+  /** Marquee travel direction. Defaults to "left" (text enters from the right). */
+  scrollDirection?: "left" | "right"
+}
+
+/** A media file composited beneath the live foreground on every output. */
+export interface MediaLayerState {
+  filePath: string
+  mediaType: "image" | "video"
+  name: string
+  active: boolean
+}
+
+/** A media file/clip presented to the live output (image/video/audio). */
+export interface LiveMedia {
+  filePath: string
+  mediaType: "image" | "video" | "audio"
+  name: string
+  /** Playback in-point in seconds (video/audio). */
+  trimStart?: number
+  /** Playback out-point in seconds (video/audio). */
+  trimEnd?: number
+  /** Loop playback between trim points. */
+  loop?: boolean
+  /** What to do when playback reaches the out-point / end. Defaults to "hold". */
+  endAction?: MediaEndAction
+  /** Named cue points for jump-to-marker. */
+  markers?: MediaMarker[]
+  /** How the image/video fills the output frame. Defaults to "cover". */
+  fit?: MediaFit
+  /** Extra scale multiplier applied when `fit` is "zoom" (>= 1). Defaults to 1. */
+  zoom?: number
+  /** Horizontal focal point (0..1) used when cropping. Defaults to 0.5. */
+  focalX?: number
+  /** Vertical focal point (0..1) used when cropping. Defaults to 0.5. */
+  focalY?: number
+  /** Letterbox fill when `fit` is "contain". Defaults to "black". */
+  containBackground?: ContainBackground
+  /** Solid color used when `containBackground` is "color". */
+  containBackgroundColor?: string
+}
+
+/** The subset of a media item that controls how it fills the output frame. */
+export type MediaFitUpdate = Pick<
+  LiveMedia,
+  | "fit"
+  | "zoom"
+  | "focalX"
+  | "focalY"
+  | "containBackground"
+  | "containBackgroundColor"
+>
+
+export interface MediaTransportState {
+  /** Current playback position of the live output, in seconds. */
+  position: number
+  /** Duration of the live media, in seconds (0 if unknown). */
+  duration: number
+  /** Whether the live output is currently playing. */
+  playing: boolean
+}
+
+/** Live playback position echoed from the controllable YouTube overlay. */
+export interface WebTransportState {
+  /** Current position within the video/DVR window, in seconds. */
+  position: number
+  /** Duration (VOD) or seekable DVR length (live), in seconds. */
+  duration: number
+  /** Whether the overlay player is currently playing. */
+  playing: boolean
+  /** Whether the source is a live stream. */
+  isLive: boolean
+  /** Seconds corresponding to the live edge (0 when not live). */
+  liveEdge: number
+}
+
+export interface LiveWeb {
+  url: string
+  isYouTube: boolean
+  videoId?: string
+  /** Whether this is a live stream (vs a recorded VOD). */
+  isLive?: boolean
+  /** Start offset in seconds (join-late / skip pre-service). */
+  startTime?: number
+  /** End offset in seconds (VOD only; stops before the end-screen grid). */
+  endTime?: number
+  /** What to do when a VOD reaches its out-point / end. Defaults to "hold". */
+  endAction?: MediaEndAction
+  /** Named cue points (absolute for VOD, DVR offsets for live). */
+  markers?: MediaMarker[]
+  /**
+   * Whether the video should start playing on its own when presented. Defaults
+   * to `false` (cue paused) — playback is operator-driven, so nothing auto-plays
+   * on the audience output unless this is explicitly opted in per item.
+   */
+  autoplay?: boolean
+  /**
+   * Bumped on every `setLiveWeb` call. Re-presenting the same video keeps
+   * `videoId`/`url` identical, so this nonce is what the operator preview keys
+   * its iframe on to force a remount — i.e. replay from the start — each time
+   * the item is presented again.
+   */
+  nonce?: number
 }

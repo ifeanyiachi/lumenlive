@@ -19,7 +19,7 @@ import {
 } from "@/components/shared/anchor-picker"
 import { deriveElementAnchor } from "@/lib/verse-renderer/project-element"
 import { open } from "@tauri-apps/plugin-dialog"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 
 function getElementIndex(elements: ThemeElement[], id: string): number {
   return elements.findIndex((e) => e.id === id)
@@ -52,7 +52,7 @@ export function ElementProperties() {
       ],
     })
     if (path) {
-      update(`${prefix}.image.url`, convertFileSrc(path as string))
+      update(`${prefix}.image.url`, safeFileSrc(path as string))
       void useMediaStore.getState().importPaths([path as string])
     }
   }
@@ -142,7 +142,10 @@ export function ElementProperties() {
           <AnchorPicker
             value={
               (el.anchor ??
-                deriveElementAnchor(el, draftTheme.resolution)) as AnchorPosition
+                deriveElementAnchor(
+                  el,
+                  draftTheme.resolution
+                )) as AnchorPosition
             }
             onChange={(anchor) => update(`${prefix}.anchor`, anchor)}
           />

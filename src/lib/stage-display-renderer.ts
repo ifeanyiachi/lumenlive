@@ -537,10 +537,7 @@ export function drawStageDisplay(
   const virtual = { width: w / scale, height: h / scale }
 
   const byId = new Map(
-    layout.zones.map((z) => [
-      z.id,
-      projectBoxToSurface(z, authored, virtual),
-    ])
+    layout.zones.map((z) => [z.id, projectBoxToSurface(z, authored, virtual)])
   )
   const order =
     layout.layerOrder.length > 0

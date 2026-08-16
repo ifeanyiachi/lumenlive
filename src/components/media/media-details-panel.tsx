@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { AddToCollectionDialog } from "@/components/media/add-to-collection-dialog"
 import { useMediaStore } from "@/stores/media-store"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -58,7 +58,7 @@ export function MediaDetailsPanel() {
     if (asset.thumbnailDataUrl) return asset.thumbnailDataUrl
     if (asset.type === "image") {
       try {
-        return convertFileSrc(asset.filePath)
+        return safeFileSrc(asset.filePath)
       } catch {
         /* not in Tauri */
       }

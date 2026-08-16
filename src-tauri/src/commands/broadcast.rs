@@ -7,6 +7,26 @@ use tauri::State;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use lumenlive_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
 
+/// Extra WebView2 (Windows) browser flags for every window.
+///
+/// `--disable-direct-composition-video-overlays` is the load-bearing one: without
+/// it WebView2 presents hardware-decoded video through a DirectComposition
+/// overlay that the page's own bitmap never sees, so `ctx.drawImage(video)`
+/// captures a black frame. The audience output window paints ALL video to a 2D
+/// canvas (theme/idle/Clear backgrounds, slide backgrounds, live media) and that
+/// canvas is both what the projector shows and what NDI reads back via
+/// `getImageData` — so the overlay made video vanish on the external monitor and
+/// NDI alike while the DOM `<video>` operator previews kept working. Disabling the
+/// overlay routes the decoded frames back into the page bitmap (hardware decode is
+/// retained), making canvas capture read real pixels.
+///
+/// The `--disable-features=...` prefix re-states wry's own default
+/// (`msWebOOUI,msPdfOOUI,msSmartScreenProtection`), which setting this arg would
+/// otherwise replace. WebView2 shares one browser environment across every window
+/// in the process, so this string is applied identically to the main window (in
+/// `tauri.conf.json`) and to each broadcast window below to avoid a mismatch.
+pub const WEBVIEW_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-direct-composition-video-overlays";
+
 /// Map `output_id` to Tauri window label. Supports N outputs.
 fn window_label(output_id: &str) -> String {
     if output_id == "main" {
@@ -67,6 +87,7 @@ pub async fn ensure_broadcast_window(
         WebviewUrl::App(window_url(&output_id, mode_str).into()),
     )
     .title(&title)
+    .additional_browser_args(WEBVIEW_BROWSER_ARGS)
     .inner_size(1920.0, 1080.0)
     .visible(false)
     .skip_taskbar(true)
@@ -116,11 +137,24 @@ pub async fn open_broadcast_window(
             WebviewUrl::App(window_url(&output_id, mode_str).into()),
         )
         .title(&title)
+        .additional_browser_args(WEBVIEW_BROWSER_ARGS)
         .decorations(false)
         .closable(false)
         .minimizable(false)
+        // Deliberately NOT always-on-top. The projector is a *shared* display:
+        // mid-service the operator often brings another app forward on it (a
+        // browser video, a Chrome page) for the congregation, then switches back
+        // to Lumen. Pinning the output on top would trap the projector on Lumen
+        // and make that impossible. Instead the operator returns to Lumen with
+        // the explicit `focus_broadcast_window` raise (see below), mirroring how
+        // a normal presentation output yields to and reclaims a shared screen.
         .always_on_top(false)
-        .skip_taskbar(false)
+        // The output is a display *surface*, not a second app. Keep it out of the
+        // taskbar / alt-tab so the operator only ever manages the main control
+        // window (the ProPresenter / EasyWorship model: one window, output lives
+        // only on the projector). The operator's preview is the in-app Live Output
+        // panel, not this window.
+        .skip_taskbar(true)
         .focused(false)
         // Build hidden; the exact monitor geometry is applied in *physical*
         // pixels below, then the window is shown. The builder's `.position` /
@@ -136,7 +170,14 @@ pub async fn open_broadcast_window(
     let _ = window.set_decorations(false);
     let _ = window.set_closable(false);
     let _ = window.set_minimizable(false);
-    let _ = window.set_skip_taskbar(false);
+    // Explicitly NOT always-on-top (see builder comment): the projector is a
+    // shared display the operator switches other apps onto and back. Clear the
+    // flag on the reuse path too in case a prior call had raised it.
+    let _ = window.set_always_on_top(false);
+    // Keep the surface hidden from the taskbar / alt-tab on the reuse path too
+    // (a window created hidden for NDI is already skip_taskbar; a freshly built
+    // one is set above). See the builder comment for the rationale.
+    let _ = window.set_skip_taskbar(true);
 
     // Clear any prior fullscreen first: a window that is already fullscreen
     // ignores set_position/set_size, so a reused window (or one being moved to a
@@ -171,8 +212,43 @@ pub async fn open_broadcast_window(
     // borderless (not exclusive) fullscreen on Windows, so always-on-top overlays
     // and alt-tab still behave normally.
     let _ = window.set_fullscreen(true);
-    let _ = window.set_focus();
 
+    // Do NOT leave focus on the output surface — that's what makes it feel like a
+    // second app has taken over. Hand focus straight back to the main control
+    // window so the operator never loses their workspace. (If the main window
+    // isn't found, we simply leave focus where the compositor put it.)
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_focus();
+    }
+
+    Ok(())
+}
+
+/// Bring the broadcast output window back to the front on its monitor.
+///
+/// The projector is a shared display: the operator can move another app (a
+/// browser video, a Chrome page) over the output mid-service, then wants to
+/// return to Lumen. Because the output is borderless and hidden from the
+/// taskbar/alt-tab, the OS gives the operator no handle to raise it again — so
+/// this command is that handle, wired to a UI control.
+///
+/// Raising is done with a momentary always-on-top pulse rather than
+/// `set_focus`: toggling topmost on then off lifts the window above the
+/// currently-foreground window (e.g. Chrome) and leaves it at the top of the
+/// normal z-band, without permanently pinning it (which would re-trap the
+/// projector) and without stealing keyboard focus from the operator's control
+/// window on the laptop screen.
+#[tauri::command]
+pub async fn focus_broadcast_window(
+    app: tauri::AppHandle,
+    output_id: String,
+) -> Result<(), String> {
+    let label = window_label(&output_id);
+    if let Some(window) = app.get_webview_window(&label) {
+        window.show().map_err(|e| e.to_string())?;
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_always_on_top(false);
+    }
     Ok(())
 }
 

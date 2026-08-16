@@ -58,6 +58,7 @@ pub fn run() {
             commands::broadcast::list_monitors,
             commands::broadcast::ensure_broadcast_window,
             commands::broadcast::open_broadcast_window,
+            commands::broadcast::focus_broadcast_window,
             commands::broadcast::close_broadcast_window,
             commands::broadcast::start_ndi,
             commands::broadcast::stop_ndi,
@@ -231,6 +232,35 @@ pub fn run() {
                 }
             } else {
                 log::info!("ONNX model not found. Semantic search disabled. Run 'bun run download:model' to download.");
+            }
+
+            // Tear the whole app down when the operator closes the main control
+            // window. The broadcast output windows are borderless, non-closable
+            // and hidden from the taskbar/alt-tab, so the operator can't dismiss
+            // them by hand — without this they linger fullscreen on the projector
+            // and keep the process alive (previously only a reboot cleared them).
+            // On the main window's close request we stop NDI (releasing its
+            // network senders), destroy every secondary window, then exit so the
+            // process terminates cleanly.
+            if let Some(main) = app.get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                main.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        if let Some(runtime) = app_handle
+                            .try_state::<Mutex<lumenlive_broadcast::ndi::NdiRuntime>>()
+                        {
+                            if let Ok(mut rt) = runtime.lock() {
+                                rt.stop_all();
+                            }
+                        }
+                        for (label, window) in app_handle.webview_windows() {
+                            if label != "main" {
+                                let _ = window.destroy();
+                            }
+                        }
+                        app_handle.exit(0);
+                    }
+                });
             }
 
             Ok(())

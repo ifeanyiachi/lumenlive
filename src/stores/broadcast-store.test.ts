@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Slide } from "@/types/slide"
 import type { VerseRenderData } from "@/types"
+import type { StageLayout } from "@/types/stage-layout"
 import type { LiveMedia } from "./broadcast-store"
 
 const emitToMock = vi.fn()
@@ -10,6 +11,31 @@ vi.mock("@tauri-apps/api/event", () => ({
 }))
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve()),
+}))
+
+// In-memory stand-in for the tauri-plugin-store persistence layer. `storeData`
+// is seeded per-test to drive the hydrate/migrate path. Declared via vi.hoisted
+// so the (hoisted) vi.mock factory below can close over it.
+const { storeData, mockThemeStore } = vi.hoisted(() => {
+  const data = new Map<string, unknown>()
+  return {
+    storeData: data,
+    mockThemeStore: {
+      get: (key: string) => Promise.resolve(data.get(key)),
+      set: (key: string, value: unknown) => {
+        data.set(key, value)
+        return Promise.resolve()
+      },
+      delete: (key: string) => {
+        data.delete(key)
+        return Promise.resolve()
+      },
+      save: () => Promise.resolve(),
+    },
+  }
+})
+vi.mock("@tauri-apps/plugin-store", () => ({
+  load: () => Promise.resolve(mockThemeStore),
 }))
 
 describe("broadcast store sync", () => {
@@ -68,12 +94,16 @@ describe("broadcast store sync", () => {
     emitToMock.mockClear()
     useBroadcastStore.getState().toggleBlackout()
     expect(useBroadcastStore.getState().blackout).toBe(true)
-    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
-      blackout: true,
-      clear: false,
-      logo: false,
-      logoImagePath: null,
-    })
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:output-visibility",
+      {
+        blackout: true,
+        clear: false,
+        logo: false,
+        logoImagePath: null,
+      }
+    )
 
     // Toggling again restores the output.
     useBroadcastStore.getState().toggleBlackout()
@@ -99,12 +129,16 @@ describe("broadcast store sync", () => {
     useBroadcastStore.getState().toggleLogo()
     expect(useBroadcastStore.getState().showLogo).toBe(true)
     expect(useBroadcastStore.getState().clearForeground).toBe(false)
-    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
-      blackout: false,
-      clear: false,
-      logo: true,
-      logoImagePath: "C:/logos/church.png",
-    })
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:output-visibility",
+      {
+        blackout: false,
+        clear: false,
+        logo: true,
+        logoImagePath: "C:/logos/church.png",
+      }
+    )
 
     // Clearing the image also drops the live logo.
     useBroadcastStore.getState().setLogoImage(null)
@@ -123,12 +157,16 @@ describe("broadcast store sync", () => {
     expect(useBroadcastStore.getState().clearForeground).toBe(true)
     // Enabling Clear clears Black so the screen shows exactly one state.
     expect(useBroadcastStore.getState().blackout).toBe(false)
-    expect(emitToMock).toHaveBeenCalledWith("broadcast", "broadcast:output-visibility", {
-      blackout: false,
-      clear: true,
-      logo: false,
-      logoImagePath: null,
-    })
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:output-visibility",
+      {
+        blackout: false,
+        clear: true,
+        logo: false,
+        logoImagePath: null,
+      }
+    )
   })
 
   it("delivers the base theme — the output's own by default, the override when set", async () => {
@@ -414,9 +452,7 @@ describe("broadcast store theme designer", () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const store = useBroadcastStore.getState()
     store.duplicateTheme(store.themes[0].id)
-    const custom = useBroadcastStore
-      .getState()
-      .themes.find((t) => !t.builtin)!
+    const custom = useBroadcastStore.getState().themes.find((t) => !t.builtin)!
     useBroadcastStore.getState().setDefaultTheme(custom.id)
     expect(useBroadcastStore.getState().defaultThemeId).toBe(custom.id)
 
@@ -844,5 +880,280 @@ describe("broadcast store — embedded web output routing", () => {
       )
     }
     expect(useBroadcastStore.getState().liveWeb).toBeNull()
+  })
+})
+
+// ── Split-sensitive coverage added in Wave 3 / S1 Phase 1 (audit gap-fill) ──
+// These guard the paths the broadcast-store slicing will touch: the stage-layout
+// designer's own undo stack (which S1 will fold into a generic `createDesignerSlice`
+// alongside the theme designer) and the paginated-verse stepping (which moves into
+// the `live-transport` slice).
+
+describe("broadcast store stage-layout designer", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("addZone appends a zone and can be undone/redone (parity with the theme designer)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditingStageLayout(store.stageLayouts[0].id)
+
+    const before = useBroadcastStore.getState().draftStageLayout!.zones.length
+    useBroadcastStore.getState().addZone("clock")
+    expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
+      before + 1
+    )
+
+    useBroadcastStore.getState().stageUndo()
+    expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
+      before
+    )
+
+    useBroadcastStore.getState().stageRedo()
+    expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
+      before + 1
+    )
+  })
+
+  it("discardStageDraft reverts in-progress changes to the pristine layout", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const store = useBroadcastStore.getState()
+    store.startEditingStageLayout(store.stageLayouts[0].id)
+    const original = useBroadcastStore.getState().draftStageLayout!.zones.length
+    useBroadcastStore.getState().addZone("timer")
+    expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
+      original + 1
+    )
+
+    // Discard reloads the pristine layout (draft stays open, changes dropped).
+    useBroadcastStore.getState().discardStageDraft()
+    expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
+      original
+    )
+  })
+})
+
+describe("broadcast store — verse pagination stepping", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("next/prevVersePage walk the pages and no-op at the bounds", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const pages: VerseRenderData[] = [
+      { reference: "R", segments: [{ text: "p0" }] },
+      { reference: "R", segments: [{ text: "p1" }] },
+      { reference: "R", segments: [{ text: "p2" }] },
+    ]
+    useBroadcastStore.setState({
+      liveVersePages: pages,
+      liveVersePageIndex: 0,
+      liveVerse: pages[0],
+    })
+    const s = () => useBroadcastStore.getState()
+
+    expect(s().prevVersePage()).toBe(false) // already at first page
+    expect(s().nextVersePage()).toBe(true)
+    expect(s().liveVersePageIndex).toBe(1)
+    expect(s().liveVerse).toBe(pages[1])
+    expect(s().nextVersePage()).toBe(true)
+    expect(s().liveVersePageIndex).toBe(2)
+    expect(s().nextVersePage()).toBe(false) // already at last page
+    expect(s().prevVersePage()).toBe(true)
+    expect(s().liveVersePageIndex).toBe(1)
+    expect(s().liveVerse).toBe(pages[1])
+  })
+
+  it("both stepping calls no-op for a single-page verse (no pages)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({ liveVersePages: null, liveVersePageIndex: 0 })
+    expect(useBroadcastStore.getState().nextVersePage()).toBe(false)
+    expect(useBroadcastStore.getState().prevVersePage()).toBe(false)
+  })
+})
+
+describe("broadcast store — persistence hydrate/migrate", () => {
+  beforeEach(() => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    storeData.clear()
+    vi.resetModules()
+  })
+
+  it("migrates legacy activeThemeId/altActiveThemeId into per-output themeIds", async () => {
+    storeData.set("activeThemeId", "custom-main")
+    storeData.set("altActiveThemeId", "custom-alt")
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    await hydrateBroadcastThemes()
+    const outputs = useBroadcastStore.getState().outputs
+    expect(outputs.find((o) => o.id === "main")?.themeId).toBe("custom-main")
+    expect(outputs.find((o) => o.id === "alt")?.themeId).toBe("custom-alt")
+  })
+
+  it("migrates the legacy global stageDisplayConfig onto the alt output as stage mode", async () => {
+    storeData.set("stageDisplayConfig", { enabled: true, showClock: true })
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    await hydrateBroadcastThemes()
+    const alt = useBroadcastStore.getState().outputs.find((o) => o.id === "alt")
+    expect(alt?.mode).toBe("stage")
+    expect(alt?.stageConfig).toBeTruthy()
+    // The legacy global key is deleted once migrated to per-output config.
+    expect(storeData.has("stageDisplayConfig")).toBe(false)
+  })
+
+  it("migrates legacy baseThemeId into the base-background shape", async () => {
+    storeData.set("baseThemeId", "theme-xyz")
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    await hydrateBroadcastThemes()
+    expect(useBroadcastStore.getState().baseBackground).toEqual({
+      kind: "theme",
+      themeId: "theme-xyz",
+    })
+  })
+
+  it("prefers the new base-background shape over the legacy baseThemeId", async () => {
+    storeData.set("baseThemeId", "legacy")
+    storeData.set("baseBackground", { kind: "black" })
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    await hydrateBroadcastThemes()
+    expect(useBroadcastStore.getState().baseBackground).toEqual({
+      kind: "black",
+    })
+  })
+
+  it("leaves the default outputs untouched when nothing is persisted", async () => {
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    const before = useBroadcastStore.getState().outputs
+    await hydrateBroadcastThemes()
+    // Empty patch → no setState → same reference (no needless churn).
+    expect(useBroadcastStore.getState().outputs).toBe(before)
+  })
+
+  it("drops a stale defaultThemeId whose theme no longer exists", async () => {
+    storeData.set("defaultThemeId", "deleted-theme-id")
+    const { useBroadcastStore, hydrateBroadcastThemes } =
+      await import("./broadcast-store")
+    const before = useBroadcastStore.getState().defaultThemeId
+    await hydrateBroadcastThemes()
+    expect(useBroadcastStore.getState().defaultThemeId).toBe(before)
+  })
+})
+
+// ── Split-sensitive coverage for S1 Phase 3 (before the generic factories) ──
+// The undo debounce and stage-layout CRUD both get generalized in Phase 3
+// (createDesignerSlice / createCrudSlice), so pin their behaviour first.
+
+describe("broadcast store — undo debounce (theme designer)", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("coalesces rapid draft edits into a single undo snapshot", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1000)
+      const store = useBroadcastStore.getState()
+      store.startEditing(store.themes[0].id)
+      const original = useBroadcastStore.getState().draftTheme!.name
+      useBroadcastStore.getState().updateDraft({ name: "Edit A" })
+      vi.setSystemTime(1100) // +100ms — within the 300ms window
+      useBroadcastStore.getState().updateDraft({ name: "Edit B" })
+      expect(useBroadcastStore.getState().draftTheme!.name).toBe("Edit B")
+      // One snapshot for both rapid edits → a single undo reverts to original.
+      useBroadcastStore.getState().undo()
+      expect(useBroadcastStore.getState().draftTheme!.name).toBe(original)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("records a separate snapshot once the debounce window elapses", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1000)
+      const store = useBroadcastStore.getState()
+      store.startEditing(store.themes[0].id)
+      useBroadcastStore.getState().updateDraft({ name: "Edit A" })
+      vi.setSystemTime(1400) // +400ms — past the 300ms window
+      useBroadcastStore.getState().updateDraft({ name: "Edit B" })
+      // Two snapshots → the first undo reverts only the second edit.
+      useBroadcastStore.getState().undo()
+      expect(useBroadcastStore.getState().draftTheme!.name).toBe("Edit A")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe("broadcast store — stage-layout CRUD", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  it("saves (upsert), renames, pins, duplicates, and deletes a custom layout", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const s = () => useBroadcastStore.getState()
+    const custom: StageLayout = {
+      ...structuredClone(s().stageLayouts[0]),
+      id: "custom-stage-1",
+      name: "My Layout",
+      builtin: false,
+    }
+    s().saveStageLayout(custom)
+    expect(s().stageLayouts.find((l) => l.id === "custom-stage-1")?.name).toBe(
+      "My Layout"
+    )
+
+    // Same id again → update in place, not append.
+    const count = s().stageLayouts.length
+    s().saveStageLayout({ ...custom, name: "Updated" })
+    expect(s().stageLayouts.length).toBe(count)
+    expect(s().stageLayouts.find((l) => l.id === "custom-stage-1")?.name).toBe(
+      "Updated"
+    )
+
+    s().renameStageLayout("custom-stage-1", "Renamed")
+    expect(s().stageLayouts.find((l) => l.id === "custom-stage-1")?.name).toBe(
+      "Renamed"
+    )
+
+    s().togglePinStageLayout("custom-stage-1")
+    expect(
+      s().stageLayouts.find((l) => l.id === "custom-stage-1")?.pinned
+    ).toBe(true)
+
+    const before = s().stageLayouts.length
+    s().duplicateStageLayout("custom-stage-1")
+    expect(s().stageLayouts.length).toBe(before + 1)
+    expect(s().stageLayouts.some((l) => l.name === "Renamed Copy")).toBe(true)
+
+    s().deleteStageLayout("custom-stage-1")
+    expect(
+      s().stageLayouts.find((l) => l.id === "custom-stage-1")
+    ).toBeUndefined()
+  })
+
+  it("never deletes a built-in layout", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const s = () => useBroadcastStore.getState()
+    const builtin = s().stageLayouts.find((l) => l.builtin)!
+    s().deleteStageLayout(builtin.id)
+    expect(s().stageLayouts.some((l) => l.id === builtin.id)).toBe(true)
   })
 })

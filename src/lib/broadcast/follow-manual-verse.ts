@@ -29,7 +29,8 @@ export function shouldStageManualVerse(params: {
   /** Source that staged the current preview, if any. */
   previewSource: "schedule" | "queue" | "manual" | null
 }): boolean {
-  const { isLive, wasLive, hasSelection, previewPending, previewSource } = params
+  const { isLive, wasLive, hasSelection, previewPending, previewSource } =
+    params
   if (!isLive) return false
   // Off→on Live transition: start clean, don't auto-stage the default selection.
   if (!wasLive) return false

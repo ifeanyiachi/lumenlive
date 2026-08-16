@@ -45,7 +45,7 @@ import {
   type DragPayload,
   type DragKind,
 } from "@/stores/drag-store"
-import { presentQueueVerse } from "@/hooks/use-broadcast"
+import { presentQueueVerse, presentQueueVerseLive } from "@/hooks/use-broadcast"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
@@ -635,6 +635,10 @@ function ScheduleAllTab({
                         store.setSelectedItem(item.id)
                         if (item.type !== "header") void store.goToItem(index)
                       }}
+                      onDoubleClick={() => {
+                        if (item.type !== "header")
+                          void store.presentLive(index)
+                      }}
                     >
                       <span
                         className="flex touch-none items-center"
@@ -788,6 +792,9 @@ function ScheduleAllTab({
                   onClick={() => {
                     store.setSelectedItem(item.id)
                     if (item.type !== "header") void store.goToItem(index)
+                  }}
+                  onDoubleClick={() => {
+                    if (item.type !== "header") void store.presentLive(index)
                   }}
                 >
                   <div className="relative">
@@ -956,6 +963,10 @@ function AIVersesTab() {
     presentQueueVerse(item, index)
   }
 
+  const handlePresentLive = (item: QueueItem, index: number) => {
+    presentQueueVerseLive(item, index)
+  }
+
   const handleAddToSchedule = (item: QueueItem) => {
     if (!activeScheduleId) return
     const schedule = useScheduleStore.getState().getActiveSchedule()
@@ -1033,6 +1044,7 @@ function AIVersesTab() {
                         : "hover:bg-muted/50"
                   )}
                   onClick={() => handlePresent(item, idx)}
+                  onDoubleClick={() => handlePresentLive(item, idx)}
                 >
                   <span
                     className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"

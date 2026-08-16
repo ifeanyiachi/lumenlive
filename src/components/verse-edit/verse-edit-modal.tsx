@@ -22,6 +22,7 @@ import {
 } from "@/lib/tiptap-conversion"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { openSettings } from "@/lib/settings-dialog"
 import { verseEditKey } from "@/types/verse-edit"
@@ -147,7 +148,7 @@ export function VerseEditModal({
 
   const activeTheme = useBroadcastStore((s) => {
     const theme = s.themes.find(
-      (t) => t.id === s.outputs.find((o) => o.id === "main")?.themeId
+      (t) => t.id === findOutput(s.outputs, "main")?.themeId
     )
     return theme ?? s.themes[0]
   })

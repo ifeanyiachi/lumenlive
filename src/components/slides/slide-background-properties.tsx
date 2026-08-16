@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -207,7 +207,7 @@ function ImageControls({
   const hasImage = !!bg.imageUrl
 
   const handleSelectAsset = async (asset: MediaAsset) => {
-    const dataUrl = convertFileSrc(asset.filePath)
+    const dataUrl = safeFileSrc(asset.filePath)
     await preloadSlideImage(dataUrl)
     onUpdate({ ...bg, imageUrl: dataUrl, mediaAssetId: asset.id })
   }
@@ -382,12 +382,12 @@ function VideoControls({
   const hasVideo = !!bg.videoUrl
 
   const handleSelectAsset = (asset: MediaAsset) => {
-    const url = convertFileSrc(asset.filePath)
+    const url = safeFileSrc(asset.filePath)
     onUpdate({ ...bg, videoUrl: url, mediaAssetId: asset.id })
   }
 
   const handleSelectFromDevice = (filePath: string) => {
-    const url = convertFileSrc(filePath)
+    const url = safeFileSrc(filePath)
     onUpdate({ ...bg, videoUrl: url, mediaAssetId: undefined })
   }
 

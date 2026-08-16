@@ -58,7 +58,11 @@ export function editableSlideToSlideTheme(
     builtin: false,
     variants: [
       { layout: "content-only", background, elements },
-      { layout: "blank", background: structuredClone(background), elements: [] },
+      {
+        layout: "blank",
+        background: structuredClone(background),
+        elements: [],
+      },
     ],
   }
 }

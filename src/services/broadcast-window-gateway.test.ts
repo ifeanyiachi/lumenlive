@@ -26,6 +26,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 import {
   closeBroadcastWindow,
+  focusBroadcastWindow,
   ensureBroadcastWindow,
   isBroadcastWindowOpen,
   listMonitors,
@@ -69,6 +70,13 @@ describe("broadcast-window-gateway", () => {
   it("closeBroadcastWindow invokes close_broadcast_window", () => {
     closeBroadcastWindow("main")
     expect(invokeMock).toHaveBeenCalledWith("close_broadcast_window", {
+      outputId: "main",
+    })
+  })
+
+  it("focusBroadcastWindow invokes focus_broadcast_window", () => {
+    focusBroadcastWindow("main")
+    expect(invokeMock).toHaveBeenCalledWith("focus_broadcast_window", {
       outputId: "main",
     })
   })

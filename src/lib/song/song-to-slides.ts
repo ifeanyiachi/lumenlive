@@ -1,13 +1,13 @@
-import {
-  BUILTIN_SLIDE_THEMES,
-  createDefaultTextElement,
-  type AnimatedBackground,
-  type Presentation,
-  type Slide,
-  type SlideBackground,
-  type SlideElement,
-  type SlideTextElement,
-  type SlideTheme,
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { createDefaultTextElement } from "@/lib/slide-defaults"
+import type {
+  AnimatedBackground,
+  Presentation,
+  Slide,
+  SlideBackground,
+  SlideElement,
+  SlideTextElement,
+  SlideTheme,
 } from "@/types/slide"
 import type {
   Song,

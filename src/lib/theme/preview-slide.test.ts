@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { buildThemePreviewSlide } from "./preview-slide"
-import { BUILTIN_SLIDE_THEMES } from "@/types/slide"
+import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import type { SlideTheme } from "@/types/slide"
 
 function counter() {
@@ -16,7 +16,11 @@ describe("buildThemePreviewSlide", () => {
       category: "song",
       builtin: true,
       variants: [
-        { layout: "blank", background: { type: "solid", color: "#000" }, elements: [] },
+        {
+          layout: "blank",
+          background: { type: "solid", color: "#000" },
+          elements: [],
+        },
         {
           layout: "content-only",
           background: { type: "solid", color: "#123456" },
@@ -35,7 +39,11 @@ describe("buildThemePreviewSlide", () => {
       category: "song",
       builtin: true,
       variants: [
-        { layout: "title", background: { type: "solid", color: "#abcdef" }, elements: [] },
+        {
+          layout: "title",
+          background: { type: "solid", color: "#abcdef" },
+          elements: [],
+        },
       ],
     }
     const slide = buildThemePreviewSlide(theme, counter())

@@ -75,7 +75,7 @@ function TextToolbar({ element }: { element: SlideTextElement }) {
         type="number"
         value={element.fontSize}
         onChange={(e) => update({ fontSize: Number(e.target.value) })}
-        className="h-7 w-16 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-7 w-16 [appearance:textfield] text-xs [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         min={8}
         max={200}
       />
@@ -275,7 +275,7 @@ function ScriptureToolbar({ element }: { element: SlideScriptureElement }) {
         type="number"
         value={element.fontSize}
         onChange={(e) => update({ fontSize: Number(e.target.value) })}
-        className="h-7 w-16 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-7 w-16 [appearance:textfield] text-xs [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         min={8}
         max={200}
         title="Verse font size"

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { CanvasVerse } from "@/components/ui/canvas-verse"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useBibleStore, useBroadcastStore, useSettingsStore } from "@/stores"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import type { LiveMedia } from "@/stores/broadcast-store"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
@@ -161,7 +162,7 @@ function MediaPreview({
   const audioRef = useRef<HTMLAudioElement>(null)
   const src = useMemo(() => {
     try {
-      return convertFileSrc(filePath)
+      return safeFileSrc(filePath)
     } catch {
       return filePath
     }
@@ -178,8 +179,11 @@ function MediaPreview({
 
   if (mediaType === "video") {
     return (
-      <div className="relative size-full overflow-hidden">
+      <div className="relative flex size-full items-center justify-center overflow-hidden">
         <MediaFitBackdrop media={media} src={src} />
+        {/* 16:9 output frame, letterboxed into the panel: the media fits inside
+            this frame exactly as it does on the audience 1920×1080 canvas, so the
+            operator sees the same crop instead of one cropped to the panel shape. */}
         <video
           ref={videoRef}
           key={filePath}
@@ -187,7 +191,7 @@ function MediaPreview({
           autoPlay
           muted={!monitorAudio}
           playsInline
-          className="relative size-full"
+          className="relative aspect-video max-h-full max-w-full"
           style={mediaFitStyle(media)}
         />
         <OutputProgressMirror />
@@ -214,12 +218,14 @@ function MediaPreview({
   }
 
   return (
-    <div className="relative size-full overflow-hidden">
+    <div className="relative flex size-full items-center justify-center overflow-hidden">
       <MediaFitBackdrop media={media} src={src} />
+      {/* 16:9 output frame (see the video branch): the image is cropped to the
+          audience frame, not to the panel's aspect ratio. */}
       <img
         src={src}
         alt=""
-        className="relative size-full"
+        className="relative aspect-video max-h-full max-w-full"
         style={mediaFitStyle(media)}
       />
     </div>
@@ -298,13 +304,11 @@ export function PreviewPanel() {
 
   const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore(
-    (s) => s.outputs.find((o) => o.id === "main")?.themeId ?? ""
+    (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
 
   const activeTheme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
-  const mainOutput = useBroadcastStore((s) =>
-    s.outputs.find((o) => o.id === "main")
-  )
+  const mainOutput = useBroadcastStore((s) => findOutput(s.outputs, "main"))
   const translation =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ??
     "KJV"

@@ -54,37 +54,36 @@ window.addEventListener("unhandledrejection", (e) => {
   reportCrash("unhandledrejection", e.reason)
 })
 
-// [TEMP screenshot patch] In a plain browser there is no Tauri backend, so the
-// store hydration promises never settle and React never mounts. Race the whole
-// boot against a short timeout so the UI paints regardless. Revert before commit.
-const bootTimeout = new Promise((resolve) => setTimeout(resolve, 1500))
-Promise.race([
-  invoke("stop_transcription")
-    .catch(() => {})
-    .then(() =>
-      Promise.all([
-        hydrateSettings(),
-        hydrateBibleStore(),
-        hydrateBroadcastThemes(),
-        hydrateMediaStore(),
-        hydrateSongStore(),
-        hydratePresentations(),
-        hydrateSchedules(),
-        hydrateAlertTemplates(),
-        hydrateCountdownTimers(),
-        hydrateVerseEdits(),
-        hydrateWebBookmarks(),
-      ])
-    )
-    .then(() => initBiblePersistence())
-    .catch(() => {}),
-  bootTimeout,
-]).finally(() => {
-  createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-      <TooltipProvider>
-        <App />
-      </TooltipProvider>
-    </StrictMode>
+// Reset the STT pipeline to a clean state (a webview reload leaves the Rust
+// backend running, so a stale `stt_active` would make the next
+// `start_transcription` fail), hydrate every persisted store, then mount React
+// so the first paint already reflects the user's data. Each step swallows its
+// own failure so a single store's hydration error can't block boot.
+invoke("stop_transcription")
+  .catch(() => {})
+  .then(() =>
+    Promise.all([
+      hydrateSettings(),
+      hydrateBibleStore(),
+      hydrateBroadcastThemes(),
+      hydrateMediaStore(),
+      hydrateSongStore(),
+      hydratePresentations(),
+      hydrateSchedules(),
+      hydrateAlertTemplates(),
+      hydrateCountdownTimers(),
+      hydrateVerseEdits(),
+      hydrateWebBookmarks(),
+    ])
   )
-})
+  .then(() => initBiblePersistence())
+  .catch(() => {})
+  .finally(() => {
+    createRoot(document.getElementById("root")!).render(
+      <StrictMode>
+        <TooltipProvider>
+          <App />
+        </TooltipProvider>
+      </StrictMode>
+    )
+  })
