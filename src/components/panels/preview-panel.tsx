@@ -10,12 +10,7 @@ import { findOutput } from "@/lib/broadcast/output-selectors"
 import type { LiveMedia } from "@/stores/broadcast-store"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
-import {
-  renderSlide,
-  slideHasVideoBackground,
-  slideHasAnimatedBackground,
-} from "@/lib/slide-renderer"
-import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
+import { SlideCanvas } from "@/components/slides/slide-canvas"
 import { mediaFitStyle } from "@/lib/media-fit"
 import { MediaFitBackdrop } from "@/components/media/media-fit-backdrop"
 import {
@@ -26,102 +21,6 @@ import {
   PlayIcon,
 } from "lucide-react"
 import { ytMute, ytUnmute } from "@/lib/youtube-post-message"
-
-function SlidePreviewCanvas({
-  slide,
-}: {
-  slide: import("@/types/slide").Slide
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const videoCacheRef = useRef<Map<string, HTMLVideoElement>>(new Map())
-  const rafRef = useRef<number>(0)
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    canvas.width = 1920
-    canvas.height = 1080
-    renderSlide(
-      ctx,
-      slide,
-      1920,
-      1080,
-      getSlideImageCache(),
-      videoCacheRef.current,
-      {
-        frameTime: performance.now(),
-      }
-    )
-  }, [slide])
-
-  useEffect(() => {
-    draw()
-    if (slide.background.type === "image") {
-      ensureSlideImages(slide.background.imageUrl, draw)
-    }
-    for (const el of slide.elements) {
-      if (el.type === "image") ensureSlideImages(el.imageUrl, draw)
-    }
-
-    cancelAnimationFrame(rafRef.current)
-    if (videoRef.current) {
-      videoRef.current.pause()
-    }
-
-    if (slideHasAnimatedBackground(slide)) {
-      const tick = () => {
-        draw()
-        rafRef.current = requestAnimationFrame(tick)
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    } else if (slideHasVideoBackground(slide)) {
-      const url = slide.background.videoUrl!
-      const cached = videoCacheRef.current.get(url)
-      if (cached) {
-        videoRef.current = cached
-        cached.currentTime = 0
-        void cached.play()
-        const tick = () => {
-          draw()
-          rafRef.current = requestAnimationFrame(tick)
-        }
-        rafRef.current = requestAnimationFrame(tick)
-      } else {
-        const video = document.createElement("video")
-        video.muted = true
-        video.loop = true
-        video.playsInline = true
-        video.src = url
-        video.onloadeddata = () => {
-          videoCacheRef.current.set(url, video)
-          videoRef.current = video
-          void video.play()
-          const tick = () => {
-            draw()
-            rafRef.current = requestAnimationFrame(tick)
-          }
-          rafRef.current = requestAnimationFrame(tick)
-        }
-        video.load()
-      }
-    }
-
-    return () => {
-      cancelAnimationFrame(rafRef.current)
-    }
-  }, [draw, slide])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="max-h-full max-w-full"
-      style={{ aspectRatio: "16/9", objectFit: "contain" }}
-    />
-  )
-}
 
 function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0
@@ -483,7 +382,7 @@ export function PreviewPanel() {
         ) : showMedia ? (
           <MediaPreview media={liveMedia} monitorAudio={monitorAudio} />
         ) : showSlide ? (
-          <SlidePreviewCanvas slide={liveSlide} />
+          <SlideCanvas slide={liveSlide} />
         ) : (
           <CanvasVerse
             theme={activeTheme}

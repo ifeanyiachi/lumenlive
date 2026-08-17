@@ -7,6 +7,7 @@ import {
   computeRemainingSeconds,
   resolveTargetEpoch,
 } from "@/lib/countdown/timer"
+import { resolveTimerTheme as resolveThemeFor } from "@/lib/countdown/resolve-theme"
 import {
   broadcastOutputEvent,
   BROADCAST_EVENTS,
@@ -14,16 +15,14 @@ import {
 import { useBroadcastStore } from "./broadcast-store"
 
 /**
- * The `countdown`-category theme a timer renders with, or `undefined` when it is
- * in custom mode (or the referenced theme is gone). Resolved from the broadcast
- * store and shipped with each countdown event so the output window can paint the
- * themed composition without reaching into the theme store itself.
+ * The `countdown`-category theme a timer ships to the output with, resolved from
+ * the live theme list via the shared pure {@link resolveThemeFor} — the operator
+ * overlay preview resolves it the same way, so the two never disagree. Shipped
+ * with each countdown event so the output window can paint the themed composition
+ * without reaching into the theme store itself.
  */
 function resolveTimerTheme(timer: CountdownTimer): BroadcastTheme | undefined {
-  if (timer.styleMode !== "theme" || !timer.themeId) return undefined
-  return useBroadcastStore
-    .getState()
-    .themes.find((t) => t.id === timer.themeId && t.category === "countdown")
+  return resolveThemeFor(timer, useBroadcastStore.getState().themes)
 }
 
 interface CountdownState {

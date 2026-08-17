@@ -21,20 +21,14 @@ import {
   type MediaProgressPayload,
   type WebProgressPayload,
 } from "@/services/broadcast-content-gateway"
-import { useAlertStore } from "@/stores/alert-store"
-import { alertBarLayout } from "@/lib/broadcast-output/overlays"
+import { OverlayCanvas } from "@/components/broadcast/overlay-canvas"
 import type { LiveMedia, LiveWeb } from "@/stores/broadcast-store"
 import { toVerseRenderData, presentQueueVerse } from "@/hooks/use-broadcast"
 import { focusBroadcastWindow } from "@/services/broadcast-window-gateway"
 import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
-import {
-  renderSlide,
-  slideHasVideoBackground,
-  slideHasAnimatedBackground,
-} from "@/lib/slide-renderer"
-import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
+import { SlideCanvas } from "@/components/slides/slide-canvas"
 import { mediaFitStyle } from "@/lib/media-fit"
 import { MediaFitBackdrop } from "@/components/media/media-fit-backdrop"
 import {
@@ -68,105 +62,6 @@ import {
   isAtLiveEdge,
 } from "@/lib/live-output/transport"
 import { applyMuteParam } from "@/lib/live-output/presentation"
-
-function LiveSlideCanvas({
-  slide,
-  hideElements,
-}: {
-  slide: import("@/types/slide").Slide
-  /** Mirror the audience "Clear": draw the backdrop but hide text/elements. */
-  hideElements?: boolean
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const videoCacheRef = useRef<Map<string, HTMLVideoElement>>(new Map())
-  const rafRef = useRef<number>(0)
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    canvas.width = 1920
-    canvas.height = 1080
-    renderSlide(
-      ctx,
-      slide,
-      1920,
-      1080,
-      getSlideImageCache(),
-      videoCacheRef.current,
-      {
-        frameTime: performance.now(),
-        hideElements,
-      }
-    )
-  }, [slide, hideElements])
-
-  useEffect(() => {
-    draw()
-    if (slide.background.type === "image") {
-      ensureSlideImages(slide.background.imageUrl, draw)
-    }
-    for (const el of slide.elements) {
-      if (el.type === "image") ensureSlideImages(el.imageUrl, draw)
-    }
-
-    cancelAnimationFrame(rafRef.current)
-    if (videoRef.current) {
-      videoRef.current.pause()
-    }
-
-    if (slideHasAnimatedBackground(slide)) {
-      const tick = () => {
-        draw()
-        rafRef.current = requestAnimationFrame(tick)
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    } else if (slideHasVideoBackground(slide)) {
-      const url = slide.background.videoUrl!
-      const cached = videoCacheRef.current.get(url)
-      const startLoop = () => {
-        const tick = () => {
-          draw()
-          rafRef.current = requestAnimationFrame(tick)
-        }
-        rafRef.current = requestAnimationFrame(tick)
-      }
-      if (cached) {
-        videoRef.current = cached
-        cached.currentTime = 0
-        void cached.play()
-        startLoop()
-      } else {
-        const video = document.createElement("video")
-        video.muted = true
-        video.loop = true
-        video.playsInline = true
-        video.src = url
-        video.onloadeddata = () => {
-          videoCacheRef.current.set(url, video)
-          videoRef.current = video
-          void video.play()
-          startLoop()
-        }
-        video.load()
-      }
-    }
-
-    return () => {
-      cancelAnimationFrame(rafRef.current)
-    }
-  }, [draw, slide])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="max-h-full max-w-full"
-      style={{ aspectRatio: "16/9", objectFit: "contain" }}
-    />
-  )
-}
 
 /**
  * Operator monitor for the live media item. Renders a muted mirror of the
@@ -801,169 +696,6 @@ function LiveWebMonitor({
   )
 }
 
-/**
- * DOM mirror of the props overlay for the operator's live-display preview. This
- * intentionally parallels the canvas painter in `lib/broadcast-output/overlays`
- * (the audience output) — every prop type handled there must be handled here too
- * or it silently shows on the external monitor but not in preview. The preview is
- * width-relative (`cqw`) so it scales with whatever size the panel is.
- */
-function PropsOverlay() {
-  const props = useBroadcastStore((s) => s.props)
-  const activeProps = props.filter((p) => p.active)
-
-  if (activeProps.length === 0) return null
-
-  // Preview font is authored at 1920px; size relative to container width so it
-  // tracks the audience output regardless of the panel's on-screen size.
-  const fontCqw = (fontSize: number) => `${(fontSize / 1920) * 100}cqw`
-
-  return (
-    <div
-      className="pointer-events-none absolute inset-0"
-      style={{ containerType: "size" }}
-    >
-      <style>{`@keyframes live-prop-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
-      {activeProps.map((prop) => {
-        const boxStyle = {
-          left: `${prop.x}%`,
-          top: `${prop.y}%`,
-          width: `${prop.width}%`,
-          height: `${prop.height}%`,
-        } as const
-
-        if (prop.type === "marquee") {
-          const speed = Math.max(prop.scrollSpeed ?? 120, 1)
-          const durationSec = (600 / speed) * 4
-          const toLeft = (prop.scrollDirection ?? "left") === "left"
-          return (
-            <div
-              key={prop.id}
-              className="absolute flex items-center overflow-hidden whitespace-nowrap"
-              style={{
-                ...boxStyle,
-                backgroundColor: prop.backgroundColor ?? "transparent",
-                color: prop.color ?? "#ffffff",
-                fontFamily: prop.fontFamily || "sans-serif",
-                fontSize: fontCqw(prop.fontSize ?? 32),
-                fontWeight: prop.fontWeight ?? 600,
-              }}
-            >
-              <div
-                className="flex shrink-0"
-                style={{
-                  animation: `live-prop-marquee ${durationSec}s linear infinite`,
-                  animationDirection: toLeft ? "normal" : "reverse",
-                }}
-              >
-                <span className="px-[1em]">{prop.text}</span>
-                <span className="px-[1em]">{prop.text}</span>
-              </div>
-            </div>
-          )
-        }
-
-        if (prop.type === "text") {
-          const align = prop.textAlign ?? "center"
-          return (
-            <div
-              key={prop.id}
-              className="absolute flex items-center overflow-hidden"
-              style={{
-                ...boxStyle,
-                justifyContent:
-                  align === "left"
-                    ? "flex-start"
-                    : align === "right"
-                      ? "flex-end"
-                      : "center",
-                backgroundColor: prop.backgroundColor ?? "transparent",
-              }}
-            >
-              <span
-                className="leading-tight whitespace-pre-wrap"
-                style={{
-                  fontFamily: prop.fontFamily || "sans-serif",
-                  fontSize: fontCqw(prop.fontSize ?? 32),
-                  fontWeight: prop.fontWeight ?? 400,
-                  color: prop.color ?? "#ffffff",
-                  textAlign: align,
-                  padding: "0 0.25em",
-                }}
-              >
-                {prop.text}
-              </span>
-            </div>
-          )
-        }
-
-        return prop.imageUrl ? (
-          <div
-            key={prop.id}
-            className="absolute flex items-center justify-center overflow-hidden"
-            style={boxStyle}
-          >
-            <img
-              src={safeFileSrc(prop.imageUrl!)}
-              alt=""
-              className="size-full object-contain"
-              style={{ opacity: prop.opacity ?? 1 }}
-            />
-          </div>
-        ) : null
-      })}
-    </div>
-  )
-}
-
-/**
- * DOM mirror of the alert overlay for the operator's live-display preview. Like
- * {@link PropsOverlay}, this intentionally parallels the canvas painter in
- * `lib/broadcast-output/overlays` (the audience output) so the operator confirms
- * an alert exactly where it lands on the audience feed — bar height/anchor come
- * from the shared {@link alertBarLayout}, and the font is authored at 1920px and
- * sized in `cqw` so it tracks the output regardless of the panel's on-screen size.
- */
-function AlertPreviewOverlay() {
-  const activeAlerts = useAlertStore((s) => s.activeAlerts)
-  const templates = useAlertStore((s) => s.templates)
-
-  if (activeAlerts.length === 0) return null
-
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 z-30 overflow-hidden"
-      style={{ containerType: "size" }}
-    >
-      {activeAlerts.map((alert) => {
-        const template = templates.find((t) => t.id === alert.templateId)
-        if (!template) return null
-
-        const { heightFrac, top, fullscreen } = alertBarLayout(template)
-
-        return (
-          <div
-            key={alert.id}
-            className="absolute inset-x-0 flex items-center justify-center px-[2cqw] text-center"
-            style={{
-              height: `${heightFrac * 100}%`,
-              top: fullscreen || top ? 0 : undefined,
-              bottom: fullscreen || top ? undefined : 0,
-              backgroundColor: template.backgroundColor,
-              color: template.textColor,
-              fontFamily: template.fontFamily || "Inter, sans-serif",
-              fontSize: `${(template.fontSize / 1920) * 100}cqw`,
-              fontWeight: 600,
-            }}
-          >
-            <span className="line-clamp-3 leading-tight">{alert.message}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 export function LiveOutputPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
   const themes = useBroadcastStore((s) => s.themes)
@@ -1318,7 +1050,7 @@ export function LiveOutputPanel() {
               onAir={isLive}
             />
           ) : showSlide ? (
-            <LiveSlideCanvas slide={liveSlide} />
+            <SlideCanvas slide={liveSlide} />
           ) : (
             <CanvasVerse
               theme={activeTheme}
@@ -1330,8 +1062,11 @@ export function LiveOutputPanel() {
             />
           )}
         </div>
-        <PropsOverlay />
-        <AlertPreviewOverlay />
+        {/* Single overlay layer (props / alerts / countdowns) drawn through the
+            audience canvas painters — a faithful mirror of the projector/NDI feed,
+            not a second DOM implementation. Below the Logo/Black finishers (z-20)
+            so Black covers it, matching the audience compositor's paint order. */}
+        <OverlayCanvas />
         {/* Logo holding image: mirror the audience by covering the preview with
             the logo on black. Below the Black overlay so Black still wins. */}
         {isLive && showLogo && logoImagePath && (

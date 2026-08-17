@@ -48,3 +48,33 @@ export function preferredOutputMonitor(monitors: MonitorLike[]): number {
   const external = monitors.findIndex((_m, i) => i !== operator)
   return external >= 0 ? external : operator
 }
+
+/**
+ * A monitor with the extra fields the settings dropdown labels with. A superset
+ * of {@link MonitorLike}, still declared locally to avoid `@tauri-apps` imports.
+ */
+export interface LabeledMonitor extends MonitorLike {
+  name?: string | null
+  size: { width: number; height: number }
+}
+
+/**
+ * Index of the primary display — the one at the virtual-desktop origin (0,0). The
+ * control window almost always lives here, so the dropdown flags it. Unlike
+ * {@link operatorScreenIndex}, returns `-1` when no monitor sits at the origin
+ * (the label simply isn't shown) rather than falling back to 0.
+ */
+export function primaryMonitorIndex(monitors: MonitorLike[]): number {
+  return monitors.findIndex((m) => m.position.x === 0 && m.position.y === 0)
+}
+
+/** The dropdown label for a monitor: "Name (W×H)", tagged when it's primary. */
+export function monitorLabel(
+  monitor: LabeledMonitor,
+  index: number,
+  primaryIndex: number
+): string {
+  const name = monitor.name ?? `Display ${index + 1}`
+  const primary = index === primaryIndex ? " — Primary (this screen)" : ""
+  return `${name} (${monitor.size.width}×${monitor.size.height})${primary}`
+}
