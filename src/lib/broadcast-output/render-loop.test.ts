@@ -70,6 +70,26 @@ describe("createRenderLoop — scheduling", () => {
     expect(calls).toBe(1) // one draw, not three
   })
 
+  it("schedules at most one RAF at a time regardless of active reason count (P1)", () => {
+    const { clock, loop } = setup(() => {})
+    // The whole point of the coalesced loop: many overlapping animations still
+    // share a single scheduled frame, never one RAF per reason.
+    loop.activate("slideVideo")
+    loop.activate("mediaLayer")
+    loop.activate("slideAnim")
+    loop.activate("marquee")
+    loop.activate("countdown")
+    loop.activate("themeAnim")
+    loop.activate("baseVideo")
+    expect(loop.size()).toBe(7)
+    expect(clock.pending()).toBe(1)
+    // Draining and re-scheduling keeps the invariant across frames.
+    clock.flush()
+    expect(clock.pending()).toBe(1)
+    clock.flush()
+    expect(clock.pending()).toBe(1)
+  })
+
   it("activating an already-running reason does not stack extra frames", () => {
     let calls = 0
     const { clock, loop } = setup(() => calls++)

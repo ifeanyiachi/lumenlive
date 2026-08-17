@@ -71,6 +71,12 @@ import {
   exportAllSlidesAsPdf,
   exportCurrentSlideAsPdf,
 } from "@/lib/slide-pdf-export"
+import {
+  captureLayerRowRects,
+  pickLayerIndexAtY,
+  type LayerRowRect,
+} from "@/lib/slides/layer-drag"
+import { acquireOffscreenCanvas } from "@/lib/dom/offscreen-canvas"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import type {
@@ -129,30 +135,44 @@ function LayerList({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  // Row rects are snapshotted once at drag-start (the list doesn't reflow mid-
+  // drag) and the hover update is rAF-coalesced to one write per frame — no
+  // per-pointermove layout read (P2).
+  const rowRectsRef = useRef<LayerRowRect[]>([])
+  const moveRafRef = useRef(0)
+  const pendingYRef = useRef(0)
 
   const reversed = useMemo(() => [...elements].reverse(), [elements])
 
   const handlePointerDown = (e: React.PointerEvent, idx: number) => {
     const target = e.currentTarget as HTMLElement
     target.setPointerCapture(e.pointerId)
+    if (listRef.current) {
+      rowRectsRef.current = captureLayerRowRects(listRef.current)
+    }
     setDragIdx(idx)
   }
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (dragIdx === null || !listRef.current) return
-    const items =
-      listRef.current.querySelectorAll<HTMLElement>("[data-layer-idx]")
-    for (const item of items) {
-      const rect = item.getBoundingClientRect()
-      if (e.clientY >= rect.top && e.clientY < rect.bottom) {
-        const idx = Number(item.dataset.layerIdx)
-        setOverIdx(idx)
-        return
-      }
+    if (dragIdx === null) return
+    pendingYRef.current = e.clientY
+    if (moveRafRef.current) return
+    moveRafRef.current = requestAnimationFrame(() => {
+      moveRafRef.current = 0
+      const idx = pickLayerIndexAtY(rowRectsRef.current, pendingYRef.current)
+      if (idx !== null) setOverIdx(idx)
+    })
+  }
+
+  const endDrag = () => {
+    if (moveRafRef.current) {
+      cancelAnimationFrame(moveRafRef.current)
+      moveRafRef.current = 0
     }
   }
 
   const handlePointerUp = () => {
+    endDrag()
     if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
       const fromOriginal = elements.length - 1 - dragIdx
       const toOriginal = elements.length - 1 - overIdx
@@ -161,6 +181,8 @@ function LayerList({
     setDragIdx(null)
     setOverIdx(null)
   }
+
+  useEffect(() => endDrag, [])
 
   return (
     <div className="border-b border-border">
@@ -553,6 +575,10 @@ export function PresentationEditor({
   const editorVideoUrlsRef = useRef<string[]>([])
   const editorAnimTrackerRef = useRef<SlideAnimationTracker | null>(null)
   const editorAnimRafRef = useRef<number>(0)
+  // Persistent offscreen canvases reused across renders instead of allocating a
+  // fresh 1920×1080 buffer per slide change / transition (P3).
+  const measuringCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const prevFrameCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const [showGrid, setShowGrid] = useState(false)
   const [rightTab, setRightTab] = useState<"layers" | "background">("layers")
 
@@ -660,9 +686,13 @@ export function PresentationEditor({
     const tracker = createSlideAnimationTracker()
     editorAnimTrackerRef.current = tracker
 
-    const measuringCanvas = document.createElement("canvas")
-    measuringCanvas.width = 1920
-    measuringCanvas.height = 1080
+    // Measurement only (no visible pixels) — reuse the buffer, skip the clear.
+    const measuringCanvas = acquireOffscreenCanvas(
+      measuringCanvasRef,
+      1920,
+      1080,
+      false
+    )
     const mCtx = measuringCanvas.getContext("2d")
     const animInfo = {
       elements: activeSlide.elements.map((el) => ({
@@ -716,10 +746,9 @@ export function PresentationEditor({
       slide.background
     )
 
-    // Render previous slide to an offscreen canvas
-    const prevCanvas = document.createElement("canvas")
-    prevCanvas.width = 1920
-    prevCanvas.height = 1080
+    // Render previous slide to the reused offscreen canvas (cleared first, so
+    // the transparent-background path composits over a blank surface).
+    const prevCanvas = acquireOffscreenCanvas(prevFrameCanvasRef, 1920, 1080)
     const prevCtx = prevCanvas.getContext("2d")
     if (!prevCtx) return
     if (persistBg) {
