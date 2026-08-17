@@ -8,7 +8,9 @@ function fakeCanvas(width: number, height: number, label: string) {
     drawImage: (...a: unknown[]) => ops.push(`drawImage(${a.length})`),
     getImageData: (_x: number, _y: number, w: number, h: number) => {
       ops.push(`getImageData(${w},${h})`)
-      return { data: { buffer: `${label}:${w}x${h}` as unknown as ArrayBuffer } }
+      return {
+        data: { buffer: `${label}:${w}x${h}` as unknown as ArrayBuffer },
+      }
     },
   }
   const c = {

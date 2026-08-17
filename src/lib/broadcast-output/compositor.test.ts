@@ -108,7 +108,7 @@ const transparentSlide = (name = "ST") =>
   }) as unknown as Slide
 const imageLayer = () =>
   ({ mediaType: "image", name: "ml" }) as unknown as MediaLayerState
-const labeled = <T,>(label: string) => ({ label }) as unknown as T
+const labeled = <T>(label: string) => ({ label }) as unknown as T
 
 function makeState(over: Partial<CompositorState> = {}): CompositorState {
   return {
@@ -274,12 +274,7 @@ describe("composeFrame — slide mode", () => {
       SH,
       makeState({ activeMode: "slide", latestSlide: { slide: opaqueSlide() } })
     )
-    expect(ops).toEqual([
-      "renderSlide(S1)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
+    expect(ops).toEqual(["renderSlide(S1)", "props", "alerts", "countdowns"])
   })
 
   it("transparent slide composits floor → media layer → base theme → elements", () => {

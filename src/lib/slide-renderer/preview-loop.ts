@@ -19,7 +19,10 @@
  */
 
 import type { Slide } from "@/types/slide"
-import { slideHasAnimatedBackground, slideHasVideoBackground } from "./predicates"
+import {
+  slideHasAnimatedBackground,
+  slideHasVideoBackground,
+} from "./predicates"
 import { ensureSlideImages } from "@/lib/slide-image-cache"
 
 /**

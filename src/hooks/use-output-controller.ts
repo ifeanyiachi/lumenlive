@@ -13,7 +13,10 @@ import {
   ndiFrameRateToNumber,
   ndiResolutionToDimensions,
 } from "@/lib/broadcast/ndi"
-import { operatorScreenIndex, preferredOutputMonitor } from "@/lib/broadcast/monitors"
+import {
+  operatorScreenIndex,
+  preferredOutputMonitor,
+} from "@/lib/broadcast/monitors"
 import { reportOutputError } from "@/services/output-errors"
 import { useBroadcastStore } from "@/stores"
 import type {
@@ -123,7 +126,9 @@ export function useOutputController({
   // The stage argument for window ops: "stage" only when this output is in stage
   // mode (read live from the store; main never is, alt may be).
   const stageArg = useCallback((): "stage" | undefined => {
-    const o = useBroadcastStore.getState().outputs.find((x) => x.id === outputId)
+    const o = useBroadcastStore
+      .getState()
+      .outputs.find((x) => x.id === outputId)
     return o?.mode === "stage" ? "stage" : undefined
   }, [outputId])
 
@@ -285,6 +290,20 @@ export function useOutputController({
       Number(prev) === operator ? String(external) : prev
     )
   }, [monitors])
+
+  // Keep the store's `enabled` flag truthful to whether this output is actually
+  // live — a display window is open OR NDI is running. Cross-window fan-out
+  // (visibility Black/Clear/Logo, alerts, countdowns, props, web content) routes
+  // only to `enabled` outputs (see `emitToAllOutputs`), so without this the
+  // external monitor would receive content — which emits unconditionally — but
+  // silently miss every overlay/visibility event. One effect over the two state
+  // vars every transition flows through (open, close, NDI start/stop, reconcile)
+  // so no path can leave the flag stale.
+  useEffect(() => {
+    useBroadcastStore
+      .getState()
+      .updateOutput(outputId, { enabled: isOpen || ndiActive })
+  }, [outputId, isOpen, ndiActive])
 
   // Reflect the real output-window state whenever the dialog opens — an output
   // may already be live from a previous session.

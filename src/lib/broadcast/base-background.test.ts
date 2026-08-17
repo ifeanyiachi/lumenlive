@@ -55,7 +55,13 @@ describe("makeBaseBackground", () => {
       type: "image",
       color: "#abcdef",
       gradient: null,
-      image: { url: "x.png", fit: "cover", blur: 2, brightness: 90, tint: null },
+      image: {
+        url: "x.png",
+        fit: "cover",
+        blur: 2,
+        brightness: 90,
+        tint: null,
+      },
       video: null,
     }
     const bg = makeBaseBackground("solid", prev)

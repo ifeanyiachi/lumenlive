@@ -17,7 +17,9 @@ import type { BroadcastProp, BroadcastTheme } from "@/types/broadcast"
  */
 
 // Record every overlay painter call from BOTH the operator path and composeFrame.
-const { calls } = vi.hoisted(() => ({ calls: [] as { fn: string; args: unknown[] }[] }))
+const { calls } = vi.hoisted(() => ({
+  calls: [] as { fn: string; args: unknown[] }[],
+}))
 vi.mock("./overlays", () => ({
   drawPropsOverlay: (...args: unknown[]) => calls.push({ fn: "props", args }),
   drawAlertOverlay: (...args: unknown[]) => calls.push({ fn: "alerts", args }),
@@ -43,9 +45,25 @@ const {
 // --- Fixtures ---------------------------------------------------------------
 
 const prop = (over: Partial<BroadcastProp> = {}) =>
-  ({ id: "p", type: "text", active: true, x: 0, y: 0, width: 10, height: 10, ...over }) as BroadcastProp
+  ({
+    id: "p",
+    type: "text",
+    active: true,
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    ...over,
+  }) as BroadcastProp
 const alert = (over: Partial<ActiveAlert> = {}) =>
-  ({ id: "a", templateId: "tmpl", message: "hi", startedAt: 0, duration: 0, ...over }) as ActiveAlert
+  ({
+    id: "a",
+    templateId: "tmpl",
+    message: "hi",
+    startedAt: 0,
+    duration: 0,
+    ...over,
+  }) as ActiveAlert
 const template = (over: Partial<AlertTemplate> = {}) =>
   ({ id: "tmpl", name: "T", ...over }) as AlertTemplate
 const countdown = (over: Partial<ActiveCountdown> = {}) =>
@@ -110,7 +128,11 @@ describe("operator overlay op parity vs audience compositor", () => {
   // The pre-assembled arrays the audience hands its painters (what the stores emit).
   const audienceProps = activeOverlayProps(props)
   const audienceAlerts = activeAlertEntries(activeAlerts, templates)
-  const audienceCountdowns = activeCountdownEntries(activeCountdowns, timers, themes)
+  const audienceCountdowns = activeCountdownEntries(
+    activeCountdowns,
+    timers,
+    themes
+  )
 
   const recordingCtx = () =>
     new Proxy(
@@ -123,7 +145,14 @@ describe("operator overlay op parity vs audience compositor", () => {
       recordingCtx(),
       1920,
       1080,
-      { props, activeAlerts, alertTemplates: templates, activeCountdowns, timers, themes },
+      {
+        props,
+        activeAlerts,
+        alertTemplates: templates,
+        activeCountdowns,
+        timers,
+        themes,
+      },
       cache,
       NOW
     )
@@ -143,7 +172,14 @@ describe("operator overlay op parity vs audience compositor", () => {
       recordingCtx(),
       1920,
       1080,
-      { props, activeAlerts, alertTemplates: templates, activeCountdowns, timers, themes },
+      {
+        props,
+        activeAlerts,
+        alertTemplates: templates,
+        activeCountdowns,
+        timers,
+        themes,
+      },
       cache,
       NOW
     )
@@ -183,7 +219,9 @@ describe("operator overlay op parity vs audience compositor", () => {
       now: NOW,
     })
     const audienceOps = calls
-      .filter((c) => c.fn === "props" || c.fn === "alerts" || c.fn === "countdowns")
+      .filter(
+        (c) => c.fn === "props" || c.fn === "alerts" || c.fn === "countdowns"
+      )
       .map((c) => ({ fn: c.fn, args: c.args.slice(1) }))
 
     expect(operatorOps).toEqual(audienceOps)

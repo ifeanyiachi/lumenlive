@@ -106,7 +106,10 @@ export function ContextSearchTab({
                 )}
               </div>
               <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
-                <HighlightedText text={result.verse_text} query={contextQuery} />
+                <HighlightedText
+                  text={result.verse_text}
+                  query={contextQuery}
+                />
               </p>
               <QueueButton
                 verse={verse}

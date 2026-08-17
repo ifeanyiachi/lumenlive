@@ -134,7 +134,9 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
             </label>
             <Select
               value={String(maxScale)}
-              onValueChange={(v) => store().setMaxVerseScale(output.id, Number(v))}
+              onValueChange={(v) =>
+                store().setMaxVerseScale(output.id, Number(v))
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -166,8 +168,8 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
               className="h-8 text-xs"
             />
             <p className="text-[10px] leading-tight text-muted-foreground">
-              Verses won&apos;t shrink below this. Long passages split into pages
-              instead.
+              Verses won&apos;t shrink below this. Long passages split into
+              pages instead.
             </p>
           </div>
 
@@ -177,7 +179,9 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
             </label>
             <Switch
               checked={paginate}
-              onCheckedChange={(v) => store().setPaginateLongVerses(output.id, v)}
+              onCheckedChange={(v) =>
+                store().setPaginateLongVerses(output.id, v)
+              }
             />
           </div>
         </div>
@@ -319,7 +323,10 @@ export function OutputCard({
               onValueChange={c.setSelectedMonitor}
               disabled={monitors.length === 0}
             >
-              <SelectTrigger className="w-full" disabled={monitors.length === 0}>
+              <SelectTrigger
+                className="w-full"
+                disabled={monitors.length === 0}
+              >
                 <SelectValue
                   placeholder={
                     !isTauri

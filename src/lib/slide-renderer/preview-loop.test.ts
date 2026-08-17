@@ -76,14 +76,19 @@ const animatedSlide = () =>
     elements: [],
   }) as unknown as Slide
 const videoSlide = (videoUrl = "bg.mp4") =>
-  ({ background: { type: "video", videoUrl }, elements: [] }) as unknown as Slide
+  ({
+    background: { type: "video", videoUrl },
+    elements: [],
+  }) as unknown as Slide
 const imageSlide = () =>
   ({
     background: { type: "image", imageUrl: "bg.png" },
     elements: [{ type: "image", imageUrl: "el.png" }],
   }) as unknown as Slide
 
-function makeRefs(over: Partial<Parameters<typeof runSlidePreviewEffect>[2]> = {}) {
+function makeRefs(
+  over: Partial<Parameters<typeof runSlidePreviewEffect>[2]> = {}
+) {
   return {
     rafRef: { current: 0 },
     videoRef: { current: null as HTMLVideoElement | null },

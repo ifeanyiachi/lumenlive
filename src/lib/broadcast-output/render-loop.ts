@@ -66,6 +66,20 @@ export interface RenderLoopDeps {
   onFrame: (shouldPush: boolean) => void
   requestFrame?: (cb: FrameRequestCallback) => number
   cancelFrame?: (handle: number) => void
+  /**
+   * Cap the DRAW cadence to at most one `onFrame` per this many ms (0/undefined =
+   * uncapped, one draw per RAF). RAF still fires ~60Hz and `beforeFrame`/keepAlive
+   * pruning still run every frame, so animation timing and lifecycle are
+   * unaffected — only the expensive `onFrame` (full-canvas recomposite) is
+   * throttled. This is load-bearing on the output window: a 1080p recomposite per
+   * frame at 60Hz (with DirectComposition disabled → software compositing across
+   * the shared WebView2 environment) starves the operator window's UI thread. A
+   * projector needs no more than ~30fps of animated-background motion, so halving
+   * the draw rate restores operator responsiveness with no visible change.
+   */
+  minFrameIntervalMs?: number
+  /** Monotonic clock for the draw cap (injectable for tests). Default `performance.now`. */
+  now?: () => number
 }
 
 export interface RenderLoop {
@@ -81,12 +95,15 @@ export interface RenderLoop {
 }
 
 export function createRenderLoop(deps: RenderLoopDeps): RenderLoop {
-  const requestFrame =
-    deps.requestFrame ?? ((cb) => requestAnimationFrame(cb))
+  const requestFrame = deps.requestFrame ?? ((cb) => requestAnimationFrame(cb))
   const cancelFrame = deps.cancelFrame ?? ((h) => cancelAnimationFrame(h))
+  const minFrameInterval = deps.minFrameIntervalMs ?? 0
+  const now = deps.now ?? (() => performance.now())
 
   const reasons = new Map<RenderReason, ReasonConfig>()
   let handle = 0
+  // Timestamp of the last drawn frame; `-Infinity` so the first frame always draws.
+  let lastFrameTime = Number.NEGATIVE_INFINITY
 
   function schedule(): void {
     if (handle !== 0 || reasons.size === 0) return
@@ -109,10 +126,24 @@ export function createRenderLoop(deps: RenderLoopDeps): RenderLoop {
     pruneByTiming("before")
     if (reasons.size === 0) return
 
-    // 2. Reason-specific pre-draw work (e.g. advance an animation tracker).
+    // 2. Reason-specific pre-draw work (e.g. advance an animation tracker). Runs
+    //    every RAF regardless of the draw cap, so animation timing is unchanged.
     for (const cfg of reasons.values()) cfg.beforeFrame?.()
 
-    // 3. One coalesced draw; push iff any surviving reason wants it.
+    // 3. Draw-rate cap: skip the expensive coalesced draw when the last one was
+    //    too recent. `beforeFrame` (above) already ran, so only the draw cadence
+    //    is reduced; the "after" prune is deferred with the draw so a reason's
+    //    final frame still renders on the tick it's actually drawn.
+    if (minFrameInterval > 0) {
+      const t = now()
+      if (t - lastFrameTime < minFrameInterval - 2) {
+        schedule()
+        return
+      }
+      lastFrameTime = t
+    }
+
+    // 4. One coalesced draw; push iff any surviving reason wants it.
     let shouldPush = false
     for (const cfg of reasons.values()) {
       if (cfg.push ?? true) {
@@ -122,10 +153,10 @@ export function createRenderLoop(deps: RenderLoopDeps): RenderLoop {
     }
     deps.onFrame(shouldPush)
 
-    // 4. Reasons that decide after drawing (e.g. entry-animation completion).
+    // 5. Reasons that decide after drawing (e.g. entry-animation completion).
     pruneByTiming("after")
 
-    // 5. Keep going while any reason remains.
+    // 6. Keep going while any reason remains.
     schedule()
   }
 

@@ -180,3 +180,94 @@ describe("createRenderLoop — keepAlive timing", () => {
     expect(beforeFrame).toHaveBeenCalledTimes(3)
   })
 })
+
+describe("createRenderLoop — draw-rate cap", () => {
+  it("throttles onFrame to minFrameIntervalMs but runs beforeFrame every RAF", () => {
+    let t = 0
+    const clock = fakeClock()
+    const frames: boolean[] = []
+    const beforeFrame = vi.fn()
+    const loop = createRenderLoop({
+      onFrame: (p) => frames.push(p),
+      requestFrame: clock.requestFrame,
+      cancelFrame: clock.cancelFrame,
+      minFrameIntervalMs: 33,
+      now: () => t,
+    })
+    loop.activate("themeAnim", { push: false, beforeFrame })
+
+    // Frame 1 at t=0: the first frame always draws (lastFrameTime = -Infinity).
+    clock.flush()
+    expect(frames).toEqual([false])
+
+    // t=10 and t=20 are under the interval → RAF fires, draw is skipped.
+    t = 10
+    clock.flush()
+    t = 20
+    clock.flush()
+    expect(frames).toEqual([false])
+
+    // t=40 is past the interval → draws again.
+    t = 40
+    clock.flush()
+    expect(frames).toEqual([false, false])
+
+    // beforeFrame ran on all four RAFs regardless of the draw cap (timing intact).
+    expect(beforeFrame).toHaveBeenCalledTimes(4)
+    // The loop keeps a single frame scheduled across skipped and drawn frames.
+    expect(clock.pending()).toBe(1)
+  })
+
+  it("defers the after-prune on a skipped frame, applying it on the next draw", () => {
+    let t = 0
+    let alive = true
+    const clock = fakeClock()
+    let calls = 0
+    const loop = createRenderLoop({
+      onFrame: () => calls++,
+      requestFrame: clock.requestFrame,
+      cancelFrame: clock.cancelFrame,
+      minFrameIntervalMs: 33,
+      now: () => t,
+    })
+    loop.activate("slideAnim", {
+      keepAlive: () => alive,
+      keepAliveTiming: "after",
+    })
+
+    clock.flush() // t=0: draws (calls=1), reason still alive
+    expect(calls).toBe(1)
+
+    // The animation ends, but the next RAF is under the interval → draw skipped,
+    // so the "after" prune is deferred; the reason survives to draw its final frame.
+    alive = false
+    t = 10
+    clock.flush()
+    expect(calls).toBe(1)
+    expect(loop.isActive("slideAnim")).toBe(true)
+
+    // Past the interval: the final frame draws, then the after-prune removes it.
+    t = 40
+    clock.flush()
+    expect(calls).toBe(2)
+    expect(loop.isActive("slideAnim")).toBe(false)
+    expect(clock.pending()).toBe(0)
+  })
+
+  it("without a cap, draws every RAF (default behavior preserved)", () => {
+    const t = 0
+    const clock = fakeClock()
+    let calls = 0
+    const loop = createRenderLoop({
+      onFrame: () => calls++,
+      requestFrame: clock.requestFrame,
+      cancelFrame: clock.cancelFrame,
+      now: () => t, // provided but unused when uncapped
+    })
+    loop.activate("marquee")
+    clock.flush()
+    clock.flush()
+    clock.flush()
+    expect(calls).toBe(3)
+  })
+})

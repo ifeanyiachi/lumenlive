@@ -81,7 +81,11 @@ export function activeCountdownEntries(
   for (const countdown of activeCountdowns) {
     const timer = timers.find((t) => t.id === countdown.timerId)
     if (timer) {
-      entries.push({ countdown, timer, theme: resolveTimerTheme(timer, themes) })
+      entries.push({
+        countdown,
+        timer,
+        theme: resolveTimerTheme(timer, themes),
+      })
     }
   }
   return entries

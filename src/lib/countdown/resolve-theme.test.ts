@@ -17,9 +17,9 @@ describe("resolveTimerTheme", () => {
   })
 
   it("returns undefined when the timer names no theme", () => {
-    expect(
-      resolveTimerTheme(timer({ themeId: undefined }), [theme()])
-    ).toBe(undefined)
+    expect(resolveTimerTheme(timer({ themeId: undefined }), [theme()])).toBe(
+      undefined
+    )
   })
 
   it("resolves the matching countdown-category theme", () => {
@@ -28,9 +28,9 @@ describe("resolveTimerTheme", () => {
   })
 
   it("ignores a same-id theme of a different category (scripture theme reused as id)", () => {
-    expect(
-      resolveTimerTheme(timer(), [theme({ category: "scripture" })])
-    ).toBe(undefined)
+    expect(resolveTimerTheme(timer(), [theme({ category: "scripture" })])).toBe(
+      undefined
+    )
   })
 
   it("returns undefined when the referenced theme is gone", () => {
