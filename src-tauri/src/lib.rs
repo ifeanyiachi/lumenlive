@@ -2,11 +2,11 @@ mod bible_state;
 mod commands;
 mod events;
 mod memstats;
+mod setup;
 mod state;
 
 use std::sync::Mutex;
 
-#[expect(clippy::too_many_lines, reason = "app setup is inherently complex")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load .env file — try src-tauri/.env first, then project root ../.env
@@ -86,182 +86,15 @@ pub fn run() {
             commands::song_pack::song_fetch_pack,
         ])
         .setup(|app| {
-            use tauri::Manager;
-
             memstats::spawn();
 
-            // Try resource dir first (production), then dev fallback
-            let db_path = app
-                .path()
-                .resource_dir()
-                .map(|p| p.join("lumenlive.db"))
-                .ok()
-                .filter(|p| p.exists())
-                .unwrap_or_else(|| {
-                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .join("../data/lumenlive.db")
-                });
-
-            if db_path.exists() {
-                let bible_db = lumenlive_bible::BibleDb::open(&db_path)
-                    .expect("Failed to open Bible database");
-
-                // Verify FTS5 is working before committing the database
-                match bible_db.search_verses_bm25("God loved world", 3) {
-                    Ok(results) => log::info!("FTS5 health check: {} results", results.len()),
-                    Err(e) => log::error!("FTS5 health check FAILED: {e} — semantic detection will not work"),
-                }
-
-                let managed_bible = app.state::<Mutex<bible_state::BibleState>>();
-                let mut bible = managed_bible.lock().unwrap();
-                bible.db = Some(bible_db);
-                drop(bible);
-                log::info!("Bible database loaded from {}", db_path.display());
-
-                // Re-attach any previously downloaded translations so the
-                // resource-store installs survive restarts. Each lives in its
-                // own file under app_data_dir()/bibles and is indexed by the
-                // registry; a missing/corrupt file is logged and skipped rather
-                // than aborting startup.
-                if let Ok(app_data) = app.path().app_data_dir() {
-                    let bibles_dir = app_data.join("bibles");
-                    let registry_path = bibles_dir.join("installed-translations.json");
-                    match lumenlive_bible::InstalledRegistry::load(&registry_path) {
-                        Ok(registry) => {
-                            let managed_bible = app.state::<Mutex<bible_state::BibleState>>();
-                            let bible = managed_bible.lock().unwrap();
-                            if let Some(db) = bible.db.as_ref() {
-                                for entry in &registry.translations {
-                                    let path = bibles_dir.join(&entry.file_name);
-                                    if !path.exists() {
-                                        log::warn!(
-                                            "Downloaded translation file missing: {}",
-                                            path.display()
-                                        );
-                                        continue;
-                                    }
-                                    match db.attach_translation(entry.global_id, &path) {
-                                        Ok(_) => log::info!(
-                                            "Attached downloaded translation '{}' (id {})",
-                                            entry.resource_id,
-                                            entry.global_id
-                                        ),
-                                        Err(e) => log::warn!(
-                                            "Failed to attach translation '{}': {e}",
-                                            entry.resource_id
-                                        ),
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => log::warn!("Failed to load install registry: {e}"),
-                    }
-                }
-            } else {
-                log::warn!("Bible database not found at {}", db_path.display());
-            }
-
-            // Try to load ONNX embedding model and pre-computed verse index.
-            // Prefer INT8 quantized model (~571MB) over FP32 (~2.4GB).
-            //
-            // Resolve each asset from the bundled resource dir (production) first,
-            // falling back to the source-tree path (dev). CARGO_MANIFEST_DIR is a
-            // compile-time path that only exists on the build machine, so an
-            // installed app must find these under resource_dir().
-            let dev_base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-            let res_base = app.path().resource_dir().ok();
-            let resolve = |rel: &str| -> std::path::PathBuf {
-                if let Some(rb) = &res_base {
-                    let p = rb.join(rel);
-                    if p.exists() {
-                        return p;
-                    }
-                }
-                dev_base.join(rel)
-            };
-            // The app uses the INT8 quantized Qwen3 embedding model exclusively:
-            // it is the only variant bundled into the installer (tauri.conf.json)
-            // and the pre-computed verse index is embedded with the same model,
-            // so query and index share one subspace. The FP32 export exists only
-            // transiently as the quantization source during setup and is never
-            // loaded at runtime. A missing model is handled by the exists() guard
-            // below (semantic search is simply disabled).
-            let model_path = resolve("models/qwen3-embedding-0.6b-int8/model_quantized.onnx");
-            let tokenizer_path = resolve("models/qwen3-embedding-0.6b-int8/tokenizer.json");
-            let embeddings_path = resolve("embeddings/kjv-qwen3-0.6b.bin");
-            let ids_path = resolve("embeddings/kjv-qwen3-0.6b-ids.bin");
-
-            if model_path.exists() && tokenizer_path.exists() {
-                use lumenlive_detection::semantic::embedder::TextEmbedder;
-                use lumenlive_detection::semantic::index::VectorIndex;
-                match lumenlive_detection::OnnxEmbedder::load(&model_path, &tokenizer_path) {
-                    Ok(embedder) => {
-                        log::info!("ONNX embedding model loaded");
-                        // Qwen3-Embedding uses a symmetric no-prefix contract: verse
-                        // embeddings are pre-computed with no prefix, so live query text
-                        // must also carry no prefix (any prefix would place queries in a
-                        // different subspace than the verses). The prefix knob was removed
-                        // from OnnxEmbedder so this can no longer drift.
-                        let managed_pipeline = app.state::<Mutex<lumenlive_detection::DetectionPipeline>>();
-                        let mut pipeline = managed_pipeline.lock().unwrap();
-
-                        // If pre-computed embeddings exist, load the vector index
-                        if embeddings_path.exists() && ids_path.exists() {
-                            let dim = embedder.dimension();
-                            match lumenlive_detection::HnswVectorIndex::load(&embeddings_path, &ids_path, dim) {
-                                Ok(index) => {
-                                    log::info!("Verse embeddings loaded ({} vectors)", index.len());
-                                    pipeline.set_semantic(
-                                        lumenlive_detection::SemanticDetector::new(
-                                            Box::new(embedder),
-                                            Box::new(index),
-                                        ),
-                                    );
-                                }
-                                Err(e) => {
-                                    log::warn!("Failed to load verse embeddings: {e}");
-                                }
-                            }
-                        } else {
-                            log::info!("No pre-computed verse embeddings found. Run 'bun run export:verses' then the precompute binary.");
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to load ONNX model: {e}");
-                    }
-                }
-            } else {
-                log::info!("ONNX model not found. Semantic search disabled. Run 'bun run download:model' to download.");
-            }
-
-            // Tear the whole app down when the operator closes the main control
-            // window. The broadcast output windows are borderless, non-closable
-            // and hidden from the taskbar/alt-tab, so the operator can't dismiss
-            // them by hand — without this they linger fullscreen on the projector
-            // and keep the process alive (previously only a reboot cleared them).
-            // On the main window's close request we stop NDI (releasing its
-            // network senders), destroy every secondary window, then exit so the
-            // process terminates cleanly.
-            if let Some(main) = app.get_webview_window("main") {
-                let app_handle = app.handle().clone();
-                main.on_window_event(move |event| {
-                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
-                        if let Some(runtime) = app_handle
-                            .try_state::<Mutex<lumenlive_broadcast::ndi::NdiRuntime>>()
-                        {
-                            if let Ok(mut rt) = runtime.lock() {
-                                rt.stop_all();
-                            }
-                        }
-                        for (label, window) in app_handle.webview_windows() {
-                            if label != "main" {
-                                let _ = window.destroy();
-                            }
-                        }
-                        app_handle.exit(0);
-                    }
-                });
-            }
+            // A missing Bible DB degrades gracefully; a corrupt one refuses to
+            // start (the `?` propagates a clear error and aborts launch).
+            setup::init_bible_db(app)?;
+            // Semantic search is optional — never aborts startup.
+            setup::init_semantic(app);
+            // Ensure closing the main window tears down the projector windows.
+            setup::wire_main_window_teardown(app);
 
             Ok(())
         })
