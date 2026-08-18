@@ -211,6 +211,39 @@ describe("use-transcription", () => {
     })
   })
 
+  describe("transcriptionActions.restartIfRunning", () => {
+    it("stops then restarts a running session so a provider switch takes effect", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useTranscriptStore, useSettingsStore, transcriptionActions } =
+        await loadModules()
+
+      useTranscriptStore.setState({ isTranscribing: true })
+      // Operator has switched to Local; restart should pick it up via start().
+      useSettingsStore.setState({ sttProvider: "sherpa" })
+
+      await transcriptionActions.restartIfRunning()
+
+      const calls = mockInvoke.mock.calls.map((c) => c[0])
+      expect(calls).toEqual(["stop_transcription", "start_transcription"])
+      // The restart's start() forwards the newly-selected provider.
+      const startArgs = mockInvoke.mock.calls.find(
+        (c) => c[0] === "start_transcription"
+      )?.[1] as { provider: string }
+      expect(startArgs.provider).toBe("sherpa")
+    })
+
+    it("is a no-op when no session is running", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useTranscriptStore, transcriptionActions } = await loadModules()
+
+      useTranscriptStore.setState({ isTranscribing: false })
+
+      await transcriptionActions.restartIfRunning()
+
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+  })
+
   describe("stt_error integration contract", () => {
     it("surfaces stt errors via toast and sets connection status to error", async () => {
       const { useTranscriptStore } = await loadModules()

@@ -27,7 +27,7 @@ pub mod reading_mode;
 
 pub use types::*;
 pub use error::*;
-pub use direct::detector::DirectDetector;
+pub use direct::detector::{DirectDetector, NavDirection};
 pub use semantic::detector::SemanticDetector;
 pub use merger::{DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;

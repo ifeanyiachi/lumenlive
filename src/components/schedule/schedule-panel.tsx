@@ -147,7 +147,7 @@ export function SchedulePanel() {
             onClick={handleImportSchedule}
             title="Import schedule from file"
           >
-            <UploadIcon className="size-3.5" />
+            <DownloadIcon className="size-3.5" />
           </Button>
           {activeScheduleId && (
             <>
@@ -157,7 +157,7 @@ export function SchedulePanel() {
                 onClick={handleExportSchedule}
                 title="Export schedule to file"
               >
-                <DownloadIcon className="size-3.5" />
+                <UploadIcon className="size-3.5" />
               </Button>
               <Button
                 variant="ghost"

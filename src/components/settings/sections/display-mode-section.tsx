@@ -17,6 +17,8 @@ export function DisplayModeSection() {
     setDirectAutoDisplay,
     semanticAutoQueue,
     setSemanticAutoQueue,
+    navAutoLive,
+    setNavAutoLive,
   } = useSettingsStore()
 
   const thresholdPercent = thresholdToPercent(confidenceThreshold)
@@ -42,6 +44,13 @@ export function DisplayModeSection() {
             description='When a verse is detected from spoken content (e.g. "And God so loved the world"), automatically add it to the queue. When off, semantic detections only appear in the AI Detections panel.'
             checked={semanticAutoQueue}
             onCheckedChange={setSemanticAutoQueue}
+          />
+
+          <ToggleCard
+            title="Voice navigation goes live"
+            description='When you say "turn to the next verse" or "go back one verse", push the target straight to the audience. When off (default), it is staged to Program preview for you to take.'
+            checked={navAutoLive}
+            onCheckedChange={setNavAutoLive}
           />
         </div>
       </div>

@@ -774,3 +774,41 @@ pub(super) fn check_translation_command(app: &AppHandle, transcript: &str) {
         }
     }
 }
+
+/// Check for a spoken navigation command ("turn to the next verse", "go back one
+/// verse") and emit `nav_command` with the direction to step.
+///
+/// This carries only the *direction*: the verse to step FROM is the frontend's
+/// live selection (`bibleStore.selectedVerse`), which tracks whatever is on the
+/// program screen no matter how it got there — a spoken reference, a manual
+/// book-panel pick, a queue take, or reading mode. The frontend does the step
+/// (and chapter-boundary roll-over) against that selection. Anchoring here to the
+/// last *detected* verse would ignore every non-voice path, so the anchor lives
+/// where the live state lives.
+///
+/// Finals-only: navigation is *not* idempotent (two "next verse"s = +2), so
+/// unlike translation switching it must never run on volatile partials, which
+/// would double-advance when the final repeats the phrase.
+pub(super) fn check_navigation_command(app: &AppHandle, transcript: &str) {
+    use lumenlive_detection::{DirectDetector, NavDirection};
+
+    #[derive(serde::Serialize, Clone)]
+    struct NavCommand {
+        direction: &'static str,
+    }
+
+    let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+    let direction = {
+        let Ok(detector) = detector_state.lock() else { return };
+        detector.detect_navigation_command(transcript)
+    };
+    let Some(direction) = direction else { return };
+
+    let direction = match direction {
+        NavDirection::Next => "next",
+        NavDirection::Previous => "previous",
+    };
+
+    log::info!("[STT] Voice nav command: {direction}");
+    let _ = app.emit("nav_command", NavCommand { direction });
+}

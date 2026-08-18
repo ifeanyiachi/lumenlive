@@ -11,10 +11,14 @@ use tauri::{AppHandle, Emitter};
 use lumenlive_stt::{SttProvider, TranscriptEvent};
 
 /// Lightweight connectivity probe: can we open a TCP connection to the Deepgram
-/// API host? Used to detect when the network returns so the supervisor can fail
-/// back from on-device Moonshine to the cloud provider. When offline, DNS
-/// resolution / the connect fails fast; success means the link is back. Runs on
-/// a blocking thread (DNS + connect block) and never touches the STT quota.
+/// API host? Used both to detect the network *dropping* mid-service (so the
+/// supervisor can fail over promptly) and *returning* (so it can fail back).
+/// When offline, DNS resolution / the connect fails within the timeout; success
+/// means the link is up. Runs on a blocking thread (DNS + connect block) and
+/// never touches the STT quota.
+///
+/// The 1s connect timeout keeps an offline probe fast enough that the whole
+/// detect-and-switch cycle stays inside the few-second failover budget.
 async fn deepgram_reachable() -> bool {
     tokio::task::spawn_blocking(|| {
         use std::net::ToSocketAddrs;
@@ -22,26 +26,55 @@ async fn deepgram_reachable() -> bool {
             return false;
         };
         let Some(addr) = addrs.next() else { return false };
-        std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(3)).is_ok()
+        std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(1)).is_ok()
     })
     .await
     .unwrap_or(false)
 }
 
+/// Spawn the cloud-phase connectivity watchdog. It probes the network every
+/// `interval`; the first time the link is unreachable it flags `net_lost` and
+/// stops `primary`, so the supervisor's `start()` returns and it fails over —
+/// proactively, without waiting for the socket to notice the drop. Returns the
+/// handle so the caller can abort it once the cloud phase ends.
+fn spawn_connectivity_watchdog(
+    primary: Arc<dyn SttProvider>,
+    active: Arc<AtomicBool>,
+    net_lost: Arc<AtomicBool>,
+    interval: Duration,
+) -> tauri::async_runtime::JoinHandle<()> {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(interval).await;
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+            if !deepgram_reachable().await {
+                net_lost.store(true, Ordering::SeqCst);
+                primary.stop();
+                break;
+            }
+        }
+    })
+}
+
 /// Supervise the STT engines for one transcription session.
 ///
-/// Runs the operator-selected `primary` provider. If it returns an error while
-/// `active` is still set — i.e. the cloud provider lost the network, not a user
-/// stop — it fails over to the on-device Moonshine `fallback` (when present) and
-/// starts a background probe. Once the probe sees connectivity return, it stops
-/// Moonshine and loops back to the cloud provider. The on-device dwell backs off
-/// when the cloud link keeps failing right after a failback, so a flaky
-/// connection doesn't ping-pong. Emits `stt_failover` / `stt_failback` so the UI
-/// can show which engine is live. Both providers re-arm on `start()`, so the
-/// same instances are reused across cycles (no per-cycle model reload beyond the
-/// first Moonshine load).
+/// Runs the operator-selected `primary` provider. While the cloud provider is
+/// live, a connectivity watchdog probes the network in parallel so a drop is
+/// detected proactively — the moment it goes offline the watchdog stops the
+/// primary and we fail over, rather than waiting for the socket to notice. A
+/// primary error while `active` is still set (network lost, not a user stop)
+/// triggers the same failover. Either way it switches to the on-device Moonshine
+/// `fallback` (when present) and starts a background probe; once that probe sees
+/// connectivity return, it stops Moonshine and loops back to the cloud provider.
+/// The on-device dwell backs off when the cloud link keeps failing right after a
+/// failback, so a flaky connection doesn't ping-pong. Emits `stt_failover` /
+/// `stt_failback` so the UI can show which engine is live. Both providers re-arm
+/// on `start()`, so the same instances are reused across cycles (no per-cycle
+/// model reload beyond the first Moonshine load).
 pub(super) async fn run_stt_supervisor(
-    primary: Box<dyn SttProvider>,
+    primary: std::sync::Arc<dyn SttProvider>,
     fallback: Option<std::sync::Arc<dyn SttProvider>>,
     audio_rx: crossbeam_channel::Receiver<Vec<i16>>,
     event_tx: tokio::sync::mpsc::Sender<TranscriptEvent>,
@@ -53,6 +86,9 @@ pub(super) async fn run_stt_supervisor(
     // between probes for the network's return.
     const MAX_DWELL: Duration = Duration::from_secs(60);
     const PROBE_INTERVAL: Duration = Duration::from_secs(5);
+    // How often the watchdog probes connectivity while the cloud provider is
+    // live. Combined with the 1s probe timeout, a drop is caught within ~2.5s.
+    const WATCH_INTERVAL: Duration = Duration::from_millis(1500);
 
     // Minimum time on-device before we start probing for the network. Grows when
     // the cloud link proves flaky (fails again right after a failback).
@@ -64,14 +100,44 @@ pub(super) async fn run_stt_supervisor(
         }
 
         // ── Cloud/primary phase ──
+        //
+        // Run the primary provider and, in parallel, a connectivity watchdog that
+        // proactively detects the network dropping (rather than waiting for the
+        // socket to error out). The moment a probe sees the link is gone it stops
+        // the primary so `start()` returns and we fail over. The watchdog only
+        // runs when there is a fallback to switch to.
         let cloud_started = Instant::now();
-        let result = primary.start(audio_rx.clone(), event_tx.clone()).await;
+        let net_lost = Arc::new(AtomicBool::new(false));
 
-        // A clean return (Ok) or a user stop ends the session.
-        if !active.load(Ordering::SeqCst) || result.is_ok() {
+        let watchdog = fallback.as_ref().map(|_| {
+            spawn_connectivity_watchdog(
+                primary.clone(),
+                active.clone(),
+                net_lost.clone(),
+                WATCH_INTERVAL,
+            )
+        });
+
+        let result = primary.start(audio_rx.clone(), event_tx.clone()).await;
+        if let Some(w) = watchdog {
+            w.abort();
+        }
+        let net_lost = net_lost.load(Ordering::SeqCst);
+
+        // A user stop ends the session. So does a clean provider return with the
+        // network still up. But when the watchdog tripped, `stop()` is what made
+        // `start()` return Ok — so treat that as a drop and fail over.
+        if !active.load(Ordering::SeqCst) {
             break;
         }
-        log::error!("[STT-{primary_name}] provider failed: {:?}", result.err());
+        if result.is_ok() && !net_lost {
+            break;
+        }
+        if net_lost {
+            log::warn!("[STT] {primary_name} — watchdog detected network offline");
+        } else {
+            log::error!("[STT-{primary_name}] provider failed: {:?}", result.err());
+        }
 
         let Some(fallback) = fallback.clone() else {
             // No on-device engine to fall back to — surface a real error and stop.

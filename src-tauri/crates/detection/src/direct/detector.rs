@@ -169,10 +169,17 @@ const FILLER_PHRASES: &[&str] = &[
 
 /// Collapse sequences of space-separated single digits into a single number.
 /// Handles STT output where "Psalm 119" is transcribed as "Psalm 1 1 9".
-/// Only collapses runs of 2+ isolated single digits.
+///
+/// Only collapses runs of **3 or more** isolated single digits. A run of exactly
+/// two single digits after a book (e.g. "Matthew 1 1", "John 3 1") is left alone:
+/// spoken chapter+verse ("Matthew one one" → 1:1) is far more common than a
+/// two-digit number dictated one digit at a time ("thirteen" → "1 3"), and the
+/// two-number parser (`try_two_numbers`) resolves "Matthew 1 1" → Matthew 1:1.
+/// Runs of 3+ ("1 1 9") are almost always a single multi-digit number split by
+/// the transcriber, so those still collapse ("Psalm 1 1 9" → "Psalm 119").
 fn collapse_spaced_digits(text: &str) -> String {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r"\b(\d(?:\s+\d)+)\b").unwrap());
+    let re = RE.get_or_init(|| Regex::new(r"\b(\d(?:\s+\d){2,})\b").unwrap());
     re.replace_all(text, |caps: &regex::Captures| {
         caps[1].chars().filter(|c| !c.is_whitespace()).collect::<String>()
     })
@@ -264,15 +271,57 @@ struct IncompleteRef {
 /// is detected (e.g., "Genesis 3"), it's held for up to 5 seconds waiting
 /// for a verse completion (e.g., "verse 16"). If no completion arrives,
 /// the chapter-only reference is emitted defaulting to verse 1.
-/// Phrases that indicate the user wants to go back to a previous verse.
+/// Phrases that indicate the user wants to **re-show the current verse** (not
+/// step to an adjacent one). These re-emit the most recent detection unchanged.
+/// Stepping forward/backward is handled by [`DirectDetector::detect_navigation_command`]
+/// (see [`NAV_FORWARD_PHRASES`] / [`NAV_BACKWARD_PHRASES`]).
 const PREVIOUS_VERSE_PHRASES: &[&str] = &[
-    "previous verse",
     "last verse",
     "that verse again",
     "go back to that verse",
     "back to that verse",
     "the same verse",
     "repeat that verse",
+];
+
+/// Maximum word count for an utterance to be treated as a navigation command.
+/// Above this it is prose that merely mentions a verse, not an instruction to
+/// advance the screen (dominance guard).
+const MAX_NAV_WORDS: usize = 7;
+
+/// Direction of a spoken navigation command. The verse to step *from* is the
+/// frontend's live selection, so this carries only which way to move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NavDirection {
+    /// Advance to the following verse.
+    Next,
+    /// Step back to the preceding verse.
+    Previous,
+}
+
+/// Phrases meaning "advance to the next verse" (step +1 from the current verse).
+const NAV_FORWARD_PHRASES: &[&str] = &[
+    "next verse",
+    "next one",
+    "following verse",
+    "the verse after",
+    "read on",
+    "keep reading",
+    "move on to the next",
+    "go on to the next",
+    "on to the next",
+];
+
+/// Phrases meaning "go back to the preceding verse" (step -1 from the current verse).
+const NAV_BACKWARD_PHRASES: &[&str] = &[
+    "previous verse",
+    "verse before",
+    "one verse back",
+    "back one verse",
+    "back a verse",
+    "go back one",
+    "go back a verse",
+    "step back",
 ];
 
 pub struct DirectDetector {
@@ -335,6 +384,47 @@ impl DirectDetector {
             }
         }
 
+        None
+    }
+
+    /// Classify a spoken *navigation* command — "turn to the next verse", "go
+    /// back one verse" — into a direction to step.
+    ///
+    /// This is deliberately a pure text classifier: it returns only the
+    /// direction, NOT a target verse. The *anchor* — the verse to step from — is
+    /// owned by the frontend, which knows the verse currently on the program
+    /// screen regardless of how it got there (spoken reference, manual book-panel
+    /// selection, queue take, reading mode). Resolving the target here against
+    /// the last *detected* verse would ignore all of those non-voice paths, so
+    /// the step (and chapter-boundary roll-over) is done frontend-side against
+    /// the live selection instead.
+    ///
+    /// Returns `None` when the utterance is too long to be a bare command
+    /// (guards against "...and in the next verse Paul says..."), or when a book
+    /// name is present (that's a real reference — let [`Self::detect`] own it).
+    pub fn detect_navigation_command(&self, text: &str) -> Option<NavDirection> {
+        let cleaned = clean_transcript(text);
+        let lower = cleaned.to_lowercase();
+
+        // Dominance guard: a navigation command is a short, standalone utterance.
+        // A long sentence that merely contains "the next verse" is preaching, not
+        // a command to advance the audience screen.
+        if lower.split_whitespace().count() > MAX_NAV_WORDS {
+            return None;
+        }
+
+        // If an explicit book reference is present, this is a real reference —
+        // let the main detector own it rather than treating it as navigation.
+        if !self.matcher.find_books(&cleaned).is_empty() {
+            return None;
+        }
+
+        if NAV_FORWARD_PHRASES.iter().any(|p| lower.contains(p)) {
+            return Some(NavDirection::Next);
+        }
+        if NAV_BACKWARD_PHRASES.iter().any(|p| lower.contains(p)) {
+            return Some(NavDirection::Previous);
+        }
         None
     }
 
@@ -1033,8 +1123,24 @@ mod tests {
     }
 
     #[test]
-    fn test_collapse_spaced_digits_numbered_book_safe() {
-        assert_eq!(collapse_spaced_digits("1 Corinthians 1 3"), "1 Corinthians 13");
+    fn test_collapse_spaced_digits_two_digits_preserved() {
+        // A run of exactly two single digits is NOT collapsed: "Matthew 1 1"
+        // is chapter+verse (1:1), not the number 11. See collapse_spaced_digits.
+        assert_eq!(collapse_spaced_digits("Matthew 1 1"), "Matthew 1 1");
+        assert_eq!(collapse_spaced_digits("John 3 1"), "John 3 1");
+        assert_eq!(collapse_spaced_digits("1 Corinthians 1 3"), "1 Corinthians 1 3");
+    }
+
+    #[test]
+    fn test_matthew_one_one_resolves_to_verse() {
+        // Regression: "Matthew 1 1" must resolve to Matthew 1:1, not be collapsed
+        // to "Matthew 11" (chapter-only, held and never emitted).
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("Matthew 1 1");
+        assert_eq!(results.len(), 1, "expected Matthew 1:1 to be emitted");
+        assert_eq!(results[0].verse_ref.book_name, "Matthew");
+        assert_eq!(results[0].verse_ref.chapter, 1);
+        assert_eq!(results[0].verse_ref.verse_start, 1);
     }
 
     #[test]
@@ -1045,5 +1151,72 @@ mod tests {
         assert_eq!(results[0].verse_ref.book_name, "Psalms");
         assert_eq!(results[0].verse_ref.chapter, 119);
         assert_eq!(results[0].verse_ref.verse_start, 1);
+    }
+
+    // ========== Navigation Command Tests ==========
+    //
+    // These classify direction only. The verse to step *from* (and chapter
+    // roll-over) is resolved frontend-side against the live selection, so no
+    // anchor/seed is needed here.
+
+    #[test]
+    fn test_nav_next_verse() {
+        let d = DirectDetector::new();
+        assert_eq!(d.detect_navigation_command("next verse"), Some(NavDirection::Next));
+    }
+
+    #[test]
+    fn test_nav_next_verse_natural_phrasing() {
+        let d = DirectDetector::new();
+        for cmd in [
+            "turn to the next verse",
+            "let's go to the next verse",
+            "read on",
+            "keep reading",
+            "next one",
+        ] {
+            assert_eq!(
+                d.detect_navigation_command(cmd),
+                Some(NavDirection::Next),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_nav_previous_verse() {
+        let d = DirectDetector::new();
+        for cmd in ["previous verse", "go back one verse", "the verse before", "step back"] {
+            assert_eq!(
+                d.detect_navigation_command(cmd),
+                Some(NavDirection::Previous),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_nav_ignores_long_utterance() {
+        // Preaching that merely mentions the next verse must not advance.
+        let d = DirectDetector::new();
+        assert!(
+            d.detect_navigation_command(
+                "and when you look at the next verse you will see something",
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_nav_ignores_explicit_reference() {
+        // "next verse" alongside a real reference is not a bare command.
+        let d = DirectDetector::new();
+        assert!(d.detect_navigation_command("Genesis 1 1 next verse").is_none());
+    }
+
+    #[test]
+    fn test_nav_no_command() {
+        let d = DirectDetector::new();
+        assert!(d.detect_navigation_command("the weather is nice today").is_none());
     }
 }

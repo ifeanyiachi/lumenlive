@@ -15,10 +15,17 @@ use crate::keyterms::bible_keyterms;
 use crate::provider::SttProvider;
 use crate::types::{SttConfig, TranscriptEvent, Word};
 
-/// Kept low so a truly-offline connection gives up in ~3s and the orchestrator
-/// can fail over to the local engine, rather than stalling a live service.
-const MAX_RECONNECT_ATTEMPTS: u32 = 3;
+/// Kept low so a truly-offline connection gives up fast and the orchestrator can
+/// fail over to the local engine, rather than stalling a live service.
+const MAX_RECONNECT_ATTEMPTS: u32 = 2;
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
+/// Hard ceiling on the WebSocket handshake. `connect_async` has no built-in
+/// timeout, so when the machine is offline the underlying TCP/TLS connect would
+/// otherwise stall on the OS-level SYN timeout (tens of seconds on Windows)
+/// before returning an error — long enough that the failover never appears to
+/// happen. Bounding it here guarantees each attempt gives up quickly so the
+/// caller can switch to the on-device engine within a few seconds.
+const CONNECT_TIMEOUT: Duration = Duration::from_millis(1500);
 /// Batch up to 100ms of audio before sending (at 16kHz, that is 1600 samples).
 /// Kept small so interim results stream promptly — a larger batch adds a fixed
 /// latency floor to every partial without saving cost (Deepgram bills per
@@ -179,9 +186,18 @@ impl DeepgramClient {
                 .map_err(|e| SttError::ConnectionFailed(e.to_string()))?,
         );
 
-        let (ws_stream, _response) = tokio_tungstenite::connect_async(request)
-            .await
-            .map_err(|e| SttError::ConnectionFailed(e.to_string()))?;
+        let (ws_stream, _response) =
+            match tokio::time::timeout(CONNECT_TIMEOUT, tokio_tungstenite::connect_async(request))
+                .await
+            {
+                Ok(Ok(pair)) => pair,
+                Ok(Err(e)) => return Err(SttError::ConnectionFailed(e.to_string())),
+                Err(_elapsed) => {
+                    return Err(SttError::ConnectionFailed(
+                        "connect timed out (network unreachable)".into(),
+                    ))
+                }
+            };
 
         log::info!("DeepgramClient: connected to Deepgram");
         let _ = event_tx.send(TranscriptEvent::Connected).await;

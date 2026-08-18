@@ -17,7 +17,33 @@ import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
-import type { DetectionResult, ReadingAdvance } from "@/types"
+import { fetchChapter } from "@/services/bible-search-gateway"
+import { stepVerse, type NavDirection } from "@/lib/search/verse-navigation"
+import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
+
+/**
+ * Present a verse reached by spoken navigation: reflect it in the book panel and
+ * stage it to Program preview — or, when "Voice navigation goes live" is on, push
+ * it straight to the audience. Shared by the in-chapter and cross-chapter paths.
+ */
+function presentNavVerse(verse: Verse) {
+  const bible = useBibleStore.getState()
+  bibleActions.selectVerse(verse)
+  bible.setPendingNavigation({
+    bookNumber: verse.book_number,
+    chapter: verse.chapter,
+    verse: verse.verse,
+    focusPanel: false,
+  })
+  const translation =
+    bible.translations.find((t) => t.id === verse.translation_id)
+      ?.abbreviation ?? "KJV"
+  const bs = useBroadcastStore.getState()
+  bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
+  if (useSettingsStore.getState().navAutoLive) {
+    bs.takeToLive()
+  }
+}
 
 /**
  * Leaf component that subscribes to the audio level only. Isolated so the
@@ -222,6 +248,39 @@ export function TranscriptPanel() {
         chapter: advance.chapter,
         verse: advance.verse,
       })
+    }
+  })
+
+  // Spoken navigation ("turn to the next verse", "go back one verse"): the
+  // backend classifies only the direction; the *anchor* is the verse currently
+  // selected on the program screen, so this works no matter how that verse got
+  // there — a spoken reference, a manual book-panel pick, a queue take, or
+  // reading mode. Step one verse through the loaded chapter (or roll over into
+  // the adjacent chapter), then present it — staged to Program preview, or live
+  // when "Voice navigation goes live" (navAutoLive) is on.
+  useTauriEvent<{ direction: NavDirection }>("nav_command", (payload) => {
+    const { selectedVerse, currentChapter, activeTranslationId } =
+      useBibleStore.getState()
+    const step = stepVerse(selectedVerse, currentChapter, payload.direction)
+
+    if (step.kind === "verse") {
+      presentNavVerse(step.verse)
+      return
+    }
+    if (step.kind === "cross-chapter") {
+      // Load the adjacent chapter and land on its first/last verse. An empty
+      // result means we ran off the end of the book — nothing to do.
+      fetchChapter(activeTranslationId, step.bookNumber, step.chapter)
+        .then((verses) => {
+          if (verses.length === 0) return
+          useBibleStore.getState().setCurrentChapter(verses)
+          presentNavVerse(
+            step.edge === "first" ? verses[0] : verses[verses.length - 1]
+          )
+        })
+        .catch((err) => {
+          console.error("[VOICE] nav chapter load failed", err)
+        })
     }
   })
 

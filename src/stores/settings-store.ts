@@ -39,6 +39,15 @@ interface SettingsState {
   directAutoDisplay: boolean
   semanticAutoQueue: boolean
   /**
+   * Where a spoken navigation command ("turn to the next verse", "go back one
+   * verse") sends its target verse. `false` (default) stages it to Program
+   * preview for the operator to take deliberately — safe against a misheard
+   * command flipping the audience screen. `true` pushes it straight to the
+   * audience, hands-free. Independent of `directAutoDisplay`, which governs
+   * spoken *references* rather than navigation.
+   */
+  navAutoLive: boolean
+  /**
    * Reject schedule items whose content already appears in the schedule,
    * flash-highlighting the existing one instead of adding a second copy.
    */
@@ -79,6 +88,7 @@ interface SettingsState {
   setSherpaPartials: (enabled: boolean) => void
   setDirectAutoDisplay: (enabled: boolean) => void
   setSemanticAutoQueue: (enabled: boolean) => void
+  setNavAutoLive: (enabled: boolean) => void
   setPreventDuplicateScheduleItems: (enabled: boolean) => void
   setMediaImportMode: (mode: MediaImportMode) => void
   setLexiconEnabled: (enabled: boolean) => void
@@ -100,6 +110,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   sherpaPartials: false,
   directAutoDisplay: true,
   semanticAutoQueue: false,
+  navAutoLive: false,
   preventDuplicateScheduleItems: true,
   mediaImportMode: "reference",
   lexiconEnabled: false,
@@ -119,6 +130,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSherpaPartials: (sherpaPartials) => set({ sherpaPartials }),
   setDirectAutoDisplay: (directAutoDisplay) => set({ directAutoDisplay }),
   setSemanticAutoQueue: (semanticAutoQueue) => set({ semanticAutoQueue }),
+  setNavAutoLive: (navAutoLive) => set({ navAutoLive }),
   setPreventDuplicateScheduleItems: (preventDuplicateScheduleItems) =>
     set({ preventDuplicateScheduleItems }),
   setMediaImportMode: (mediaImportMode) => set({ mediaImportMode }),
@@ -141,6 +153,7 @@ const PERSISTED_KEYS = [
   "sherpaPartials",
   "directAutoDisplay",
   "semanticAutoQueue",
+  "navAutoLive",
   "preventDuplicateScheduleItems",
   "mediaImportMode",
   "lexiconEnabled",

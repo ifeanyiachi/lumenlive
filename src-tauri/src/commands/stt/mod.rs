@@ -100,8 +100,10 @@ pub async fn start_transcription(
     let provider_log_name = stt_provider.name().to_string();
     let supervisor_app = app.clone();
 
-    // Share the on-device fallback so the supervisor can both run it and stop it
-    // (to fail back) from separate tasks.
+    // Share the primary and the on-device fallback so the supervisor can run each
+    // provider and stop it from a separate task — the connectivity watchdog stops
+    // the primary to force a failover; the failback path stops the fallback.
+    let stt_provider: std::sync::Arc<dyn SttProvider> = std::sync::Arc::from(stt_provider);
     let stt_fallback: Option<std::sync::Arc<dyn SttProvider>> =
         stt_fallback.map(std::sync::Arc::from);
 

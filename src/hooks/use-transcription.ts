@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
@@ -53,6 +53,19 @@ export const transcriptionActions = {
         toast.error("Could not start transcription", { description: msg })
       }
     }
+  },
+
+  /**
+   * Restart a running session so a settings change (e.g. switching the STT
+   * provider between Cloud and Local) takes effect immediately. No-op when no
+   * session is running — the new setting is picked up at the next manual start.
+   * `start()` reads the provider fresh from the settings store, so a plain
+   * stop→start is all that's needed.
+   */
+  async restartIfRunning(onMissingApiKey?: () => void): Promise<void> {
+    if (!useTranscriptStore.getState().isTranscribing) return
+    await transcriptionActions.stop()
+    await transcriptionActions.start(onMissingApiKey)
   },
 
   async stop(): Promise<void> {
@@ -144,6 +157,19 @@ export function useTranscription(options?: UseTranscriptionOptions) {
   })
 
   const onMissingApiKey = options?.onMissingApiKey
+
+  // Live provider switch: when the operator changes the STT provider (Cloud ↔
+  // Local) while a session is running, restart the pipeline so the new engine
+  // takes effect immediately instead of only at the next manual start. The
+  // provider is read fresh inside `start()` (via `getState()`), so a plain
+  // stop→start picks up the new choice. No-op when idle or on the first render.
+  const sttProvider = useSettingsStore((s) => s.sttProvider)
+  const prevProvider = useRef(sttProvider)
+  useEffect(() => {
+    if (prevProvider.current === sttProvider) return
+    prevProvider.current = sttProvider
+    void transcriptionActions.restartIfRunning(onMissingApiKey)
+  }, [sttProvider, onMissingApiKey])
 
   const startTranscription = useCallback(
     () => transcriptionActions.start(onMissingApiKey),
