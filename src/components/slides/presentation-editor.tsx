@@ -21,6 +21,9 @@ export function PresentationEditor({
   onClose,
   embedded = false,
   themeMode = false,
+  hideToolbar = false,
+  showGrid: controlledShowGrid,
+  onShowGridChange,
 }: {
   onClose: () => void
   /** Fill the parent instead of a full-screen `fixed inset-0` overlay. */
@@ -31,6 +34,16 @@ export function PresentationEditor({
    * custom-theme collection (theme-unification-plan.md, Phase 4 editor shell).
    */
   themeMode?: boolean
+  /**
+   * Suppress the built-in `EditorToolbar` so a host (the Theme Designer) can
+   * provide a single unified top bar instead of stacking two. When set, the
+   * host owns name/undo/redo/save/grid and must control the grid via the
+   * `showGrid`/`onShowGridChange` props below.
+   */
+  hideToolbar?: boolean
+  /** Controlled grid-overlay state (used when the toolbar is hidden). */
+  showGrid?: boolean
+  onShowGridChange?: (updater: (v: boolean) => boolean) => void
 }) {
   const draft = usePresentationStore((s) => s.draftPresentation)
   const activeSlideIndex = usePresentationStore((s) => s.activeSlideIndex)
@@ -38,7 +51,9 @@ export function PresentationEditor({
   const editingTextElementId = usePresentationStore(
     (s) => s.editingTextElementId
   )
-  const [showGrid, setShowGrid] = useState(false)
+  const [internalShowGrid, setInternalShowGrid] = useState(false)
+  const showGrid = controlledShowGrid ?? internalShowGrid
+  const setShowGrid = onShowGridChange ?? setInternalShowGrid
 
   const activeSlide = draft?.slides[activeSlideIndex] ?? null
 
@@ -67,14 +82,16 @@ export function PresentationEditor({
 
       {/* Center: Canvas preview */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <EditorToolbar
-          draft={draft}
-          activeSlideIndex={activeSlideIndex}
-          themeMode={themeMode}
-          showGrid={showGrid}
-          setShowGrid={setShowGrid}
-          onClose={onClose}
-        />
+        {!hideToolbar && (
+          <EditorToolbar
+            draft={draft}
+            activeSlideIndex={activeSlideIndex}
+            themeMode={themeMode}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+            onClose={onClose}
+          />
+        )}
 
         {/* Format toolbar */}
         <SlideFormatToolbar element={selectedElement} />

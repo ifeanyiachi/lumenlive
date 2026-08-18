@@ -92,8 +92,24 @@ export function ThemeLibrary() {
     (t) => !t.builtin && t.id !== defaultThemeId
   )
 
+  // Verse and song themes live in different stores; only one draft may be live
+  // at a time or the designer shows both (phantom 3rd column → overflow). Each
+  // entry point clears the *other* store's draft before opening its own.
+  const editVerseTheme = (id: string) => {
+    usePresentationStore.getState().discardDraft()
+    useBroadcastStore.getState().startEditing(id)
+  }
+
   const handleNewTheme = () => {
-    guardSwitch(() => useBroadcastStore.getState().createNewTheme())
+    guardSwitch(() => {
+      usePresentationStore.getState().discardDraft()
+      useBroadcastStore.getState().createNewTheme()
+    })
+  }
+
+  const handleNewSongTheme = () => {
+    // createAndEditSongTheme clears any live verse draft (slide-theme-actions).
+    guardSwitch(createAndEditSongTheme)
   }
 
   return (
@@ -112,9 +128,7 @@ export function ThemeLibrary() {
             <DropdownMenuItem onClick={handleNewTheme}>
               Verse / scripture theme
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => guardSwitch(createAndEditSongTheme)}
-            >
+            <DropdownMenuItem onClick={handleNewSongTheme}>
               Song / lyrics theme
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -182,9 +196,7 @@ export function ThemeLibrary() {
                 const theme = await importTheme()
                 if (theme) {
                   useBroadcastStore.getState().saveTheme(theme)
-                  guardSwitch(() =>
-                    useBroadcastStore.getState().startEditing(theme.id)
-                  )
+                  guardSwitch(() => editVerseTheme(theme.id))
                 }
               } catch (err) {
                 console.error("[theme-library] import failed:", err)
@@ -241,9 +253,7 @@ export function ThemeLibrary() {
                 isDefault
                 isEditing={defaultTheme.id === editingThemeId}
                 onSelect={() =>
-                  guardSwitch(() =>
-                    useBroadcastStore.getState().startEditing(defaultTheme.id)
-                  )
+                  guardSwitch(() => editVerseTheme(defaultTheme.id))
                 }
               />
             </>
@@ -262,11 +272,7 @@ export function ThemeLibrary() {
                   isActive={theme.id === activeThemeId}
                   isDefault={false}
                   isEditing={theme.id === editingThemeId}
-                  onSelect={() =>
-                    guardSwitch(() =>
-                      useBroadcastStore.getState().startEditing(theme.id)
-                    )
-                  }
+                  onSelect={() => guardSwitch(() => editVerseTheme(theme.id))}
                 />
               ))}
             </>
@@ -285,11 +291,7 @@ export function ThemeLibrary() {
                   isActive={theme.id === activeThemeId}
                   isDefault={false}
                   isEditing={theme.id === editingThemeId}
-                  onSelect={() =>
-                    guardSwitch(() =>
-                      useBroadcastStore.getState().startEditing(theme.id)
-                    )
-                  }
+                  onSelect={() => guardSwitch(() => editVerseTheme(theme.id))}
                 />
               ))}
             </>

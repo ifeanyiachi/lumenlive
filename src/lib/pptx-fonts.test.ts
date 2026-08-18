@@ -66,7 +66,10 @@ describe("collectFontFamilies", () => {
   })
 
   it("ignores blank families", () => {
-    const p = pres(textEl({ fontFamily: "  " }), textEl({ fontFamily: "Arial" }))
+    const p = pres(
+      textEl({ fontFamily: "  " }),
+      textEl({ fontFamily: "Arial" })
+    )
     expect(collectFontFamilies(p)).toEqual(["Arial"])
   })
 })
@@ -117,7 +120,9 @@ describe("suggestReplacement", () => {
 
 describe("applyFontSubstitutions", () => {
   it("replaces family and scales size, leaving other styles untouched", () => {
-    const p = pres(textEl({ fontFamily: "Calibri", fontSize: 40, color: "#abc" }))
+    const p = pres(
+      textEl({ fontFamily: "Calibri", fontSize: 40, color: "#abc" })
+    )
     const out = applyFontSubstitutions(
       p,
       new Map([[normalizeFamily("Calibri"), { family: "Inter", scale: 1.25 }]])

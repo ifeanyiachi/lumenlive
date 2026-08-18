@@ -1,33 +1,12 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { TextProperties } from "@/components/broadcast/text-properties"
 import { BackgroundProperties } from "@/components/broadcast/background-properties"
 import { LayoutProperties } from "@/components/broadcast/layout-properties"
 import { TransitionProperties } from "@/components/broadcast/transition-properties"
 import { ThemeLayerList } from "@/components/broadcast/theme-layer-list"
 import { ElementProperties } from "@/components/broadcast/element-properties"
-import type { ThemeCategory } from "@/types/broadcast"
-
-/**
- * The category tells the rest of the app what a theme is *for* — which picker it
- * shows up in (e.g. only `countdown` themes appear in the countdown editor).
- */
-const CATEGORY_OPTIONS: { value: ThemeCategory; label: string }[] = [
-  { value: "general", label: "General" },
-  { value: "scripture", label: "Scripture" },
-  { value: "song", label: "Song" },
-  { value: "sermon", label: "Sermon" },
-  { value: "overlay", label: "Overlay" },
-  { value: "countdown", label: "Countdown" },
-]
 
 export function PropertiesPanel() {
   const draftTheme = useBroadcastStore((s) => s.draftTheme)
@@ -81,30 +60,6 @@ export function PropertiesPanel() {
 
         <ScrollArea className="min-h-0 flex-1">
           <TabsContent value="layers" className="mt-0 p-4">
-            <div className="mb-4 flex flex-col gap-1.5">
-              <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Category
-              </span>
-              <Select
-                value={draftTheme.category ?? "general"}
-                onValueChange={(value) =>
-                  useBroadcastStore
-                    .getState()
-                    .updateDraft({ category: value as ThemeCategory })
-                }
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <ThemeLayerList />
             <div className="mt-4 border-t border-border pt-4">
               {selectedCustomElement ? (

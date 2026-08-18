@@ -122,7 +122,10 @@ export function parseScheduleFile(
   }
 
   const src = raw.schedule
-  const name = typeof src.name === "string" && src.name.trim() ? src.name : "Imported Schedule"
+  const name =
+    typeof src.name === "string" && src.name.trim()
+      ? src.name
+      : "Imported Schedule"
   const rawItems = Array.isArray(src.items) ? src.items : []
 
   // Mint the schedule id before item ids so the schedule reads as the first

@@ -224,5 +224,9 @@ export function registerMediaListeners(
     }
   )
 
-  return disposeSubscriptions([unlistenMedia, unlistenMediaFit, unlistenTransport])
+  return disposeSubscriptions([
+    unlistenMedia,
+    unlistenMediaFit,
+    unlistenTransport,
+  ])
 }

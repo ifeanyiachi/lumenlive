@@ -160,9 +160,7 @@ export function registerSlideListener(
           id: el.id,
           animation: el.animation,
           textBuild:
-            el.type === "text"
-              ? (el as SlideTextElement).textBuild
-              : undefined,
+            el.type === "text" ? (el as SlideTextElement).textBuild : undefined,
           textLineCount:
             el.type === "text"
               ? getTextLineCount(

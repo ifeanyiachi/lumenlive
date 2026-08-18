@@ -341,7 +341,11 @@ export function SchedulePanel() {
                 Cancel
               </Button>
             </DialogClose>
-            <Button variant="destructive" size="sm" onClick={handleConfirmDelete}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDelete}
+            >
               Delete
             </Button>
           </DialogFooter>

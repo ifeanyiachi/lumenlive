@@ -13,6 +13,7 @@ import {
   RotateCcwIcon,
   PaletteIcon,
   StarIcon,
+  GridIcon,
 } from "lucide-react"
 import { DesignCanvas } from "@/components/broadcast/design-canvas"
 import { ThemeFormatToolbar } from "@/components/broadcast/theme-format-toolbar"
@@ -34,9 +35,16 @@ export function ThemeDesigner() {
   // designer embeds the slide editor in place of the verse canvas, keeping the
   // theme list on the left (theme-unification-plan.md, Phase 4 editor shell).
   const themeEditSession = usePresentationStore((s) => s.themeEditSession)
+  const songDraftName = usePresentationStore(
+    (s) => s.draftPresentation?.name ?? ""
+  )
   const [isEditingName, setIsEditingName] = useState(false)
   const [editingNameValue, setEditingNameValue] = useState("")
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+  // Grid overlay for the embedded song editor — the designer owns it because the
+  // song editor's own toolbar (which used to host this toggle) is suppressed so
+  // there's a single top bar (Phase 0 fix for the duplicate-chrome disconnect).
+  const [songShowGrid, setSongShowGrid] = useState(false)
 
   const isEditing = draftTheme != null
   const isEditingSong = themeEditSession != null
@@ -186,6 +194,26 @@ export function ThemeDesigner() {
     useBroadcastStore.getState().setDesignerOpen(false)
   }
 
+  // Song-theme session (presentation store) — the unified top bar drives it in
+  // place of the suppressed embedded EditorToolbar.
+  const handleSongNameChange = (value: string) => {
+    const store = usePresentationStore.getState()
+    if (store.draftPresentation) {
+      usePresentationStore.setState({
+        draftPresentation: { ...store.draftPresentation, name: value },
+      })
+    }
+  }
+
+  const handleSongSave = () => {
+    usePresentationStore.getState().saveDraft()
+    toast.success("Theme saved")
+  }
+
+  const handleSongDiscard = () => {
+    usePresentationStore.getState().discardDraft()
+  }
+
   const handleStartEditingName = () => {
     if (draftTheme) {
       setEditingNameValue(draftTheme.name)
@@ -263,6 +291,16 @@ export function ThemeDesigner() {
                   {draftTheme?.name ?? "Theme Editor"}
                 </span>
               )
+            ) : isEditingSong ? (
+              <Input
+                value={songDraftName}
+                onChange={(e) => handleSongNameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") e.stopPropagation()
+                }}
+                className="h-8 w-56 text-lg font-semibold"
+                placeholder="Theme name"
+              />
             ) : (
               <span className="text-xl font-semibold text-foreground">
                 Theme Designer
@@ -290,6 +328,38 @@ export function ThemeDesigner() {
                   title="Redo (Ctrl+Y)"
                 >
                   <Redo2Icon className="size-4" />
+                </Button>
+              </div>
+            )}
+
+            {isEditingSong && (
+              <div className="ml-2 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-8"
+                  onClick={() => usePresentationStore.getState().undo()}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2Icon className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-8"
+                  onClick={() => usePresentationStore.getState().redo()}
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2Icon className="size-4" />
+                </Button>
+                <Button
+                  variant={songShowGrid ? "default" : "ghost"}
+                  size="icon-sm"
+                  className="size-8"
+                  onClick={() => setSongShowGrid((v) => !v)}
+                  title="Toggle grid"
+                >
+                  <GridIcon className="size-4" />
                 </Button>
               </div>
             )}
@@ -329,6 +399,22 @@ export function ThemeDesigner() {
               </>
             )}
 
+            {isEditingSong && (
+              <>
+                <Button variant="outline" onClick={handleSongDiscard}>
+                  <TrashIcon className="size-4" />
+                  Discard
+                </Button>
+                <Button
+                  className="bg-primary text-primary-foreground hover:bg-primary/80"
+                  onClick={handleSongSave}
+                >
+                  <SaveIcon className="size-4" />
+                  Save Theme
+                </Button>
+              </>
+            )}
+
             <Button variant="ghost" onClick={handleClose}>
               <XIcon strokeWidth={2} />
               Close
@@ -340,17 +426,26 @@ export function ThemeDesigner() {
             className="min-h-0 flex-1"
             style={{
               display: "grid",
-              gridTemplateColumns: isEditing ? "300px 1fr 340px" : "300px 1fr",
+              // Key the grid on the *active* editor. The song editor carries its
+              // own properties panel, so it needs 2 columns; the verse editor's
+              // panel is a separate 3rd column. Keying on the wrong flag left a
+              // phantom 340px column that clipped the song panel off-screen.
+              gridTemplateColumns:
+                isEditingSong || !isEditing ? "300px 1fr" : "300px 1fr 340px",
             }}
           >
             <ThemeLibrary />
 
             {isEditingSong ? (
               // Song theme: embed the full slide editor in place (its own canvas
-              // + properties), so the theme list stays visible on the left.
+              // + properties), so the theme list stays visible on the left. Its
+              // toolbar is suppressed — the designer top bar is the only chrome.
               <PresentationEditor
                 embedded
                 themeMode
+                hideToolbar
+                showGrid={songShowGrid}
+                onShowGridChange={setSongShowGrid}
                 onClose={() => usePresentationStore.getState().discardDraft()}
               />
             ) : isEditing ? (

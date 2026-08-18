@@ -93,7 +93,15 @@ describe("serializeSchedule + parseScheduleFile", () => {
           { id: "a", type: "header", label: "H", order: 0 },
           { id: "b", type: "bogus", label: "?", order: 1 },
           "not-an-object",
-          { id: "c", type: "web", label: "Clip", order: 2, url: "x", autoplay: false, isYouTube: false },
+          {
+            id: "c",
+            type: "web",
+            label: "Clip",
+            order: 2,
+            url: "x",
+            autoplay: false,
+            isYouTube: false,
+          },
         ],
       },
     })
@@ -140,14 +148,18 @@ describe("serializeSchedule + parseScheduleFile", () => {
       version: 1,
       exportedAt: 0,
     })
-    expect(() => parseScheduleFile(text, seqIds(), 0)).toThrow(/missing its contents/)
+    expect(() => parseScheduleFile(text, seqIds(), 0)).toThrow(
+      /missing its contents/
+    )
   })
 })
 
 describe("scheduleFileName", () => {
   it("sanitizes spaces and punctuation, appends the extension", () => {
     expect(scheduleFileName("Sunday Morning!")).toBe("Sunday-Morning.lumsched")
-    expect(scheduleFileName("  Evening / Youth  ")).toBe("Evening-Youth.lumsched")
+    expect(scheduleFileName("  Evening / Youth  ")).toBe(
+      "Evening-Youth.lumsched"
+    )
   })
 
   it("falls back to a default base when the name is empty", () => {
