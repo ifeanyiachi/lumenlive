@@ -7,6 +7,7 @@ import {
   PlusIcon,
   MinusIcon,
   TrashIcon,
+  PencilIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -113,35 +114,35 @@ function TimerEditor({
               its category to Countdown.
             </p>
           ) : (
-            <div className="flex flex-col gap-1">
-              {countdownThemes.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, themeId: theme.id })}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
-                    draft.themeId === theme.id
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-foreground"
-                      : "border-border text-muted-foreground hover:bg-accent"
-                  )}
-                >
-                  <span
-                    className="size-5 shrink-0 rounded border border-border"
-                    style={{
-                      backgroundColor:
-                        theme.background.type === "solid" ||
-                        theme.background.type === "gradient"
-                          ? theme.background.color
-                          : "#000000",
-                      color: theme.verseText.color,
-                    }}
-                    aria-hidden
-                  />
-                  <span className="truncate">{theme.name}</span>
-                </button>
-              ))}
-            </div>
+            <Select
+              value={draft.themeId ?? ""}
+              onValueChange={(value) => setDraft({ ...draft, themeId: value })}
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue placeholder="Select a theme" />
+              </SelectTrigger>
+              <SelectContent>
+                {countdownThemes.map((theme) => (
+                  <SelectItem key={theme.id} value={theme.id}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="size-4 shrink-0 rounded border border-border"
+                        style={{
+                          backgroundColor:
+                            theme.background.type === "solid" ||
+                            theme.background.type === "gradient"
+                              ? theme.background.color
+                              : "#000000",
+                          color: theme.verseText.color,
+                        }}
+                        aria-hidden
+                      />
+                      <span className="truncate">{theme.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       )}
@@ -488,20 +489,25 @@ export function CountdownTrigger() {
                   )}
                 >
                   <TimerIcon className="size-3 shrink-0 text-muted-foreground" />
-                  <button
-                    type="button"
-                    className="flex-1 text-left text-foreground"
-                    onClick={() => {
-                      setEditingTimer(timer)
-                      setEditorOpen(true)
-                    }}
-                  >
+                  <div className="min-w-0 flex-1 text-left text-foreground">
                     <span className="truncate">{timer.label}</span>
                     <span className="ml-1 text-muted-foreground">
                       ({durationLabel})
                     </span>
-                  </button>
+                  </div>
                   <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-5"
+                      onClick={() => {
+                        setEditingTimer(timer)
+                        setEditorOpen(true)
+                      }}
+                      title="Edit"
+                    >
+                      <PencilIcon className="size-2.5" />
+                    </Button>
                     {active ? (
                       <>
                         <Button
@@ -626,7 +632,7 @@ export function CountdownTrigger() {
       </Popover>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-h-[85vh] max-w-sm overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-sm">
               {editingTimer && timers.some((t) => t.id === editingTimer.id)

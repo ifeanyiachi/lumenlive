@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { useBroadcastStore } from "@/stores"
+import { useCountdownStore } from "@/stores/countdown-store"
 import type {
   BroadcastOutput,
   ContentRouting,
@@ -115,6 +116,9 @@ export function OutputManager({
         const bs = useBroadcastStore.getState()
         bs.syncBroadcastOutputFor(output.id)
         if (output.mode === "stage") bs.syncStageOutput()
+        // Re-push live countdowns so the just-opened window shows a timer that
+        // started before it mounted (treated as a replace by output windows).
+        useCountdownStore.getState().resyncOutputs()
       }
       const unlisten = await onOutputReady(() => {
         synced = true

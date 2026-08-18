@@ -1,4 +1,5 @@
 import type { MediaFileInfo } from "@/types/media"
+import type { Presentation } from "@/types/slide"
 import { parsePptx, type ImageResolver } from "@/lib/pptx-import"
 import { usePresentationStore } from "@/stores/presentation-store"
 
@@ -50,11 +51,27 @@ const resolveImage: ImageResolver = async (bytes, fileName) => {
 }
 
 /**
+ * Parse a `.pptx` file into a {@link Presentation} without touching the store.
+ * Callers reconcile fonts (see `lib/pptx-fonts`) and then call
+ * {@link commitImportedPresentation}. Throws on unreadable/invalid files.
+ */
+export async function parsePptxFile(file: File): Promise<Presentation> {
+  const buffer = await file.arrayBuffer()
+  return parsePptx(buffer, file.name, resolveImage)
+}
+
+/** Add an already-parsed (and reconciled) presentation to the store. */
+export function commitImportedPresentation(pres: Presentation): string {
+  return usePresentationStore.getState().importParsedPresentation(pres)
+}
+
+/**
  * Parse a `.pptx` file into a new presentation and add it to the store.
  * Returns the new presentation's id. Throws on unreadable/invalid files.
+ *
+ * Kept for callers that don't need the font-reconciliation step; the UI import
+ * flow uses {@link parsePptxFile} + {@link commitImportedPresentation} directly.
  */
 export async function importPptxFile(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const presentation = await parsePptx(buffer, file.name, resolveImage)
-  return usePresentationStore.getState().importParsedPresentation(presentation)
+  return commitImportedPresentation(await parsePptxFile(file))
 }

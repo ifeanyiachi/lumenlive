@@ -19,6 +19,7 @@ import {
 } from "@/lib/broadcast/monitors"
 import { reportOutputError } from "@/services/output-errors"
 import { useBroadcastStore } from "@/stores"
+import { useCountdownStore } from "@/stores/countdown-store"
 import type {
   NdiAlphaMode,
   NdiFrameRate,
@@ -139,6 +140,9 @@ export function useOutputController({
     if (bs.outputs.find((o) => o.id === outputId)?.mode === "stage") {
       bs.syncStageOutput()
     }
+    // Re-push live countdowns so a just-opened window shows a timer that
+    // started before it mounted (output windows treat the sync as a replace).
+    useCountdownStore.getState().resyncOutputs()
   }, [outputId])
 
   const pushNdiConfig = useCallback(

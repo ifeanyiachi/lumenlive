@@ -114,6 +114,9 @@ export function drawCountdownOverlay(
         showLabel: timer.showLabel,
         timeColor: themedColor,
         opacity: flashing ? Math.abs(Math.sin(now / 300)) : 1,
+        // Project the theme onto the real output surface so it fills the
+        // projector; without this it renders at authoring size in the corner.
+        surface: { width: w, height: h },
       })
       continue
     }

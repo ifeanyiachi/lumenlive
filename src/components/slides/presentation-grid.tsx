@@ -8,7 +8,24 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PresentationCard } from "@/components/slides/presentation-card"
 import { usePresentationStore } from "@/stores/presentation-store"
-import { importPptxFile } from "@/lib/pptx-import-runner"
+import {
+  parsePptxFile,
+  commitImportedPresentation,
+} from "@/lib/pptx-import-runner"
+import {
+  applyFontSubstitutions,
+  collectFontFamilies,
+  countElementsUsingFont,
+  findUnmatchedFonts,
+  BUNDLED_FONTS,
+  type FontSubstitution,
+} from "@/lib/pptx-fonts"
+import { useLocalFonts } from "@/hooks/use-local-fonts"
+import {
+  PptxFontReconcileDialog,
+  type UnmatchedFont,
+} from "@/components/slides/pptx-font-reconcile-dialog"
+import type { Presentation } from "@/types/slide"
 
 export function PresentationGrid() {
   const allPresentations = usePresentationStore((s) => s.presentations)
@@ -16,6 +33,12 @@ export function PresentationGrid() {
   const selectedId = usePresentationStore((s) => s.selectedPresentationId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
+  const { fonts: localFonts } = useLocalFonts()
+  // A parsed-but-not-yet-committed deck awaiting font reconciliation.
+  const [pending, setPending] = useState<{
+    presentation: Presentation
+    unmatched: UnmatchedFont[]
+  } | null>(null)
 
   const presentations = useMemo(() => {
     if (!searchQuery.trim()) return allPresentations
@@ -32,12 +55,35 @@ export function PresentationGrid() {
     usePresentationStore.getState().startEditing(id)
   }
 
+  const commitAndSelect = (presentation: Presentation, fileName: string) => {
+    const id = commitImportedPresentation(presentation)
+    usePresentationStore.getState().setSelectedPresentation(id)
+    toast.success(`Imported "${fileName}"`)
+  }
+
   const handleImportPptx = async (file: File) => {
     setImporting(true)
     try {
-      const id = await importPptxFile(file)
-      usePresentationStore.getState().setSelectedPresentation(id)
-      toast.success(`Imported "${file.name}"`)
+      const presentation = await parsePptxFile(file)
+      // Fonts the app can actually render: enumerated local fonts plus the
+      // web fonts bundled with the app. Anything else falls back at render time
+      // and looks distorted, so surface it for replacement first.
+      const available = [...localFonts, ...BUNDLED_FONTS]
+      const unmatchedNames = findUnmatchedFonts(
+        collectFontFamilies(presentation),
+        available
+      )
+      if (unmatchedNames.length === 0) {
+        commitAndSelect(presentation, file.name)
+        return
+      }
+      setPending({
+        presentation,
+        unmatched: unmatchedNames.map((family) => ({
+          family,
+          count: countElementsUsingFont(presentation, family),
+        })),
+      })
     } catch (err) {
       toast.error(
         `Import failed: ${err instanceof Error ? err.message : "unknown error"}`
@@ -45,6 +91,15 @@ export function PresentationGrid() {
     } finally {
       setImporting(false)
     }
+  }
+
+  const handleReconcileConfirm = (subs: Map<string, FontSubstitution>) => {
+    if (!pending) return
+    commitAndSelect(
+      applyFontSubstitutions(pending.presentation, subs),
+      pending.presentation.name
+    )
+    setPending(null)
   }
 
   return (
@@ -131,6 +186,14 @@ export function PresentationGrid() {
           </div>
         )}
       </ScrollArea>
+
+      <PptxFontReconcileDialog
+        open={pending !== null}
+        unmatched={pending?.unmatched ?? []}
+        availableFonts={localFonts}
+        onConfirm={handleReconcileConfirm}
+        onCancel={() => setPending(null)}
+      />
     </div>
   )
 }

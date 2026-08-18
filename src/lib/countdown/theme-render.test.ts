@@ -10,6 +10,7 @@ const countdownTheme = BUILTIN_THEMES.find(
 interface Op {
   text: string
   fillStyle: string
+  x: number
 }
 
 /**
@@ -56,8 +57,8 @@ function recordingCtx(charWidth = 10) {
     createLinearGradient: () => gradient,
     createRadialGradient: () => gradient,
     measureText: (t: string) => ({ width: t.length * charWidth }),
-    fillText(text: string, _x: number, _y: number) {
-      ops.push({ text, fillStyle: ctx.fillStyle as string })
+    fillText(text: string, x: number, _y: number) {
+      ops.push({ text, fillStyle: ctx.fillStyle as string, x })
     },
     strokeText() {},
   }
@@ -142,5 +143,33 @@ describe("renderCountdownTheme", () => {
       label: "STARTING SOON",
     })
     expect(hidden.ops.some((o) => o.text.includes("STARTING SOON"))).toBe(false)
+  })
+
+  it("projects the theme onto the output surface instead of authoring size", () => {
+    // Without a surface the theme paints at its authored 1920×1080 (centered
+    // digits at x≈960). Passing a 2× surface must reproject so the digits stay
+    // centered on the real projector — otherwise they pin to the corner at
+    // authoring scale (the reported bug).
+    const authored = recordingCtx()
+    renderCountdownTheme(authored.ctx, countdownTheme, {
+      timeText: "04:59",
+      timeColor: "#fff",
+      showLabel: false,
+    })
+    const projected = recordingCtx()
+    renderCountdownTheme(projected.ctx, countdownTheme, {
+      timeText: "04:59",
+      timeColor: "#fff",
+      showLabel: false,
+      surface: { width: 3840, height: 2160 },
+    })
+
+    const authoredX = authored.ops.find((o) => o.text.includes("04:59"))?.x
+    const projectedX = projected.ops.find((o) => o.text.includes("04:59"))?.x
+    expect(authoredX).toBeDefined()
+    expect(projectedX).toBeDefined()
+    // Centered digits scale with surface width (≈2× here), proving the theme is
+    // reprojected rather than drawn at authoring size in the corner.
+    expect(projectedX! / authoredX!).toBeCloseTo(2, 1)
   })
 })

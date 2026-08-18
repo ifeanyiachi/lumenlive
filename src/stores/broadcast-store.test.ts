@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Slide } from "@/types/slide"
 import type { VerseRenderData } from "@/types"
 import type { StageLayout } from "@/types/stage-layout"
+import type { BroadcastProp } from "@/types/broadcast"
 import type { LiveMedia } from "./broadcast-store"
 
 const emitToMock = vi.fn()
@@ -204,6 +205,39 @@ describe("broadcast store sync", () => {
         theme: expect.objectContaining({ id: other.id }),
       })
     )
+  })
+
+  it("syncBroadcastOutputFor re-pushes the active props to the output so a just-opened window shows a running marquee", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    // One active marquee + one inactive prop: only the active one ships.
+    useBroadcastStore.setState({
+      isLive: true,
+      props: [
+        {
+          id: "m1",
+          type: "marquee",
+          active: true,
+          text: "Welcome",
+        } as unknown as BroadcastProp,
+        {
+          id: "t1",
+          type: "text",
+          active: false,
+          text: "Hidden",
+        } as unknown as BroadcastProp,
+      ],
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+
+    const propsCall = emitToMock.mock.calls.find(
+      (c) => c[1] === "broadcast:props-update"
+    )
+    expect(propsCall).toBeTruthy()
+    expect(propsCall![2].props).toEqual([
+      expect.objectContaining({ id: "m1", type: "marquee" }),
+    ])
   })
 
   it("a layer-filter output carries its filter on slide and media payloads too", async () => {

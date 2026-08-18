@@ -69,6 +69,15 @@ export const createSyncSlice: StateCreator<
       theme: baseTheme,
     })
 
+    // Active props (marquee/text/image overlays) are otherwise only pushed on
+    // mutation via `syncProps`, so a window that opens *after* a prop is already
+    // active never learns of it. Re-send the current active set to THIS output
+    // on every (re)sync so a freshly opened window shows the running marquee.
+    // The compositor still gates by the output's layer filter.
+    emitOutputEvent(outputId, BROADCAST_EVENTS.propsUpdate, {
+      props: s.props.filter((p) => p.active),
+    })
+
     // A layer-filter output carries its per-output filter on EVERY content
     // payload (verse, slide, media) so the receiving window can suppress
     // props/alerts/countdowns/media/content regardless of which live mode is

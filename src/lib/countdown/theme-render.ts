@@ -39,6 +39,16 @@ export interface CountdownThemeFrame {
   opacity?: number
   /** Optional image cache for image/video backgrounds and image elements. */
   imageCache?: Map<string, HTMLImageElement>
+  /**
+   * Real output surface (px) to project the theme onto. Without it the theme
+   * renders at its authored resolution anchored top-left — correct only when the
+   * canvas already matches that resolution (the designer). The live output MUST
+   * pass its surface so a themed countdown fills the projector instead of pinning
+   * to the corner at authoring size.
+   */
+  surface?: { width: number; height: number }
+  /** Monotonic frame clock (e.g. `performance.now()`) for animated backgrounds. */
+  frameTime?: number
 }
 
 /** Build the derived verse-theme that renders a countdown for `frame`. */
@@ -78,5 +88,7 @@ export function renderCountdownTheme(
   return renderVerse(ctx, derived, verse, {
     opacity: frame.opacity,
     imageCache: frame.imageCache,
+    surface: frame.surface,
+    frameTime: frame.frameTime,
   })
 }
