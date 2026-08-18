@@ -181,8 +181,13 @@ pub fn semantic_search(
     limit: Option<usize>,
 ) -> Result<Vec<SemanticSearchResult>, String> {
     let k = limit.unwrap_or(10);
+    let t_all = std::time::Instant::now();
 
-    // Lock pipeline for vector search (may be slow if ONNX runs)
+    // Lock pipeline for vector search (may be slow if ONNX runs). The ONNX
+    // query-embedding (~300-600ms) dominates end-to-end latency, so time it
+    // apart from the DB work below — the log then attributes the cost to the
+    // right stage instead of lumping it into one number.
+    let t_vec = std::time::Instant::now();
     let vector_results = {
         let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
         if !pipeline.has_semantic() {
@@ -190,8 +195,10 @@ pub fn semantic_search(
         }
         pipeline.semantic_search(&query, k)
     }; // Pipeline lock dropped
+    let vec_elapsed = t_vec.elapsed();
 
-    // Lock the Bible DB for lookups only (fast)
+    // Lock the Bible DB for lookups only (fast: verse resolution + FTS5 BM25)
+    let t_db = std::time::Instant::now();
     let bible = state.lock().map_err(|e| e.to_string())?;
 
     let mut results: Vec<SemanticSearchResult> = vector_results
@@ -254,6 +261,15 @@ pub fn semantic_search(
 
     // Ensure highest similarity is always first
     results.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+
+    log::info!(
+        "[SEARCH-SEMANTIC] total={:?} (vector+embed={:?}, db+fts={:?}) query_len={} hits={}",
+        t_all.elapsed(),
+        vec_elapsed,
+        t_db.elapsed(),
+        query.len(),
+        results.len()
+    );
 
     Ok(results)
 }

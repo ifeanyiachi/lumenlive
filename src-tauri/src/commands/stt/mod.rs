@@ -46,6 +46,11 @@ pub(super) fn truncate_safe(s: &str, max_bytes: usize) -> &str {
 /// 4. Receives transcripts and emits `transcript_partial` / `transcript_final` events.
 /// 5. On final transcripts, runs the detection pipeline and emits `verse_detected` events.
 #[tauri::command]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Tauri command surface: each argument is a distinct start-transcription \
+              parameter passed from the frontend (device, gain, provider, endpointing, partials)"
+)]
 pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, Mutex<AppState>>,
@@ -54,6 +59,7 @@ pub async fn start_transcription(
     gain: Option<f32>,
     provider: Option<String>,
     pause_silence_ms: Option<u32>,
+    sherpa_partials: Option<bool>,
 ) -> Result<(), String> {
     // ── 1. Guard: already running? ──────────────────────────────────────
     let (stt_active, audio_active) = {
@@ -67,9 +73,18 @@ pub async fn start_transcription(
     let provider_name = provider.as_deref().unwrap_or("deepgram");
 
     // ── 2. Build the STT provider (+ offline Moonshine fallback) ─────────
-    let stt_provider =
-        model::build_provider(&app, provider_name, api_key, device_id.as_deref(), gain, pause_silence_ms)?;
-    let stt_fallback = model::build_fallback(&app, provider_name, pause_silence_ms);
+    let sherpa_partials = sherpa_partials.unwrap_or(false);
+    let stt_provider = model::build_provider(
+        &app,
+        provider_name,
+        api_key,
+        device_id.as_deref(),
+        gain,
+        pause_silence_ms,
+        sherpa_partials,
+    )?;
+    let stt_fallback =
+        model::build_fallback(&app, provider_name, pause_silence_ms, sherpa_partials);
 
     stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);

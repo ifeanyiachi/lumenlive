@@ -12,6 +12,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// A unit of work for the inference task. Partials are mid-utterance previews
+/// (re-transcriptions of the growing buffer); a Final is the authoritative
+/// whole-utterance transcription emitted when the VAD closes the utterance.
+enum InferenceJob {
+    /// Mid-utterance preview: a clone of the buffer-so-far. Display-only — it
+    /// never becomes a segment or feeds the final transcript.
+    Partial(Vec<i16>),
+    /// Closed utterance: the taken buffer. Emits `Final` + `UtteranceEnd`.
+    Final(Vec<i16>),
+}
+
 use crossbeam_channel::Receiver;
 use tokio::sync::mpsc;
 
@@ -27,6 +38,14 @@ const MAX_BUFFER_SAMPLES: usize = 16_000 * 20;
 /// Minimum audio buffer for inference (0.5 seconds). Moonshine has no
 /// "input too short" floor, so this is just noise-gating tiny blips.
 const MIN_BUFFER_SAMPLES: usize = 16_000 / 2;
+
+/// New speech (samples) that must accumulate since the last mid-utterance
+/// partial before the next one fires — ~1.2 s at 16 kHz. Frequent enough that a
+/// slowly-read verse shows interim words while it's still being spoken, sparse
+/// enough that repeated re-transcription of the growing buffer stays far under
+/// real time even on a weak CPU (Moonshine RTF ~0.1). Only consulted when
+/// partials are enabled.
+const PARTIAL_INTERVAL_SAMPLES: usize = 19_200;
 
 /// Default total silence (ms) tolerated before an utterance is finalized, used
 /// when the caller doesn't specify a pause window. Matches the "1.4 s" middle of
@@ -61,6 +80,11 @@ pub struct SherpaProvider {
     /// user-facing "Pause Sensitivity"). Split into VAD end-silence + resume
     /// grace in [`SherpaProvider::start`].
     pause_silence_ms: u32,
+    /// When true, emit throttled mid-utterance `Partial` events (re-transcribing
+    /// the growing buffer) so interim words appear before the utterance closes.
+    /// Opt-in and display-only — the `Final` is always a fresh whole-utterance
+    /// transcription, so partials cannot change final accuracy.
+    partials_enabled: bool,
     cancelled: Arc<AtomicBool>,
 }
 
@@ -74,13 +98,21 @@ impl SherpaProvider {
     /// - `pause_silence_ms`: total silence tolerated before finalizing an
     ///   utterance. `None` uses [`DEFAULT_PAUSE_SILENCE_MS`]. Clamped to a sane
     ///   range so a stray value can't disable endpointing or make it hair-trigger.
-    pub fn new(model_dir: PathBuf, n_threads: i32, pause_silence_ms: Option<u32>) -> Self {
+    /// - `partials_enabled`: emit mid-utterance `Partial` previews (opt-in;
+    ///   display-only, never affects the `Final`).
+    pub fn new(
+        model_dir: PathBuf,
+        n_threads: i32,
+        pause_silence_ms: Option<u32>,
+        partials_enabled: bool,
+    ) -> Self {
         Self {
             model_dir,
             n_threads: n_threads.max(1),
             pause_silence_ms: pause_silence_ms
                 .unwrap_or(DEFAULT_PAUSE_SILENCE_MS)
                 .clamp(300, 5_000),
+            partials_enabled,
             cancelled: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -132,9 +164,16 @@ impl SttProvider for SherpaProvider {
         let cached_decoder = self.file(CACHED_DECODE);
         let tokens = self.file(TOKENS);
         let n_threads = self.n_threads;
+        let partials_enabled = self.partials_enabled;
         let cancelled = self.cancelled.clone();
 
-        let (inference_tx, mut inference_rx) = mpsc::channel::<Vec<i16>>(8);
+        let (inference_tx, mut inference_rx) = mpsc::channel::<InferenceJob>(8);
+
+        // Bounds outstanding partials to at most one: the VAD only queues a new
+        // partial when the previous one has been consumed. This keeps a closing
+        // `Final` from ever waiting behind a backlog of stale previews — the
+        // whole point of partials is lower latency, not more of it.
+        let partial_inflight = Arc::new(AtomicBool::new(false));
 
         // ── Task 1: VAD + audio accumulation ─────────────────────────────
         // Energy-VAD front-end. All thresholds are in real milliseconds
@@ -145,6 +184,7 @@ impl SttProvider for SherpaProvider {
         let vad_cancelled = cancelled.clone();
         let vad_event_tx = event_tx.clone();
         let pause_silence_ms = self.pause_silence_ms;
+        let vad_partial_inflight = partial_inflight.clone();
         let vad_handle = tokio::task::spawn_blocking(move || {
             use lumenlive_audio::{AudioFrame, Vad, VadConfig, VadTransition};
 
@@ -177,11 +217,17 @@ impl SttProvider for SherpaProvider {
             let mut vad = Vad::new(vad_config);
             let mut audio_buffer: Vec<i16> = Vec::new();
             let mut dropped_utterances: u64 = 0;
+            // Mid-utterance partial bookkeeping: whether we're inside a speech
+            // segment, and the buffer length at the last partial emit (so the
+            // next one fires only after PARTIAL_INTERVAL_SAMPLES of new audio).
+            let mut in_speech = false;
+            let mut last_partial_len: usize = 0;
 
             loop {
                 if vad_cancelled.load(Ordering::SeqCst) {
                     if audio_buffer.len() >= MIN_BUFFER_SAMPLES {
-                        let _ = inference_tx.blocking_send(std::mem::take(&mut audio_buffer));
+                        let _ = inference_tx
+                            .blocking_send(InferenceJob::Final(std::mem::take(&mut audio_buffer)));
                     }
                     break;
                 }
@@ -194,21 +240,26 @@ impl SttProvider for SherpaProvider {
                         if let Some(transition) = result.transition {
                             match transition {
                                 VadTransition::SpeechStarted => {
+                                    in_speech = true;
+                                    last_partial_len = 0;
                                     let _ = vad_event_tx
                                         .blocking_send(TranscriptEvent::SpeechStarted);
                                 }
                                 VadTransition::SpeechEnded => {
+                                    in_speech = false;
+                                    last_partial_len = 0;
                                     if audio_buffer.len() >= MIN_BUFFER_SAMPLES {
                                         // Non-blocking: drop (and count) the
                                         // utterance if inference is somehow
                                         // saturated, instead of stalling the VAD
                                         // task. With Moonshine at RTF ~0.1 this
                                         // should effectively never fire.
-                                        match inference_tx
-                                            .try_send(std::mem::take(&mut audio_buffer))
-                                        {
-                                            Ok(()) => {}
-                                            Err(mpsc::error::TrySendError::Full(chunk)) => {
+                                        match inference_tx.try_send(InferenceJob::Final(
+                                            std::mem::take(&mut audio_buffer),
+                                        )) {
+                                            Err(mpsc::error::TrySendError::Full(
+                                                InferenceJob::Final(chunk),
+                                            )) => {
                                                 dropped_utterances += 1;
                                                 log::warn!(
                                                     "[SHERPA] inference queue full — DROPPED utterance ({} samples / {:.1}s), dropped_total={dropped_utterances}",
@@ -216,6 +267,8 @@ impl SttProvider for SherpaProvider {
                                                     chunk.len() as f64 / 16_000.0,
                                                 );
                                             }
+                                            Ok(())
+                                            | Err(mpsc::error::TrySendError::Full(_)) => {}
                                             Err(mpsc::error::TrySendError::Closed(_)) => break,
                                         }
                                     }
@@ -230,15 +283,45 @@ impl SttProvider for SherpaProvider {
                             audio_buffer.extend_from_slice(&frame.samples);
                         }
 
+                        // Mid-utterance partial: while speech is ongoing and
+                        // enough new audio has accrued, re-transcribe the buffer
+                        // so far. Bounded to one in-flight partial (see
+                        // `partial_inflight`) so a closing Final never queues
+                        // behind a backlog. A clone (not a take) — the buffer
+                        // keeps growing toward the authoritative Final.
+                        if partials_enabled
+                            && in_speech
+                            && audio_buffer.len() >= MIN_BUFFER_SAMPLES
+                            && audio_buffer.len() - last_partial_len >= PARTIAL_INTERVAL_SAMPLES
+                            && !vad_partial_inflight.swap(true, Ordering::SeqCst)
+                        {
+                            match inference_tx.try_send(InferenceJob::Partial(audio_buffer.clone()))
+                            {
+                                Ok(()) => {
+                                    last_partial_len = audio_buffer.len();
+                                }
+                                // Couldn't queue — release the guard so the next
+                                // interval can retry; don't advance last_partial_len.
+                                Err(mpsc::error::TrySendError::Full(_)) => {
+                                    vad_partial_inflight.store(false, Ordering::SeqCst);
+                                }
+                                Err(mpsc::error::TrySendError::Closed(_)) => break,
+                            }
+                        }
+
                         if audio_buffer.len() >= MAX_BUFFER_SAMPLES {
                             log::warn!(
                                 "[SHERPA] flush on MAX_BUFFER ({} samples / {:.1}s) — VAD never closed",
                                 audio_buffer.len(),
                                 audio_buffer.len() as f64 / 16_000.0,
                             );
-                            match inference_tx.try_send(std::mem::take(&mut audio_buffer)) {
-                                Ok(()) => {}
-                                Err(mpsc::error::TrySendError::Full(chunk)) => {
+                            last_partial_len = 0;
+                            match inference_tx
+                                .try_send(InferenceJob::Final(std::mem::take(&mut audio_buffer)))
+                            {
+                                Err(mpsc::error::TrySendError::Full(InferenceJob::Final(
+                                    chunk,
+                                ))) => {
                                     dropped_utterances += 1;
                                     log::warn!(
                                         "[SHERPA] inference queue full — DROPPED max-buffer chunk ({} samples / {:.1}s), dropped_total={dropped_utterances}",
@@ -246,6 +329,7 @@ impl SttProvider for SherpaProvider {
                                         chunk.len() as f64 / 16_000.0,
                                     );
                                 }
+                                Ok(()) | Err(mpsc::error::TrySendError::Full(_)) => {}
                                 Err(mpsc::error::TrySendError::Closed(_)) => break,
                             }
                         }
@@ -253,7 +337,8 @@ impl SttProvider for SherpaProvider {
                     Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                     Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
                         if audio_buffer.len() >= MIN_BUFFER_SAMPLES {
-                            let _ = inference_tx.blocking_send(std::mem::take(&mut audio_buffer));
+                            let _ = inference_tx
+                                .blocking_send(InferenceJob::Final(std::mem::take(&mut audio_buffer)));
                         }
                         break;
                     }
@@ -264,6 +349,7 @@ impl SttProvider for SherpaProvider {
         // ── Task 2: Moonshine inference ──────────────────────────────────
         let inf_cancelled = cancelled.clone();
         let inf_event_tx = event_tx.clone();
+        let inf_partial_inflight = partial_inflight.clone();
         let inf_handle = tokio::task::spawn_blocking(move || {
             let config = sherpa_rs::moonshine::MoonshineConfig {
                 preprocessor,
@@ -289,14 +375,24 @@ impl SttProvider for SherpaProvider {
 
             log::info!("[Sherpa] Moonshine model loaded, ready for inference");
 
-            while let Some(audio_i16) = inference_rx.blocking_recv() {
+            while let Some(job) = inference_rx.blocking_recv() {
+                // A Partial must release the in-flight guard even on an early
+                // exit, so the VAD can queue the next preview. Do it up front for
+                // the partial case regardless of what follows.
+                let is_partial = matches!(job, InferenceJob::Partial(_));
                 if inf_cancelled.load(Ordering::SeqCst) {
+                    if is_partial {
+                        inf_partial_inflight.store(false, Ordering::SeqCst);
+                    }
                     break;
                 }
 
-                let audio_f32 = i16_to_f32(&audio_i16);
+                let samples = match &job {
+                    InferenceJob::Partial(a) | InferenceJob::Final(a) => a,
+                };
+                let audio_f32 = i16_to_f32(samples);
                 #[expect(clippy::cast_precision_loss, reason = "audio sample count fits in f64")]
-                let audio_duration_s = audio_i16.len() as f64 / 16_000.0;
+                let audio_duration_s = samples.len() as f64 / 16_000.0;
 
                 let start = std::time::Instant::now();
                 let result = recognizer.transcribe(16_000, &audio_f32);
@@ -304,20 +400,40 @@ impl SttProvider for SherpaProvider {
 
                 let text = result.text.trim().to_string();
                 let rtf = elapsed.as_secs_f64() / audio_duration_s.max(0.001);
-                log::info!(
-                    "[Sherpa] Transcribed {audio_duration_s:.1}s audio in {elapsed:.2?} (RTF={rtf:.2}): \"{text}\""
-                );
 
-                if !text.is_empty() {
-                    let _ = inf_event_tx.blocking_send(TranscriptEvent::Final {
-                        transcript: text,
-                        words: Vec::new(),
-                        confidence: 0.9,
-                        speech_final: true,
-                    });
+                match job {
+                    InferenceJob::Partial(_) => {
+                        // Release the guard the instant this preview is done so
+                        // the VAD's next interval can queue another.
+                        inf_partial_inflight.store(false, Ordering::SeqCst);
+                        log::info!(
+                            "[SHERPA-PARTIAL] {audio_duration_s:.1}s audio in {elapsed:.2?} (RTF={rtf:.2}): \"{text}\""
+                        );
+                        // Display-only: emit a Partial (no UtteranceEnd, never a
+                        // segment). Skip empties so a false-start doesn't blank
+                        // the live line.
+                        if !text.is_empty() {
+                            let _ = inf_event_tx.blocking_send(TranscriptEvent::Partial {
+                                transcript: text,
+                                words: Vec::new(),
+                            });
+                        }
+                    }
+                    InferenceJob::Final(_) => {
+                        log::info!(
+                            "[Sherpa] Transcribed {audio_duration_s:.1}s audio in {elapsed:.2?} (RTF={rtf:.2}): \"{text}\""
+                        );
+                        if !text.is_empty() {
+                            let _ = inf_event_tx.blocking_send(TranscriptEvent::Final {
+                                transcript: text,
+                                words: Vec::new(),
+                                confidence: 0.9,
+                                speech_final: true,
+                            });
+                        }
+                        let _ = inf_event_tx.blocking_send(TranscriptEvent::UtteranceEnd);
+                    }
                 }
-
-                let _ = inf_event_tx.blocking_send(TranscriptEvent::UtteranceEnd);
             }
 
             log::info!("[Sherpa] Inference task exiting");

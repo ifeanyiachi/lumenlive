@@ -41,6 +41,7 @@ export const transcriptionActions = {
         gain: settings.gain,
         provider: settings.sttProvider,
         pauseSilenceMs: settings.pauseSilenceMs,
+        sherpaPartials: settings.sherpaPartials,
       })
       transcript.setTranscribing(true)
     } catch (e) {

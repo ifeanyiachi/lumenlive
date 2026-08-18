@@ -52,6 +52,7 @@ describe("use-transcription", () => {
         audioDeviceId: "dev-42",
         gain: 1.5,
         pauseSilenceMs: 2000,
+        sherpaPartials: true,
       })
 
       await transcriptionActions.start()
@@ -62,6 +63,7 @@ describe("use-transcription", () => {
         gain: 1.5,
         provider: "sherpa",
         pauseSilenceMs: 2000, // the user's Pause Sensitivity flows through
+        sherpaPartials: true, // the opt-in local-partials toggle flows through
       })
     })
 

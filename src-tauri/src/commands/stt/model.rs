@@ -49,6 +49,7 @@ pub(super) fn build_provider(
     device_id: Option<&str>,
     gain: Option<f32>,
     pause_silence_ms: Option<u32>,
+    sherpa_partials: bool,
 ) -> Result<Box<dyn SttProvider>, String> {
     match provider_name {
         #[cfg(feature = "sherpa")]
@@ -57,7 +58,7 @@ pub(super) fn build_provider(
             let n_threads = moonshine_thread_count();
 
             log::info!(
-                "Starting sherpa (Moonshine) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}",
+                "Starting sherpa (Moonshine) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}, partials={sherpa_partials}",
                 model_dir.display()
             );
 
@@ -65,6 +66,7 @@ pub(super) fn build_provider(
                 model_dir,
                 n_threads,
                 pause_silence_ms,
+                sherpa_partials,
             )))
         }
         #[cfg(not(feature = "sherpa"))]
@@ -113,6 +115,7 @@ pub(super) fn build_fallback(
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] app: &AppHandle,
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] provider_name: &str,
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] pause_silence_ms: Option<u32>,
+    #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] sherpa_partials: bool,
 ) -> Option<Box<dyn SttProvider>> {
     #[cfg(feature = "sherpa")]
     {
@@ -124,6 +127,7 @@ pub(super) fn build_fallback(
                     dir,
                     moonshine_thread_count(),
                     pause_silence_ms,
+                    sherpa_partials,
                 ))),
                 Err(e) => {
                     log::warn!("[STT] Offline fallback unavailable: {e}");

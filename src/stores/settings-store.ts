@@ -26,6 +26,16 @@ interface SettingsState {
    * provider; Deepgram does its own server-side endpointing.
    */
   pauseSilenceMs: number
+  /**
+   * Opt-in: emit mid-utterance *partial* transcripts on the local (Moonshine)
+   * engine. Off by default. When on, a slowly-read verse shows interim words
+   * (and feeds the AI Detections panel) before the pause-endpoint closes the
+   * utterance — at the cost of extra CPU re-transcribing the growing buffer.
+   * Display-only: the finalized transcript is always a fresh whole-utterance
+   * pass, so this never changes final accuracy. Only affects the local provider;
+   * Deepgram streams its own partials server-side regardless.
+   */
+  sherpaPartials: boolean
   directAutoDisplay: boolean
   semanticAutoQueue: boolean
   /**
@@ -66,6 +76,7 @@ interface SettingsState {
   setOnboardingComplete: (complete: boolean) => void
   setSttProvider: (provider: SttProvider) => void
   setPauseSilenceMs: (ms: number) => void
+  setSherpaPartials: (enabled: boolean) => void
   setDirectAutoDisplay: (enabled: boolean) => void
   setSemanticAutoQueue: (enabled: boolean) => void
   setPreventDuplicateScheduleItems: (enabled: boolean) => void
@@ -86,6 +97,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   onboardingComplete: false,
   sttProvider: "deepgram",
   pauseSilenceMs: 1400,
+  sherpaPartials: false,
   directAutoDisplay: true,
   semanticAutoQueue: false,
   preventDuplicateScheduleItems: true,
@@ -104,6 +116,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
   setSttProvider: (sttProvider) => set({ sttProvider }),
   setPauseSilenceMs: (pauseSilenceMs) => set({ pauseSilenceMs }),
+  setSherpaPartials: (sherpaPartials) => set({ sherpaPartials }),
   setDirectAutoDisplay: (directAutoDisplay) => set({ directAutoDisplay }),
   setSemanticAutoQueue: (semanticAutoQueue) => set({ semanticAutoQueue }),
   setPreventDuplicateScheduleItems: (preventDuplicateScheduleItems) =>
@@ -125,6 +138,7 @@ const PERSISTED_KEYS = [
   "onboardingComplete",
   "sttProvider",
   "pauseSilenceMs",
+  "sherpaPartials",
   "directAutoDisplay",
   "semanticAutoQueue",
   "preventDuplicateScheduleItems",

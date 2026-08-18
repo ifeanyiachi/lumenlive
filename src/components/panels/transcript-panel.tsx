@@ -193,6 +193,15 @@ export function TranscriptPanel() {
     }
   })
 
+  // Partial detections: a spoken reference detected mid-utterance (before the
+  // transcript's final arrives). Populate the AI Detections panel early so the
+  // verse is available seconds sooner, but do NOT auto-display to live or
+  // auto-queue here — those stay on `verse_detections` (finals) so a partial
+  // that Deepgram later revises can't flicker the audience or mis-queue.
+  useTauriEvent<DetectionResult[]>("verse_detections_partial", (detections) => {
+    useDetectionStore.getState().addDetections(detections)
+  })
+
   // Reading mode navigation: auto-navigate book panel when reading mode
   // advances to a new verse (chapter commands, verse commands, text matching).
   // Does NOT add to queue — only direct/semantic feed the queue.

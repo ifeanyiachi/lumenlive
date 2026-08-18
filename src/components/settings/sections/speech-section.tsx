@@ -8,6 +8,7 @@ import {
 } from "@/lib/settings/conversions"
 
 import { SectionSlider } from "../ui/section-slider"
+import { ToggleCard } from "../ui/toggle-card"
 import { ApiKeyField } from "../ui/api-key-field"
 import { useApiKeyField } from "../hooks/use-api-key-field"
 
@@ -19,6 +20,8 @@ export function SpeechSection() {
     setDeepgramApiKey,
     pauseSilenceMs,
     setPauseSilenceMs,
+    sherpaPartials,
+    setSherpaPartials,
   } = useSettingsStore()
 
   const keyField = useApiKeyField(deepgramApiKey, setDeepgramApiKey)
@@ -96,6 +99,17 @@ export function SpeechSection() {
             <span>Patient</span>
           </div>
         </SectionSlider>
+      )}
+
+      {/* Live partials — Moonshine-only. Off by default; shows interim words and
+          feeds verse detection before the pause endpoint closes an utterance. */}
+      {sttProvider === "sherpa" && (
+        <ToggleCard
+          title="Show words as they're spoken"
+          description="Display interim text — and surface detected verses — mid-sentence, before the reader pauses, instead of waiting for the full sentence. Uses extra CPU to re-transcribe while speaking; the finalized transcript is unchanged. Takes effect the next time you start transcription."
+          checked={sherpaPartials}
+          onCheckedChange={setSherpaPartials}
+        />
       )}
 
       {/* Deepgram settings — show when deepgram is selected */}
