@@ -410,3 +410,49 @@ describe("schedule store song slide navigation", () => {
     expect(useScheduleStore.getState().activeItemIndex).toBe(0)
   })
 })
+
+describe("schedule store importSchedule", () => {
+  beforeEach(() => {
+    useScheduleStore.setState({ schedules: [], activeScheduleId: null })
+  })
+
+  it("appends an already-parsed schedule verbatim and returns its id", () => {
+    const store = useScheduleStore.getState()
+    const imported = {
+      id: crypto.randomUUID(),
+      name: "Imported Service",
+      items: [scripture(), scripture({ verseStart: 17, verseEnd: 17 })],
+      createdAt: 111,
+      updatedAt: 222,
+    }
+
+    const id = store.importSchedule(imported)
+
+    expect(id).toBe(imported.id)
+    const schedules = useScheduleStore.getState().schedules
+    expect(schedules).toHaveLength(1)
+    // Stored verbatim — ids, items, and timestamps are the caller's
+    // responsibility (the parser assigns fresh ids), so importSchedule must not
+    // mutate them or re-index.
+    expect(schedules[0]).toBe(imported)
+  })
+
+  it("adds alongside existing schedules without activating the import", () => {
+    const store = useScheduleStore.getState()
+    const firstId = store.createSchedule("Existing")
+    store.setActiveSchedule(firstId)
+
+    const importedId = store.importSchedule({
+      id: crypto.randomUUID(),
+      name: "Imported",
+      items: [],
+      createdAt: 0,
+      updatedAt: 0,
+    })
+
+    const state = useScheduleStore.getState()
+    expect(state.schedules.map((s) => s.id)).toEqual([firstId, importedId])
+    // Importing never steals the active selection.
+    expect(state.activeScheduleId).toBe(firstId)
+  })
+})
