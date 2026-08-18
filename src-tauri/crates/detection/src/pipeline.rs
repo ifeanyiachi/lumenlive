@@ -33,13 +33,14 @@ impl DetectionPipeline {
     /// Run the full pipeline (direct + semantic), merging through the caller's
     /// shared merger. Used by the `detect_verses` command.
     ///
-    /// Semantic (meaning-match) confidences are modulated by a transcript-derived
-    /// quotation likelihood before merging, so preaching that merely alludes to a
-    /// verse is demoted relative to an actual quotation. Direct spoken references
-    /// are already citations and are passed through unmodulated. This path has no
-    /// resolved candidate verse text, so only the transcript-only signals (archaic
-    /// register + citation cues) apply; the live semantic worker additionally uses
-    /// verbatim overlap. See [`crate::quotation`].
+    /// Semantic (meaning-match) confidences are lifted by a transcript-derived
+    /// quotation likelihood before merging, so an actual quotation ranks above a
+    /// loose allusion — while preaching that merely alludes to a verse keeps its
+    /// raw confidence (never penalized) and still surfaces. Direct spoken
+    /// references are already citations and are passed through unmodulated. This
+    /// path has no resolved candidate verse text, so only the transcript-only
+    /// signals (archaic register + citation cues) apply; the live semantic worker
+    /// additionally uses verbatim overlap. See [`crate::quotation`].
     pub fn process(&mut self, text: &str, merger: &mut DetectionMerger) -> Vec<MergedDetection> {
         let direct_results = self.direct.detect(text);
 

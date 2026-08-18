@@ -268,11 +268,12 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
                     }
                     (None, None) => return None,
                 };
-                // Modulate by quotation likelihood: dampen matches that lack
-                // scripture markers (raising precision against preaching that only
-                // alludes to a verse), leave genuine quotations near their raw
-                // score. Vector hits contribute verbatim overlap via `a.text`;
-                // FTS-only hits fall back to transcript archaic-register + cues.
+                // Lift by quotation likelihood: genuine quotations are boosted so
+                // they rank higher and auto-queue more readily, while preaching
+                // that merely alludes to a verse keeps its raw score (never
+                // penalized) so it still surfaces on its own merit. Vector hits
+                // contribute verbatim overlap via `a.text`; FTS-only hits fall
+                // back to transcript archaic-register + cues.
                 let quotation = quotation::quotation_score(transcript, a.text.as_deref());
                 let confidence = quotation::adjust_confidence(confidence, quotation);
                 Some(Detection {

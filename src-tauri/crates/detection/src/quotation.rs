@@ -6,17 +6,20 @@
 //!
 //! Speech-to-text (Moonshine / Deepgram) only produces words; it cannot label
 //! discourse. The semantic detector then matches those words against the verse
-//! index by meaning — but meaning-similarity alone over-fires: a preacher who
-//! says "God loves the world so much" scores against John 3:16 without actually
-//! *quoting* it. This module supplies an independent, transcript-derived signal
-//! for "how quotation-like is this utterance", used to **dampen** semantic
-//! confidence when the quotation markers are absent (raising precision) while
-//! leaving genuine quotations near their original score.
+//! index by meaning — and we *want* both cases to surface: a preacher who
+//! *quotes* John 3:16 and one who *preaches about* it (paraphrasing, expounding)
+//! should each get the verse on screen. This module supplies an independent,
+//! transcript-derived signal for "how quotation-like is this utterance", used to
+//! **boost** semantic confidence when scripture markers are present — so genuine
+//! quotations rank above loose allusions and clear the auto-queue threshold more
+//! readily — while leaving preaching that merely alludes to a verse at its raw
+//! semantic-match confidence rather than penalizing it.
 //!
-//! It is deliberately a *modulator*, not a gate: the worst-case effect on a
-//! signal-free utterance is a bounded haircut ([`MIN_FACTOR`]), never an outright
-//! drop. Direct spoken references ("John three sixteen") are already citations
-//! and must not be routed through here.
+//! It is deliberately a *lift*, never a penalty: the effect on a signal-free
+//! utterance is exactly zero (factor `1.0`), so preaching about a verse surfaces
+//! on its own merit; a fully quotation-like utterance is lifted by at most
+//! [`QUOTE_BOOST`]. Direct spoken references ("John three sixteen") are already
+//! citations and must not be routed through here.
 //!
 //! # Signals (each in `[0, 1]`, combined by noisy-OR)
 //!
@@ -99,12 +102,13 @@ const MEDIUM_CUES: &[&str] = &[
 /// Weak cues — attribution phrases that only loosely imply a quotation.
 const WEAK_CUES: &[&str] = &["according to", "jesus said", "the lord said", "god said"];
 
-/// Lower bound on the confidence multiplier applied when there is *no*
-/// quotation signal at all. A signal-free semantic hit keeps 80% of its
-/// confidence; a fully quotation-like hit keeps 100%. This is the precision/
-/// recall knob — lower is stricter (drops more non-quotations, risks losing
-/// faint paraphrase matches).
-const MIN_FACTOR: f64 = 0.80;
+/// Upper bound on the confidence *lift* applied to a fully quotation-like hit.
+/// A signal-free semantic hit (preaching about a verse) keeps 100% of its
+/// confidence; a fully quotation-like hit is scaled by `1 + QUOTE_BOOST`. This
+/// is the recall/ranking knob — higher lets genuine quotations clear the
+/// auto-queue threshold more easily and outrank loose allusions, without ever
+/// suppressing preaching that alludes to a verse.
+const QUOTE_BOOST: f64 = 0.25;
 
 /// The transcript-only sub-signals, computed once per utterance and reusable
 /// across every candidate verse (only [`verbatim_overlap`] varies per verse).
@@ -221,13 +225,15 @@ pub fn quotation_score(text: &str, verse_text: Option<&str>) -> f64 {
     noisy_or(&[archaic, cue, overlap])
 }
 
-/// Apply a quotation score as a precision multiplier on a semantic confidence.
-/// Maps `quotation ∈ [0, 1]` to a factor in `[MIN_FACTOR, 1]` and scales
-/// `confidence` by it, clamped to `[0, 1]`. A fully quotation-like hit is left
-/// unchanged; a signal-free hit is nudged down by `1 - MIN_FACTOR`.
+/// Apply a quotation score as a recall/ranking lift on a semantic confidence.
+/// Maps `quotation ∈ [0, 1]` to a factor in `[1, 1 + QUOTE_BOOST]` and scales
+/// `confidence` by it, clamped to `[0, 1]`. A signal-free hit (preaching about a
+/// verse) is left unchanged so it still surfaces on its own merit; a fully
+/// quotation-like hit is lifted by up to `QUOTE_BOOST` so genuine quotations
+/// rank higher and auto-queue more readily.
 pub fn adjust_confidence(confidence: f64, quotation: f64) -> f64 {
     let q = quotation.clamp(0.0, 1.0);
-    let factor = MIN_FACTOR + (1.0 - MIN_FACTOR) * q;
+    let factor = 1.0 + QUOTE_BOOST * q;
     (confidence * factor).clamp(0.0, 1.0)
 }
 
@@ -349,16 +355,17 @@ mod tests {
 
     #[test]
     fn adjust_confidence_bounds() {
-        // Zero quotation -> MIN_FACTOR haircut.
-        approx(adjust_confidence(1.0, 0.0), MIN_FACTOR);
-        // Full quotation -> unchanged.
-        approx(adjust_confidence(0.9, 1.0), 0.9);
+        // Zero quotation (preaching) -> unchanged, never penalized.
+        approx(adjust_confidence(1.0, 0.0), 1.0);
+        approx(adjust_confidence(0.6, 0.0), 0.6);
+        // Full quotation -> lifted by QUOTE_BOOST.
+        approx(adjust_confidence(0.5, 1.0), 0.5 * (1.0 + QUOTE_BOOST));
         // Monotonic in quotation score.
         assert!(adjust_confidence(0.7, 0.3) < adjust_confidence(0.7, 0.8));
-        // Clamped.
-        approx(adjust_confidence(2.0, 1.0), 1.0);
-        approx(adjust_confidence(0.5, 5.0), 0.5);
-        approx(adjust_confidence(0.5, -5.0), 0.5 * MIN_FACTOR);
+        // Clamped to [0, 1] and quotation clamped to [0, 1].
+        approx(adjust_confidence(0.9, 1.0), (0.9 * (1.0 + QUOTE_BOOST)).min(1.0));
+        approx(adjust_confidence(0.5, 5.0), 0.5 * (1.0 + QUOTE_BOOST));
+        approx(adjust_confidence(0.5, -5.0), 0.5);
     }
 
     #[test]
@@ -369,9 +376,11 @@ mod tests {
     }
 
     #[test]
-    fn precision_effect_demotes_preaching_below_quote() {
+    fn quote_outranks_preaching_without_penalizing_preaching() {
         // A vague-match preaching line and a verbatim quote can arrive with the
-        // same raw cosine; quotation adjustment must rank the quote higher.
+        // same raw cosine. The quotation lift must rank the quote higher *without*
+        // dropping the preaching line below its raw confidence — a pastor
+        // preaching about a verse should still surface it.
         let raw = 0.62;
         let preaching = adjust_confidence(
             raw,
@@ -385,5 +394,7 @@ mod tests {
             ),
         );
         assert!(quote > preaching);
+        // Preaching is never penalized below its raw semantic confidence.
+        assert!(preaching >= raw);
     }
 }
