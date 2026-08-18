@@ -100,6 +100,12 @@ interface ScheduleState {
   activeSongDeck: { itemId: string; deck: Presentation } | null
 
   createSchedule: (name?: string) => string
+  /**
+   * Add an already-parsed schedule (from an imported file) to the store and
+   * return its id. The caller is responsible for giving it fresh ids — see
+   * `lib/schedule-io.parseScheduleFile`.
+   */
+  importSchedule: (schedule: ServiceSchedule) => string
   deleteSchedule: (id: string) => void
   renameSchedule: (id: string, name: string) => void
   duplicateSchedule: (id: string) => void
@@ -177,6 +183,11 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
 
   createSchedule: (name) => {
     const schedule = createDefaultSchedule(name)
+    set((s) => ({ schedules: [...s.schedules, schedule] }))
+    return schedule.id
+  },
+
+  importSchedule: (schedule) => {
     set((s) => ({ schedules: [...s.schedules, schedule] }))
     return schedule.id
   },
