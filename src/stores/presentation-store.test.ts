@@ -309,3 +309,79 @@ describe("presentation store — inline text editing", () => {
     expect(useStore.getState().editingTextElementId).toBeNull()
   })
 })
+
+describe("presentation store — scripted undo/redo + batch parity", () => {
+  beforeEach(() => vi.resetModules())
+
+  // Drives a fixed sequence of mutations through the composed (sliced) store and
+  // asserts the exact draft state at each checkpoint — a regression guard that
+  // the slice split preserves the undo/redo + batch-edit semantics byte-for-byte,
+  // including the subtle interaction where updateDraftElementsBatch records NO
+  // snapshot (so the first undo jumps past it to the pre-`c` snapshot), yet redo
+  // still restores the batched positions from the redo stack.
+  it("replays a mutation script with deterministic state at each step", async () => {
+    // Advance time past the 300ms debounce window between discrete edits so each
+    // structural mutation records its own undo snapshot (not coalesced).
+    let t = 1000
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => (t += 500))
+    try {
+      const useStore = await freshStore()
+      const id = useStore.getState().createPresentation("Deck")
+      useStore.getState().startEditing(id)
+      const els = () =>
+        useStore.getState().draftPresentation!.slides[0].elements
+      const byId = (pid: string) => els().find((e) => e.id === pid)
+      const has = (pid: string) => els().some((e) => e.id === pid)
+      const base = els().length
+
+      // Add three elements → three undo snapshots (S0=base, S1=+a, S2=+a,b).
+      useStore.getState().addElement()
+      const aId = useStore.getState().selectedElementId!
+      const aOrigX = byId(aId)!.x
+      useStore.getState().addElement()
+      const bId = useStore.getState().selectedElementId!
+      useStore.getState().addElement()
+      const cId = useStore.getState().selectedElementId!
+      expect(els()).toHaveLength(base + 3)
+
+      // Batch-move a and c in a single commit — no undo snapshot pushed.
+      const beforeBatch = useStore.getState().draftPresentation
+      useStore
+        .getState()
+        .updateDraftElementsBatch({ [aId]: { x: 11 }, [cId]: { y: 22 } })
+      expect(useStore.getState().draftPresentation).not.toBe(beforeBatch) // one rebuild, not N
+      expect(byId(aId)!.x).toBe(11)
+      expect(byId(cId)!.y).toBe(22)
+
+      // Undo #1: the batch left no snapshot, so this pops S2 (taken before `c`) —
+      // `c` disappears and the batched positions revert with it.
+      useStore.getState().undo()
+      expect(els()).toHaveLength(base + 2)
+      expect(has(cId)).toBe(false)
+      expect(byId(aId)!.x).toBe(aOrigX)
+
+      // Undo #2/#3 peel back to just `a`, then to the base slide.
+      useStore.getState().undo()
+      expect(has(bId)).toBe(false)
+      expect(els()).toHaveLength(base + 1)
+      useStore.getState().undo()
+      expect(has(aId)).toBe(false)
+      expect(els()).toHaveLength(base)
+
+      // Redo #1/#2 re-add `a` then `b`.
+      useStore.getState().redo()
+      expect(has(aId)).toBe(true)
+      useStore.getState().redo()
+      expect(has(bId)).toBe(true)
+
+      // Redo #3 restores the batched frame from the redo stack — `c` returns and
+      // both batched positions come back.
+      useStore.getState().redo()
+      expect(els()).toHaveLength(base + 3)
+      expect(byId(aId)!.x).toBe(11)
+      expect(byId(cId)!.y).toBe(22)
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+})
