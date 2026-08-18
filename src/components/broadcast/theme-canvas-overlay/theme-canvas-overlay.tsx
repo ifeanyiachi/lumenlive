@@ -6,22 +6,18 @@ import { computeSnaps, clamp } from "@/lib/snap-utils"
 import type { SnapGuide } from "@/lib/snap-utils"
 import { moveBox, resizeBoxCorner } from "@/lib/canvas-editor/box-transform"
 import type { BoxCorner } from "@/lib/canvas-editor/box-transform"
+import {
+  WS_WIDTH,
+  WS_HEIGHT,
+  computeTextAreaPct,
+  rectToPct,
+  resizeKeepingCornerFixed,
+} from "@/lib/canvas-editor/workspace-geometry"
 import type { BroadcastTheme } from "@/types"
+import { HANDLE_SIZE, type DragMode, type WsRect } from "./types"
+import { ElementOverlayLayer } from "./element-overlay-layer"
 
-type DragMode =
-  "move" | "resize-nw" | "resize-ne" | "resize-sw" | "resize-se" | null
-
-const WS_WIDTH = 1920
-const WS_HEIGHT = 1080
-const HANDLE_SIZE = 8
 const FIXED_IDS = new Set(["textArea", "verse", "reference"])
-
-interface WsRect {
-  left: number
-  top: number
-  width: number
-  height: number
-}
 
 interface Props {
   wsRect: WsRect | null
@@ -61,50 +57,15 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
 
   const textAreaPct = useMemo(() => {
     if (!draftTheme) return null
-    const layout = draftTheme.layout
-    const bgWpx = (layout.backgroundWidth / 100) * WS_WIDTH
-    const bgHpx = (layout.backgroundHeight / 100) * WS_HEIGHT
-    const taWpx = (layout.textAreaWidth / 100) * bgWpx
-    const taHpx = (layout.textAreaHeight / 100) * bgHpx
-    const pos = anchorPosition(
-      layout.anchor,
-      taWpx,
-      taHpx,
-      WS_WIDTH,
-      WS_HEIGHT,
-      layout.offsetX,
-      layout.offsetY
-    )
-    return {
-      x: (pos.x / WS_WIDTH) * 100,
-      y: (pos.y / WS_HEIGHT) * 100,
-      width: (taWpx / WS_WIDTH) * 100,
-      height: (taHpx / WS_HEIGHT) * 100,
-    }
+    return computeTextAreaPct(draftTheme.layout)
   }, [draftTheme])
 
   const versePct = useMemo(
-    () =>
-      m?.verseRect
-        ? {
-            x: (m.verseRect.x / WS_WIDTH) * 100,
-            y: (m.verseRect.y / WS_HEIGHT) * 100,
-            width: (m.verseRect.width / WS_WIDTH) * 100,
-            height: (m.verseRect.height / WS_HEIGHT) * 100,
-          }
-        : null,
+    () => (m?.verseRect ? rectToPct(m.verseRect) : null),
     [m]
   )
   const refPct = useMemo(
-    () =>
-      m?.referenceRect
-        ? {
-            x: (m.referenceRect.x / WS_WIDTH) * 100,
-            y: (m.referenceRect.y / WS_HEIGHT) * 100,
-            width: (m.referenceRect.width / WS_WIDTH) * 100,
-            height: (m.referenceRect.height / WS_HEIGHT) * 100,
-          }
-        : null,
+    () => (m?.referenceRect ? rectToPct(m.referenceRect) : null),
     [m]
   )
 
@@ -570,105 +531,13 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
         ))}
 
       {/* Custom elements — selection outlines + interaction */}
-      {(draftTheme.elements ?? [])
-        .filter(
-          (el) =>
-            el.visible &&
-            !(
-              el.type === "shape" &&
-              el.maskTargetId &&
-              selectedElement !== el.id
-            )
-        )
-        .map((el) => {
-          const isMask = el.type === "shape" && !!el.maskTargetId
-          const elScreen = {
-            left: wsRect.left + (el.x / WS_WIDTH) * wsRect.width,
-            top: wsRect.top + (el.y / WS_HEIGHT) * wsRect.height,
-            width: (el.width / WS_WIDTH) * wsRect.width,
-            height: (el.height / WS_HEIGHT) * wsRect.height,
-          }
-          const isSelected = selectedElement === el.id
-          return (
-            <div key={el.id}>
-              <div
-                className={`absolute border transition-colors ${
-                  isSelected
-                    ? isMask
-                      ? "border-2 border-dashed border-blue-400"
-                      : "border-2 border-primary"
-                    : "border-transparent hover:border-white/30"
-                }`}
-                style={{
-                  left: elScreen.left,
-                  top: elScreen.top,
-                  width: elScreen.width,
-                  height: elScreen.height,
-                  cursor: el.locked
-                    ? "not-allowed"
-                    : dragMode
-                      ? undefined
-                      : "grab",
-                }}
-                onPointerDown={(e) =>
-                  handleElementPointerDown(e, el.id, "move")
-                }
-                onClick={(e) => e.stopPropagation()}
-              />
-              {isSelected && !el.locked && (
-                <>
-                  {(
-                    [
-                      [
-                        "resize-nw",
-                        "nw-resize",
-                        { left: elScreen.left, top: elScreen.top },
-                      ],
-                      [
-                        "resize-ne",
-                        "ne-resize",
-                        {
-                          left: elScreen.left + elScreen.width - HANDLE_SIZE,
-                          top: elScreen.top,
-                        },
-                      ],
-                      [
-                        "resize-sw",
-                        "sw-resize",
-                        {
-                          left: elScreen.left,
-                          top: elScreen.top + elScreen.height - HANDLE_SIZE,
-                        },
-                      ],
-                      [
-                        "resize-se",
-                        "se-resize",
-                        {
-                          left: elScreen.left + elScreen.width - HANDLE_SIZE,
-                          top: elScreen.top + elScreen.height - HANDLE_SIZE,
-                        },
-                      ],
-                    ] as [DragMode, string, React.CSSProperties][]
-                  ).map(([mode, cursor, style]) => (
-                    <div
-                      key={`${el.id}-${mode}`}
-                      className="absolute border border-primary-foreground bg-primary"
-                      style={{
-                        ...style,
-                        width: HANDLE_SIZE,
-                        height: HANDLE_SIZE,
-                        cursor,
-                      }}
-                      onPointerDown={(e) =>
-                        handleElementPointerDown(e, el.id, mode)
-                      }
-                    />
-                  ))}
-                </>
-              )}
-            </div>
-          )
-        })}
+      <ElementOverlayLayer
+        elements={draftTheme.elements}
+        wsRect={wsRect}
+        selectedElement={selectedElement}
+        dragMode={dragMode}
+        onElementPointerDown={handleElementPointerDown}
+      />
 
       {/* Selected element highlight */}
       {selectedElement === "verse" && verseScreen && !isVerseHidden && (
@@ -695,84 +564,4 @@ export function ThemeCanvasOverlay({ wsRect, metrics: m }: Props) {
       )}
     </div>
   )
-}
-
-function resizeKeepingCornerFixed(
-  anchor: BroadcastTheme["layout"]["anchor"],
-  origOffsetX: number,
-  origOffsetY: number,
-  origWpx: number,
-  origHpx: number,
-  newWpx: number,
-  newHpx: number,
-  fixedCorner: "nw" | "ne" | "sw" | "se"
-): { offsetX: number; offsetY: number } {
-  const origBase = anchorPosition(
-    anchor,
-    origWpx,
-    origHpx,
-    WS_WIDTH,
-    WS_HEIGHT,
-    0,
-    0
-  )
-  const newBase = anchorPosition(
-    anchor,
-    newWpx,
-    newHpx,
-    WS_WIDTH,
-    WS_HEIGHT,
-    0,
-    0
-  )
-
-  const origAbsX = origBase.x + origOffsetX
-  const origAbsY = origBase.y + origOffsetY
-
-  let fixedX: number
-  let fixedY: number
-  switch (fixedCorner) {
-    case "nw":
-      fixedX = origAbsX
-      fixedY = origAbsY
-      break
-    case "ne":
-      fixedX = origAbsX + origWpx
-      fixedY = origAbsY
-      break
-    case "sw":
-      fixedX = origAbsX
-      fixedY = origAbsY + origHpx
-      break
-    case "se":
-      fixedX = origAbsX + origWpx
-      fixedY = origAbsY + origHpx
-      break
-  }
-
-  let newAbsX: number
-  let newAbsY: number
-  switch (fixedCorner) {
-    case "nw":
-      newAbsX = fixedX
-      newAbsY = fixedY
-      break
-    case "ne":
-      newAbsX = fixedX - newWpx
-      newAbsY = fixedY
-      break
-    case "sw":
-      newAbsX = fixedX
-      newAbsY = fixedY - newHpx
-      break
-    case "se":
-      newAbsX = fixedX - newWpx
-      newAbsY = fixedY - newHpx
-      break
-  }
-
-  return {
-    offsetX: newAbsX - newBase.x,
-    offsetY: newAbsY - newBase.y,
-  }
 }
