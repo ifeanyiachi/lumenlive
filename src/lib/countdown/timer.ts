@@ -70,6 +70,18 @@ export function formatCountdownTime(
 }
 
 /**
+ * Format a timer's configured duration as "M:SS" for the trigger list — minutes
+ * are un-padded (e.g. 300s → "5:00", 3600s → "60:00"), distinct from
+ * `formatCountdownTime`'s zero-padded running display. A compact label for the
+ * static duration a timer is set to, not a live remaining time.
+ */
+export function formatTimerDuration(durationSeconds: number): string {
+  const m = Math.floor(durationSeconds / 60)
+  const s = durationSeconds % 60
+  return `${m}:${String(s).padStart(2, "0")}`
+}
+
+/**
  * Resolve a "HH:MM" time-of-day to the next matching absolute epoch ms, relative
  * to `now` (injected for determinism). If today's occurrence has already passed,
  * the target rolls to tomorrow — so "count down to 10:00 AM" always aims forward.

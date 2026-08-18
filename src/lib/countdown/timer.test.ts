@@ -3,6 +3,7 @@ import {
   computeRemainingSeconds,
   computeProgressRemaining,
   formatCountdownTime,
+  formatTimerDuration,
   resolveTargetEpoch,
   resolveTimeColor,
   WARN_COLOR,
@@ -166,5 +167,22 @@ describe("computeProgressRemaining", () => {
       targetEpochMs: 101000, // 100s span
     }
     expect(computeProgressRemaining(clock, 51000)).toBe(0.5)
+  })
+})
+
+describe("formatTimerDuration", () => {
+  it("matches the legacy inline label across a grid", () => {
+    // The historical inline expression from the countdown trigger list.
+    const legacy = (d: number) =>
+      `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}`
+    for (const d of [0, 5, 59, 60, 61, 90, 300, 599, 600, 3600, 3661]) {
+      expect(formatTimerDuration(d)).toBe(legacy(d))
+    }
+  })
+
+  it("leaves minutes un-padded", () => {
+    expect(formatTimerDuration(300)).toBe("5:00")
+    expect(formatTimerDuration(3600)).toBe("60:00")
+    expect(formatTimerDuration(65)).toBe("1:05")
   })
 })
