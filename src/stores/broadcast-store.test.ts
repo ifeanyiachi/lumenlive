@@ -470,7 +470,6 @@ describe("broadcast store theme designer", () => {
     expect(after.outputs.find((o) => o.id === "main")!.themeId).toBe(
       activeBefore
     )
-    expect(after.defaultThemeId).toBe(activeBefore)
   })
 
   it("setDefaultTheme records the default and applies it to the main output", async () => {

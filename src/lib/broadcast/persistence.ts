@@ -11,6 +11,7 @@ import type { StageLayout } from "@/types/stage-layout"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 
 /** The raw values read from persisted storage (all optional / possibly legacy). */
 export interface PersistedThemeData {
@@ -134,6 +135,23 @@ export function buildHydrationPatch(
   if (raw.baseBackground) patch.baseBackground = raw.baseBackground
   else if (raw.baseThemeId) {
     patch.baseBackground = { kind: "theme", themeId: raw.baseThemeId }
+  }
+
+  // Reconcile persisted theme ids onto the new typed store's ids (themeredo.md, VR4):
+  // an output's `themeId` and a theme-kind base background. `resolveLegacyThemeId` maps a
+  // legacy built-in id to its new-built-in equivalent and passes custom / already-new ids
+  // through unchanged, so this is idempotent — re-running it each hydrate is a no-op.
+  if (patch.outputs) {
+    patch.outputs = patch.outputs.map((o) => ({
+      ...o,
+      themeId: resolveLegacyThemeId(o.themeId),
+    }))
+  }
+  if (patch.baseBackground?.kind === "theme") {
+    patch.baseBackground = {
+      ...patch.baseBackground,
+      themeId: resolveLegacyThemeId(patch.baseBackground.themeId),
+    }
   }
 
   return { patch, deleteLegacyStageConfig }

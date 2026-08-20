@@ -1,5 +1,5 @@
 import type { BroadcastOutput } from "@/types"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 
 /**
  * Pure selectors and transforms over the list of broadcast outputs.
@@ -29,7 +29,7 @@ export function resolveThemeId(
   outputId: string
 ): string {
   const output = findOutput(outputs, outputId)
-  return output?.themeId ?? outputs[0]?.themeId ?? BUILTIN_THEMES[0].id
+  return output?.themeId ?? outputs[0]?.themeId ?? SCRIPTURE_BUILTIN.id
 }
 
 /**

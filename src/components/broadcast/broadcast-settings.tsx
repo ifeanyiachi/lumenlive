@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { useBroadcastStore, useCountdownStore } from "@/stores"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
 import { useMediaStore } from "@/stores/media-store"
 import { MonitorIcon, CastIcon, LayersIcon, ImageIcon } from "lucide-react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
@@ -48,7 +50,9 @@ import { useOutputController } from "@/hooks/use-output-controller"
  * gradient/solid controls and file pickers.
  */
 function BaseBackgroundSection() {
-  const themes = useBroadcastStore((s) => s.themes)
+  // A base backdrop can be any look, so list every typed theme (themeredo.md, VR4).
+  const customThemes = useThemesStore((s) => s.customThemes)
+  const themes = buildThemeRegistry(customThemes)
   const baseBackground = useBroadcastStore((s) => s.baseBackground)
   const setBase = (bb: BaseBackground | null) =>
     useBroadcastStore.getState().setBaseBackground(bb)
@@ -237,7 +241,11 @@ export function BroadcastSettings({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const themes = useBroadcastStore((s) => s.themes)
+  // Each output renders scripture, so its theme picker lists scripture-type themes.
+  const customThemes = useThemesStore((s) => s.customThemes)
+  const themes = buildThemeRegistry(customThemes).filter(
+    (t) => t.type === "scripture"
+  )
   const logoImagePath = useBroadcastStore((s) => s.logoImagePath)
 
   // Shared (dialog-level) state — the per-output state now lives in each output

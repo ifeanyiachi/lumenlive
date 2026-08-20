@@ -1,5 +1,5 @@
 import type { BroadcastOutput } from "@/types"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import {
   emitOutputEvent,
   broadcastOutputEvent,
@@ -25,7 +25,7 @@ export const DEFAULT_OUTPUTS: BroadcastOutput[] = [
   {
     id: "main",
     name: "Program",
-    themeId: BUILTIN_THEMES[0].id,
+    themeId: SCRIPTURE_BUILTIN.id,
     mode: "normal",
     contentSource: { type: "independent" },
     enabled: true,
@@ -33,7 +33,7 @@ export const DEFAULT_OUTPUTS: BroadcastOutput[] = [
   {
     id: "alt",
     name: "Alt",
-    themeId: BUILTIN_THEMES[0].id,
+    themeId: SCRIPTURE_BUILTIN.id,
     mode: "normal",
     contentSource: { type: "mirror", sourceOutputId: "main" },
     enabled: false,

@@ -10,11 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import type { Monitor } from "@/services/broadcast-window-gateway"
-import type {
-  BroadcastOutput,
-  BroadcastTheme,
-  StageDisplayConfig,
-} from "@/types/broadcast"
+import type { BroadcastOutput, StageDisplayConfig } from "@/types/broadcast"
+import type { Theme } from "@/types/theme"
 import {
   Trash2Icon,
   MonitorIcon,
@@ -31,7 +28,7 @@ import { isManagedElsewhere, isTauri } from "./utils"
 export type OutputRowProps = {
   output: BroadcastOutput
   isExpanded: boolean
-  themes: BroadcastTheme[]
+  themes: Theme[]
   outputs: BroadcastOutput[]
   monitors: Monitor[]
   refreshing: boolean

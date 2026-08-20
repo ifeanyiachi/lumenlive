@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   closeBroadcastWindow,
   listMonitors,
@@ -21,6 +21,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { useBroadcastStore } from "@/stores"
 import { useCountdownStore } from "@/stores/countdown-store"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
 import type { BroadcastOutput, ContentRouting } from "@/types/broadcast"
 import { PlusIcon } from "lucide-react"
 import { OutputRow } from "./output-row"
@@ -33,7 +35,13 @@ export function OutputManager({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const themes = useBroadcastStore((s) => s.themes)
+  // An output renders scripture (verse look) + drives its idle/base backdrop, so it is
+  // assigned a scripture-type Theme from the new typed store (themeredo.md, VR4).
+  const customThemes = useThemesStore((s) => s.customThemes)
+  const themes = useMemo(
+    () => buildThemeRegistry(customThemes).filter((t) => t.type === "scripture"),
+    [customThemes]
+  )
   const outputs = useBroadcastStore((s) => s.outputs)
   const addOutput = useBroadcastStore((s) => s.addOutput)
   const removeOutput = useBroadcastStore((s) => s.removeOutput)

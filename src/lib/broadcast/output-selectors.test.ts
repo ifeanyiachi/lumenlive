@@ -5,7 +5,7 @@ import {
   resolveEffectiveOutput,
   updateOutputInArray,
 } from "./output-selectors"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import type { BroadcastOutput, ContentRouting } from "@/types"
 
 function output(
@@ -45,7 +45,7 @@ describe("output-selectors", () => {
   })
 
   it("resolveThemeId falls back to the first built-in theme when no outputs", () => {
-    expect(resolveThemeId([], "missing")).toBe(BUILTIN_THEMES[0].id)
+    expect(resolveThemeId([], "missing")).toBe(SCRIPTURE_BUILTIN.id)
   })
 
   it("updateOutputInArray patches only the matching output and clones the array", () => {
