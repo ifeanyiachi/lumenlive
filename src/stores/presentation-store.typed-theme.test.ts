@@ -48,11 +48,9 @@ describe("presentation-store — type-first theme editing (Phase 3)", () => {
     ).toBe(true)
     // Nothing is selected, so the type-specific theme panel shows first.
     expect(s.selectedElementId).toBeNull()
-    // The legacy SlideTheme session is mutually exclusive.
-    expect(s.themeEditSession).toBeNull()
   })
 
-  it("opening a type-first theme clears any legacy SlideTheme session and vice versa", async () => {
+  it("opening a fresh deck clears any type-first theme session", async () => {
     const { store, createThemeFromTemplate } = await freshStore()
     const theme = createThemeFromTemplate("scripture", () => "t-sc", 0)
 

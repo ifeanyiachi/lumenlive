@@ -307,30 +307,3 @@ export interface Presentation {
   updatedAt: number
 }
 
-// ── Slide Themes ──
-
-export type SlideThemeCategory = "general" | "song" | "scripture"
-export type SlideLayoutVariant =
-  "title" | "title-content" | "content-only" | "blank" | "scripture"
-
-export type SlideThemeElement =
-  | Omit<SlideTextElement, "id">
-  | Omit<SlideImageElement, "id">
-  | Omit<SlideScriptureElement, "id">
-  | Omit<SlideShapeElement, "id">
-  | Omit<SlideVideoElement, "id">
-  | Omit<SlideTimerElement, "id">
-
-export interface SlideThemeVariant {
-  layout: SlideLayoutVariant
-  background: SlideBackground
-  elements: SlideThemeElement[]
-}
-
-export interface SlideTheme {
-  id: string
-  name: string
-  category: SlideThemeCategory
-  builtin: boolean
-  variants: SlideThemeVariant[]
-}

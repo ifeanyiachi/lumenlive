@@ -3,8 +3,6 @@ import {
   loadStoredPresentations,
   loadLegacySlidePresentations,
   savePresentations,
-  loadStoredSlideThemes,
-  saveSlideThemes,
 } from "@/lib/presentation/persistence"
 import type { PresentationState } from "./presentation/types"
 import { createLibrarySlice } from "./presentation/library"
@@ -41,8 +39,6 @@ export const usePresentationStore = create<PresentationState>()((...a) => ({
 let hydrationPromise: Promise<void> | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let pendingSave: Promise<void> = Promise.resolve()
-let themeSaveTimer: ReturnType<typeof setTimeout> | null = null
-let pendingThemeSave: Promise<void> = Promise.resolve()
 const SAVE_DEBOUNCE_MS = 500
 
 export function hydratePresentations(): Promise<void> {
@@ -58,10 +54,6 @@ export function hydratePresentations(): Promise<void> {
           presentations: [...s.presentations, ...legacy],
         }))
       }
-
-      const storedThemes = await loadStoredSlideThemes()
-      if (storedThemes)
-        usePresentationStore.setState({ customSlideThemes: storedThemes })
     } catch {
       console.warn(
         "[presentations] Failed to load persisted presentations, starting empty"
@@ -77,15 +69,6 @@ export function hydratePresentations(): Promise<void> {
           saveTimer = null
           pendingSave = pendingSave.then(() =>
             savePresentations(usePresentationStore.getState().presentations)
-          )
-        }, SAVE_DEBOUNCE_MS)
-      }
-      if (state.customSlideThemes !== prevState.customSlideThemes) {
-        if (themeSaveTimer) clearTimeout(themeSaveTimer)
-        themeSaveTimer = setTimeout(() => {
-          themeSaveTimer = null
-          pendingThemeSave = pendingThemeSave.then(() =>
-            saveSlideThemes(usePresentationStore.getState().customSlideThemes)
           )
         }, SAVE_DEBOUNCE_MS)
       }

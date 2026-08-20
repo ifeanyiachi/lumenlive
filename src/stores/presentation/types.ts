@@ -1,9 +1,4 @@
-import type {
-  Slide,
-  SlideElement,
-  Presentation,
-  SlideTheme,
-} from "@/types/slide"
+import type { Slide, SlideElement, Presentation } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import type { ThemeIdentity } from "@/lib/theme/render"
 
@@ -33,20 +28,6 @@ export interface PresentationState {
   startEditingNewPresentation: (name?: string) => void
   saveDraft: () => void
   discardDraft: () => void
-
-  // ── Custom slide/song themes (theme-unification-plan.md, Phase 3) ──
-  /** User-authored song themes; built-ins live in code and aren't stored here. */
-  customSlideThemes: SlideTheme[]
-  /**
-   * Non-null while the slide editor is authoring a song theme rather than a deck.
-   * Redirects `saveDraft` to write a `SlideTheme` instead of a library entry.
-   */
-  themeEditSession: { themeId: string; isNew: boolean } | null
-  saveCustomSlideTheme: (theme: SlideTheme) => void
-  deleteCustomSlideTheme: (id: string) => void
-  renameCustomSlideTheme: (id: string, name: string) => void
-  /** Open the slide editor on a song theme (an existing custom, or a new/duplicate). */
-  startEditingSlideTheme: (theme: SlideTheme, isNew: boolean) => void
 
   // ── Type-first themes (themeredo.md, Phase 3) ──
   /**

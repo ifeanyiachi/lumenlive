@@ -62,7 +62,7 @@ export function ScheduleAllTab({
   const selectedItemId = useScheduleStore((s) => s.selectedItemId)
   const highlightedId = useScheduleStore((s) => s.highlightedId)
   const presentations = usePresentationStore((s) => s.presentations)
-  const customSlideThemes = useThemesStore((s) => s.customThemes)
+  const customThemes = useThemesStore((s) => s.customThemes)
   const songs = useSongStore((s) => s.songs)
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
   const [editingName, setEditingName] = useState(false)
@@ -131,12 +131,12 @@ export function ScheduleAllTab({
           options,
           undefined,
           undefined,
-          customSlideThemes
+          customThemes
         )
       )
     }
     return m
-  }, [activeSchedule?.items, songs, songSlideDefaults, customSlideThemes])
+  }, [activeSchedule?.items, songs, songSlideDefaults, customThemes])
 
   const toggleExpanded = useCallback((itemId: string) => {
     setExpandedIds((prev) => {

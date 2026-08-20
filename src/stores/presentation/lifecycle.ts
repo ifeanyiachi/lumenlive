@@ -1,39 +1,27 @@
 import type { StateCreator } from "zustand"
 import type { Presentation } from "@/types/slide"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import { createDefaultPresentation } from "@/lib/slide-defaults"
 import * as catalog from "@/lib/presentation/presentation-mutations"
-import {
-  slideThemeToEditableSlide,
-  editableSlideToSlideTheme,
-} from "@/lib/theme/slide-theme-edit"
 import { themeToSlide, type ThemeIdentity } from "@/lib/theme/render"
 import { useThemesStore } from "@/stores/themes"
-import { newId, resetHistory, pushUndo } from "./internals"
+import { resetHistory, pushUndo } from "./internals"
 import type { PresentationState } from "./types"
 
 /**
  * Editor lifecycle and theming: opening a draft (existing deck, brand-new deck,
- * or a song theme), saving/discarding it, the custom slide-theme CRUD, and
- * applying a theme to the active slide or the whole deck. Owns
- * `editingPresentationId`, `draftPresentation`, `customSlideThemes`, and
- * `themeEditSession`. Opening a draft resets the shared undo history.
+ * or a typed `Theme`), saving/discarding it, and baking a theme onto the active
+ * slide or the whole deck. Owns `editingPresentationId`, `draftPresentation`,
+ * and `typedThemeSession`. Opening a draft resets the shared undo history.
  */
 export type LifecycleSlice = Pick<
   PresentationState,
   | "editingPresentationId"
   | "draftPresentation"
-  | "customSlideThemes"
-  | "themeEditSession"
   | "typedThemeSession"
   | "startEditing"
   | "startEditingNewPresentation"
   | "saveDraft"
   | "discardDraft"
-  | "saveCustomSlideTheme"
-  | "deleteCustomSlideTheme"
-  | "renameCustomSlideTheme"
-  | "startEditingSlideTheme"
   | "startEditingTheme"
   | "applyThemeToSlide"
   | "applyThemeToPresentation"
@@ -47,8 +35,6 @@ export const createLifecycleSlice: StateCreator<
 > = (set, get) => ({
   editingPresentationId: null,
   draftPresentation: null,
-  customSlideThemes: [],
-  themeEditSession: null,
   typedThemeSession: null,
 
   startEditing: (id) => {
@@ -61,7 +47,6 @@ export const createLifecycleSlice: StateCreator<
       draftPresentation: draft,
       activeSlideIndex: 0,
       selectedElementId: draft.slides[0]?.elements[0]?.id ?? null,
-      themeEditSession: null,
       typedThemeSession: null,
     })
   },
@@ -77,7 +62,6 @@ export const createLifecycleSlice: StateCreator<
       draftPresentation: draft,
       activeSlideIndex: 0,
       selectedElementId: draft.slides[0]?.elements[0]?.id ?? null,
-      themeEditSession: null,
       typedThemeSession: null,
     })
   },
@@ -89,42 +73,6 @@ export const createLifecycleSlice: StateCreator<
       // `useThemesStore`. Never fall through to the deck path — the draft's
       // `__theme__` id isn't a library presentation and must not be appended.
       if (s.typedThemeSession) return s
-      // Theme-authoring session: the draft's single slide becomes a custom
-      // SlideTheme rather than a library presentation. Editing a *built-in*
-      // theme forks it to a new custom one (built-ins live in code and stay
-      // immutable), then keeps editing the fork — mirroring the verse designer.
-      const session = s.themeEditSession
-      if (session) {
-        const slide = s.draftPresentation?.slides[0]
-        if (!slide) return s
-        const builtin = BUILTIN_SLIDE_THEMES.find(
-          (t) => t.id === session.themeId
-        )
-        const targetId = builtin ? newId() : session.themeId
-        const draftName = s.draftPresentation?.name ?? slide.name
-        // Distinguish a fork from its built-in when the name wasn't changed.
-        const name =
-          builtin && draftName === builtin.name
-            ? `${draftName} (Custom)`
-            : draftName
-        const theme = editableSlideToSlideTheme(slide, { id: targetId, name })
-        const draftId = `__theme__${targetId}`
-        return {
-          customSlideThemes: s.customSlideThemes.some((t) => t.id === targetId)
-            ? s.customSlideThemes.map((t) => (t.id === targetId ? theme : t))
-            : [...s.customSlideThemes, theme],
-          themeEditSession: { themeId: targetId, isNew: false },
-          editingPresentationId: draftId,
-          draftPresentation: s.draftPresentation
-            ? {
-                ...s.draftPresentation,
-                id: draftId,
-                name,
-                updatedAt: Date.now(),
-              }
-            : s.draftPresentation,
-        }
-      }
       if (!s.draftPresentation || !s.editingPresentationId) return s
       const updated = { ...s.draftPresentation, updatedAt: Date.now() }
       // A brand-new deck (opened via startEditingNewPresentation) isn't in the
@@ -148,61 +96,8 @@ export const createLifecycleSlice: StateCreator<
       draftPresentation: null,
       activeSlideIndex: 0,
       selectedElementId: null,
-      themeEditSession: null,
       typedThemeSession: null,
     }),
-
-  saveCustomSlideTheme: (theme) =>
-    set((s) => ({
-      customSlideThemes: s.customSlideThemes.some((t) => t.id === theme.id)
-        ? s.customSlideThemes.map((t) => (t.id === theme.id ? theme : t))
-        : [...s.customSlideThemes, theme],
-    })),
-
-  deleteCustomSlideTheme: (id) =>
-    set((s) => ({
-      customSlideThemes: s.customSlideThemes.filter((t) => t.id !== id),
-      // If the editor is open on the deleted theme, close it.
-      ...(s.themeEditSession?.themeId === id
-        ? {
-            editingPresentationId: null,
-            draftPresentation: null,
-            themeEditSession: null,
-          }
-        : {}),
-    })),
-
-  renameCustomSlideTheme: (id, name) =>
-    set((s) => ({
-      customSlideThemes: s.customSlideThemes.map((t) =>
-        t.id === id ? { ...t, name } : t
-      ),
-    })),
-
-  startEditingSlideTheme: (theme, isNew) => {
-    resetHistory()
-    let n = 0
-    const slide = slideThemeToEditableSlide(
-      theme,
-      () => `${theme.id}-el-${n++}`,
-      Date.now()
-    )
-    const draft: Presentation = {
-      id: `__theme__${theme.id}`,
-      name: theme.name,
-      slides: [slide],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    set({
-      editingPresentationId: draft.id,
-      draftPresentation: draft,
-      activeSlideIndex: 0,
-      selectedElementId: slide.elements[0]?.id ?? null,
-      themeEditSession: { themeId: theme.id, isNew },
-      typedThemeSession: null,
-    })
-  },
 
   startEditingTheme: (theme, isNew) => {
     resetHistory()
@@ -232,7 +127,6 @@ export const createLifecycleSlice: StateCreator<
       activeSlideIndex: 0,
       // Start with nothing selected so the type-specific theme panel shows first.
       selectedElementId: null,
-      themeEditSession: null,
       typedThemeSession: { identity, isNew },
     })
   },

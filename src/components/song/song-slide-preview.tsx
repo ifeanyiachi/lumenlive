@@ -69,7 +69,7 @@ const SlideThumb = memo(function SlideThumb({ slide }: { slide: Slide }) {
  */
 export function SongSlidePreview({ song }: { song: Song }) {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
-  const customSlideThemes = useThemesStore((s) => s.customThemes)
+  const customThemes = useThemesStore((s) => s.customThemes)
 
   const arrangement =
     song.arrangements.find((a) => a.isDefault) ?? song.arrangements[0] ?? null
@@ -86,9 +86,9 @@ export function SongSlidePreview({ song }: { song: Song }) {
       options,
       () => `preview-${n++}`,
       0,
-      customSlideThemes
+      customThemes
     ).slides
-  }, [song, arrangement, defaults, customSlideThemes])
+  }, [song, arrangement, defaults, customThemes])
 
   return (
     <div className="flex min-h-0 flex-col">
