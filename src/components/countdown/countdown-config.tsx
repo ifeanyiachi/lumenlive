@@ -8,7 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
+import { countdownThemeColors } from "@/lib/countdown/theme-colors"
 import type { CountdownTimer, CountdownFormat } from "@/types/alert"
 import { cn } from "@/lib/utils"
 
@@ -28,8 +30,9 @@ export function TimerEditor({
   const minutes = Math.floor(draft.durationSeconds / 60)
   const seconds = draft.durationSeconds % 60
 
-  const countdownThemes = useBroadcastStore((s) => s.themes).filter(
-    (t) => t.category === "countdown"
+  const customThemes = useThemesStore((s) => s.customThemes)
+  const countdownThemes = buildThemeRegistry(customThemes).filter(
+    (t) => t.type === "countdown"
   )
   const isThemed = draft.styleMode === "theme"
 
@@ -88,8 +91,8 @@ export function TimerEditor({
           </span>
           {countdownThemes.length === 0 ? (
             <p className="rounded-md border border-dashed border-border px-2 py-3 text-center text-[0.625rem] text-muted-foreground">
-              No countdown themes yet. Create one in the Theme Designer and set
-              its category to Countdown.
+              No countdown themes yet. Create a Countdown theme in the Theme
+              Designer.
             </p>
           ) : (
             <Select
@@ -100,25 +103,24 @@ export function TimerEditor({
                 <SelectValue placeholder="Select a theme" />
               </SelectTrigger>
               <SelectContent>
-                {countdownThemes.map((theme) => (
-                  <SelectItem key={theme.id} value={theme.id}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="size-4 shrink-0 rounded border border-border"
-                        style={{
-                          backgroundColor:
-                            theme.background.type === "solid" ||
-                            theme.background.type === "gradient"
-                              ? theme.background.color
-                              : "#000000",
-                          color: theme.verseText.color,
-                        }}
-                        aria-hidden
-                      />
-                      <span className="truncate">{theme.name}</span>
-                    </span>
-                  </SelectItem>
-                ))}
+                {countdownThemes.map((theme) => {
+                  const colors = countdownThemeColors(theme)
+                  return (
+                    <SelectItem key={theme.id} value={theme.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="size-4 shrink-0 rounded border border-border"
+                          style={{
+                            backgroundColor: colors.background,
+                            color: colors.text,
+                          }}
+                          aria-hidden
+                        />
+                        <span className="truncate">{theme.name}</span>
+                      </span>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           )}

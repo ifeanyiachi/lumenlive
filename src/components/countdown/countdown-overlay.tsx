@@ -2,7 +2,10 @@ import { useState, useEffect } from "react"
 import { XIcon, PauseIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCountdownStore } from "@/stores/countdown-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
+import { resolveCountdownTheme } from "@/lib/theme/resolve"
+import { countdownThemeColors } from "@/lib/countdown/theme-colors"
 import {
   computeRemainingSeconds,
   formatCountdownTime,
@@ -16,7 +19,7 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
   const [now, setNow] = useState(() => Date.now())
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
   const timers = useCountdownStore((s) => s.timers)
-  const themes = useBroadcastStore((s) => s.themes)
+  const customThemes = useThemesStore((s) => s.customThemes)
 
   const countdown = activeCountdowns.find((c) => c.id === countdownId)
   const timer = countdown
@@ -33,16 +36,10 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
   // The operator pill is a compact preview — it can't reproduce the full themed
   // composition (that renders on the broadcast output), so a themed timer just
   // borrows the theme's background/text colours to stay on-brand.
-  const theme =
-    timer.styleMode === "theme" && timer.themeId
-      ? themes.find((t) => t.id === timer.themeId && t.category === "countdown")
-      : undefined
-  const bgColor = theme
-    ? theme.background.type === "solid" || theme.background.type === "gradient"
-      ? theme.background.color
-      : "rgba(0,0,0,0.7)"
-    : timer.backgroundColor
-  const baseTextColor = theme ? theme.verseText.color : timer.textColor
+  const theme = resolveCountdownTheme(timer, buildThemeRegistry(customThemes))
+  const colors = theme ? countdownThemeColors(theme) : null
+  const bgColor = colors?.background ?? timer.backgroundColor
+  const baseTextColor = colors?.text ?? timer.textColor
 
   const remaining = computeRemainingSeconds(countdown, now)
   const overtime = timer.endAction === "overtime"
