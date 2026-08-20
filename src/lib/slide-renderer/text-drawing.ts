@@ -10,6 +10,7 @@ import { applyTextTransform } from "@/lib/canvas-draw"
 import { surfaceFontScale } from "@/lib/canvas-constants"
 import type { RenderOptions } from "@/types/broadcast"
 import type { ScriptureRenderPayload } from "./types"
+import { scriptureElementToVerseStyle } from "./scripture-style"
 
 /**
  * Text rendering for slides: font strings, line drawing (with alignment,
@@ -483,6 +484,44 @@ function drawScriptureVersePayload(
   }
 }
 
+// Authoring/preview scripture rendering (themeredo.md) — when there is no live
+// `scriptureContent` payload, the placeholder's OWN sample content is rendered
+// through the exact same verse-renderer path as live, so every style field (case,
+// line height, reference position/uppercase, verse numbers, text box) previews as
+// it will output. Memoised per element identity (the store mints a new element on
+// every edit, so the cache self-invalidates) to avoid rebuilding the style/verse
+// payload each frame.
+const authoringPayloadCache = new WeakMap<
+  SlideScriptureElement,
+  ScriptureRenderPayload
+>()
+
+function authoringScripturePayload(
+  el: SlideScriptureElement
+): ScriptureRenderPayload {
+  const cached = authoringPayloadCache.get(el)
+  if (cached) return cached
+  // Parse a trailing verse number out of the reference (e.g. "John 3:16" → 16) so
+  // the verse-number marker has something to show when enabled.
+  const refVerse = /:(\d+)\s*$/.exec(el.reference)?.[1]
+  const payload: ScriptureRenderPayload = {
+    verse: {
+      reference: el.reference,
+      segments: el.verseText
+        ? [
+            {
+              text: el.verseText,
+              verseNumber: refVerse ? Number(refVerse) : undefined,
+            },
+          ]
+        : [],
+    },
+    style: scriptureElementToVerseStyle(el),
+  }
+  authoringPayloadCache.set(el, payload)
+  return payload
+}
+
 export function drawScriptureElement(
   ctx: CanvasRenderingContext2D,
   element: SlideScriptureElement,
@@ -511,6 +550,20 @@ export function drawScriptureElement(
   // path); the stored element's box/typography is not consulted for this path.
   if (payload) {
     drawScriptureVersePayload(ctx, payload, canvasWidth, canvasHeight)
+    ctx.restore()
+    return
+  }
+
+  // Authoring/preview: render the placeholder's own sample content through the same
+  // verse-renderer path as live, so all style fields preview accurately. Empty
+  // placeholders (no reference and no verse) fall through and draw nothing.
+  if (element.reference || element.verseText) {
+    drawScriptureVersePayload(
+      ctx,
+      authoringScripturePayload(element),
+      canvasWidth,
+      canvasHeight
+    )
     ctx.restore()
     return
   }

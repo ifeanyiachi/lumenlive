@@ -39,6 +39,12 @@ exports[`BUILTIN_THEMES > matches the committed snapshot 1`] = `
         "referenceFontSize": 26,
         "translation": "KJV",
         "type": "scripture",
+        "verseNumbers": {
+          "color": "#94a3b8",
+          "fontSize": 22,
+          "superscript": true,
+          "visible": true,
+        },
         "verseText": "For God so loved the world, that he gave his only begotten Son.",
         "verticalAlign": "middle",
         "width": 80,

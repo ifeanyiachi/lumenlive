@@ -348,7 +348,11 @@ describe("drawScriptureElement — render-time verse payload (Phase 4b)", () => 
   }
   const classic = () => CLASSIC_VERSE_STYLE
 
-  it("keeps the legacy flat-string path when no payload is given", () => {
+  it("renders authoring sample content through the verse-renderer path", () => {
+    // With no live payload, the placeholder's own content is rendered through the
+    // SAME verse-renderer path as live, so the authoring preview honours every
+    // style field. The legacy flat-string draw only runs for a truly empty
+    // placeholder now.
     const { ctx, fills } = fillTextRecorder()
     const el = {
       ...createDefaultScriptureElement(),
@@ -357,10 +361,9 @@ describe("drawScriptureElement — render-time verse payload (Phase 4b)", () => 
       translation: "",
     }
     drawScriptureElement(ctx, el, 1920, 1080)
-    // The legacy dash-prefixed reference label is unchanged.
-    expect(fills.some((f) => f.includes("— John 3:16"))).toBe(true)
-    // No standalone verse-number token on the flat path.
-    expect(fills).not.toContain("16")
+    // The reference is drawn (contains the ref) without the legacy dash prefix.
+    expect(fills.some((f) => /3:16/.test(f))).toBe(true)
+    expect(fills.some((f) => f.trimStart().startsWith("—"))).toBe(false)
   })
 
   it("delegates to the verse draw passes when a payload is present", () => {

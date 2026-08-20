@@ -26,6 +26,13 @@ export function scriptureTemplate(newId: () => string, now = 0): Theme {
             verseText:
               "For God so loved the world, that he gave his only begotten Son.",
             translation: "KJV",
+            // Verse numbers on by default (superscript markers before each verse).
+            verseNumbers: {
+              visible: true,
+              fontSize: 28,
+              color: "#94a3b8",
+              superscript: true,
+            },
           }
         ),
       ],
