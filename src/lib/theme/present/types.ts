@@ -1,6 +1,7 @@
 import type { Slide } from "@/types/slide"
 import type { ThemeType } from "@/types/theme"
 import type { VerseRenderData } from "@/types/broadcast"
+import type { CountdownFormat } from "@/types/alert"
 
 /**
  * The presentation layer (themeredo.md, Phase 4).
@@ -69,9 +70,30 @@ export interface SongContent {
   groups: string[]
 }
 
-/** Countdown needs no content — the timer element ticks against wall-clock. */
+/**
+ * Countdown live runtime. A themed countdown authors its look (background,
+ * heading, timer placeholder) but the *ticking* is driven by a running
+ * `ActiveCountdown`, not the placeholder's static config — so at go-live the
+ * mapper element-swaps the live values onto the timer element (and the label
+ * slot). Every field is optional: an empty `{type:"countdown"}` presents the
+ * theme's authored placeholder as-is (authoring/preview).
+ */
 export interface CountdownContent {
   type: "countdown"
+  /** Live seconds remaining; overrides the placeholder's static `durationSeconds`. */
+  remainingSeconds?: number
+  format?: CountdownFormat
+  overtime?: boolean
+  /** Recolor thresholds carried from the running timer. */
+  warnSeconds?: number
+  dangerSeconds?: number
+  /**
+   * Runtime label. When set (with `showLabel !== false`) it overrides the theme's
+   * authored heading text (decision D5); when `showLabel` is false the label slot
+   * is dropped from the presented slide.
+   */
+  label?: string
+  showLabel?: boolean
 }
 
 /**

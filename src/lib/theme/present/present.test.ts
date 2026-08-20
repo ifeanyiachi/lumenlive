@@ -113,6 +113,63 @@ describe("presentCountdown / presentOverlay", () => {
     expect(findTimerElement(p.slide.elements)).toBeDefined()
   })
 
+  it("element-swaps the live runtime onto the timer placeholder (F1)", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.countdown
+    const [p] = presentCountdown(
+      theme,
+      {
+        type: "countdown",
+        remainingSeconds: 125,
+        format: "hh:mm:ss",
+        overtime: true,
+        warnSeconds: 60,
+        dangerSeconds: 10,
+      },
+      idSource()
+    )
+    const timer = findTimerElement(p.slide.elements)!
+    expect(timer.mode).toBe("duration")
+    expect(timer.durationSeconds).toBe(125)
+    expect(timer.format).toBe("hh:mm:ss")
+    expect(timer.overtime).toBe(true)
+    expect(timer.warnSeconds).toBe(60)
+    expect(timer.dangerSeconds).toBe(10)
+  })
+
+  it("overrides the heading with a runtime label, and drops it when hidden (D5)", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.countdown
+    const textCount = (els: { type: string }[]) =>
+      els.filter((e) => e.type === "text").length
+
+    const [shown] = presentCountdown(
+      theme,
+      { type: "countdown", label: "Doors open in", showLabel: true },
+      idSource()
+    )
+    const labelEl = shown.slide.elements.find((e) => e.type === "text")
+    expect(labelEl).toBeDefined()
+    if (labelEl?.type === "text") expect(labelEl.text).toBe("Doors open in")
+
+    const [hidden] = presentCountdown(
+      theme,
+      { type: "countdown", showLabel: false },
+      idSource()
+    )
+    expect(textCount(hidden.slide.elements)).toBe(
+      textCount(shown.slide.elements) - 1
+    )
+  })
+
+  it("leaves the authored placeholder untouched for empty content", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.countdown
+    const authored = findTimerElement(
+      presentCountdown(theme, { type: "countdown" }, idSource())[0].slide
+        .elements
+    )!
+    // The built-in's authored duration survives when no runtime is supplied.
+    expect(authored.durationSeconds).toBe(600)
+  })
+
   it("overlay is a faithful single-slide projection over transparent bg", () => {
     const theme = BUILTIN_THEME_BY_TYPE.overlay
     const [p] = presentOverlay(theme, { type: "overlay" }, idSource())

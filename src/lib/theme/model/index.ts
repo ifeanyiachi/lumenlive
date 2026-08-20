@@ -9,6 +9,8 @@ export {
   hasTextRole,
   findScriptureElement,
   hasScriptureElement,
+  findTimerElement,
+  hasTimerElement,
 } from "./roles"
 
 export {
