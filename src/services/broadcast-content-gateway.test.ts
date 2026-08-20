@@ -44,7 +44,6 @@ describe("broadcast-content-gateway", () => {
   describe("BROADCAST_EVENTS registry", () => {
     it("maps identifiers to the exact legacy wire strings", () => {
       // Guards the cross-window contract: a rename must be intentional.
-      expect(BROADCAST_EVENTS.verseUpdate).toBe("broadcast:verse-update")
       expect(BROADCAST_EVENTS.slideUpdate).toBe("broadcast:slide-update")
       expect(BROADCAST_EVENTS.mediaUpdate).toBe("broadcast:media-update")
       expect(BROADCAST_EVENTS.outputVisibility).toBe(
@@ -99,10 +98,10 @@ describe("broadcast-content-gateway", () => {
     it("registers a listener per handler and routes the payload", async () => {
       listenMock.mockResolvedValue(vi.fn())
       const handler = vi.fn()
-      subscribeOutputEvents({ "broadcast:verse-update": handler })
+      subscribeOutputEvents({ "broadcast:slide-update": handler })
 
       expect(listenMock).toHaveBeenCalledWith(
-        "broadcast:verse-update",
+        "broadcast:slide-update",
         expect.any(Function)
       )
       // Simulate an inbound event → handler receives the unwrapped payload.

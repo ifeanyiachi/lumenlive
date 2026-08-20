@@ -28,7 +28,6 @@ import type { UnlistenFn, Event as TauriEvent } from "@tauri-apps/api/event"
 import { emitToOutput, emitToAllOutputs } from "@/lib/broadcast-routing"
 import type {
   BroadcastOutput,
-  BroadcastTheme,
   VerseRenderData,
   LayerFilter,
   OutputDisplayMode,
@@ -59,7 +58,6 @@ import type { MediaFitConfig, ContainBackground } from "@/lib/media-fit"
  */
 export const BROADCAST_EVENTS = {
   // Forward: main → output
-  verseUpdate: "broadcast:verse-update",
   slideUpdate: "broadcast:slide-update",
   mediaUpdate: "broadcast:media-update",
   mediaFitUpdate: "broadcast:media-fit-update",
@@ -91,12 +89,6 @@ export const BROADCAST_EVENTS = {
 } as const
 
 // ── Forward payload shapes (main → output) ───────────────────────────────────
-
-export interface VerseUpdatePayload {
-  theme: BroadcastTheme
-  verse: VerseRenderData | null
-  layerFilter?: LayerFilter
-}
 
 export interface SlideUpdatePayload {
   slide: Slide
@@ -206,7 +198,6 @@ export interface CountdownDismissPayload {
  * carry no meaningful payload (the listener ignores it).
  */
 export interface OutputEventPayloads {
-  "broadcast:verse-update": VerseUpdatePayload
   "broadcast:slide-update": SlideUpdatePayload
   "broadcast:media-update": MediaUpdatePayload
   "broadcast:media-fit-update": MediaFitPayload

@@ -5,11 +5,7 @@ import {
   broadcastOutputEvent,
   BROADCAST_EVENTS,
 } from "@/services/broadcast-content-gateway"
-import {
-  resolveEffectiveOutput,
-  findOutput,
-} from "@/lib/broadcast/output-selectors"
-import { resolveLayerFilter } from "@/lib/broadcast/output-emit"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { buildStageUpdatePayload } from "@/lib/stage-layout/stage-payload"
 import type { BroadcastState } from "./types"
 
@@ -74,8 +70,7 @@ export function pushDisplayConfig(
 
 /**
  * Live-preview the stage draft: push it to any stage output currently assigned
- * the layout being edited, so edits appear on the monitor as they happen (the
- * stage-side analogue of {@link emitDraftToBroadcast}).
+ * the layout being edited, so edits appear on the monitor as they happen.
  */
 export function emitStageDraftToOutputs(state: BroadcastState): void {
   const draft = state.draftStageLayout
@@ -99,22 +94,6 @@ export function emitStageDraftToOutputs(state: BroadcastState): void {
   }
 }
 
-export function emitDraftToBroadcast(state: BroadcastState): void {
-  if (!state.draftTheme) return
-  const id = state.editingThemeId
-  for (const output of state.outputs) {
-    // Resolve through mirroring so a mirror output previews when its *source's*
-    // theme is the one being edited, using the source's filter.
-    const effective = resolveEffectiveOutput(state.outputs, output.id) ?? output
-    if (effective.themeId === id) {
-      emitOutputEvent(output.id, BROADCAST_EVENTS.verseUpdate, {
-        theme: state.draftTheme,
-        verse: state.liveVerse,
-        layerFilter: resolveLayerFilter(effective),
-      })
-    }
-  }
-}
 
 // Tear down all web output everywhere: clear each output window's embedded
 // YouTube player (`broadcast:web-content` = null). Emits to every output

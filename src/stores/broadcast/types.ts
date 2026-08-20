@@ -111,14 +111,6 @@ export interface BroadcastState {
   stagePlaylist: string[] | null
 
   isDesignerOpen: boolean
-  editingThemeId: string | null
-  draftTheme: BroadcastTheme | null
-  selectedElement: SelectedElement
-  regionLocked: Set<RegionId>
-  regionHidden: Set<RegionId>
-  undoStack: BroadcastTheme[]
-  redoStack: BroadcastTheme[]
-  transitionPreviewTrigger: number
 
   // Stage Layout designer (draft editing — stage-side sibling of the theme draft)
   stageDesignerOpen: boolean
@@ -127,21 +119,6 @@ export interface BroadcastState {
   selectedZone: string | null
   stageUndoStack: StageLayout[]
   stageRedoStack: StageLayout[]
-
-  // Theme management
-  loadThemes: () => void
-  saveTheme: (theme: BroadcastTheme) => void
-  /**
-   * Designate a theme as the default and apply it to the main output. Persisted
-   * so the badge/sort survives reloads. Unlike {@link saveTheme}, saving a
-   * theme never changes the default — that only happens through this action.
-   */
-  setDefaultTheme: (id: string) => void
-  deleteTheme: (id: string) => void
-  duplicateTheme: (id: string) => void
-  createNewTheme: () => void
-  renameTheme: (id: string, name: string) => void
-  togglePinTheme: (id: string) => void
 
   // Stage Layout management (stage-side sibling of theme management)
   saveStageLayout: (layout: StageLayout) => void
@@ -277,25 +254,6 @@ export interface BroadcastState {
   setStagePlaylist: (playlist: string[] | null) => void
   syncStageOutput: () => void
 
-  // Designer actions
+  // The Theme Designer open flag (authoring moved to the typed Theme store).
   setDesignerOpen: (open: boolean) => void
-  startEditing: (themeId: string) => void
-  pushUndo: () => void
-  updateDraft: (updates: Partial<BroadcastTheme>) => void
-  updateDraftNested: (path: string, value: unknown) => void
-  undo: () => void
-  redo: () => void
-  saveDraft: () => void
-  discardDraft: () => void
-  setSelectedElement: (el: SelectedElement) => void
-  toggleRegionLocked: (id: RegionId) => void
-  toggleRegionHidden: (id: RegionId) => void
-  addElement: (type: "image" | "shape") => void
-  removeElement: (id: string) => void
-  reorderLayers: (fromIndex: number, toIndex: number) => void
-  toggleElementVisibility: (id: string) => void
-  toggleElementLocked: (id: string) => void
-  triggerTransitionPreview: () => void
-  duplicateElement: (id: string) => void
-  nudgeElement: (dx: number, dy: number) => void
 }

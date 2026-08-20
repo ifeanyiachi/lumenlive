@@ -61,13 +61,10 @@ export const createSyncSlice: StateCreator<
     // the output itself for dangling/cyclic mirrors.
     const effective = resolveEffectiveOutput(s.outputs, outputId) ?? output
     const themeId = effective.themeId
-    const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
-    if (!theme) return
 
     // The output's theme in the NEW typed store (RF2/RF3): resolved via the legacy-id
-    // alias, falling back to the scripture built-in. Drives the live scripture slide
-    // and the base backdrop; the legacy `theme` (BroadcastTheme) stays for the idle
-    // backdrop + designer preview until those paths are retired (Phase 5).
+    // alias, falling back to the scripture built-in. Drives the live scripture slide,
+    // the base backdrop, and the idle backdrop.
     const newThemes = useThemesStore.getState().allThemes()
     const outputTheme =
       resolveScriptureTheme(themeId, newThemes) ??
@@ -100,26 +97,19 @@ export const createSyncSlice: StateCreator<
     const layerFilter = resolveLayerFilter(effective)
 
     // The idle backdrop (not live, or live with nothing pushed): the output's own theme
-    // with no content. Rendered through the slide path (VR3) so it matches the audience
-    // scripture render + the operator preview — was the legacy `renderVerse` backdrop.
-    // Falls back to the legacy verse path only if no theme resolves in the new store.
+    // with no content, rendered through the slide path (VR3) so it matches the audience
+    // scripture render + the operator preview. A scripture built-in always resolves, so
+    // `outputTheme` is present in practice.
     const emitIdleBackdrop = () => {
-      if (outputTheme) {
-        emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
-          slide: {
-            ...themeToSlide(outputTheme, () => "idle-backdrop"),
-            transition: undefined,
-          },
-          verse: null,
-          layerFilter,
-        })
-      } else {
-        emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
-          theme,
-          verse: null,
-          layerFilter,
-        })
-      }
+      if (!outputTheme) return
+      emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
+        slide: {
+          ...themeToSlide(outputTheme, () => "idle-backdrop"),
+          transition: undefined,
+        },
+        verse: null,
+        layerFilter,
+      })
     }
 
     if (!s.isLive) {
@@ -140,11 +130,9 @@ export const createSyncSlice: StateCreator<
     } else if (s.liveVerse) {
       // Live scripture — the renderer Theme-object flip (RF2). Present the pushed verse
       // as a slide from the output's new-store theme (resolved above): its style-only
-      // scripture placeholder is filled at draw time from the verse that rides
-      // alongside. Falls back to the legacy verse path only if no scripture theme is
-      // resolvable (a scripture built-in always exists, so this is defensive).
-      // Transition is stripped so stepping verses swaps instantly, matching the current
-      // behaviour.
+      // scripture placeholder is filled at draw time from the verse that rides alongside.
+      // A scripture built-in always resolves, so `outputTheme` is present in practice.
+      // Transition is stripped so stepping verses swaps instantly.
       if (outputTheme) {
         const [presented] = presentScripture(
           outputTheme,
@@ -153,12 +141,6 @@ export const createSyncSlice: StateCreator<
         )
         emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
           slide: { ...presented.slide, transition: undefined },
-          verse: s.liveVerse,
-          layerFilter,
-        })
-      } else {
-        emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
-          theme,
           verse: s.liveVerse,
           layerFilter,
         })
