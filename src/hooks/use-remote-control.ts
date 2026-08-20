@@ -64,7 +64,7 @@ export function useRemoteControl() {
         const name = payload?.name as string | undefined
         if (!name) return
 
-        const { themes } = useBroadcastStore.getState()
+        const themes = useThemesStore.getState().allThemes()
         const theme = themes.find(
           (t) => t.name.toLowerCase() === name.toLowerCase()
         )

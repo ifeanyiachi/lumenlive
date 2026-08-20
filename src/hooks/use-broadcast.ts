@@ -1,5 +1,4 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useBibleStore, useQueueStore } from "@/stores"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { bibleActions } from "@/hooks/use-bible"
@@ -246,11 +245,6 @@ export const broadcastActions = {
   setLiveVerse: (verse: VerseRenderData | null) =>
     useBroadcastStore.getState().setLiveVerse(verse),
   setLive: (live: boolean) => useBroadcastStore.getState().setLive(live),
-  getActiveTheme: () => {
-    const s = useBroadcastStore.getState()
-    const mainOutput = findOutput(s.outputs, "main")
-    return s.themes.find((t) => t.id === mainOutput?.themeId) ?? s.themes[0]
-  },
   presentSlide,
   presentMedia,
   presentWeb,

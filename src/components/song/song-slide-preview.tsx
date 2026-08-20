@@ -6,6 +6,7 @@ import {
   resolveSongSlideOptions,
 } from "@/lib/song/song-to-slides"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useThemesStore } from "@/stores/themes"
 import type { Slide } from "@/types/slide"
 import type { Song } from "@/types/song"
 

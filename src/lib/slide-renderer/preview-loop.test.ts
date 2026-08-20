@@ -212,7 +212,6 @@ describe("slide-frame parity: operator preview vs output compositor", () => {
       layerFilter: null,
       clearForeground: false,
       activeMode: "slide",
-      latestData: null,
       latestSlide: { slide: slide as unknown as Slide },
       latestMedia: null,
       mediaBlank: false,
