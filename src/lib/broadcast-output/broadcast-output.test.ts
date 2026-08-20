@@ -16,7 +16,7 @@ import type {
   CountdownTimer,
 } from "@/types/alert"
 import type { BroadcastProp } from "@/types/broadcast"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import type { Theme } from "@/types/theme"
 
 /** Recording 2D context: records method names + fillText strings; measureText
  *  returns a length-proportional width. */
@@ -247,11 +247,60 @@ describe("overlay painters", () => {
       endAction: "flash",
       styleMode: "theme",
     } as CountdownTimer
-    // Solid-background theme: this Proxy ctx can't build a real gradient, and
-    // the renderer swallows draw errors — a solid bg keeps the pass painting.
-    const theme = BUILTIN_THEMES.find(
-      (t) => t.id === "builtin-countdown-minimal"
-    )!
+    // Solid-background countdown Theme: this Proxy ctx can't build a real
+    // gradient, so a solid bg keeps the slide-render pass painting. A heading +
+    // timer placeholder (flip F3) — the runtime label overrides the heading.
+    const theme: Theme = {
+      id: "cd",
+      name: "cd",
+      type: "countdown",
+      builtin: false,
+      pinned: false,
+      createdAt: 0,
+      updatedAt: 0,
+      resolution: { width: 1920, height: 1080 },
+      background: { type: "solid", color: "#000" },
+      elements: [
+        {
+          id: "h",
+          type: "text",
+          x: 10,
+          y: 20,
+          width: 80,
+          height: 12,
+          text: "Service starts in",
+          fontFamily: "Inter",
+          fontSize: 40,
+          fontWeight: 600,
+          bold: false,
+          italic: false,
+          underline: false,
+          color: "#fff",
+          horizontalAlign: "center",
+          verticalAlign: "middle",
+          lineHeight: 1.2,
+          textTransform: "none",
+        },
+        {
+          id: "tm",
+          type: "timer",
+          x: 10,
+          y: 40,
+          width: 80,
+          height: 26,
+          mode: "duration",
+          durationSeconds: 600,
+          format: "mm:ss",
+          fontFamily: "Inter",
+          fontSize: 140,
+          fontWeight: 800,
+          italic: false,
+          color: "#fff",
+          horizontalAlign: "center",
+          verticalAlign: "middle",
+        },
+      ],
+    }
     const r = recordingCtx()
     drawCountdownOverlay(
       r.ctx,
@@ -260,7 +309,7 @@ describe("overlay painters", () => {
       [{ countdown, timer, theme }],
       11000
     )
-    // Themed path paints the digits and label via the shared theme renderer.
+    // Themed path paints the digits and label via the slide renderer.
     expect(r.texts).toContain("00:50")
     expect(r.texts.some((t) => t.includes("STARTING SOON"))).toBe(true)
   })

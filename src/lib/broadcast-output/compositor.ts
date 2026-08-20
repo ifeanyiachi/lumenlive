@@ -61,6 +61,7 @@ import type {
   RenderOptions,
 } from "@/types/broadcast"
 import type { Slide } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import type {
   AlertTemplate,
   ActiveAlert,
@@ -104,7 +105,7 @@ export interface CompositorState {
   countdowns: {
     countdown: ActiveCountdown
     timer: CountdownTimer
-    theme?: BroadcastTheme
+    theme?: Theme
   }[]
   showLogo: boolean
   logoImg: HTMLImageElement | null

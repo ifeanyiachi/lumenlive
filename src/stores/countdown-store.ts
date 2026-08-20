@@ -2,27 +2,28 @@ import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { CountdownTimer, ActiveCountdown } from "@/types/alert"
 import { DEFAULT_COUNTDOWN } from "@/types/alert"
-import type { BroadcastTheme } from "@/types/broadcast"
+import type { Theme } from "@/types/theme"
 import {
   computeRemainingSeconds,
   resolveTargetEpoch,
 } from "@/lib/countdown/timer"
-import { resolveTimerTheme as resolveThemeFor } from "@/lib/countdown/resolve-theme"
+import { resolveCountdownTheme } from "@/lib/theme/resolve"
 import {
   broadcastOutputEvent,
   BROADCAST_EVENTS,
 } from "@/services/broadcast-content-gateway"
 import { useBroadcastStore } from "./broadcast-store"
+import { useThemesStore } from "./themes"
 
 /**
- * The `countdown`-category theme a timer ships to the output with, resolved from
- * the live theme list via the shared pure {@link resolveThemeFor} — the operator
- * overlay preview resolves it the same way, so the two never disagree. Shipped
- * with each countdown event so the output window can paint the themed composition
- * without reaching into the theme store itself.
+ * The countdown {@link Theme} a timer ships to the output with, resolved from the
+ * one typed theme store via the shared pure {@link resolveCountdownTheme}
+ * (themeredo.md, flip F3) — the operator overlay preview resolves it the same way,
+ * so the two never disagree. Shipped with each countdown event so the output
+ * window can paint the themed composition without reaching into the store itself.
  */
-function resolveTimerTheme(timer: CountdownTimer): BroadcastTheme | undefined {
-  return resolveThemeFor(timer, useBroadcastStore.getState().themes)
+function resolveTimerTheme(timer: CountdownTimer): Theme | undefined {
+  return resolveCountdownTheme(timer, useThemesStore.getState().allThemes())
 }
 
 interface CountdownState {
@@ -225,7 +226,7 @@ export const useCountdownStore = create<CountdownState>((set, get) => ({
         ): x is {
           countdown: ActiveCountdown
           timer: CountdownTimer
-          theme: BroadcastTheme | undefined
+          theme: Theme | undefined
         } => Boolean(x)
       )
 

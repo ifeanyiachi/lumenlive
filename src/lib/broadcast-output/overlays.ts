@@ -5,15 +5,19 @@ import type {
   CountdownTimer,
 } from "@/types/alert"
 import type { BroadcastProp } from "@/types/broadcast"
-import type { BroadcastTheme } from "@/types/broadcast"
 import type { SlideTransitionType } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import {
   computeRemainingSeconds,
   computeProgressRemaining,
   formatCountdownTime,
   resolveTimeColor,
 } from "@/lib/countdown/timer"
-import { renderCountdownTheme } from "@/lib/countdown/theme-render"
+import { renderSlide } from "@/lib/slide-renderer"
+import {
+  buildCountdownSlide,
+  pruneCountdownSlideCache,
+} from "./countdown-slide"
 import { surfaceFontScale } from "@/lib/canvas-constants"
 
 // Re-exported for back-compat: the countdown time math now lives in the shared
@@ -86,38 +90,34 @@ export function drawCountdownOverlay(
   countdowns: {
     countdown: ActiveCountdown
     timer: CountdownTimer
-    theme?: BroadcastTheme
+    theme?: Theme
   }[],
   now: number
 ): void {
   if (countdowns.length === 0) return
+
+  // Free cached themed slides for timers no longer on screen (flip F3 / D6).
+  pruneCountdownSlideCache(
+    countdowns.filter((c) => c.theme).map((c) => c.timer.id)
+  )
 
   for (const { countdown, timer, theme } of countdowns) {
     const remaining = computeRemainingSeconds(countdown, now)
     const overtime = timer.endAction === "overtime"
     const timeStr = formatCountdownTime(remaining, timer.format, overtime)
 
-    // Themed countdown: render the full-frame themed composition (background,
-    // decorative elements, timer digits). The theme's `verseText` colour is the
-    // digits' base colour; urgency thresholds still recolour it via
-    // `resolveTimeColor`. Flash pulses the whole frame's opacity on expiry.
+    // Themed countdown (flip F3): render the presented slide (background,
+    // decorations, heading, timer digits) through the slide renderer. The timer
+    // element derives the digit string + urgency colour from `lib/countdown`, so
+    // the look matches the retired `renderCountdownTheme` path (4d parity gate).
+    // Flash pulses the whole frame's opacity on expiry via `globalAlpha`.
     if (theme) {
-      const themedColor = resolveTimeColor(remaining, {
-        textColor: theme.verseText.color,
-        warnSeconds: timer.warnSeconds,
-        dangerSeconds: timer.dangerSeconds,
-      })
+      const slide = buildCountdownSlide(timer, theme, countdown, now)
       const flashing = remaining <= 0 && timer.endAction === "flash"
-      renderCountdownTheme(ctx, theme, {
-        timeText: timeStr,
-        label: timer.label,
-        showLabel: timer.showLabel,
-        timeColor: themedColor,
-        opacity: flashing ? Math.abs(Math.sin(now / 300)) : 1,
-        // Project the theme onto the real output surface so it fills the
-        // projector; without this it renders at authoring size in the corner.
-        surface: { width: w, height: h },
-      })
+      const prevAlpha = ctx.globalAlpha
+      if (flashing) ctx.globalAlpha = prevAlpha * Math.abs(Math.sin(now / 300))
+      renderSlide(ctx, slide, w, h, undefined, undefined, { now })
+      ctx.globalAlpha = prevAlpha
       continue
     }
 

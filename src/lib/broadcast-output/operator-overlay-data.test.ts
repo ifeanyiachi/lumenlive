@@ -5,7 +5,8 @@ import type {
   ActiveCountdown,
   CountdownTimer,
 } from "@/types/alert"
-import type { BroadcastProp, BroadcastTheme } from "@/types/broadcast"
+import type { BroadcastProp } from "@/types/broadcast"
+import type { Theme } from "@/types/theme"
 
 /**
  * Unit coverage for the operator overlay derivations, plus a cross-surface parity
@@ -70,8 +71,8 @@ const countdown = (over: Partial<ActiveCountdown> = {}) =>
   ({ id: "c", timerId: "tm", ...over }) as ActiveCountdown
 const timer = (over: Partial<CountdownTimer> = {}) =>
   ({ id: "tm", styleMode: "custom", ...over }) as CountdownTimer
-const theme = (over: Partial<BroadcastTheme> = {}) =>
-  ({ id: "th", category: "countdown", ...over }) as BroadcastTheme
+const theme = (over: Partial<Theme> = {}) =>
+  ({ id: "th", type: "countdown", ...over }) as Theme
 
 beforeEach(() => {
   calls.length = 0

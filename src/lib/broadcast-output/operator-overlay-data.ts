@@ -4,8 +4,9 @@ import type {
   ActiveCountdown,
   CountdownTimer,
 } from "@/types/alert"
-import type { BroadcastProp, BroadcastTheme } from "@/types/broadcast"
-import { resolveTimerTheme } from "@/lib/countdown/resolve-theme"
+import type { BroadcastProp } from "@/types/broadcast"
+import type { Theme } from "@/types/theme"
+import { resolveCountdownTheme } from "@/lib/theme/resolve"
 import {
   drawPropsOverlay,
   drawAlertOverlay,
@@ -27,7 +28,7 @@ import {
  * expression: {@link activeOverlayProps} == `syncProps`' `props.filter(active)`;
  * {@link activeAlertEntries} == the accumulated `{ alert, template }` from each
  * `alert` event; {@link activeCountdownEntries} == `resyncOutputs`' item build
- * (both using the shared {@link resolveTimerTheme}).
+ * (both using the shared {@link resolveCountdownTheme}).
  */
 
 /** One active alert joined to the template it renders with. */
@@ -40,7 +41,7 @@ export interface AlertEntry {
 export interface CountdownEntry {
   countdown: ActiveCountdown
   timer: CountdownTimer
-  theme?: BroadcastTheme
+  theme?: Theme
 }
 
 /** State snapshot the operator overlay draws from (read from the live stores). */
@@ -50,7 +51,7 @@ export interface OperatorOverlayState {
   alertTemplates: AlertTemplate[]
   activeCountdowns: ActiveCountdown[]
   timers: CountdownTimer[]
-  themes: BroadcastTheme[]
+  themes: Theme[]
 }
 
 /** Only active props reach the audience (see `syncProps`); mirror that here. */
@@ -75,7 +76,7 @@ export function activeAlertEntries(
 export function activeCountdownEntries(
   activeCountdowns: ActiveCountdown[],
   timers: CountdownTimer[],
-  themes: BroadcastTheme[]
+  themes: Theme[]
 ): CountdownEntry[] {
   const entries: CountdownEntry[] = []
   for (const countdown of activeCountdowns) {
@@ -84,7 +85,7 @@ export function activeCountdownEntries(
       entries.push({
         countdown,
         timer,
-        theme: resolveTimerTheme(timer, themes),
+        theme: resolveCountdownTheme(timer, themes),
       })
     }
   }

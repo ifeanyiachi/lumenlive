@@ -160,6 +160,25 @@ describe("presentCountdown / presentOverlay", () => {
     )
   })
 
+  it("synthesises a label when a migrated theme has only a timer (F3)", () => {
+    const base = BUILTIN_THEME_BY_TYPE.countdown
+    // A migrated countdown theme carries only the timer element (no heading).
+    const timerOnly = {
+      ...base,
+      elements: base.elements.filter((e) => e.type === "timer"),
+    }
+    const [p] = presentCountdown(
+      timerOnly,
+      { type: "countdown", label: "Back in", showLabel: true },
+      idSource()
+    )
+    const label = p.slide.elements.find((e) => e.type === "text")
+    expect(label).toBeDefined()
+    if (label?.type === "text") expect(label.text).toBe("Back in")
+    // The timer element is still present alongside the synthesised label.
+    expect(findTimerElement(p.slide.elements)).toBeDefined()
+  })
+
   it("leaves the authored placeholder untouched for empty content", () => {
     const theme = BUILTIN_THEME_BY_TYPE.countdown
     const authored = findTimerElement(

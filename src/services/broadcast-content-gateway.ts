@@ -38,6 +38,7 @@ import type {
 } from "@/types/broadcast"
 import type { NdiConfigEventPayload } from "@/types"
 import type { Slide } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import type {
   ActiveAlert,
   AlertTemplate,
@@ -176,7 +177,9 @@ export interface AlertDismissPayload {
 export interface CountdownEntry {
   countdown: ActiveCountdown
   timer: CountdownTimer
-  theme?: BroadcastTheme
+  // The typed countdown theme the output paints with (themeredo.md, flip F3);
+  // resolved control-side and shipped so the output need not reach into a store.
+  theme?: Theme
 }
 
 export interface CountdownSyncPayload {

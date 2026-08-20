@@ -1,5 +1,7 @@
-import { memo, useCallback, useEffect, useRef } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef } from "react"
 import { useBroadcastStore, useAlertStore, useCountdownStore } from "@/stores"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   drawOperatorOverlays,
@@ -29,7 +31,11 @@ export const OverlayCanvas = memo(function OverlayCanvas({
   className?: string
 }) {
   const props = useBroadcastStore((s) => s.props)
-  const themes = useBroadcastStore((s) => s.themes)
+  const customThemes = useThemesStore((s) => s.customThemes)
+  const themes = useMemo(
+    () => buildThemeRegistry(customThemes),
+    [customThemes]
+  )
   const activeAlerts = useAlertStore((s) => s.activeAlerts)
   const alertTemplates = useAlertStore((s) => s.templates)
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
