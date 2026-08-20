@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest"
 import { buildHydrationPatch } from "./persistence"
 import type {
   BroadcastOutput,
-  BroadcastTheme,
   StageDisplayConfig,
 } from "@/types/broadcast"
 
@@ -21,7 +20,6 @@ const defaultOutputs = [
 
 const current = {
   outputs: defaultOutputs,
-  themes: [{ id: "builtin" }] as unknown as BroadcastTheme[],
 }
 
 describe("buildHydrationPatch", () => {
@@ -78,25 +76,6 @@ describe("buildHydrationPatch", () => {
         identity
       ).patch.baseBackground
     ).toEqual({ kind: "theme", themeId: "new" })
-  })
-
-  it("drops a stale defaultThemeId, keeps a valid one", () => {
-    expect(
-      buildHydrationPatch(
-        { defaultThemeId: "gone" },
-        current,
-        defaultOutputs,
-        identity
-      ).patch.defaultThemeId
-    ).toBeUndefined()
-    expect(
-      buildHydrationPatch(
-        { defaultThemeId: "builtin" },
-        current,
-        defaultOutputs,
-        identity
-      ).patch.defaultThemeId
-    ).toBe("builtin")
   })
 
   it("never mutates its input outputs (stage migration clones)", () => {

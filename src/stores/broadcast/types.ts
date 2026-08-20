@@ -1,5 +1,4 @@
 import type {
-  BroadcastTheme,
   VerseRenderData,
   StageDisplayConfig,
   BroadcastOutput,
@@ -26,15 +25,6 @@ export type SelectedElement = string | null
 export type RegionId = "textArea" | "verse" | "reference"
 
 export interface BroadcastState {
-  themes: BroadcastTheme[]
-  /**
-   * Id of the theme designated as the default. The default sorts to the top of
-   * the theme library, carries a "Default" badge, and is applied to the main
-   * output when explicitly set. Distinct from the *active* theme (the main
-   * output's `themeId`), which can drift as schedule items / remote control
-   * switch themes mid-service.
-   */
-  defaultThemeId: string | null
   stageLayouts: StageLayout[]
   outputs: BroadcastOutput[]
   isLive: boolean

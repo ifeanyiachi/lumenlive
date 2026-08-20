@@ -3,6 +3,7 @@ import type { Slide } from "@/types/slide"
 import type { VerseRenderData } from "@/types"
 import type { StageLayout } from "@/types/stage-layout"
 import type { BroadcastProp } from "@/types/broadcast"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import type { LiveMedia } from "./broadcast-store"
 
 const emitToMock = vi.fn()
@@ -48,10 +49,9 @@ describe("broadcast store sync", () => {
 
   it("syncBroadcastOutput emits the live verse as a presented scripture slide (RF2)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
-    const theme = useBroadcastStore.getState().themes[0]
     const outputs = useBroadcastStore.getState().outputs
     const mainOutput = outputs.find((o) => o.id === "main")!
-    mainOutput.themeId = theme.id
+    mainOutput.themeId = SCRIPTURE_BUILTIN.id
     // syncBroadcastOutputFor only emits the live verse when live; otherwise it
     // emits verse: null (blank output). Go live so the verse is emitted.
     useBroadcastStore.setState({
@@ -174,15 +174,11 @@ describe("broadcast store sync", () => {
 
   it("delivers the base theme (resolved from the new store) — the output's own by default, the override when set", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
-    const { resolveLegacyThemeId } = await import(
-      "@/lib/theme/migrate/legacy-id"
-    )
-    const themes = useBroadcastStore.getState().themes
     const outputs = useBroadcastStore
       .getState()
       .outputs.map((o) => ({ ...o, enabled: true }))
     const mainOutput = outputs.find((o) => o.id === "main")!
-    mainOutput.themeId = themes[0].id
+    mainOutput.themeId = SCRIPTURE_BUILTIN.id
     useBroadcastStore.setState({ outputs: [...outputs], isLive: true })
 
     // Default (no override): base theme = the output's own theme, resolved in the new
@@ -194,23 +190,23 @@ describe("broadcast store sync", () => {
       "broadcast:base-theme",
       expect.objectContaining({
         theme: expect.objectContaining({
-          id: resolveLegacyThemeId(themes[0].id),
+          id: SCRIPTURE_BUILTIN.id,
         }),
       })
     )
 
-    // Override: the global base theme wins (also alias-resolved).
-    const other = themes[1] ?? themes[0]
+    // Override: the global base theme wins (resolved from the typed store).
+    const otherId = "builtin-overlay"
     useBroadcastStore
       .getState()
-      .setBaseBackground({ kind: "theme", themeId: other.id })
+      .setBaseBackground({ kind: "theme", themeId: otherId })
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutputFor("main")
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast",
       "broadcast:base-theme",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: resolveLegacyThemeId(other.id) }),
+        theme: expect.objectContaining({ id: otherId }),
       })
     )
   })
@@ -311,8 +307,6 @@ describe("broadcast store sync", () => {
 
   it("a mirror output renders with its source's theme and layer filter", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
-    const themes = useBroadcastStore.getState().themes
-    const sourceTheme = themes[0]
     const layers = {
       showContent: true,
       showProps: true,
@@ -325,9 +319,9 @@ describe("broadcast store sync", () => {
     const alt = outputs.find((o) => o.id === "alt")!
     // main is a layer-filter output with sourceTheme; alt mirrors main but keeps
     // its own (different) theme, which mirroring must override.
-    main.themeId = sourceTheme.id
+    main.themeId = SCRIPTURE_BUILTIN.id
     main.contentSource = { type: "layer-filter", layers }
-    alt.themeId = themes[1]?.id ?? sourceTheme.id
+    alt.themeId = "builtin-song"
     alt.contentSource = { type: "mirror", sourceOutputId: "main" }
     useBroadcastStore.setState({
       isLive: true,
@@ -549,12 +543,9 @@ describe("broadcast store — stage monitor targeting", () => {
 
   // Two stage monitors sharing the default theme, plus the normal "main".
   const withTwoStageMonitors = (useBroadcastStore: {
-    getState: () => {
-      themes: { id: string }[]
-    }
     setState: (patch: Record<string, unknown>) => void
   }) => {
-    const themeId = useBroadcastStore.getState().themes[0].id
+    const themeId = SCRIPTURE_BUILTIN.id
     useBroadcastStore.setState({
       outputs: [
         {
@@ -932,14 +923,6 @@ describe("broadcast store — persistence hydrate/migrate", () => {
     expect(useBroadcastStore.getState().outputs).toBe(before)
   })
 
-  it("drops a stale defaultThemeId whose theme no longer exists", async () => {
-    storeData.set("defaultThemeId", "deleted-theme-id")
-    const { useBroadcastStore, hydrateBroadcastThemes } =
-      await import("./broadcast-store")
-    const before = useBroadcastStore.getState().defaultThemeId
-    await hydrateBroadcastThemes()
-    expect(useBroadcastStore.getState().defaultThemeId).toBe(before)
-  })
 })
 
 // ── Split-sensitive coverage for S1 Phase 3 (before the generic factories) ──

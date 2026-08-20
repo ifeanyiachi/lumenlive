@@ -19,6 +19,7 @@ import {
 } from "@/lib/broadcast/monitors"
 import { reportOutputError } from "@/services/output-errors"
 import { useBroadcastStore } from "@/stores"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { useCountdownStore } from "@/stores/countdown-store"
 import type {
   NdiAlphaMode,
@@ -117,8 +118,7 @@ export function useOutputController({
   const storeThemeId = useBroadcastStore(
     (s) => s.outputs.find((o) => o.id === outputId)?.themeId
   )
-  const firstThemeId = useBroadcastStore((s) => s.themes[0]?.id)
-  const themeId = storeThemeId ?? firstThemeId ?? ""
+  const themeId = storeThemeId ?? SCRIPTURE_BUILTIN.id
   const setTheme = useCallback(
     (id: string) => setOutputTheme(outputId, id),
     [outputId]

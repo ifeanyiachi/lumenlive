@@ -2,6 +2,8 @@ import { useEffect } from "react"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useThemesStore } from "@/stores/themes"
+import { resolveScriptureTheme } from "@/lib/theme/resolve"
 import { useBibleStore } from "@/stores/bible-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useQueueStore } from "@/stores/queue-store"
@@ -264,8 +266,9 @@ function syncStatusSnapshot() {
   const schedule = useScheduleStore.getState()
   const alerts = useAlertStore.getState()
 
-  const activeTheme = broadcast.themes.find(
-    (t) => t.id === findOutput(broadcast.outputs, "main")?.themeId
+  const activeTheme = resolveScriptureTheme(
+    findOutput(broadcast.outputs, "main")?.themeId,
+    useThemesStore.getState().allThemes()
   )
 
   const activeSchedule = schedule.getActiveSchedule()

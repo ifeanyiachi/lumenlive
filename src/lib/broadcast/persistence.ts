@@ -1,5 +1,4 @@
 import type {
-  BroadcastTheme,
   BroadcastOutput,
   StageMonitorGroup,
   BroadcastProp,
@@ -9,13 +8,11 @@ import type {
 } from "@/types/broadcast"
 import type { StageLayout } from "@/types/stage-layout"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
 import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 
 /** The raw values read from persisted storage (all optional / possibly legacy). */
 export interface PersistedThemeData {
-  customThemes?: BroadcastTheme[]
   customStageLayouts?: StageLayout[]
   outputs?: BroadcastOutput[]
   /** Legacy: single active theme, pre-multi-output. */
@@ -31,15 +28,12 @@ export interface PersistedThemeData {
   baseThemeId?: string
   /** Legacy: one global stage config, superseded by per-output `stageConfig`. */
   stageDisplayConfig?: StageDisplayConfig & { enabled?: boolean }
-  defaultThemeId?: string
 }
 
 /** The subset of broadcast state that hydration restores. */
 export interface HydrationPatch {
-  themes?: BroadcastTheme[]
   stageLayouts?: StageLayout[]
   outputs?: BroadcastOutput[]
-  defaultThemeId?: string
   stageMonitorGroups?: StageMonitorGroup[]
   props?: BroadcastProp[]
   mediaLayer?: MediaLayerState
@@ -55,24 +49,19 @@ export interface HydrationPatch {
  *  - a global `stageDisplayConfig` → per-output `stageConfig` (alt goes stage-mode
  *    when it was enabled); the caller deletes the legacy key when
  *    `deleteLegacyStageConfig` is returned true,
- *  - `baseThemeId` → the `{ kind: "theme" }` base-background shape,
- *  - a stale `defaultThemeId` (theme since deleted) is dropped.
+ *  - `baseThemeId` → the `{ kind: "theme" }` base-background shape.
  *
  * Never mutates its inputs. All I/O (load/get/delete/subscribe) stays in the
  * store; this is just the transform, so it is unit-tested in isolation.
  */
 export function buildHydrationPatch(
   raw: PersistedThemeData,
-  current: { outputs: BroadcastOutput[]; themes: BroadcastTheme[] },
+  current: { outputs: BroadcastOutput[] },
   defaultOutputs: BroadcastOutput[],
   sanitizeStageLayout: (layout: StageLayout) => StageLayout
 ): { patch: HydrationPatch; deleteLegacyStageConfig: boolean } {
   const patch: HydrationPatch = {}
   let deleteLegacyStageConfig = false
-
-  if (raw.customThemes?.length) {
-    patch.themes = [...BUILTIN_THEMES, ...raw.customThemes]
-  }
 
   if (raw.customStageLayouts?.length) {
     patch.stageLayouts = [
@@ -117,13 +106,6 @@ export function buildHydrationPatch(
     }
     patch.outputs = outputs
     deleteLegacyStageConfig = true
-  }
-
-  if (raw.defaultThemeId) {
-    const themePool = patch.themes ?? current.themes
-    if (themePool.some((t) => t.id === raw.defaultThemeId)) {
-      patch.defaultThemeId = raw.defaultThemeId
-    }
   }
 
   if (raw.stageMonitorGroups && Array.isArray(raw.stageMonitorGroups)) {

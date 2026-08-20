@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type {
-  BroadcastTheme,
   StageDisplayConfig,
   BroadcastOutput,
   StageLayout,
@@ -24,7 +23,6 @@ import {
 } from "@/lib/broadcast/persistence"
 import type { BroadcastState, BroadcastSource } from "./broadcast/types"
 import { DEFAULT_OUTPUTS } from "./broadcast/internals"
-import { createThemeCrudSlice } from "./broadcast/theme-crud"
 import { createThemeDesignerSlice } from "./broadcast/theme-designer"
 import { createStageCrudSlice } from "./broadcast/stage-crud"
 import { createStageDesignerSlice } from "./broadcast/stage-designer"
@@ -56,7 +54,6 @@ export type {
  * resolve at runtime exactly as they did when this was one monolithic store.
  */
 export const useBroadcastStore = create<BroadcastState>()((...a) => ({
-  ...createThemeCrudSlice(...a),
   ...createThemeDesignerSlice(...a),
   ...createStageCrudSlice(...a),
   ...createStageDesignerSlice(...a),
@@ -88,8 +85,6 @@ export function hydrateBroadcastThemes(): Promise<void> {
     try {
       const store = await getThemeStore()
       const raw: PersistedThemeData = {
-        customThemes: (await store.get("customThemes")) as
-          BroadcastTheme[] | undefined,
         customStageLayouts: (await store.get("customStageLayouts")) as
           StageLayout[] | undefined,
         outputs: (await store.get("outputs")) as BroadcastOutput[] | undefined,
@@ -107,14 +102,12 @@ export function hydrateBroadcastThemes(): Promise<void> {
         baseThemeId: (await store.get("baseThemeId")) as string | undefined,
         stageDisplayConfig: (await store.get("stageDisplayConfig")) as
           (StageDisplayConfig & { enabled?: boolean }) | undefined,
-        defaultThemeId: (await store.get("defaultThemeId")) as
-          string | undefined,
       }
 
       const s = useBroadcastStore.getState()
       const { patch, deleteLegacyStageConfig } = buildHydrationPatch(
         raw,
-        { outputs: s.outputs, themes: s.themes },
+        { outputs: s.outputs },
         DEFAULT_OUTPUTS,
         stageEditing.sanitizeStageLayout
       )
@@ -126,8 +119,6 @@ export function hydrateBroadcastThemes(): Promise<void> {
       // Auto-persist on changes (debounced)
       useBroadcastStore.subscribe((state, prevState) => {
         const changed =
-          state.themes !== prevState.themes ||
-          state.defaultThemeId !== prevState.defaultThemeId ||
           state.stageLayouts !== prevState.stageLayouts ||
           state.outputs !== prevState.outputs ||
           state.stageMonitorGroups !== prevState.stageMonitorGroups ||
@@ -160,10 +151,10 @@ const SAVE_DEBOUNCE_MS = 500
 async function persistBroadcastThemes(state: BroadcastState): Promise<void> {
   try {
     const store = await getThemeStore()
-    const customThemes = state.themes.filter((t) => !t.builtin)
     const customStageLayouts = state.stageLayouts.filter((l) => !l.builtin)
-    await store.set("customThemes", customThemes)
-    await store.set("defaultThemeId", state.defaultThemeId)
+    // Custom themes now live in the typed Theme store (themes.json); the legacy
+    // `customThemes` key in broadcast-themes.json is left untouched so the one-time
+    // ingest can still read it.
     await store.set("customStageLayouts", customStageLayouts)
     await store.set("outputs", state.outputs)
     await store.set("stageMonitorGroups", state.stageMonitorGroups)
