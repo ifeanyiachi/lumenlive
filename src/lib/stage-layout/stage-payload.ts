@@ -1,5 +1,5 @@
 import type { StageLayout } from "@/types/stage-layout"
-import type { BroadcastTheme, VerseRenderData } from "@/types/broadcast"
+import type { VerseRenderData } from "@/types/broadcast"
 import type { Slide } from "@/types/slide"
 import type { StageDisplayData, StageTimer } from "@/lib/stage-display-renderer"
 
@@ -21,12 +21,10 @@ export interface StageUpdateContext {
  */
 export function buildStageUpdatePayload(
   layout: StageLayout,
-  theme: BroadcastTheme,
   ctx: StageUpdateContext
 ): StageDisplayData {
   return {
     layout,
-    currentTheme: theme,
     currentVerse: ctx.currentVerse,
     currentSlide: ctx.currentSlide,
     notes: ctx.notes,

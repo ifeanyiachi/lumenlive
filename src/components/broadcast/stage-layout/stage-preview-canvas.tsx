@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react"
-import { useBroadcastStore } from "@/stores"
 import { drawStageDisplay } from "@/lib/stage-display-renderer"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { StageLayout } from "@/types/stage-layout"
-import type { BroadcastTheme, VerseRenderData } from "@/types"
+import type { VerseRenderData } from "@/types"
 import { DEFAULT_COUNTDOWN } from "@/types/alert"
 import { cn } from "@/lib/utils"
 
@@ -25,27 +24,22 @@ const videoCache = new Map<string, HTMLVideoElement>()
  */
 export function StagePreviewCanvas({
   layout,
-  theme,
   className,
 }: {
   layout: StageLayout
-  theme?: BroadcastTheme | null
   className?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fallbackTheme = useBroadcastStore((s) => s.themes[0])
-  const activeTheme = theme ?? fallbackTheme
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !activeTheme) return
+    if (!canvas) return
     const ctx = canvas.getContext("2d")
     if (!ctx) return
     canvas.width = 1920
     canvas.height = 1080
     const data: StageDisplayData = {
       layout,
-      currentTheme: activeTheme,
       currentVerse: SAMPLE_VERSE,
       currentSlide: null,
       notes: SAMPLE_NOTES,
@@ -66,7 +60,7 @@ export function StagePreviewCanvas({
       playlist: ["Opening Prayer", "Worship Set", "Sermon", "Closing"],
     }
     drawStageDisplay(ctx, 1920, 1080, data, imageCache, videoCache)
-  }, [layout, activeTheme])
+  }, [layout])
 
   return (
     <canvas

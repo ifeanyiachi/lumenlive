@@ -24,7 +24,7 @@ import {
   formatCountdownTime,
   resolveTimeColor,
 } from "@/lib/countdown/timer"
-import type { BroadcastTheme, VerseRenderData } from "@/types/broadcast"
+import type { VerseRenderData } from "@/types/broadcast"
 import type { Background, TextStyle } from "@/types/canvas"
 import type { StageLayout, StageZone } from "@/types/stage-layout"
 import type { ActiveCountdown, CountdownTimer } from "@/types/alert"
@@ -46,7 +46,6 @@ export interface StageTimer {
 export interface StageDisplayData {
   /** The resolved layout to render (see lib/stage-layout/resolve.ts). */
   layout: StageLayout
-  currentTheme: BroadcastTheme
   currentVerse: VerseRenderData | null
   currentSlide: Slide | null
   notes: string | null
@@ -118,15 +117,16 @@ function renderContentPreview(
   y: number,
   w: number,
   h: number,
-  theme: BroadcastTheme,
   verse: VerseRenderData | null,
   slide: Slide | null,
   imageCache: Map<string, HTMLImageElement>,
   videoCache: Map<string, HTMLVideoElement>
 ) {
   const offscreen = document.createElement("canvas")
-  offscreen.width = theme.resolution.width
-  offscreen.height = theme.resolution.height
+  // Audience content is authored at 1920×1080 (same as the stage); render it here
+  // then scale into the zone.
+  offscreen.width = STAGE_RESOLUTION.width
+  offscreen.height = STAGE_RESOLUTION.height
   const offCtx = offscreen.getContext("2d")
   if (!offCtx) return
 
@@ -254,7 +254,6 @@ function drawPlaceholder(
 function drawPreviewZone(
   ctx: CanvasRenderingContext2D,
   zone: StageZone,
-  theme: BroadcastTheme,
   verse: VerseRenderData | null,
   slide: Slide | null,
   imageCache: Map<string, HTMLImageElement>,
@@ -286,7 +285,6 @@ function drawPreviewZone(
       previewY + 2,
       w - 4,
       previewH - 4,
-      theme,
       verse,
       slide,
       imageCache,
@@ -569,7 +567,6 @@ export function drawStageDisplay(
         drawPreviewZone(
           ctx,
           zone,
-          data.currentTheme,
           data.currentVerse,
           data.currentSlide,
           imageCache,

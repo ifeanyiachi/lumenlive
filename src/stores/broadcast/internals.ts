@@ -83,13 +83,10 @@ export function emitStageDraftToOutputs(state: BroadcastState): void {
   const id = state.editingStageLayoutId
   for (const output of state.outputs) {
     if (output.mode !== "stage" || output.stageLayoutId !== id) continue
-    const theme =
-      state.themes.find((t) => t.id === output.themeId) ?? state.themes[0]
-    if (!theme) continue
     emitOutputEvent(
       output.id,
       BROADCAST_EVENTS.stageUpdate,
-      buildStageUpdatePayload(draft, theme, {
+      buildStageUpdatePayload(draft, {
         currentVerse: state.liveVerse,
         currentSlide: state.liveSlide,
         notes: state.stageNotes,

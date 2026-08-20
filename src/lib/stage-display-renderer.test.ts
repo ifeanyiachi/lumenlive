@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
-import type { BroadcastTheme } from "@/types/broadcast"
 import { DEFAULT_COUNTDOWN } from "@/types/alert"
 import type { ActiveCountdown, CountdownTimer } from "@/types/alert"
 import { migrateStageConfig } from "@/lib/stage-layout/migrate"
@@ -96,17 +95,12 @@ function recordingContext() {
   return { ctx: ctx as unknown as CanvasRenderingContext2D, ops }
 }
 
-const theme: BroadcastTheme = {
-  resolution: { width: 1920, height: 1080 },
-} as BroadcastTheme
-
 function data(
   layout: StageLayout,
   notes: string | null = null
 ): StageDisplayData {
   return {
     layout,
-    currentTheme: theme,
     currentVerse: null,
     currentSlide: null,
     notes,

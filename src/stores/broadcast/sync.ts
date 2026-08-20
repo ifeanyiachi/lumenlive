@@ -183,8 +183,6 @@ export const createSyncSlice: StateCreator<
     const newThemes = useThemesStore.getState().allThemes()
     for (const output of stageOutputs) {
       const layout = resolveOutputStageLayout(output, s.stageLayouts)
-      const theme = s.themes.find((t) => t.id === output.themeId) ?? s.themes[0]
-      if (!theme) continue
 
       // Present a live verse as a scripture slide (RF3b), mirroring the audience path,
       // so the stage renders scripture through the slide renderer too. A real schedule
@@ -214,7 +212,7 @@ export const createSyncSlice: StateCreator<
       emitOutputEvent(
         output.id,
         BROADCAST_EVENTS.stageUpdate,
-        buildStageUpdatePayload(layout, theme, {
+        buildStageUpdatePayload(layout, {
           currentVerse,
           currentSlide,
           notes: s.stageNotes,
