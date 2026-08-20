@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
 import { THEME_TYPES } from "@/lib/theme/templates"
 import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
@@ -56,7 +57,14 @@ export function ThemeLibrary({
   onOpenTheme: (theme: Theme) => void
   onNewTheme: (type: ThemeType) => void
 }) {
-  const allThemes = useThemesStore((s) => s.allThemes())
+  // Subscribe to the stable `customThemes` slice and derive the merged registry
+  // via useMemo — selecting `s.allThemes()` directly returns a fresh array every
+  // render, which drives Zustand into an infinite re-render loop.
+  const storeCustomThemes = useThemesStore((s) => s.customThemes)
+  const allThemes = useMemo(
+    () => buildThemeRegistry(storeCustomThemes),
+    [storeCustomThemes]
+  )
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterTab>("all")
 
