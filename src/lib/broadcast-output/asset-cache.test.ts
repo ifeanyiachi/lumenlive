@@ -2,10 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import {
   preloadImage,
   preloadVideoBackground,
-  preloadThemeAssets,
   preloadSlideAssets,
 } from "./asset-cache"
-import type { BroadcastTheme } from "@/types/broadcast"
 
 // --- Fakes for the DOM asset APIs (absent in the node test env) -------------
 
@@ -114,34 +112,6 @@ describe("preloadVideoBackground", () => {
     const onLoaded = vi.fn()
     preloadVideoBackground(cache, "clip.mp4", onLoaded)
     expect(onLoaded).not.toHaveBeenCalled()
-  })
-})
-
-describe("preloadThemeAssets", () => {
-  it("loads an image background and every decorative image element", () => {
-    const cache = new Map<string, HTMLImageElement>()
-    const theme = {
-      id: "t",
-      background: { type: "image", image: { url: "bg.png" } },
-      elements: [
-        { type: "image", image: { url: "el1.png" } },
-        { type: "shape" },
-        { type: "image", image: { url: "el2.png" } },
-      ],
-    } as unknown as BroadcastTheme
-    preloadThemeAssets(theme, cache)
-    expect([...cache.keys()].sort()).toEqual(["bg.png", "el1.png", "el2.png"])
-  })
-
-  it("loads a video background under the video: key", () => {
-    const cache = new Map<string, HTMLImageElement>()
-    const theme = {
-      id: "t",
-      background: { type: "video", video: { url: "bg.mp4" } },
-      elements: [],
-    } as unknown as BroadcastTheme
-    preloadThemeAssets(theme, cache)
-    expect(cache.has("video:bg.mp4")).toBe(true)
   })
 })
 

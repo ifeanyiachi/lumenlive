@@ -5,7 +5,7 @@ import {
   __clearLayoutCacheForTests,
 } from "./layout"
 import { wrapText, wrapTextWithHardBreaks } from "./verse-tokens"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { CLASSIC_VERSE_STYLE } from "./verse-style.fixture"
 import type { VerseRenderData } from "@/types/broadcast"
 
 /**
@@ -41,7 +41,7 @@ describe("breakPerVerse layout", () => {
       ],
     }
     const heightWith = (brk: boolean) => {
-      const t = structuredClone(BUILTIN_THEMES[0])
+      const t = structuredClone(CLASSIC_VERSE_STYLE)
       t.layout.breakPerVerse = brk
       return (
         computeVerseLayoutMetrics(fakeCtx(), t, twoVerse).verseRect?.height ?? 0
@@ -131,7 +131,7 @@ describe("wrapTextWithHardBreaks", () => {
 })
 
 describe("computeVerseLayoutMetrics", () => {
-  const theme = BUILTIN_THEMES[0]
+  const theme = CLASSIC_VERSE_STYLE
 
   it("returns the text area and null verse/reference rects when verse is null", () => {
     const m = computeVerseLayoutMetrics(fakeCtx(), theme, null)
@@ -185,7 +185,7 @@ describe("computeVerseLayoutMetrics", () => {
 })
 
 describe("native surface reflow", () => {
-  const theme = BUILTIN_THEMES[0]
+  const theme = CLASSIC_VERSE_STYLE
 
   it("is byte-identical when the surface equals the authored resolution", () => {
     __clearLayoutCacheForTests()
@@ -234,7 +234,7 @@ describe("native surface reflow", () => {
 })
 
 describe("verse auto-fit", () => {
-  const theme = BUILTIN_THEMES[0]
+  const theme = CLASSIC_VERSE_STYLE
   const authored = theme.verseText.fontSize
   const surface = {
     width: theme.resolution.width,

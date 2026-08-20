@@ -14,7 +14,7 @@ import {
   createDefaultScriptureElement,
   createDefaultTextElement,
 } from "@/lib/slide-defaults"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { CLASSIC_VERSE_STYLE } from "@/lib/verse-renderer/verse-style.fixture"
 import type { SlideTextElement } from "@/types/slide"
 import type { VerseRenderData } from "@/types/broadcast"
 
@@ -346,9 +346,7 @@ describe("drawScriptureElement — render-time verse payload (Phase 4b)", () => 
     reference: "John 3:16",
     segments: [{ verseNumber: 16, text: "For God so loved the world" }],
   }
-  const classic = () =>
-    BUILTIN_THEMES.find((t) => t.id === "builtin-classic-dark") ??
-    BUILTIN_THEMES[0]
+  const classic = () => CLASSIC_VERSE_STYLE
 
   it("keeps the legacy flat-string path when no payload is given", () => {
     const { ctx, fills } = fillTextRecorder()

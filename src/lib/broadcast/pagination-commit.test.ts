@@ -1,16 +1,13 @@
 import { describe, it, expect } from "vitest"
 import { resolveVersePages } from "./pagination-commit"
-import type {
-  VerseRenderData,
-  BroadcastOutput,
-  BroadcastTheme,
-} from "@/types/broadcast"
+import type { VerseRenderData, BroadcastOutput } from "@/types/broadcast"
+import type { Theme } from "@/types/theme"
 
 const verse: VerseRenderData = {
   reference: "John 3:16",
   segments: [{ text: "For God so loved the world" }],
 }
-const themes = [{ id: "t1" }] as unknown as BroadcastTheme[]
+const themes = [{ id: "t1" }] as unknown as Theme[]
 
 describe("resolveVersePages", () => {
   it("returns [] for a null verse", () => {

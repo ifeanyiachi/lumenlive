@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { CountdownTimer } from "@/types/alert"
 import type { Theme } from "@/types/theme"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import {
   resolveCountdownTheme,
   resolveScriptureTheme,
@@ -66,10 +65,12 @@ describe("resolveCountdownTheme", () => {
   })
 
   it("resolves a legacy built-in reference through the alias", () => {
-    const legacy = BUILTIN_THEMES.find((t) => t.category === "countdown")!
     const pool = [countdownTheme("builtin-countdown")]
     expect(
-      resolveCountdownTheme(timer({ themeId: legacy.id }), pool)?.id
+      resolveCountdownTheme(
+        timer({ themeId: "builtin-countdown-midnight" }),
+        pool
+      )?.id
     ).toBe("builtin-countdown")
   })
 
@@ -101,9 +102,10 @@ describe("resolveScriptureTheme", () => {
   })
 
   it("resolves a legacy built-in reference through the alias", () => {
-    const legacy = BUILTIN_THEMES.find((t) => t.category === "scripture")!
     const pool = [scriptureTheme("builtin-scripture")]
-    expect(resolveScriptureTheme(legacy.id, pool)?.id).toBe("builtin-scripture")
+    expect(resolveScriptureTheme("builtin-classic-dark", pool)?.id).toBe(
+      "builtin-scripture"
+    )
   })
 
   it("returns undefined for a missing/undefined id or a wrong-type theme", () => {
@@ -129,10 +131,13 @@ describe("resolveBaseTheme (new-model / RF3a)", () => {
         .id
     ).toBe("other-theme")
     // A legacy built-in id aliases to its new built-in.
-    const legacy = BUILTIN_THEMES.find((t) => t.category === "scripture")!
     const pool = [output, scriptureTheme("builtin-scripture")]
     expect(
-      resolveBaseTheme({ kind: "theme", themeId: legacy.id }, output, pool).id
+      resolveBaseTheme(
+        { kind: "theme", themeId: "builtin-classic-dark" },
+        output,
+        pool
+      ).id
     ).toBe("builtin-scripture")
   })
 

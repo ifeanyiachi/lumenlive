@@ -12,7 +12,6 @@
  * the caller can trigger a redraw (the freshly-cached asset now paints).
  */
 
-import type { BroadcastTheme } from "@/types/broadcast"
 import type {
   SlideBackground,
   SlideElement,
@@ -74,30 +73,6 @@ export function preloadVideoBackground(
     { once: true }
   )
   video.load()
-}
-
-/**
- * Preload every drawable asset a theme references — its background (image or
- * video) and any decorative image elements — into `cache`, firing `onLoaded`
- * after each so the output redraws as assets arrive.
- */
-export function preloadThemeAssets(
-  theme: BroadcastTheme,
-  cache: ImageCache,
-  onLoaded?: () => void
-): void {
-  const bg = theme.background
-  if (bg.type === "image" && bg.image?.url) {
-    preloadImage(cache, bg.image.url, onLoaded, "background image")
-  }
-  if (bg.type === "video" && bg.video?.url) {
-    preloadVideoBackground(cache, bg.video.url, onLoaded)
-  }
-  for (const el of theme.elements ?? []) {
-    if (el.type === "image" && el.image?.url) {
-      preloadImage(cache, el.image.url, onLoaded, "element image")
-    }
-  }
 }
 
 /**

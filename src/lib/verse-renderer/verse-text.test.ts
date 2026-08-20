@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { drawVerseText } from "./verse-text"
 import { computeVerseLayoutMetrics } from "./layout"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { CLASSIC_VERSE_STYLE } from "./verse-style.fixture"
 import type { VerseRenderData } from "@/types/broadcast"
 
 /**
@@ -86,7 +86,7 @@ function recordingCtx(charWidth = 10) {
   }
 }
 
-const theme = BUILTIN_THEMES[0]
+const theme = CLASSIC_VERSE_STYLE
 
 const plainVerse: VerseRenderData = {
   reference: "John 3:16",

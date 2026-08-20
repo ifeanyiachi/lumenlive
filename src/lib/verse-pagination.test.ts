@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
 import { paginateVerse } from "./verse-pagination"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
+import { CLASSIC_VERSE_STYLE } from "./verse-renderer/verse-style.fixture"
 import type { VerseRenderData, VerseSegment } from "@/types/broadcast"
 
-const theme = BUILTIN_THEMES[0]
+const theme = CLASSIC_VERSE_STYLE
 
 // measureText proportional to length (font-size-independent), so wrapping is
 // deterministic and block height grows with the number of verses.

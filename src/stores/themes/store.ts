@@ -1,14 +1,7 @@
 import { create } from "zustand"
 import type { Theme } from "@/types/theme"
 import { buildThemeRegistry, findThemeById } from "@/lib/theme/registry"
-import { ingestLegacyThemes } from "@/lib/theme/migrate"
-import {
-  hasIngestedLegacy,
-  loadLegacyThemeSources,
-  loadStoredThemes,
-  markLegacyIngested,
-  saveThemes,
-} from "@/services/theme-store-gateway"
+import { loadStoredThemes, saveThemes } from "@/services/theme-store-gateway"
 
 /**
  * The one theme store for the type-first model (themeredo.md, Phase 1).
@@ -94,36 +87,6 @@ let pendingSave: Promise<void> = Promise.resolve()
 const SAVE_DEBOUNCE_MS = 250
 
 /**
- * Run the one-time legacy ingest (themeredo.md, Phase 5b): fold the old
- * `BroadcastTheme` + `SlideTheme` customs into the new store the first time this
- * build runs, then set a persisted marker so a user's later deletions are never
- * re-imported. Merges onto whatever was just hydrated and persists the result
- * *before* the debounced subscriber is attached, so the ingest write is
- * deterministic (not racing the debounce). Never throws — a failure leaves the
- * store as-is and simply retries next boot.
- */
-async function ingestLegacyThemesOnce(): Promise<void> {
-  try {
-    if (await hasIngestedLegacy()) return
-    const sources = await loadLegacyThemeSources()
-    const existing = useThemesStore.getState().customThemes
-    const { themes, added } = ingestLegacyThemes(
-      sources,
-      existing,
-      () => crypto.randomUUID(),
-      Date.now()
-    )
-    if (added > 0) {
-      useThemesStore.setState({ customThemes: themes })
-      await saveThemes(themes)
-    }
-    await markLegacyIngested()
-  } catch {
-    console.warn("[themes] Legacy ingest failed; will retry next launch")
-  }
-}
-
-/**
  * Load persisted custom themes into the store, then attach a debounced saver.
  * Idempotent and safe against concurrent callers — the first call owns the work
  * and later callers await the same promise. Attaching the subscriber only after
@@ -138,8 +101,6 @@ export function hydrateThemes(): Promise<void> {
     } catch {
       console.warn("[themes] Failed to load persisted themes, using defaults")
     }
-
-    await ingestLegacyThemesOnce()
 
     useThemesStore.subscribe((state, prev) => {
       if (state.customThemes === prev.customThemes) return

@@ -4,8 +4,8 @@ import {
   usesTokenLayout,
   verseNumberStyled,
 } from "./verse-tokens"
-import { BUILTIN_THEMES } from "@/lib/builtin-themes"
-import type { BroadcastTheme, VerseSegment } from "@/types/broadcast"
+import { CLASSIC_VERSE_STYLE } from "./verse-style.fixture"
+import type { VerseStyle, VerseSegment } from "@/types/broadcast"
 
 /**
  * Covers the verse-number styling + per-verse line-break features: which verses
@@ -15,8 +15,8 @@ import type { BroadcastTheme, VerseSegment } from "@/types/broadcast"
 
 /** A neutral theme: number matches the body, no superscript, no per-verse break
  *  — the case that must stay on the plain path. Tests opt into styling. */
-function neutralTheme(): BroadcastTheme {
-  const t = structuredClone(BUILTIN_THEMES[0])
+function neutralTheme(): VerseStyle {
+  const t = structuredClone(CLASSIC_VERSE_STYLE)
   t.verseText.color = "#ffffff"
   t.verseNumbers = {
     visible: true,

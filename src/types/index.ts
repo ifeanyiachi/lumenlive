@@ -31,7 +31,6 @@ export type {
   TextDecoration,
 } from "./canvas"
 export type {
-  BroadcastTheme,
   ThemeElement,
   VerseRenderData,
   VerseSegment,

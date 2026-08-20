@@ -200,9 +200,6 @@ export const DEFAULT_STAGE_DISPLAY_CONFIG: StageDisplayConfig = {
   clockFormat: "12h",
 }
 
-export type ThemeCategory =
-  "general" | "song" | "scripture" | "sermon" | "overlay" | "countdown"
-
 /**
  * The central base background shown on the audience output when text is cleared
  * and behind any content with a transparent background. Either a full theme
@@ -300,31 +297,6 @@ export interface VerseStyle {
   verseNumbers: VerseNumberStyle
   reference: VerseReferenceStyle
   layout: VerseLayoutStyle
-}
-
-export interface BroadcastTheme {
-  id: string
-  name: string
-  category?: ThemeCategory
-  builtin: boolean
-  pinned: boolean
-  createdAt: number
-  updatedAt: number
-  resolution: { width: number; height: number }
-  elements: ThemeElement[]
-  layerOrder: string[]
-  background: Background
-  textBox: VerseTextBoxStyle
-  verseText: TextStyle
-  verseNumbers: VerseNumberStyle
-  reference: VerseReferenceStyle
-  layout: VerseLayoutStyle
-  transition: {
-    type: "fade" | "slide" | "scale" | "none"
-    duration: number
-    easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
-    direction: "up" | "down" | "left" | "right"
-  }
 }
 
 // ── Live output content ──

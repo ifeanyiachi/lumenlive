@@ -1,46 +1,38 @@
 import { describe, expect, it } from "vitest"
-import { BUILTIN_THEMES as LEGACY_BROADCAST } from "@/lib/builtin-themes"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
-import { BUILTIN_THEMES as NEW_BUILTINS } from "@/lib/theme/builtins"
-import { categoryToType } from "./broadcast-to-theme"
-import { slideCategoryToType } from "./slide-theme-to-theme"
 import { legacyThemeIdAlias, resolveLegacyThemeId } from "./legacy-id"
 
-const newIdForType = (type: string) =>
-  NEW_BUILTINS.find((t) => t.type === type)!.id
-
 describe("legacyThemeIdAlias", () => {
-  it("maps every legacy broadcast built-in to the new built-in of its type", () => {
-    for (const t of LEGACY_BROADCAST) {
-      expect(legacyThemeIdAlias(t.id)).toBe(
-        newIdForType(categoryToType(t.category))
-      )
-    }
+  it("maps legacy broadcast built-ins to the new built-in of their type", () => {
+    expect(legacyThemeIdAlias("builtin-classic-dark")).toBe("builtin-scripture")
+    expect(legacyThemeIdAlias("builtin-parchment")).toBe("builtin-scripture")
+    expect(legacyThemeIdAlias("builtin-worship-night")).toBe("builtin-song")
+    expect(legacyThemeIdAlias("builtin-sermon-clean")).toBe("builtin-sermon")
+    expect(legacyThemeIdAlias("builtin-lower-third-dark")).toBe("builtin-overlay")
+    expect(legacyThemeIdAlias("builtin-countdown-midnight")).toBe(
+      "builtin-countdown"
+    )
   })
 
-  it("maps every legacy slide built-in to the new built-in of its type", () => {
-    for (const t of BUILTIN_SLIDE_THEMES) {
-      expect(legacyThemeIdAlias(t.id)).toBe(
-        newIdForType(slideCategoryToType(t.category))
-      )
-    }
+  it("maps legacy slide built-ins (scripture → scripture, else → song)", () => {
+    expect(legacyThemeIdAlias("theme-scripture-classic")).toBe(
+      "builtin-scripture"
+    )
+    expect(legacyThemeIdAlias("theme-midnight")).toBe("builtin-song")
+    expect(legacyThemeIdAlias("theme-aurora-worship")).toBe("builtin-song")
   })
 
-  it("returns undefined for an unknown / custom id", () => {
+  it("returns undefined for an unknown / custom / already-new id", () => {
     expect(legacyThemeIdAlias("custom-uuid-1234")).toBeUndefined()
     expect(legacyThemeIdAlias("builtin-song")).toBeUndefined()
-  })
-
-  it("aliases a countdown built-in to the new countdown built-in", () => {
-    const cd = LEGACY_BROADCAST.find((t) => t.category === "countdown")!
-    expect(legacyThemeIdAlias(cd.id)).toBe("builtin-countdown")
   })
 })
 
 describe("resolveLegacyThemeId", () => {
-  it("aliases a legacy built-in and passes a custom id through", () => {
-    const cd = LEGACY_BROADCAST.find((t) => t.category === "countdown")!
-    expect(resolveLegacyThemeId(cd.id)).toBe("builtin-countdown")
+  it("aliases a legacy built-in and passes a custom / new id through", () => {
+    expect(resolveLegacyThemeId("builtin-countdown-midnight")).toBe(
+      "builtin-countdown"
+    )
     expect(resolveLegacyThemeId("custom-uuid-1234")).toBe("custom-uuid-1234")
+    expect(resolveLegacyThemeId("builtin-scripture")).toBe("builtin-scripture")
   })
 })
