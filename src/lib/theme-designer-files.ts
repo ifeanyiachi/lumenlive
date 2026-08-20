@@ -1,6 +1,5 @@
-import { open, save } from "@tauri-apps/plugin-dialog"
-import { readFile, writeTextFile } from "@tauri-apps/plugin-fs"
-import type { BroadcastTheme } from "@/types"
+import { open } from "@tauri-apps/plugin-dialog"
+import { readFile } from "@tauri-apps/plugin-fs"
 
 export interface PickedThemeImage {
   /** Base64 data URL, embedded into the theme so it persists across restarts. */
@@ -108,45 +107,3 @@ export async function pickMediaFile(): Promise<string | null> {
   return typeof selected === "string" ? selected : selected
 }
 
-/**
- * Exports a theme as JSON via native save dialog.
- */
-export async function exportTheme(theme: BroadcastTheme): Promise<void> {
-  const path = await save({
-    defaultPath: `${theme.name.replace(/[^a-zA-Z0-9-_ ]/g, "")}.json`,
-    filters: [{ name: "JSON", extensions: ["json"] }],
-  })
-  if (!path) return
-
-  const json = JSON.stringify(theme, null, 2)
-  await writeTextFile(path, json)
-}
-
-/**
- * Imports a theme from a JSON file via native open dialog.
- * Returns the parsed theme or null if cancelled/invalid.
- */
-export async function importTheme(): Promise<BroadcastTheme | null> {
-  const selected = await open({
-    multiple: false,
-    filters: [{ name: "Theme JSON", extensions: ["json"] }],
-  })
-  if (!selected) return null
-
-  const path = typeof selected === "string" ? selected : selected
-  const bytes = await readFile(path)
-  const text = new TextDecoder().decode(bytes)
-  const parsed = JSON.parse(text) as BroadcastTheme
-
-  if (!parsed.id || !parsed.name || !parsed.background || !parsed.layout) {
-    throw new Error("Invalid theme file: missing required fields")
-  }
-
-  return {
-    ...parsed,
-    id: crypto.randomUUID(),
-    builtin: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-}

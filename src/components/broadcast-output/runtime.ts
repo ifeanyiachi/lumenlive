@@ -47,7 +47,6 @@ import type { SlideUpdatePayload } from "@/services/broadcast-content-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { SlideAnimationTracker } from "@/lib/slide-animation"
 import type {
-  BroadcastTheme,
   LayerFilter,
   OutputDisplayMode,
   BroadcastProp,
@@ -121,7 +120,7 @@ export function useOutputRuntime() {
     {
       countdown: ActiveCountdown
       timer: CountdownTimer
-      theme?: BroadcastTheme
+      theme?: Theme
     }[]
   >([])
   const activeProps = useRef<BroadcastProp[]>([])
