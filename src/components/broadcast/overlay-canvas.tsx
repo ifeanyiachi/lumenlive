@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
  * audience painters makes the operator's mirror a faithful reflection of the
  * projector/NDI feed: same geometry, same scroll, same overlay order.
  *
- * The canvas letterboxes exactly like `SlideCanvas`/`CanvasVerse` (16:9,
+ * The canvas letterboxes exactly like `SlideCanvas` (16:9,
  * `object-contain`) inside the same `inset-3` content box, so overlays land where
  * they do on the audience relative to the content. `pointer-events-none` and
  * layered below the Logo/Black finishers (z-20) so Black covers overlays — as on

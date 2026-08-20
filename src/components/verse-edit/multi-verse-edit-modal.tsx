@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { CanvasVerse } from "@/components/ui/canvas-verse"
+import { ScripturePreview } from "@/components/ui/scripture-preview"
 import { VerseEditToolbar } from "./verse-edit-toolbar"
 import {
   tiptapToStyledSegments,
@@ -103,12 +103,12 @@ export function MultiVerseEditModal({
   const [previewData, setPreviewData] = useState<VerseRenderData | null>(null)
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const activeTheme = useBroadcastStore((s) => {
-    const theme = s.themes.find(
-      (t) => t.id === findOutput(s.outputs, "main")?.themeId
-    )
-    return theme ?? s.themes[0]
-  })
+  // The main output's theme id (legacy namespace) — ScripturePreview resolves it
+  // through the alias to a scripture Theme and renders on the slide path, matching
+  // the audience output (themeredo.md, VR4 wave 3A).
+  const activeThemeId = useBroadcastStore(
+    (s) => findOutput(s.outputs, "main")?.themeId
+  )
 
   const recomputePreview = useCallback(() => {
     const segments: StyledVerseSegment[] = verses.map((v) => {
@@ -244,11 +244,11 @@ export function MultiVerseEditModal({
             ))}
           </div>
 
-          {activeTheme && previewData && (
+          {previewData && (
             <div className="flex flex-col gap-1.5">
               <span className="text-xs text-muted-foreground">Preview</span>
-              <CanvasVerse
-                theme={activeTheme}
+              <ScripturePreview
+                themeId={activeThemeId}
                 verse={previewData}
                 verseAutoFit
                 className="rounded-lg border border-border"

@@ -259,7 +259,7 @@ export function PreviewPanel() {
   const previewVerse = useBroadcastStore((s) => s.previewVerse)
   const previewSource = useBroadcastStore((s) => s.previewSource)
 
-  // Memoise so `CanvasVerse`'s `memo` holds: without this, the manual branch
+  // Memoise so `ScripturePreview`'s memo holds: without this, the manual branch
   // builds a fresh `toVerseRenderData` object every render, so any unrelated
   // broadcast-store change (media transport ticks, etc.) would repaint the canvas.
   const verseData = useMemo(
