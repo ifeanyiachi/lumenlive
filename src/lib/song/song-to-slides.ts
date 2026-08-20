@@ -33,7 +33,7 @@ const FALLBACK_BACKGROUND: SlideBackground = { type: "solid", color: "#000000" }
 
 /** The app-wide default projection options; overridden per-song and in settings. */
 export const DEFAULT_SONG_SLIDE_OPTIONS: SongSlideOptions = {
-  themeId: "theme-worship-lyrics",
+  themeId: "builtin-song",
   maxLinesPerSlide: 4,
   breakOnBlankLines: true,
   includeTitleSlide: false,

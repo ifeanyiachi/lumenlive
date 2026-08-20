@@ -13,20 +13,19 @@ import {
 } from "@/components/ui/select"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useSongStore } from "@/stores/song-store"
-import { usePresentationStore } from "@/stores/presentation-store"
+import { useThemesStore } from "@/stores/themes"
 import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { BUILTIN_THEMES } from "@/lib/theme/builtins"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import type {
   SlideTransitionType,
   AnimatedBackground,
   AnimatedBackgroundPreset,
-  SlideTheme,
 } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import type { Song, SongSlideOptions } from "@/types/song"
 
-const BUILTIN_SONG_THEMES = BUILTIN_SLIDE_THEMES.filter(
-  (t) => t.category === "song"
-)
+const BUILTIN_SONG_THEMES = BUILTIN_THEMES.filter((t) => t.type === "song")
 
 const PRESET_LABELS: Record<AnimatedBackgroundPreset, string> = {
   aurora: "Aurora",
@@ -41,13 +40,10 @@ const PRESET_LABELS: Record<AnimatedBackgroundPreset, string> = {
 /** The animated-background spec of a song theme, or undefined if it isn't animated. */
 function themeAnimatedSpec(
   themeId: string,
-  themes: SlideTheme[]
+  themes: Theme[]
 ): AnimatedBackground | undefined {
-  const theme = themes.find((t) => t.id === themeId)
-  const variant =
-    theme?.variants.find((v) => v.layout === "content-only") ??
-    theme?.variants[0]
-  return variant?.background.animated
+  const theme = themes.find((t) => t.id === resolveLegacyThemeId(themeId))
+  return theme?.background.animated
 }
 
 const TRANSITION_LABELS: Record<SlideTransitionType, string> = {
@@ -68,14 +64,14 @@ const TRANSITION_LABELS: Record<SlideTransitionType, string> = {
  */
 export function SongProjectionOptions({ song }: { song: Song }) {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
-  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
-  // Built-in song themes plus any user-authored custom song themes (Phase 3d).
+  const customThemes = useThemesStore((s) => s.customThemes)
+  // Built-in song looks plus any user-authored custom song themes.
   const songThemes = useMemo(
     () => [
       ...BUILTIN_SONG_THEMES,
-      ...customSlideThemes.filter((t) => t.category === "song"),
+      ...customThemes.filter((t) => t.type === "song"),
     ],
-    [customSlideThemes]
+    [customThemes]
   )
   const override = song.slideOptions ?? {}
   const resolved = resolveSongSlideOptions(defaults, song.slideOptions)
@@ -121,7 +117,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
         onReset={() => resetField("themeId")}
       >
         <Select
-          value={resolved.themeId}
+          value={resolveLegacyThemeId(resolved.themeId)}
           onValueChange={(v) => setField("themeId", v)}
         >
           <SelectTrigger className="h-7 w-full text-xs">

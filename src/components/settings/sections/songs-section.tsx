@@ -10,27 +10,26 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useSettingsStore } from "@/stores"
-import { usePresentationStore } from "@/stores/presentation-store"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { useThemesStore } from "@/stores/themes"
+import { BUILTIN_THEMES } from "@/lib/theme/builtins"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 
 import { ApiKeyField } from "../ui/api-key-field"
 import { useApiKeyField } from "../hooks/use-api-key-field"
 
-const SONG_THEME_OPTIONS = BUILTIN_SLIDE_THEMES.filter(
-  (t) => t.category === "song"
-)
+const SONG_THEME_OPTIONS = BUILTIN_THEMES.filter((t) => t.type === "song")
 
 export function SongsSection() {
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
   const setDefaults = useSettingsStore((s) => s.setSongSlideDefaults)
-  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
-  // Built-in song themes plus any user-authored custom ones (Phase 3d).
+  const customThemes = useThemesStore((s) => s.customThemes)
+  // Built-in song looks plus any user-authored custom song themes.
   const songThemeOptions = useMemo(
     () => [
       ...SONG_THEME_OPTIONS,
-      ...customSlideThemes.filter((t) => t.category === "song"),
+      ...customThemes.filter((t) => t.type === "song"),
     ],
-    [customSlideThemes]
+    [customThemes]
   )
   const geniusApiKey = useSettingsStore((s) => s.geniusApiKey)
   const setGeniusApiKey = useSettingsStore((s) => s.setGeniusApiKey)
@@ -119,7 +118,7 @@ export function SongsSection() {
           Default Lyric Theme
         </label>
         <Select
-          value={defaults.themeId}
+          value={resolveLegacyThemeId(defaults.themeId)}
           onValueChange={(v) => update({ themeId: v })}
         >
           <SelectTrigger className="w-full text-sm">
