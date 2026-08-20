@@ -6,9 +6,17 @@ import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useMediaStore } from "@/stores/media-store"
 import { useSongStore } from "@/stores/song-store"
 import { useSettingsStore } from "@/stores/settings-store"
-import { renderVerse } from "@/lib/verse-renderer"
-import { renderSlide } from "@/lib/slide-renderer"
+import {
+  renderSlide,
+  scriptureElementToVerseStyle,
+  type ScriptureRenderPayload,
+} from "@/lib/slide-renderer"
 import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
+import { useThemesStore } from "@/stores/themes"
+import { buildThemeRegistry } from "@/lib/theme/registry"
+import { resolveScriptureTheme } from "@/lib/theme/resolve"
+import { presentScripture } from "@/lib/theme/present"
+import type { SlideScriptureElement } from "@/types/slide"
 import {
   generateSlidesFromSong,
   resolveSongSlideOptions,
@@ -75,11 +83,13 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
     switch (item.type) {
       case "scripture": {
         const si = item as ScriptureScheduleItem
-        const themes = useBroadcastStore.getState().themes
         const activeThemeId =
           findOutput(useBroadcastStore.getState().outputs, "main")?.themeId ??
           ""
-        const theme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
+        const themes = buildThemeRegistry(useThemesStore.getState().customThemes)
+        const theme =
+          resolveScriptureTheme(activeThemeId, themes) ??
+          themes.find((t) => t.type === "scripture")
         if (!theme) break
         const fakeVerse = {
           id: 0,
@@ -93,7 +103,35 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         }
         const abbr = si.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
         const renderData = toVerseRenderData(fakeVerse, abbr)
-        renderVerse(ctx, theme, renderData, { scale: w / 1920 })
+        // Scripture through the slide path (RF3c), matching the audience output.
+        const slide = presentScripture(
+          theme,
+          { type: "scripture", verse: renderData },
+          () => "thumb-scripture"
+        )[0].slide
+        const el = slide.elements.find((e) => e.type === "scripture") as
+          | SlideScriptureElement
+          | undefined
+        const scriptureContent = el
+          ? new Map<string, ScriptureRenderPayload>([
+              [
+                el.id,
+                {
+                  verse: renderData,
+                  style: scriptureElementToVerseStyle(el),
+                  options: {
+                    scale: 1,
+                    verseAutoFit: false,
+                    maxVerseScale: 1,
+                    minVerseFontSize: 40,
+                  },
+                },
+              ],
+            ])
+          : undefined
+        renderSlide(ctx, slide, w, h, getSlideImageCache(), undefined, {
+          scriptureContent,
+        })
         break
       }
       case "slide": {

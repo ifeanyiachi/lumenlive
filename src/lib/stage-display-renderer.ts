@@ -16,6 +16,7 @@
 
 import { renderVerse } from "@/lib/verse-renderer"
 import { renderSlide } from "@/lib/slide-renderer"
+import { buildScriptureContent } from "@/lib/broadcast-output/scripture-slide"
 import { surfaceFontScale } from "@/lib/canvas-constants"
 import { projectBoxToSurface } from "@/lib/canvas-box-projection"
 import { STAGE_RESOLUTION } from "@/lib/stage-layout/migrate"
@@ -131,15 +132,31 @@ function renderContentPreview(
   if (!offCtx) return
 
   if (slide) {
+    // A presented scripture slide arrives with its verse alongside (RF3b): fill its
+    // style-only placeholder through the slide renderer's scripture payload — the same
+    // recipe the audience compositor uses — so the stage mirrors the output. Auto-fit
+    // is off, matching the stage's prior `renderVerse` call. A real schedule slide has
+    // no verse and renders plainly.
+    const opts = verse
+      ? {
+          scriptureContent: buildScriptureContent(slide, verse, {
+            verseAutoFit: false,
+            maxVerseScale: 1,
+            minVerseFontSize: 40,
+          }),
+        }
+      : undefined
     renderSlide(
       offCtx,
       slide,
       offscreen.width,
       offscreen.height,
       imageCache,
-      videoCache
+      videoCache,
+      opts
     )
-  } else {
+  } else if (verse) {
+    // Fallback: no scripture theme resolved in the new store — legacy verse path.
     renderVerse(offCtx, theme, verse, { imageCache })
   }
 

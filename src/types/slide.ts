@@ -140,6 +140,38 @@ export interface SlideScriptureElement extends SlideElementBase {
   referenceColor: string
   backgroundColor?: string
   shadow?: { offsetX: number; offsetY: number; blur: number; color: string }
+  // ── Verse-style carriers (themeredo.md, RF1) ──
+  // The lean scripture placeholder gains the verse-styling the live path needs so
+  // the verse body can render from the element alone (retiring the dependency on the
+  // full BroadcastTheme). All optional and backward-compatible: an element without
+  // them renders exactly as before. Consumed by `scriptureElementToVerseStyle` when
+  // building the live scripture render payload; populated by the broadcast → Theme
+  // migrator so no authored verse styling is lost.
+  /** Per-verse number styling (superscript verse markers). */
+  verseNumbers?: {
+    visible: boolean
+    fontSize: number
+    color: string
+    superscript: boolean
+  }
+  /** Uppercase the reference label. */
+  referenceUppercase?: boolean
+  /** Where the reference sits relative to the verse body. */
+  referencePosition?: "above" | "below" | "inline"
+  /** Start each verse on its own line when several are shown together. */
+  breakPerVerse?: boolean
+  /** Case transform applied to the verse body. */
+  textTransform?: "none" | "uppercase" | "lowercase"
+  /** Extra tracking (px) on the verse body. */
+  letterSpacing?: number
+  /** Rounded backdrop box behind the verse text area. */
+  textBox?: {
+    enabled: boolean
+    color: string
+    opacity: number
+    borderRadius: number
+    padding: number
+  }
 }
 
 // ── Timer element ──

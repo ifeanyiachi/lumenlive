@@ -295,6 +295,20 @@ export interface BroadcastTheme {
   }
 }
 
+/**
+ * The verse-styling subset of a {@link BroadcastTheme} — the only fields the verse
+ * layout + draw passes (`computeVerseLayoutMetrics` / `drawVerseText` / `drawReference`)
+ * actually read (themeredo.md, flip VR1). Decoupling those passes onto this type frees
+ * the live scripture render (which builds one from a `SlideScriptureElement` via
+ * `scriptureElementToVerseStyle`) from depending on the whole `BroadcastTheme` — the
+ * keystone for retiring `renderVerse`/`BroadcastTheme` in Phase 5. A full `BroadcastTheme`
+ * is structurally a `VerseStyle`, so `renderVerse` still passes its theme straight in.
+ */
+export type VerseStyle = Pick<
+  BroadcastTheme,
+  "resolution" | "verseText" | "verseNumbers" | "reference" | "layout" | "textBox"
+>
+
 // ── Live output content ──
 // These describe content pushed to the output window(s). They live here (not in
 // the store) so the broadcast-content gateway and the output window can share

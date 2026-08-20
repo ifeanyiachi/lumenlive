@@ -1,4 +1,4 @@
-import type { BroadcastTheme, VerseSegment } from "@/types/broadcast"
+import type { VerseStyle, VerseSegment } from "@/types/broadcast"
 import { applyTextTransform } from "@/lib/canvas-draw"
 import { resolveTextTransform } from "./text-style"
 
@@ -169,7 +169,7 @@ export function hasAnySpans(segments: VerseSegment[]): boolean {
  * number inline in the body colour — byte-identical to the historical output.
  */
 export function verseNumberStyled(
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   segments: VerseSegment[]
 ): boolean {
   const vn = theme.verseNumbers
@@ -186,7 +186,7 @@ export function verseNumberStyled(
  * the path — otherwise cached wrapping and drawing would disagree.
  */
 export function usesTokenLayout(
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   segments: VerseSegment[]
 ): boolean {
   if (segments.some((s) => s.isInterlinear)) return false
@@ -197,7 +197,7 @@ export function usesTokenLayout(
 
 export function buildRenderTokens(
   segments: VerseSegment[],
-  theme: BroadcastTheme
+  theme: VerseStyle
 ): RenderToken[] {
   const vt = theme.verseText
   const vn = theme.verseNumbers
@@ -276,7 +276,7 @@ export function buildRenderTokens(
 
 export function buildFontForToken(
   token: RenderToken,
-  theme: BroadcastTheme
+  theme: VerseStyle
 ): string {
   const vt = theme.verseText
   const style = token.italic ? "italic " : ""
@@ -297,7 +297,7 @@ export function wrapStyledText(
   ctx: CanvasRenderingContext2D,
   tokens: RenderToken[],
   maxWidth: number,
-  theme: BroadcastTheme
+  theme: VerseStyle
 ): WrappedStyledLine[] {
   const lines: WrappedStyledLine[] = []
   let currentTokens: RenderToken[] = []

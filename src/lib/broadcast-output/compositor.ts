@@ -50,6 +50,12 @@ import {
   drawCountdownOverlay,
   drawPropsOverlay,
 } from "./overlays"
+import {
+  buildScriptureSlide,
+  buildScriptureContent,
+  buildBaseSlide,
+} from "./scripture-slide"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import { isAnimationActive } from "@/lib/slide-animation"
 import type { SlideAnimationTracker } from "@/lib/slide-animation"
 import type {
@@ -88,15 +94,23 @@ export interface CompositorState {
   clearForeground: boolean
   activeMode: "verse" | "slide" | "media"
   latestData: { theme: BroadcastTheme; verse: VerseRenderData | null } | null
-  latestSlide: { slide: Slide } | null
+  /**
+   * The live slide. `verse` is set only for a **presented scripture slide** (flip
+   * RF2): its style-only scripture placeholder is filled with this verse at draw time
+   * via a `scriptureContent` payload built from the placeholder's own styling.
+   */
+  latestSlide: { slide: Slide; verse?: VerseRenderData | null } | null
   latestMedia: { img: HTMLImageElement } | null
   /** Video media paused with a "stop" end-action: paint black, not the frame. */
   mediaBlank: boolean
   mediaVideo: HTMLVideoElement | null
   mediaFit: MediaFitConfig
   slideAnimTracker: SlideAnimationTracker | null
-  /** Central base/master theme composited behind Clear and transparent content. */
-  baseTheme: BroadcastTheme | null
+  /**
+   * Central base/master backdrop composited behind Clear and transparent content —
+   * now a typed {@link Theme} painted through the slide renderer (flip RF3a / D1).
+   */
+  baseTheme: Theme | null
   mediaLayer: MediaLayerState | null
   mediaLayerImg: HTMLImageElement | null
   mediaLayerVideo: HTMLVideoElement | null
@@ -165,8 +179,11 @@ function paintProgramBase(
 }
 
 /**
- * Draw the central base theme's backdrop (background + decorative elements, no
- * verse text) onto the surface. Used for Clear and behind transparent content.
+ * Draw the central base backdrop (background + decorative elements, no content) onto
+ * the surface via the slide renderer (flip RF3a / D1). Used for Clear and behind
+ * transparent content. A transparent base composits its elements over the existing
+ * frame (media layer); an opaque base paints its background too. Its scripture
+ * placeholder, if any, is style-only and draws nothing (no `scriptureContent`).
  * No-op until a base theme is present.
  */
 function paintBaseTheme(
@@ -177,12 +194,20 @@ function paintBaseTheme(
 ): void {
   const bt = s.baseTheme
   if (!bt) return
-  renderVerse(ctx, bt, null, {
-    scale: 1,
-    imageCache: s.imageCache,
-    surface: { width: sw, height: sh },
-    frameTime: s.frameTime,
-  })
+  const slide = buildBaseSlide(bt)
+  const opts: SlideRenderOptions = { frameTime: s.frameTime, now: s.now }
+  if (slide.background.type === "transparent") {
+    drawSlideElements(
+      ctx,
+      slide,
+      sw,
+      sh,
+      { imageCache: s.imageCache, videoCache: s.videoCache },
+      opts
+    )
+  } else {
+    renderSlide(ctx, slide, sw, sh, s.imageCache, s.videoCache, opts)
+  }
 }
 
 /** Build slide render options, honouring the active entry-animation tracker. */
@@ -192,6 +217,17 @@ function buildSlideRenderOpts(s: CompositorState): SlideRenderOptions {
   if (tracker && isAnimationActive(tracker)) {
     renderOpts.animationStates = tracker.elementStates
     renderOpts.textBuildProgress = tracker.textBuildProgress
+  }
+  // Live scripture slide (flip RF2): fill the style-only scripture placeholder from
+  // the verse that rode alongside the slide, its style rebuilt from the placeholder's
+  // own (RF1) styling — no pushed BroadcastTheme. Auto-fit knobs come from the output.
+  const verse = s.latestSlide?.verse
+  if (verse) {
+    renderOpts.scriptureContent = buildScriptureContent(s.latestSlide!.slide, verse, {
+      verseAutoFit: s.verseAutoFit,
+      maxVerseScale: s.maxVerseScale,
+      minVerseFontSize: s.minVerseFontSize,
+    })
   }
   return renderOpts
 }
@@ -291,10 +327,52 @@ function renderSlideContent(
 }
 
 /**
+ * Draw a live scripture theme in two byte-identical passes (themeredo.md, flip F5):
+ *   1. **Chrome** — background + text box + decorative elements — via the existing
+ *      `renderVerse(theme, null, …)` pass (the verse/reference regions are omitted when
+ *      the verse is null, exactly as `paintBaseTheme` relies on).
+ *   2. **Verse/reference** — through the slide renderer's scripture-payload path
+ *      (`drawSlideElements` over a style-only scripture placeholder carrying the pushed
+ *      verse as `scriptureContent`). This is the same delegation the scripture parity
+ *      gate proves equal to `renderVerse`'s own verse pass, so the split reproduces
+ *      `renderVerse(theme, verse)` byte-for-byte (verse/reference sit in disjoint
+ *      regions, so drawing them after the decorations does not change any pixel).
+ *
+ * Returns `false` when the chrome render errored (null metrics) so the caller can run
+ * its black fallback — mirroring the old single `renderVerse` call's null contract.
+ */
+function drawScriptureThemeHybrid(
+  ctx: CanvasRenderingContext2D,
+  sw: number,
+  sh: number,
+  s: CompositorState
+): boolean {
+  const { theme, verse } = s.latestData!
+  const result = renderVerse(ctx, theme, null, buildVerseRenderOpts(s, sw, sh))
+  if (!result) return false
+  if (verse) {
+    const { slide, scriptureContent } = buildScriptureSlide(theme, verse, {
+      verseAutoFit: s.verseAutoFit,
+      maxVerseScale: s.maxVerseScale,
+      minVerseFontSize: s.minVerseFontSize,
+    })
+    drawSlideElements(
+      ctx,
+      slide,
+      sw,
+      sh,
+      { imageCache: s.imageCache, videoCache: s.videoCache },
+      { scriptureContent }
+    )
+  }
+  return true
+}
+
+/**
  * Verse branch (also the fallback when no slide is live): reflow the theme onto
  * the surface. Transparent verse themes composit over the base theme (only when it
  * differs from the verse's own theme, else renderVerse would draw it twice). A
- * null render result repaints the black fallback and notifies the caller.
+ * null chrome render repaints the black fallback and notifies the caller.
  */
 function renderVerseContent(
   ctx: CanvasRenderingContext2D,
@@ -307,15 +385,17 @@ function renderVerseContent(
     paintProgramBase(ctx, sw, sh, s)
     return
   }
-  const { theme, verse } = data
+  const { theme } = data
   if (theme.background.type === "transparent") {
     paintProgramBase(ctx, sw, sh, s)
-    if (s.baseTheme && s.baseTheme.id !== theme.id) {
+    // The idle theme is still a legacy BroadcastTheme while the base is a new Theme
+    // (RF3a); alias the legacy id before comparing so "base == this theme" still
+    // dedupes (avoids painting the same backdrop twice).
+    if (s.baseTheme && s.baseTheme.id !== resolveLegacyThemeId(theme.id)) {
       paintBaseTheme(ctx, sw, sh, s)
     }
   }
-  const result = renderVerse(ctx, theme, verse, buildVerseRenderOpts(s, sw, sh))
-  if (!result) {
+  if (!drawScriptureThemeHybrid(ctx, sw, sh, s)) {
     paintProgramBase(ctx, sw, sh, s)
     s.onNullVerse?.()
   }
@@ -419,8 +499,10 @@ export function composeNdiForeground(
       buildSlideRenderOpts(s)
     )
   } else if (s.activeMode === "verse" && s.latestData) {
-    const { theme, verse } = s.latestData
-    renderVerse(ctx, theme, verse, buildVerseRenderOpts(s, sw, sh))
+    // Same hybrid split as the program frame (flip F5): chrome via renderVerse,
+    // verse/reference via the slide-path payload. Byte-identical to the old
+    // single renderVerse(theme, verse) call the keyed feed used to make.
+    drawScriptureThemeHybrid(ctx, sw, sh, s)
   }
   // Foreground overlays belong in the keyed feed too — same gating as the program.
   paintOverlays(ctx, sw, sh, s)

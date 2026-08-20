@@ -1,4 +1,4 @@
-import type { BroadcastTheme, VerseRenderData } from "@/types/broadcast"
+import type { VerseStyle, VerseRenderData } from "@/types/broadcast"
 import { applyTextTransform } from "@/lib/canvas-draw"
 import {
   alignX,
@@ -37,7 +37,7 @@ import {
 function measureToken(
   ctx: CanvasRenderingContext2D,
   token: RenderToken,
-  theme: BroadcastTheme
+  theme: VerseStyle
 ): number {
   if (token.width !== undefined) return token.width
   ctx.save()
@@ -49,7 +49,7 @@ function measureToken(
 
 export function drawReference(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   text: string,
   textRectX: number,
   textRectWidth: number,
@@ -131,7 +131,7 @@ export function drawReference(
 function drawStyledLinesPass(
   ctx: CanvasRenderingContext2D,
   lines: WrappedStyledLine[],
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   textRectX: number,
   textRectWidth: number,
   startY: number,
@@ -306,7 +306,7 @@ function drawStyledLinesPass(
 
 export function drawVerseText(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData,
   textRectX: number,
   textRectWidth: number,

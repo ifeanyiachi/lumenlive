@@ -30,7 +30,11 @@ import {
   snapshotCanvas,
   snapshotSlideElements,
 } from "@/lib/broadcast-output/transitions"
-import { preloadThemeAssets } from "@/lib/broadcast-output/asset-cache"
+import {
+  preloadThemeAssets,
+  preloadSlideAssets,
+} from "@/lib/broadcast-output/asset-cache"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import { captureAndSendNdiFrame } from "@/lib/broadcast-output/ndi-push"
 import type { RenderLoop } from "@/lib/broadcast-output/render-loop"
 import { parseBroadcastConfig } from "@/lib/broadcast-output/config"
@@ -57,6 +61,7 @@ import type {
   MediaLayerState,
 } from "@/types/broadcast"
 import type { Slide, SlideTransitionType } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import type {
   AlertTemplate,
   ActiveAlert,
@@ -115,7 +120,7 @@ export function useOutputRuntime() {
   const logoImgRef = useRef<HTMLImageElement | null>(null)
   // Central base/master theme: the backdrop revealed on Clear and composited
   // behind transparent content. Delivered via broadcast:base-theme.
-  const baseThemeRef = useRef<BroadcastTheme | null>(null)
+  const baseThemeRef = useRef<Theme | null>(null)
   const mediaKindRef = useRef<"image" | "video" | "audio" | null>(null)
   const mediaFitRef = useRef<MediaFitConfig>(DEFAULT_MEDIA_FIT)
   const activeAlerts = useRef<
@@ -332,6 +337,14 @@ export function useOutputRuntime() {
     [draw]
   )
 
+  // The base backdrop is a slide-model Theme (RF3a): preload its slide-shaped assets.
+  const preloadBaseThemeImages = useCallback(
+    (theme: Theme) => {
+      preloadSlideAssets(theme, imageCacheRef.current, draw)
+    },
+    [draw]
+  )
+
   // Render ONLY the foreground graphics (verse text / slide elements + overlays)
   // onto a transparent canvas, for a see-through (keyable) NDI feed. Deliberately
   // omits the black floor, the central base theme, and the media layer that the
@@ -388,7 +401,8 @@ export function useOutputRuntime() {
               activeMode.current === "verse" &&
               !!baseThemeRef.current &&
               !!latestData.current &&
-              baseThemeRef.current.id !== latestData.current.theme.id,
+              baseThemeRef.current.id !==
+                resolveLegacyThemeId(latestData.current.theme.id),
             hasMediaLayer:
               mediaLayerRef.current !== null &&
               (!layerFilterRef.current ||
@@ -553,6 +567,7 @@ export function useOutputRuntime() {
       drawTransitionFrame,
       draw,
       preloadThemeImages,
+      preloadBaseThemeImages,
       drawNdiForeground,
       pushNdiFrame,
       pushNdiBurst,
@@ -569,6 +584,7 @@ export function useOutputRuntime() {
       drawTransitionFrame,
       draw,
       preloadThemeImages,
+      preloadBaseThemeImages,
       drawNdiForeground,
       pushNdiFrame,
       pushNdiBurst,

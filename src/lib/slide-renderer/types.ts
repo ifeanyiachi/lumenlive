@@ -1,8 +1,8 @@
 import type { ElementAnimationState } from "@/lib/slide-animation"
 import type {
-  BroadcastTheme,
   RenderOptions,
   VerseRenderData,
+  VerseStyle,
 } from "@/types/broadcast"
 
 /** Shared media caches passed through the slide-rendering pipeline. */
@@ -21,13 +21,14 @@ export interface SlideRenderCaches {
  * so `drawScriptureElement` can reproduce `renderVerse` byte-for-byte by reusing
  * the verse-renderer draw passes, instead of flattening the verse to a string.
  *
- * `style` is a {@link BroadcastTheme} for now — the shape the verse draw passes
- * consume. It is the transitional carrier the parity gate runs against; Phase 5
- * narrows it once the verse renderer is retired.
+ * `style` is a {@link VerseStyle} — the verse-styling subset the verse layout + draw
+ * passes actually read (narrowed from `BroadcastTheme` in flip VR1). Built from the
+ * scripture placeholder via `scriptureElementToVerseStyle`, so the live scripture render
+ * no longer depends on the full `BroadcastTheme`.
  */
 export interface ScriptureRenderPayload {
   verse: VerseRenderData
-  style: BroadcastTheme
+  style: VerseStyle
   /**
    * Verse-render options that drive layout parity with `renderVerse` (themeredo.md,
    * Phase 4c): auto-fit thresholds (`verseAutoFit` / `maxVerseScale` /

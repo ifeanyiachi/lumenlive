@@ -1,5 +1,5 @@
 import type {
-  BroadcastTheme,
+  VerseStyle,
   VerseRenderData,
   RenderOptions,
 } from "@/types/broadcast"
@@ -36,7 +36,7 @@ export interface VerseLayoutRect {
 }
 
 export interface VerseLayoutMetrics {
-  scaledTheme: BroadcastTheme
+  scaledTheme: VerseStyle
   textAreaRect: VerseLayoutRect
   textRect: VerseLayoutRect
   referenceRect: VerseLayoutRect | null
@@ -50,7 +50,7 @@ export interface VerseLayoutMetrics {
 }
 
 export function anchorPosition(
-  anchor: BroadcastTheme["layout"]["anchor"],
+  anchor: VerseStyle["layout"]["anchor"],
   areaWidth: number,
   areaHeight: number,
   canvasWidth: number,
@@ -96,9 +96,9 @@ export function anchorPosition(
 }
 
 function buildScaledTheme(
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   scale: number
-): BroadcastTheme {
+): VerseStyle {
   // Fast path: the broadcast output renders at scale 1 every frame, so skip the
   // full deep-clone-and-multiply (pure garbage churn in the RAF hot path).
   if (scale === 1) return theme
@@ -172,7 +172,7 @@ function buildScaledTheme(
 
 function measureVerseHeight(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData,
   textRectWidth: number
 ): { height: number; maxLineWidth: number; wrapped: WrappedVerseContent } {
@@ -250,9 +250,9 @@ function measureVerseHeight(
  * while text stays proportional. Byte-identical at the authored resolution.
  */
 function projectThemeToSurface(
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   surface: { width: number; height: number }
-): BroadcastTheme {
+): VerseStyle {
   const fontScale = surfaceFontScale(surface.width, surface.height)
   const scaled = buildScaledTheme(theme, fontScale)
   return {
@@ -266,12 +266,12 @@ const AUTO_FIT_MIN_FS = 8
 /** Verse block height (px) if the verse were drawn at `fontSize`. */
 function verseHeightAt(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData,
   textRectWidth: number,
   fontSize: number
 ): number {
-  const probe: BroadcastTheme = {
+  const probe: VerseStyle = {
     ...theme,
     verseText: { ...theme.verseText, fontSize },
   }
@@ -287,7 +287,7 @@ function verseHeightAt(
  */
 function fitVerseFontSize(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData,
   textRectWidth: number,
   availableHeight: number,
@@ -309,7 +309,7 @@ function fitVerseFontSize(
 }
 
 function rectForAlignedText(
-  align: BroadcastTheme["layout"]["textAlign"],
+  align: VerseStyle["layout"]["textAlign"],
   drawX: number,
   drawY: number,
   width: number,
@@ -342,7 +342,7 @@ function rectForAlignedText(
 // not invalidate, exactly as React's own change detection assumes.
 
 interface LayoutCacheEntry {
-  theme: BroadcastTheme
+  theme: VerseStyle
   scale: number
   offsetX: number
   offsetY: number
@@ -380,7 +380,7 @@ export function __clearLayoutCacheForTests(): void {
 
 export function computeVerseLayoutMetrics(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData | null,
   options?: RenderOptions
 ): VerseLayoutMetrics {
@@ -441,7 +441,7 @@ export function computeVerseLayoutMetrics(
 
 function computeVerseLayoutMetricsUncached(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData | null,
   options?: RenderOptions
 ): VerseLayoutMetrics {
@@ -695,7 +695,7 @@ function computeVerseLayoutMetricsUncached(
 /** Height (px) a verse block would occupy if drawn at `fontSize`. */
 export function measureVerseHeightAtFont(
   ctx: CanvasRenderingContext2D,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   verse: VerseRenderData,
   textRectWidth: number,
   fontSize: number
@@ -705,7 +705,7 @@ export function measureVerseHeightAtFont(
 
 /** The verse text-box width and the height available for the verse (reference
  *  reserved), at the theme's authored resolution. */
-export function computeVerseTextBox(theme: BroadcastTheme): {
+export function computeVerseTextBox(theme: VerseStyle): {
   textRectW: number
   availableVerseHeight: number
 } {

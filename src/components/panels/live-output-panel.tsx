@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
-import { CanvasVerse } from "@/components/ui/canvas-verse"
+import { ScripturePreview } from "@/components/ui/scripture-preview"
+import { BasePreview } from "@/components/ui/base-preview"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,7 +24,6 @@ import {
 import { OverlayCanvas } from "@/components/broadcast/overlay-canvas"
 import { toVerseRenderData, presentQueueVerse } from "@/hooks/use-broadcast"
 import { focusBroadcastWindow } from "@/services/broadcast-window-gateway"
-import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { SlideCanvas } from "@/components/slides/slide-canvas"
@@ -47,7 +47,6 @@ import { LiveWebMonitor } from "@/components/panels/live-output/live-web-monitor
 
 export function LiveOutputPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
-  const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore(
     (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
@@ -74,11 +73,6 @@ export function LiveOutputPanel() {
   const translations = useBibleStore((s) => s.translations)
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
 
-  const activeTheme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
-  // Central base theme resolved from the configured base background (theme or a
-  // synthesized background-only theme), else this output's own theme. Revealed
-  // in the preview on Clear.
-  const baseTheme = resolveBaseTheme(baseBackground, activeTheme, themes)
   const translation =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ??
     "KJV"
@@ -375,16 +369,9 @@ export function LiveOutputPanel() {
         )}
         <div className="relative z-10 flex size-full items-center justify-center">
           {clearForeground ? (
-            // Clear reveals the central base theme (no content) — consistent
-            // across verse / slide / song, mirroring the audience output.
-            <CanvasVerse
-              theme={baseTheme}
-              verse={null}
-              animate
-              verseAutoFit={mainOutput?.verseAutoFit ?? true}
-              maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
-              minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
-            />
+            // Clear reveals the central base backdrop (no content) — consistent
+            // across verse / slide / song, mirroring the audience output (RF3c).
+            <BasePreview themeId={activeThemeId} baseBackground={baseBackground} />
           ) : showWeb ? (
             <LiveWebMonitor
               key={`${liveWeb.videoId ?? liveWeb.url}:${liveWeb.nonce ?? 0}`}
@@ -401,10 +388,10 @@ export function LiveOutputPanel() {
           ) : showSlide ? (
             <SlideCanvas slide={liveSlide} />
           ) : (
-            <CanvasVerse
-              theme={activeTheme}
+            // Live scripture through the slide path (RF3c) — matches the audience output.
+            <ScripturePreview
+              themeId={activeThemeId}
               verse={liveVerse}
-              animate
               verseAutoFit={mainOutput?.verseAutoFit ?? true}
               maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
               minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}

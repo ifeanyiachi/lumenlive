@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef } from "react"
-import { renderSlide } from "@/lib/slide-renderer"
+import { renderSlide, type ScriptureRenderPayload } from "@/lib/slide-renderer"
 import { runSlidePreviewEffect } from "@/lib/slide-renderer/preview-loop"
 import { getSlideImageCache } from "@/lib/slide-image-cache"
 import { cn } from "@/lib/utils"
@@ -12,6 +12,13 @@ interface SlideCanvasProps {
    * Undefined renders the full slide (default) — byte-identical to omitting it.
    */
   hideElements?: boolean
+  /**
+   * Live scripture payloads for scripture placeholders, keyed by element id (RF3c) —
+   * lets a presented scripture slide fill its style-only placeholder through the same
+   * verse-renderer draw passes the audience output uses, so the operator preview
+   * matches. Omitted for ordinary slides.
+   */
+  scriptureContent?: Map<string, ScriptureRenderPayload>
   className?: string
 }
 
@@ -25,6 +32,7 @@ interface SlideCanvasProps {
 export const SlideCanvas = memo(function SlideCanvas({
   slide,
   hideElements,
+  scriptureContent,
   className,
 }: SlideCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -50,9 +58,10 @@ export const SlideCanvas = memo(function SlideCanvas({
         frameTime: performance.now(),
         now: Date.now(),
         hideElements,
+        scriptureContent,
       }
     )
-  }, [slide, hideElements])
+  }, [slide, hideElements, scriptureContent])
 
   useEffect(() => {
     return runSlidePreviewEffect(slide, draw, {

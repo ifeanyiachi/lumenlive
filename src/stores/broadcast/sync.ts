@@ -3,7 +3,10 @@ import {
   emitOutputEvent,
   BROADCAST_EVENTS,
 } from "@/services/broadcast-content-gateway"
-import { resolveBaseTheme } from "@/lib/broadcast/base-theme"
+import { resolveScriptureTheme, resolveBaseTheme } from "@/lib/theme/resolve"
+import type { VerseRenderData } from "@/types/broadcast"
+import { presentScripture } from "@/lib/theme/present"
+import { useThemesStore } from "@/stores/themes"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
 import { buildStageUpdatePayload } from "@/lib/stage-layout/stage-payload"
 import { resolveLayerFilter } from "@/lib/broadcast/output-emit"
@@ -60,14 +63,25 @@ export const createSyncSlice: StateCreator<
     const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
     if (!theme) return
 
+    // The output's theme in the NEW typed store (RF2/RF3): resolved via the legacy-id
+    // alias, falling back to the scripture built-in. Drives the live scripture slide
+    // and the base backdrop; the legacy `theme` (BroadcastTheme) stays for the idle
+    // backdrop + designer preview until those paths are retired (Phase 5).
+    const newThemes = useThemesStore.getState().allThemes()
+    const outputTheme =
+      resolveScriptureTheme(themeId, newThemes) ??
+      newThemes.find((t) => t.type === "scripture")
+
     // Central base theme: the global override when set, else this output's own
-    // theme (Option A). Delivered every sync so the window can composite
-    // transparent content over it and reveal it on Clear, regardless of which
-    // content mode is live.
-    const baseTheme = resolveBaseTheme(s.baseBackground, theme, s.themes)
-    emitOutputEvent(outputId, BROADCAST_EVENTS.baseTheme, {
-      theme: baseTheme,
-    })
+    // theme (Option A). Now a typed Theme painted through the slide renderer (RF3a /
+    // D1). Delivered every sync so the window can composite transparent content over
+    // it and reveal it on Clear, regardless of which content mode is live.
+    if (outputTheme) {
+      const baseTheme = resolveBaseTheme(s.baseBackground, outputTheme, newThemes)
+      emitOutputEvent(outputId, BROADCAST_EVENTS.baseTheme, {
+        theme: baseTheme,
+      })
+    }
 
     // Active props (marquee/text/image overlays) are otherwise only pushed on
     // mutation via `syncProps`, so a window that opens *after* a prop is already
@@ -103,10 +117,37 @@ export const createSyncSlice: StateCreator<
         ...s.liveMedia,
         layerFilter,
       })
+    } else if (s.liveVerse) {
+      // Live scripture — the renderer Theme-object flip (RF2). Present the pushed verse
+      // as a slide from the output's new-store theme (resolved above): its style-only
+      // scripture placeholder is filled at draw time from the verse that rides
+      // alongside. Falls back to the legacy verse path only if no scripture theme is
+      // resolvable (a scripture built-in always exists, so this is defensive).
+      // Transition is stripped so stepping verses swaps instantly, matching the current
+      // behaviour.
+      if (outputTheme) {
+        const [presented] = presentScripture(
+          outputTheme,
+          { type: "scripture", verse: s.liveVerse },
+          () => "live-scripture"
+        )
+        emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
+          slide: { ...presented.slide, transition: undefined },
+          verse: s.liveVerse,
+          layerFilter,
+        })
+      } else {
+        emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
+          theme,
+          verse: s.liveVerse,
+          layerFilter,
+        })
+      }
     } else {
+      // Live but nothing pushed yet — show the theme backdrop via the legacy path.
       emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
         theme,
-        verse: s.liveVerse,
+        verse: null,
         layerFilter,
       })
     }
@@ -122,16 +163,44 @@ export const createSyncSlice: StateCreator<
   syncStageOutput: () => {
     const s = get()
     const stageOutputs = s.outputs.filter((o) => o.mode === "stage")
+    if (stageOutputs.length === 0) return
+    const newThemes = useThemesStore.getState().allThemes()
     for (const output of stageOutputs) {
       const layout = resolveOutputStageLayout(output, s.stageLayouts)
       const theme = s.themes.find((t) => t.id === output.themeId) ?? s.themes[0]
       if (!theme) continue
+
+      // Present a live verse as a scripture slide (RF3b), mirroring the audience path,
+      // so the stage renders scripture through the slide renderer too. A real schedule
+      // slide takes precedence; the verse rides `currentVerse` ONLY for the presented
+      // scripture slide (that is how the stage renderer knows to fill it). If no
+      // scripture theme resolves, the verse falls back to the legacy renderVerse path.
+      let currentSlide = s.liveSlide
+      let currentVerse: VerseRenderData | null = null
+      if (currentSlide) {
+        currentVerse = null
+      } else if (s.liveVerse) {
+        const scriptureTheme =
+          resolveScriptureTheme(output.themeId, newThemes) ??
+          newThemes.find((t) => t.type === "scripture")
+        if (scriptureTheme) {
+          currentSlide = presentScripture(
+            scriptureTheme,
+            { type: "scripture", verse: s.liveVerse },
+            () => "stage-scripture"
+          )[0].slide
+          currentVerse = s.liveVerse
+        } else {
+          currentVerse = s.liveVerse
+        }
+      }
+
       emitOutputEvent(
         output.id,
         BROADCAST_EVENTS.stageUpdate,
         buildStageUpdatePayload(layout, theme, {
-          currentVerse: s.liveVerse,
-          currentSlide: s.liveSlide,
+          currentVerse,
+          currentSlide,
           notes: s.stageNotes,
           timer: s.stageTimer,
           message: s.stageMessages[output.id] ?? null,

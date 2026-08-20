@@ -1,4 +1,4 @@
-import type { BroadcastTheme } from "@/types/broadcast"
+import type { VerseStyle } from "@/types/broadcast"
 
 /**
  * Leaf text-style helpers for verse rendering: alignment math, theme-value
@@ -41,10 +41,10 @@ export function alignY(
 
 export function resolveHorizontalAlign(
   value:
-    | BroadcastTheme["verseText"]["horizontalAlign"]
-    | BroadcastTheme["reference"]["horizontalAlign"]
+    | VerseStyle["verseText"]["horizontalAlign"]
+    | VerseStyle["reference"]["horizontalAlign"]
     | undefined,
-  fallback: BroadcastTheme["layout"]["textAlign"],
+  fallback: VerseStyle["layout"]["textAlign"],
   allowJustify: boolean
 ): "left" | "center" | "right" | "justify" {
   if (!value) return fallback
@@ -54,8 +54,8 @@ export function resolveHorizontalAlign(
 
 export function resolveVerticalAlign(
   value:
-    | BroadcastTheme["verseText"]["verticalAlign"]
-    | BroadcastTheme["reference"]["verticalAlign"]
+    | VerseStyle["verseText"]["verticalAlign"]
+    | VerseStyle["reference"]["verticalAlign"]
     | undefined
 ): "top" | "middle" | "bottom" {
   return value ?? "top"
@@ -63,8 +63,8 @@ export function resolveVerticalAlign(
 
 export function resolveTextTransform(
   value:
-    | BroadcastTheme["verseText"]["textTransform"]
-    | BroadcastTheme["reference"]["textTransform"]
+    | VerseStyle["verseText"]["textTransform"]
+    | VerseStyle["reference"]["textTransform"]
     | undefined
 ): "none" | "uppercase" | "lowercase" | "capitalize" {
   return value ?? "none"
@@ -72,8 +72,8 @@ export function resolveTextTransform(
 
 export function resolveTextDecoration(
   value:
-    | BroadcastTheme["verseText"]["textDecoration"]
-    | BroadcastTheme["reference"]["textDecoration"]
+    | VerseStyle["verseText"]["textDecoration"]
+    | VerseStyle["reference"]["textDecoration"]
     | undefined
 ): "none" | "underline" | "line-through" {
   return value ?? "none"

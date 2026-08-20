@@ -46,7 +46,7 @@ describe("broadcast store sync", () => {
     vi.resetModules()
   })
 
-  it("syncBroadcastOutput emits current theme and verse to all output windows", async () => {
+  it("syncBroadcastOutput emits the live verse as a presented scripture slide (RF2)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const theme = useBroadcastStore.getState().themes[0]
     const outputs = useBroadcastStore.getState().outputs
@@ -66,19 +66,21 @@ describe("broadcast store sync", () => {
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutput()
 
+    // The renderer Theme-object flip (RF2): a live verse is presented as a slide
+    // carrying the verse, resolved from the new typed theme store — not verse-update.
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast",
-      "broadcast:verse-update",
+      "broadcast:slide-update",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: theme.id }),
+        slide: expect.objectContaining({ id: "live-scripture" }),
         verse: expect.objectContaining({ reference: "John 3:16" }),
       })
     )
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast-alt",
-      "broadcast:verse-update",
+      "broadcast:slide-update",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: theme.id }),
+        slide: expect.objectContaining({ id: "live-scripture" }),
         verse: expect.objectContaining({ reference: "John 3:16" }),
       })
     )
@@ -170,8 +172,11 @@ describe("broadcast store sync", () => {
     )
   })
 
-  it("delivers the base theme — the output's own by default, the override when set", async () => {
+  it("delivers the base theme (resolved from the new store) — the output's own by default, the override when set", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
+    const { resolveLegacyThemeId } = await import(
+      "@/lib/theme/migrate/legacy-id"
+    )
     const themes = useBroadcastStore.getState().themes
     const outputs = useBroadcastStore
       .getState()
@@ -180,18 +185,21 @@ describe("broadcast store sync", () => {
     mainOutput.themeId = themes[0].id
     useBroadcastStore.setState({ outputs: [...outputs], isLive: true })
 
-    // Default (no override): base theme = the output's own theme.
+    // Default (no override): base theme = the output's own theme, resolved in the new
+    // typed store via the legacy-id alias (RF3a).
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutputFor("main")
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast",
       "broadcast:base-theme",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: themes[0].id }),
+        theme: expect.objectContaining({
+          id: resolveLegacyThemeId(themes[0].id),
+        }),
       })
     )
 
-    // Override: the global base theme wins.
+    // Override: the global base theme wins (also alias-resolved).
     const other = themes[1] ?? themes[0]
     useBroadcastStore
       .getState()
@@ -202,7 +210,7 @@ describe("broadcast store sync", () => {
       "broadcast",
       "broadcast:base-theme",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: other.id }),
+        theme: expect.objectContaining({ id: resolveLegacyThemeId(other.id) }),
       })
     )
   })
@@ -335,11 +343,14 @@ describe("broadcast store sync", () => {
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutputFor("alt")
 
+    // A live verse is emitted as a presented scripture slide (RF2); the mirror still
+    // inherits the source output's layer filter.
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast-alt",
-      "broadcast:verse-update",
+      "broadcast:slide-update",
       expect.objectContaining({
-        theme: expect.objectContaining({ id: sourceTheme.id }),
+        slide: expect.objectContaining({ id: "live-scripture" }),
+        verse: expect.objectContaining({ reference: "Ps 23:1" }),
         layerFilter: layers,
       })
     )

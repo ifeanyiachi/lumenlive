@@ -84,13 +84,38 @@ export function registerVisibilityListeners(
     BROADCAST_EVENTS.baseTheme,
     (event) => {
       rt.baseThemeRef.current = event.payload.theme
-      rt.preloadThemeImages(event.payload.theme)
+      rt.preloadBaseThemeImages(event.payload.theme)
       // A video or procedural animated base background needs a per-frame
       // redraw (draw-only — it never pushed NDI on its own); static backgrounds
       // (solid/gradient/image/theme) don't.
       renderLoop.deactivate("baseVideo")
-      const baseBgType = event.payload.theme.background.type
-      if (baseBgType === "video" || baseBgType === "animated") {
+      const baseBg = event.payload.theme.background
+      // The base backdrop renders through `renderSlide` now (RF3a), which draws a
+      // video background from the LIVE video cache — not the image cache. So create,
+      // load, and play the base video into that cache (mirroring the slide-listener),
+      // then the `baseVideo` loop samples the current frame every draw.
+      if (baseBg.type === "video" && baseBg.videoUrl) {
+        const url = baseBg.videoUrl
+        const cached = rt.videoCacheRef.current.get(url)
+        if (cached) {
+          cached.currentTime = 0
+          void cached.play()
+        } else {
+          const video = document.createElement("video")
+          video.crossOrigin = "anonymous"
+          video.muted = true
+          video.loop = true
+          video.playsInline = true
+          video.src = url
+          video.onloadeddata = () => {
+            rt.videoCacheRef.current.set(url, video)
+            void video.play()
+            rt.drawRef.current()
+          }
+          video.load()
+        }
+        renderLoop.activate("baseVideo", { push: false })
+      } else if (baseBg.type === "animated") {
         renderLoop.activate("baseVideo", { push: false })
       }
       rt.logDebug("Received broadcast:base-theme", {

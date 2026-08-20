@@ -54,6 +54,7 @@ export {
   computeTimerRemaining,
 } from "./timer"
 export { getTextLineCount, getTextWordCount } from "./text-drawing"
+export { scriptureElementToVerseStyle } from "./scripture-style"
 
 function drawSingleElement(
   ctx: CanvasRenderingContext2D,

@@ -3,6 +3,7 @@ import {
   preloadImage,
   preloadVideoBackground,
   preloadThemeAssets,
+  preloadSlideAssets,
 } from "./asset-cache"
 import type { BroadcastTheme } from "@/types/broadcast"
 
@@ -141,5 +142,31 @@ describe("preloadThemeAssets", () => {
     } as unknown as BroadcastTheme
     preloadThemeAssets(theme, cache)
     expect(cache.has("video:bg.mp4")).toBe(true)
+  })
+})
+
+describe("preloadSlideAssets (slide-model / RF3a)", () => {
+  it("loads a slide image background and every image element by imageUrl", () => {
+    const cache = new Map<string, HTMLImageElement>()
+    const source = {
+      background: { type: "image" as const, imageUrl: "bg.png" },
+      elements: [
+        { type: "image", imageUrl: "el1.png" },
+        { type: "shape" },
+        { type: "image", imageUrl: "el2.png" },
+      ],
+    } as unknown as Parameters<typeof preloadSlideAssets>[0]
+    preloadSlideAssets(source, cache)
+    expect([...cache.keys()].sort()).toEqual(["bg.png", "el1.png", "el2.png"])
+  })
+
+  it("does not touch the image cache for a video background (video renders from the live video cache)", () => {
+    const cache = new Map<string, HTMLImageElement>()
+    const source = {
+      background: { type: "video" as const, videoUrl: "bg.mp4" },
+      elements: [],
+    } as unknown as Parameters<typeof preloadSlideAssets>[0]
+    preloadSlideAssets(source, cache)
+    expect(cache.size).toBe(0)
   })
 })

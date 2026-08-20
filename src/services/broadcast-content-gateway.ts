@@ -102,6 +102,13 @@ export interface SlideUpdatePayload {
   slide: Slide
   prevSlide?: Slide
   layerFilter?: LayerFilter
+  /**
+   * Live scripture verse for a presented scripture slide (themeredo.md, flip RF2).
+   * Present only when the slide is a live scripture push: its style-only scripture
+   * placeholder is filled with this verse at draw time via a `scriptureContent`
+   * payload. Absent for ordinary schedule slides.
+   */
+  verse?: VerseRenderData | null
 }
 
 export interface MediaUpdatePayload {
@@ -141,7 +148,11 @@ export interface PropsUpdatePayload {
 }
 
 export interface BaseThemePayload {
-  theme: BroadcastTheme
+  /**
+   * The central base/master backdrop, now a typed {@link Theme} painted through the
+   * slide renderer (themeredo.md, flip RF3a / decision D1) — was a `BroadcastTheme`.
+   */
+  theme: Theme
 }
 
 export interface MutePayload {

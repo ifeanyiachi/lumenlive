@@ -1,5 +1,6 @@
 import type {
   BroadcastTheme,
+  VerseStyle,
   ThemeElement,
   VerseRenderData,
   RenderOptions,
@@ -57,7 +58,7 @@ export function renderVerse(
 
 function drawTextBox(
   ctx: CanvasRenderingContext2D,
-  scaledTheme: BroadcastTheme,
+  scaledTheme: VerseStyle,
   metrics: VerseLayoutMetrics,
   opacity: number
 ) {
@@ -80,7 +81,7 @@ function drawTextBox(
 function drawFixedRegion(
   ctx: CanvasRenderingContext2D,
   regionId: string,
-  scaledTheme: BroadcastTheme,
+  scaledTheme: VerseStyle,
   verse: VerseRenderData | null,
   metrics: VerseLayoutMetrics,
   opacity: number,
@@ -140,7 +141,15 @@ function renderVerseImpl(
     ctx.globalAlpha = opacity
   }
 
-  drawBackground(ctx, scaledTheme, options?.imageCache, options?.frameTime)
+  // `scaledTheme` narrowed to `VerseStyle` (VR1), but this path was entered with a full
+  // `BroadcastTheme` (see `theme` above), and the scaler spreads `...theme`, so at runtime
+  // it retains the `background`/`resolution` `drawBackground` needs — hence the cast.
+  drawBackground(
+    ctx,
+    scaledTheme as BroadcastTheme,
+    options?.imageCache,
+    options?.frameTime
+  )
 
   const layerOrder = theme.layerOrder
   if (!layerOrder || layerOrder.length === 0) {

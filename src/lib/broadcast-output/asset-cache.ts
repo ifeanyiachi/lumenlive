@@ -13,6 +13,11 @@
  */
 
 import type { BroadcastTheme } from "@/types/broadcast"
+import type {
+  SlideBackground,
+  SlideElement,
+  SlideImageElement,
+} from "@/types/slide"
 
 type ImageCache = Map<string, HTMLImageElement>
 
@@ -91,6 +96,39 @@ export function preloadThemeAssets(
   for (const el of theme.elements ?? []) {
     if (el.type === "image" && el.image?.url) {
       preloadImage(cache, el.image.url, onLoaded, "element image")
+    }
+  }
+}
+
+/**
+ * Preload the **image** assets a slide-model source references — its
+ * {@link SlideBackground} image and any decorative image elements — into the image
+ * `cache`. The `Theme`-model analogue of {@link preloadThemeAssets} (themeredo.md,
+ * flip RF3a): the base backdrop is now a `Theme`, whose background/elements are
+ * slide-shaped (`imageUrl`).
+ *
+ * Video backgrounds are NOT handled here: `renderSlide` draws them from a separate
+ * `videoCache` of live, playing `<video>` elements (not the image cache), so the
+ * output runtime creates + plays those directly (see the base-theme listener),
+ * exactly as it does for slide-mode video backgrounds.
+ */
+export function preloadSlideAssets(
+  source: { background: SlideBackground; elements: SlideElement[] },
+  cache: ImageCache,
+  onLoaded?: () => void
+): void {
+  const bg = source.background
+  if (bg.type === "image" && bg.imageUrl) {
+    preloadImage(cache, bg.imageUrl, onLoaded, "slide background image")
+  }
+  for (const el of source.elements) {
+    if (el.type === "image") {
+      preloadImage(
+        cache,
+        (el as SlideImageElement).imageUrl,
+        onLoaded,
+        "slide element image"
+      )
     }
   }
 }

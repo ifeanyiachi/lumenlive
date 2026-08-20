@@ -182,6 +182,15 @@ function scripturePlaceholder(theme: BroadcastTheme, box: Box): SlideScriptureEl
     referenceFontSize: theme.reference.fontSize,
     referenceColor: theme.reference.color,
     shadow: shadowOf(vt),
+    // Verse-style carriers (RF1) — preserve the authored verse styling losslessly so
+    // the live scripture payload can be rebuilt from the placeholder alone.
+    verseNumbers: { ...theme.verseNumbers },
+    referenceUppercase: theme.reference.uppercase,
+    referencePosition: theme.reference.position,
+    breakPerVerse: theme.layout.breakPerVerse ?? false,
+    textTransform: transform(vt),
+    letterSpacing: vt.letterSpacing,
+    textBox: { ...theme.textBox },
   }
 }
 

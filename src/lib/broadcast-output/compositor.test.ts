@@ -58,6 +58,18 @@ vi.mock("./overlays", () => ({
   drawPropsOverlay: vi.fn(() => ops.push("props")),
 }))
 
+// The scripture-slide seam is exercised in its own byte-parity suite; here we only
+// assert the compositor routes the live verse through the slide path (flip F5).
+vi.mock("./scripture-slide", () => ({
+  buildScriptureSlide: vi.fn(() => ({
+    slide: { name: "live-scripture" },
+    scriptureContent: new Map(),
+  })),
+  buildScriptureContent: vi.fn(() => new Map([["s", { verse: {}, style: {} }]])),
+  // The base backdrop is now painted via renderSlide over this slide (RF3a).
+  buildBaseSlide: vi.fn(() => ({ name: "base", background: { type: "solid" } })),
+}))
+
 vi.mock("@/lib/slide-animation", () => ({
   isAnimationActive: vi.fn(() => false),
 }))
@@ -202,7 +214,7 @@ describe("composeFrame — clear foreground", () => {
     expect(ops).toEqual([
       ...FILL_BLACK,
       "drawMediaFitted(ml-img)",
-      "renderVerse(base)",
+      "renderSlide(base)",
       "props",
       "alerts",
       "countdowns",
@@ -293,7 +305,7 @@ describe("composeFrame — slide mode", () => {
     expect(ops).toEqual([
       ...FILL_BLACK,
       "drawMediaFitted(ml-img)",
-      "renderVerse(base)",
+      "renderSlide(base)",
       "drawSlideElements(ST)",
       "props",
       "alerts",
@@ -325,6 +337,58 @@ describe("composeFrame — verse mode", () => {
     ])
   })
 
+  it("a live verse draws chrome via renderVerse then the verse via the slide path (flip F5)", () => {
+    composeFrame(
+      recCtx(),
+      SW,
+      SH,
+      makeState({
+        latestData: {
+          theme: opaqueTheme("theme-a"),
+          verse: { reference: "John 3:16", segments: [] },
+        },
+      })
+    )
+    expect(ops).toEqual([
+      "renderVerse(theme-a)",
+      "drawSlideElements(live-scripture)",
+      "props",
+      "alerts",
+      "countdowns",
+    ])
+  })
+
+  it("a null chrome render skips the verse foreground and runs the black fallback", () => {
+    vi.mocked(renderVerse).mockImplementationOnce(
+      (_ctx: unknown, theme: { id: string }) => {
+        ops.push(`renderVerse(${theme.id})`)
+        return null
+      }
+    )
+    const onNullVerse = vi.fn()
+    composeFrame(
+      recCtx(),
+      SW,
+      SH,
+      makeState({
+        latestData: {
+          theme: opaqueTheme("theme-a"),
+          verse: { reference: "John 3:16", segments: [] },
+        },
+        onNullVerse,
+      })
+    )
+    expect(onNullVerse).toHaveBeenCalledTimes(1)
+    // No drawSlideElements — the foreground is skipped when the chrome render fails.
+    expect(ops).toEqual([
+      "renderVerse(theme-a)",
+      ...FILL_BLACK,
+      "props",
+      "alerts",
+      "countdowns",
+    ])
+  })
+
   it("transparent theme with a DIFFERENT base theme composits the base behind", () => {
     composeFrame(
       recCtx(),
@@ -340,7 +404,7 @@ describe("composeFrame — verse mode", () => {
     expect(ops).toEqual([
       ...FILL_BLACK,
       "drawMediaFitted(ml-img)",
-      "renderVerse(base)",
+      "renderSlide(base)",
       "renderVerse(theme-t)",
       "props",
       "alerts",

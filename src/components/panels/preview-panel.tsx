@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
-import { CanvasVerse } from "@/components/ui/canvas-verse"
+import { ScripturePreview } from "@/components/ui/scripture-preview"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useBibleStore, useBroadcastStore, useSettingsStore } from "@/stores"
@@ -201,12 +201,9 @@ export function PreviewPanel() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [lexiconEnabled])
 
-  const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore(
     (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
-
-  const activeTheme = themes.find((t) => t.id === activeThemeId) ?? themes[0]
   const mainOutput = useBroadcastStore((s) => findOutput(s.outputs, "main"))
   const translation =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ??
@@ -384,10 +381,10 @@ export function PreviewPanel() {
         ) : showSlide ? (
           <SlideCanvas slide={liveSlide} />
         ) : (
-          <CanvasVerse
-            theme={activeTheme}
+          // Scripture preview through the slide path (RF3c) — matches the audience output.
+          <ScripturePreview
+            themeId={activeThemeId}
             verse={verseData}
-            animate
             verseAutoFit={mainOutput?.verseAutoFit ?? true}
             maxVerseScale={mainOutput?.maxVerseScale ?? 1.5}
             minVerseFontSize={mainOutput?.minVerseFontSize ?? 40}
