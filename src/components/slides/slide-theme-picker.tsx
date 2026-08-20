@@ -17,17 +17,23 @@ import {
 } from "@/components/ui/dialog"
 import { PaletteIcon, CheckIcon } from "lucide-react"
 import { usePresentationStore } from "@/stores/presentation-store"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
-import type { SlideThemeCategory, SlideLayoutVariant } from "@/types/slide"
+import { useThemesStore } from "@/stores/themes"
+import { BUILTIN_THEMES } from "@/lib/theme/builtins"
+import type { ThemeType } from "@/types/theme"
+import type { SlideBackground } from "@/types/slide"
 import { cn } from "@/lib/utils"
 
-const CATEGORY_LABELS: Record<SlideThemeCategory, string> = {
-  general: "General",
-  song: "Song / Lyrics",
+const TYPE_LABELS: Record<ThemeType, string> = {
   scripture: "Scripture",
+  song: "Song / Lyrics",
+  countdown: "Countdown",
+  sermon: "Sermon",
+  overlay: "Overlay",
+  announcement: "Announcement",
 }
 
-function gradientCss(bg: import("@/types/slide").SlideBackground): string {
+/** A static CSS swatch approximating a theme's background for the grid preview. */
+function gradientCss(bg: SlideBackground): string {
   if (bg.type === "solid") return bg.color ?? "#1a1a2e"
   if (bg.type === "gradient" && bg.gradient) {
     const stopsStr = bg.gradient.stops
@@ -52,30 +58,35 @@ function gradientCss(bg: import("@/types/slide").SlideBackground): string {
   return "#1a1a2e"
 }
 
+/**
+ * Deck theming (themeredo.md, 3C). Applying a `Theme` **bakes** its background
+ * and text typography onto the slide(s) — there is no stored theme reference, so
+ * re-applying is how you change the look. Lists every theme from the typed store
+ * (built-ins + customs), filterable by type; the variant selector is gone (the
+ * type-first model has no per-theme layout variants).
+ */
 export function SlideThemePicker() {
   const [open, setOpen] = useState(false)
-  const [category, setCategory] = useState<SlideThemeCategory | "all">("all")
+  const [typeFilter, setTypeFilter] = useState<ThemeType | "all">("all")
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null)
-  const [variant, setVariant] = useState<SlideLayoutVariant>("content-only")
 
-  // Built-ins plus the user's custom slide/song themes (Phase 4 follow-up).
-  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
-  const allThemes = useMemo(
-    () => [...BUILTIN_SLIDE_THEMES, ...customSlideThemes],
-    [customSlideThemes]
+  const customThemes = useThemesStore((s) => s.customThemes)
+  // Built-in look catalog first, then the user's custom themes.
+  const themes = useMemo(
+    () => [...BUILTIN_THEMES, ...customThemes],
+    [customThemes]
   )
 
   const filtered =
-    category === "all"
-      ? allThemes
-      : allThemes.filter((t) => t.category === category)
+    typeFilter === "all"
+      ? themes
+      : themes.filter((t) => t.type === typeFilter)
 
-  const selectedTheme = allThemes.find((t) => t.id === selectedThemeId)
-  const availableVariants = selectedTheme?.variants.map((v) => v.layout) ?? []
+  const selectedTheme = themes.find((t) => t.id === selectedThemeId)
 
   const handleApplyToSlide = () => {
     if (!selectedThemeId) return
-    usePresentationStore.getState().applyThemeToSlide(selectedThemeId, variant)
+    usePresentationStore.getState().applyThemeToSlide(selectedThemeId)
   }
 
   const handleApplyToAll = () => {
@@ -98,48 +109,29 @@ export function SlideThemePicker() {
 
         <div className="flex items-center gap-2">
           <Select
-            value={category}
-            onValueChange={(v) => setCategory(v as SlideThemeCategory | "all")}
+            value={typeFilter}
+            onValueChange={(v) => setTypeFilter(v as ThemeType | "all")}
           >
-            <SelectTrigger className="h-8 w-36 text-xs">
+            <SelectTrigger className="h-8 w-40 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-              <SelectItem value="song">Song / Lyrics</SelectItem>
-              <SelectItem value="scripture">Scripture</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
+              {(Object.entries(TYPE_LABELS) as [ThemeType, string][]).map(
+                ([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
-
-          {selectedTheme && availableVariants.length > 0 && (
-            <Select
-              value={variant}
-              onValueChange={(v) => setVariant(v as SlideLayoutVariant)}
-            >
-              <SelectTrigger className="h-8 w-36 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableVariants.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v
-                      .replace(/-/g, " ")
-                      .replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </div>
 
         <ScrollArea className="max-h-[50vh]">
           <div className="grid grid-cols-3 gap-3 p-1">
             {filtered.map((theme) => {
-              const previewVariant = theme.variants[0]
-              if (!previewVariant) return null
               const isSelected = selectedThemeId === theme.id
-
               return (
                 <button
                   key={theme.id}
@@ -154,9 +146,7 @@ export function SlideThemePicker() {
                 >
                   <div
                     className="aspect-video w-full"
-                    style={{
-                      background: gradientCss(previewVariant.background),
-                    }}
+                    style={{ background: gradientCss(theme.background) }}
                   >
                     {isSelected && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -167,7 +157,7 @@ export function SlideThemePicker() {
                   <div className="flex items-center justify-between px-2 py-1.5">
                     <span className="text-xs font-medium">{theme.name}</span>
                     <span className="text-[0.5625rem] text-muted-foreground">
-                      {CATEGORY_LABELS[theme.category]}
+                      {TYPE_LABELS[theme.type]}
                     </span>
                   </div>
                 </button>

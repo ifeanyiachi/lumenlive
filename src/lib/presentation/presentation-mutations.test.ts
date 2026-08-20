@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest"
 import {
-  applyThemeToAllSlides,
+  applyThemeToDeck,
+  applyThemeToSlideAt,
   duplicatePresentation,
   exportToJson,
   importFromJson,
-  resolveThemeSlideContent,
 } from "./presentation-mutations"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { SONG_BUILTIN, BUILTIN_THEMES } from "@/lib/theme/builtins"
+import type { SlideTextElement } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import {
   createDefaultPresentation,
   createDefaultSlide,
@@ -67,75 +69,95 @@ describe("export/import round-trip", () => {
   })
 })
 
-describe("theme application", () => {
-  const theme = BUILTIN_SLIDE_THEMES[0]
+describe("theme application (bake-in model, 3C)", () => {
+  const theme = SONG_BUILTIN
+  // The typography the song built-in bakes onto text (its lyrics placeholder).
+  const lyric = SONG_BUILTIN.elements.find(
+    (e): e is SlideTextElement => e.type === "text"
+  )!
 
-  it("resolveThemeSlideContent returns background + fresh element ids", () => {
-    const variant = theme.variants[0]
-    const content = resolveThemeSlideContent(
-      theme.id,
-      variant.layout,
-      counter("el")
-    )!
-    expect(content).not.toBeNull()
-    expect(content.background).toEqual(variant.background)
-    expect(content.elements.map((e) => e.id)).toEqual(
-      variant.elements.map((_, i) => `el-${i}`)
-    )
-  })
-
-  it("resolveThemeSlideContent returns null for an unknown theme", () => {
-    expect(resolveThemeSlideContent("nope", "title", counter())).toBeNull()
-  })
-
-  it("applyThemeToAllSlides sets each slide's background and stamps updatedAt", () => {
+  it("applyThemeToDeck bakes background + typography onto every slide", () => {
     const p = createDefaultPresentation("Deck")
     p.slides = [createDefaultSlide(), createDefaultSlide()]
-    const next = applyThemeToAllSlides(p, theme.id, NOW)!
+    const next = applyThemeToDeck(p, theme.id, NOW, BUILTIN_THEMES)!
     expect(next).not.toBeNull()
     expect(next.updatedAt).toBe(NOW)
-    for (const slide of next.slides) expect(slide.updatedAt).toBe(NOW)
+    for (const slide of next.slides) {
+      expect(slide.updatedAt).toBe(NOW)
+      expect(slide.background).toEqual(theme.background)
+      // Every text element takes the theme's font/color; text + id are preserved.
+      for (const el of slide.elements) {
+        if (el.type !== "text") continue
+        expect(el.fontFamily).toBe(lyric.fontFamily)
+        expect(el.fontSize).toBe(lyric.fontSize)
+        expect(el.color).toBe(lyric.color)
+      }
+    }
   })
 
-  it("applyThemeToAllSlides returns null for an unknown theme", () => {
-    expect(
-      applyThemeToAllSlides(createDefaultPresentation("x"), "nope", NOW)
-    ).toBeNull()
+  it("preserves each text element's own text, position, and id", () => {
+    const p = createDefaultPresentation("Deck")
+    const slide = createDefaultSlide()
+    const original = slide.elements.find(
+      (e): e is SlideTextElement => e.type === "text"
+    )
+    p.slides = [slide]
+    const next = applyThemeToDeck(p, theme.id, NOW, BUILTIN_THEMES)!
+    const baked = next.slides[0].elements.find(
+      (e): e is SlideTextElement => e.type === "text"
+    )
+    if (original && baked) {
+      expect(baked.id).toBe(original.id)
+      expect(baked.text).toBe(original.text)
+      expect(baked.x).toBe(original.x)
+      expect(baked.width).toBe(original.width)
+    }
   })
 
-  it("resolves a theme from a custom `themes` pool (Phase 3d)", () => {
-    const custom = {
+  it("applyThemeToSlideAt bakes onto only the targeted slide", () => {
+    const p = createDefaultPresentation("Deck")
+    p.slides = [createDefaultSlide(), createDefaultSlide()]
+    const before = p.slides[1].background
+    const next = applyThemeToSlideAt(p, 0, theme.id, NOW, BUILTIN_THEMES)!
+    expect(next.slides[0].background).toEqual(theme.background)
+    // The other slide is untouched (same background reference-equal object).
+    expect(next.slides[1].background).toBe(before)
+  })
+
+  it("returns null for an unknown theme or an out-of-range index", () => {
+    const p = createDefaultPresentation("x")
+    expect(applyThemeToDeck(p, "nope", NOW, BUILTIN_THEMES)).toBeNull()
+    expect(applyThemeToSlideAt(p, 0, "nope", NOW, BUILTIN_THEMES)).toBeNull()
+    expect(applyThemeToSlideAt(p, 99, theme.id, NOW, BUILTIN_THEMES)).toBeNull()
+  })
+
+  it("resolves a legacy theme id through the alias", () => {
+    const p = createDefaultPresentation("Deck")
+    p.slides = [createDefaultSlide()]
+    // theme-hymnal → builtin-song-hymnal in the alias.
+    const next = applyThemeToDeck(p, "theme-hymnal", NOW, BUILTIN_THEMES)
+    expect(next).not.toBeNull()
+    const hymnal = BUILTIN_THEMES.find((t) => t.id === "builtin-song-hymnal")!
+    expect(next!.slides[0].background).toEqual(hymnal.background)
+  })
+
+  it("resolves a theme from a custom pool", () => {
+    const custom: Theme = {
+      ...SONG_BUILTIN,
       id: "custom-x",
       name: "Custom",
-      category: "song" as const,
       builtin: false,
-      variants: [
-        {
-          layout: "content-only" as const,
-          background: { type: "solid" as const, color: "#abcabc" },
-          elements: [],
-        },
-      ],
+      background: { type: "solid", color: "#abcabc" },
     }
-    // Unknown to the built-in default pool…
-    expect(
-      resolveThemeSlideContent("custom-x", "content-only", counter())
-    ).toBeNull()
-    // …but resolvable when passed in the pool.
-    const content = resolveThemeSlideContent(
-      "custom-x",
-      "content-only",
-      counter(),
-      [...BUILTIN_SLIDE_THEMES, custom]
-    )!
-    expect(content.background).toEqual({ type: "solid", color: "#abcabc" })
-
-    const next = applyThemeToAllSlides(
-      createDefaultPresentation("Deck"),
-      "custom-x",
-      NOW,
-      [...BUILTIN_SLIDE_THEMES, custom]
-    )!
+    const p = createDefaultPresentation("Deck")
+    p.slides = [createDefaultSlide()]
+    // Unknown to the built-in-only pool…
+    expect(applyThemeToDeck(p, "custom-x", NOW, BUILTIN_THEMES)).toBeNull()
+    // …but resolvable when included in the pool.
+    const next = applyThemeToDeck(p, "custom-x", NOW, [
+      ...BUILTIN_THEMES,
+      custom,
+    ])!
     expect(next.slides[0].background).toEqual({
       type: "solid",
       color: "#abcabc",

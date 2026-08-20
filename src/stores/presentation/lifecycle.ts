@@ -2,13 +2,13 @@ import type { StateCreator } from "zustand"
 import type { Presentation } from "@/types/slide"
 import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
 import { createDefaultPresentation } from "@/lib/slide-defaults"
-import * as slides from "@/lib/presentation/slide-mutations"
 import * as catalog from "@/lib/presentation/presentation-mutations"
 import {
   slideThemeToEditableSlide,
   editableSlideToSlideTheme,
 } from "@/lib/theme/slide-theme-edit"
 import { themeToSlide, type ThemeIdentity } from "@/lib/theme/render"
+import { useThemesStore } from "@/stores/themes"
 import { newId, resetHistory, pushUndo } from "./internals"
 import type { PresentationState } from "./types"
 
@@ -237,38 +237,31 @@ export const createLifecycleSlice: StateCreator<
     })
   },
 
-  applyThemeToSlide: (themeId, variant) => {
-    // Resolve against built-ins + the user's custom slide themes (Phase 3d/4).
-    const content = catalog.resolveThemeSlideContent(themeId, variant, newId, [
-      ...BUILTIN_SLIDE_THEMES,
-      ...get().customSlideThemes,
-    ])
-    if (!content) return
+  applyThemeToSlide: (themeId) => {
     const s = get()
     if (!s.draftPresentation) return
+    // Bake the theme's background + typography onto the active slide, resolving
+    // against the typed theme store (built-ins + customs). See presentation-mutations.
+    const next = catalog.applyThemeToSlideAt(
+      s.draftPresentation,
+      s.activeSlideIndex,
+      themeId,
+      Date.now(),
+      useThemesStore.getState().allThemes()
+    )
+    if (!next) return
     pushUndo(s.draftPresentation)
-    set({
-      draftPresentation: slides.updateSlideAt(
-        s.draftPresentation,
-        s.activeSlideIndex,
-        {
-          background: content.background,
-          elements: content.elements,
-        },
-        Date.now()
-      ),
-      selectedElementId: content.elements[0]?.id ?? null,
-    })
+    set({ draftPresentation: next })
   },
 
   applyThemeToPresentation: (themeId) => {
     const s = get()
     if (!s.draftPresentation) return
-    const next = catalog.applyThemeToAllSlides(
+    const next = catalog.applyThemeToDeck(
       s.draftPresentation,
       themeId,
       Date.now(),
-      [...BUILTIN_SLIDE_THEMES, ...s.customSlideThemes]
+      useThemesStore.getState().allThemes()
     )
     if (!next) return
     pushUndo(s.draftPresentation)

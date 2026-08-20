@@ -3,7 +3,6 @@ import type {
   SlideElement,
   Presentation,
   SlideTheme,
-  SlideLayoutVariant,
 } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import type { ThemeIdentity } from "@/lib/theme/render"
@@ -108,7 +107,7 @@ export interface PresentationState {
   getPresentationById: (id: string) => Presentation | undefined
   getSlide: (presentationId: string, slideIndex: number) => Slide | undefined
 
-  applyThemeToSlide: (themeId: string, variant: SlideLayoutVariant) => void
+  applyThemeToSlide: (themeId: string) => void
   applyThemeToPresentation: (themeId: string) => void
 
   exportPresentation: (id: string) => string | null

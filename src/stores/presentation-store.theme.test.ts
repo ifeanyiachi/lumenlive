@@ -173,29 +173,17 @@ describe("presentation-store — song theme editing", () => {
     expect(s.draftPresentation).toBeNull()
   })
 
-  it("applies a CUSTOM slide theme to a deck (Phase 4 follow-up)", async () => {
+  it("bakes a typed Theme's background onto every slide of a deck", async () => {
     const { store } = await freshStore()
-    store.getState().saveCustomSlideTheme({
-      id: "c-apply",
-      name: "Applied",
-      category: "song",
-      builtin: false,
-      variants: [
-        {
-          layout: "content-only",
-          background: { type: "solid", color: "#0f0f0f" },
-          elements: [],
-        },
-      ],
-    })
+    const { BUILTIN_THEMES } = await import("@/lib/theme/builtins")
+    const hymnal = BUILTIN_THEMES.find((t) => t.id === "builtin-song-hymnal")!
     const id = store.getState().createPresentation("Deck")
     store.getState().startEditing(id)
-    store.getState().applyThemeToPresentation("c-apply")
+    store.getState().applyThemeToPresentation(hymnal.id)
     const draft = store.getState().draftPresentation!
-    expect(
-      draft.slides.every(
-        (sl) => (sl.background as { color?: string }).color === "#0f0f0f"
-      )
-    ).toBe(true)
+    expect(draft.slides.length).toBeGreaterThan(0)
+    for (const sl of draft.slides) {
+      expect(sl.background).toEqual(hymnal.background)
+    }
   })
 })

@@ -2,10 +2,10 @@ import type {
   Presentation,
   Slide,
   SlideElement,
-  SlideLayoutVariant,
-  SlideTheme,
+  SlideTextElement,
 } from "@/types/slide"
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import type { Theme } from "@/types/theme"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import { migrateSlideElements } from "@/lib/slide-migration"
 
 /**
@@ -78,65 +78,120 @@ export function importFromJson(
   }
 }
 
-/** The slide-level content a theme variant contributes. */
-export interface ThemeSlideContent {
-  background: Slide["background"]
-  elements: SlideElement[]
+// ── Theme application (themeredo.md, 3C — bake-in model) ──
+//
+// Applying a `Theme` to a deck is a one-shot **bake**: the theme's background is
+// copied onto the slide(s) and its text typography is stamped onto the slide's
+// existing text elements. There is no `Slide.themeId` reference — the look is
+// baked into the slide data, and re-applying a theme is how you change it. This
+// keeps each slide's own content and layout (text strings, positions, non-text
+// elements) while restyling it to match the theme.
+
+/** The text-styling fields a theme bakes onto existing slide text. */
+type Typography = Pick<
+  SlideTextElement,
+  | "fontFamily"
+  | "fontSize"
+  | "fontWeight"
+  | "bold"
+  | "italic"
+  | "underline"
+  | "color"
+  | "letterSpacing"
+  | "lineHeight"
+  | "textTransform"
+  | "shadow"
+  | "outline"
+>
+
+/**
+ * The typography of a theme's representative text element — its role-carrying
+ * placeholder (lyrics/title/body) if present, else its first plain text element.
+ * `null` when the theme has no text element to borrow styling from (e.g. a bare
+ * scripture or countdown look), in which case only the background is baked.
+ */
+function themeTypography(theme: Theme): Typography | null {
+  const texts = theme.elements.filter(
+    (e): e is SlideTextElement => e.type === "text"
+  )
+  const source = texts.find((t) => t.role != null) ?? texts[0]
+  if (!source) return null
+  return {
+    fontFamily: source.fontFamily,
+    fontSize: source.fontSize,
+    fontWeight: source.fontWeight,
+    bold: source.bold,
+    italic: source.italic,
+    underline: source.underline,
+    color: source.color,
+    letterSpacing: source.letterSpacing,
+    lineHeight: source.lineHeight,
+    textTransform: source.textTransform,
+    shadow: source.shadow ? structuredClone(source.shadow) : undefined,
+    outline: source.outline ? structuredClone(source.outline) : undefined,
+  }
+}
+
+/** Resolve a deck-theme id (aliasing legacy ids) against the given pool. */
+function findDeckTheme(themeId: string, themes: Theme[]): Theme | undefined {
+  const id = resolveLegacyThemeId(themeId)
+  return themes.find((t) => t.id === id)
 }
 
 /**
- * Resolve the background + freshly-id'd elements for applying a theme variant to
- * a single slide. Returns `null` when the theme or a usable variant is missing.
- *
- * `themes` is the pool to resolve `themeId` against — defaults to the built-in
- * catalog, but callers with user-authored custom slide themes pass
- * `[...BUILTIN_SLIDE_THEMES, ...customSlideThemes]` so those resolve too
- * (theme-unification-plan.md, Phase 3d).
+ * Bake a theme's background + typography onto one slide: replace the background,
+ * and stamp the theme's text styling onto every text element (preserving each
+ * element's text, position, id, and any non-text elements). Pure — deep-clones
+ * shared theme data so the slide never aliases the built-in constant.
  */
-export function resolveThemeSlideContent(
-  themeId: string,
-  variant: SlideLayoutVariant,
-  newId: () => string,
-  themes: SlideTheme[] = BUILTIN_SLIDE_THEMES
-): ThemeSlideContent | null {
-  const theme = themes.find((t) => t.id === themeId)
-  if (!theme) return null
-  const v =
-    theme.variants.find((vr) => vr.layout === variant) ?? theme.variants[0]
-  if (!v) return null
-  // Deep-clone from the shared BUILTIN_SLIDE_THEMES constant so mutating a
-  // slide never corrupts the builtin (or another slide cloned from it).
+function bakeThemeOntoSlide(slide: Slide, theme: Theme, now: number): Slide {
+  const typo = themeTypography(theme)
   return {
-    background: structuredClone(v.background),
-    elements: v.elements.map(
-      (el) => ({ ...structuredClone(el), id: newId() }) as SlideElement
-    ),
+    ...slide,
+    background: structuredClone(theme.background),
+    elements: typo
+      ? slide.elements.map((el) =>
+          el.type === "text" ? ({ ...el, ...typo } as SlideElement) : el
+        )
+      : slide.elements,
+    updatedAt: now,
   }
 }
 
 /**
- * Apply a theme's background to every slide in the deck (using each theme's
- * "content-only" variant, falling back to its first). Returns `null` when the
- * theme is unknown.
+ * Bake a theme onto a single slide (by index). Returns `null` when the theme is
+ * unknown or the index is out of range.
  */
-export function applyThemeToAllSlides(
+export function applyThemeToSlideAt(
+  draft: Presentation,
+  index: number,
+  themeId: string,
+  now: number,
+  themes: Theme[]
+): Presentation | null {
+  const theme = findDeckTheme(themeId, themes)
+  if (!theme) return null
+  if (index < 0 || index >= draft.slides.length) return null
+  const slides = draft.slides.map((slide, i) =>
+    i === index ? bakeThemeOntoSlide(slide, theme, now) : slide
+  )
+  return { ...draft, slides, updatedAt: now }
+}
+
+/**
+ * Bake a theme onto every slide in the deck. Returns `null` when the theme is
+ * unknown.
+ */
+export function applyThemeToDeck(
   draft: Presentation,
   themeId: string,
   now: number,
-  themes: SlideTheme[] = BUILTIN_SLIDE_THEMES
+  themes: Theme[]
 ): Presentation | null {
-  const theme = themes.find((t) => t.id === themeId)
+  const theme = findDeckTheme(themeId, themes)
   if (!theme) return null
-  const slides = draft.slides.map((slide) => {
-    const v =
-      theme.variants.find((vr) => vr.layout === "content-only") ??
-      theme.variants[0]
-    if (!v) return slide
-    return {
-      ...slide,
-      background: structuredClone(v.background),
-      updatedAt: now,
-    }
-  })
+  const slides = draft.slides.map((slide) =>
+    bakeThemeOntoSlide(slide, theme, now)
+  )
   return { ...draft, slides, updatedAt: now }
 }
