@@ -837,18 +837,23 @@ holds.
 >   fallback for live paths that have NOT been hardware-smoke-tested (scripture/idle/countdown/base/song all
 >   render through the new slide path now, but only tests prove it). **Recommend a real output+stage+NDI smoke
 >   test here** before deleting `renderVerse`/the parity harness or retiring the legacy broadcast store.
-> - **Wave 3B-tail (PENDING — after smoke test):** delete `verse-renderer/index.ts`'s `renderVerse` (reduce to
->   the re-export barrel), `verse-renderer/background.ts` + `project-element.ts` (+ tests), `countdown/theme-render.ts`
->   (+ test), the `present/parity/**` harness (scripture + countdown), and `scripture-slide.ts`'s now-unused
->   `buildScriptureSlide`. All are now test-only leaves. **KEEP** `verse-renderer/{layout,verse-text,verse-tokens,
->   text-style}.ts` — live infra reused by `slide-renderer/text-drawing.ts` + `verse-pagination.ts`.
-> - **Wave 3C (BLOCKED — needs a design decision, NOT a clean swap).** The map under-scoped this: the three
+> - **Wave 3B-tail (DONE — commit `5d05910`):** `renderVerse` deleted. `verse-renderer/index.ts` reduced to the
+>   re-export barrel of the layout/text primitives; deleted `verse-renderer/background.ts` + `project-element.ts`,
+>   `countdown/theme-render.ts`, the whole `present/parity/**` harness (scripture + countdown + recording-ctx), and
+>   `scripture-slide.ts`'s `buildScriptureSlide`. Pruned the parity-dependent cases from `scripture-slide.test` +
+>   `scripture-style.test`. **KEPT** `verse-renderer/{layout,verse-text,verse-tokens,text-style}.ts` (live infra).
+>   The slide path is now the sole scripture/countdown engine. **Decision (user, this session): pushed past the
+>   smoke-test gate — proceeding to Wave 4 without a hardware smoke test first (user runs it after).**
+> - **Wave 3C (DECIDED: port the picker — but plan the UX separately before executing).** The three
 >   `customSlideThemes` consumers (`slide-theme-picker.tsx`, `song-projection-options.tsx`, `songs-section.tsx`)
 >   are built on the OLD `SlideTheme` model — `BUILTIN_SLIDE_THEMES`, `.variants` (content-only / lower-third /…),
 >   `.category`, `applyThemeToSlide(themeId, variant)`. The new single-slide `Theme` has **no variants concept**,
 >   so `SlideThemePicker` (apply-a-theme-to-a-deck) has no drop-in new-model equivalent — porting it is a UX
->   decision, not a store swap. **Do NOT blind-swap.** Options: (a) port the picker to the new model; (b) keep
->   `SlideTheme`/`customSlideThemes` as a separate live model and scope VR4 to only the BroadcastTheme track.
+>   decision, not a store swap. **Chosen: port the picker to the new `Theme` model + delete `customSlideThemes`.**
+>   But the new "apply a Theme to a content deck" UX (no variants; what exactly gets copied — background +
+>   typography?) needs a short design plan the user confirms before executing (their words: "planned + confirmed
+>   separately"). `applyThemeToSlide(themeId, variant)` / `applyThemeToPresentation` must be reworked. Independent
+>   of Wave 4 (SlideTheme ≠ BroadcastTheme), so Wave 4 proceeds first.
 > - **Wave 4 (PENDING — after smoke test + 3C decision):** retire the legacy broadcast store (`theme-crud`,
 >   `theme-designer` slice + `draftTheme` + `emitDraftToBroadcast`, `broadcast-store` hydrate/persist of
 >   `broadcast-themes.json`, `main.tsx` `hydrateBroadcastThemes`); repoint output-config UIs (`output-selectors`,

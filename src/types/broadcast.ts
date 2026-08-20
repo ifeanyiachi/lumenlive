@@ -232,6 +232,76 @@ export interface ThemeElement extends CanvasBox {
   maskTargetId?: string
 }
 
+// ── Verse styling ────────────────────────────────────────────────────────────
+// Shared by the legacy `BroadcastTheme` and the standalone `VerseStyle` the verse
+// layout + draw passes consume. Named (rather than inline on BroadcastTheme) so
+// `VerseStyle` can stand alone — the live verse/slide renderer no longer depends on
+// `BroadcastTheme` (themeredo.md, VR4 / VerseStyle-standalone).
+
+export interface VerseTextBoxStyle {
+  enabled: boolean
+  color: string
+  opacity: number
+  borderRadius: number
+  padding: number
+}
+
+export interface VerseNumberStyle {
+  visible: boolean
+  fontSize: number
+  color: string
+  superscript: boolean
+}
+
+export type VerseReferenceStyle = TextStyle & {
+  uppercase: boolean
+  position: "above" | "below" | "inline"
+}
+
+export interface VerseLayoutStyle {
+  anchor:
+    | "center"
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right"
+  offsetX: number
+  offsetY: number
+  padding: { top: number; right: number; bottom: number; left: number }
+  textAlign: "left" | "center" | "right"
+  backgroundWidth: number
+  backgroundHeight: number
+  textAreaWidth: number
+  textAreaHeight: number
+  referenceGap?: number
+  /**
+   * Start each verse on its own line when several verses are shown together.
+   * Missing/false = verses flow continuously as one wrapped block (the
+   * historical behaviour).
+   */
+  breakPerVerse?: boolean
+}
+
+/**
+ * The verse-styling subset the verse layout + draw passes
+ * (`computeVerseLayoutMetrics` / `drawVerseText` / `drawReference`) actually read
+ * (themeredo.md, flip VR1). Standalone — no longer `Pick<BroadcastTheme>` — so the
+ * live scripture render (which builds one from a `SlideScriptureElement` via
+ * `scriptureElementToVerseStyle`) does not depend on `BroadcastTheme`. A full
+ * `BroadcastTheme` is structurally a `VerseStyle`, so `renderVerse`-era callers still
+ * pass their theme straight in.
+ */
+export interface VerseStyle {
+  resolution: { width: number; height: number }
+  textBox: VerseTextBoxStyle
+  verseText: TextStyle
+  verseNumbers: VerseNumberStyle
+  reference: VerseReferenceStyle
+  layout: VerseLayoutStyle
+}
+
 export interface BroadcastTheme {
   id: string
   name: string
@@ -244,49 +314,11 @@ export interface BroadcastTheme {
   elements: ThemeElement[]
   layerOrder: string[]
   background: Background
-  textBox: {
-    enabled: boolean
-    color: string
-    opacity: number
-    borderRadius: number
-    padding: number
-  }
+  textBox: VerseTextBoxStyle
   verseText: TextStyle
-  verseNumbers: {
-    visible: boolean
-    fontSize: number
-    color: string
-    superscript: boolean
-  }
-  reference: TextStyle & {
-    uppercase: boolean
-    position: "above" | "below" | "inline"
-  }
-  layout: {
-    anchor:
-      | "center"
-      | "top-left"
-      | "top-center"
-      | "top-right"
-      | "bottom-left"
-      | "bottom-center"
-      | "bottom-right"
-    offsetX: number
-    offsetY: number
-    padding: { top: number; right: number; bottom: number; left: number }
-    textAlign: "left" | "center" | "right"
-    backgroundWidth: number
-    backgroundHeight: number
-    textAreaWidth: number
-    textAreaHeight: number
-    referenceGap?: number
-    /**
-     * Start each verse on its own line when several verses are shown together.
-     * Missing/false = verses flow continuously as one wrapped block (the
-     * historical behaviour).
-     */
-    breakPerVerse?: boolean
-  }
+  verseNumbers: VerseNumberStyle
+  reference: VerseReferenceStyle
+  layout: VerseLayoutStyle
   transition: {
     type: "fade" | "slide" | "scale" | "none"
     duration: number
@@ -294,20 +326,6 @@ export interface BroadcastTheme {
     direction: "up" | "down" | "left" | "right"
   }
 }
-
-/**
- * The verse-styling subset of a {@link BroadcastTheme} — the only fields the verse
- * layout + draw passes (`computeVerseLayoutMetrics` / `drawVerseText` / `drawReference`)
- * actually read (themeredo.md, flip VR1). Decoupling those passes onto this type frees
- * the live scripture render (which builds one from a `SlideScriptureElement` via
- * `scriptureElementToVerseStyle`) from depending on the whole `BroadcastTheme` — the
- * keystone for retiring `renderVerse`/`BroadcastTheme` in Phase 5. A full `BroadcastTheme`
- * is structurally a `VerseStyle`, so `renderVerse` still passes its theme straight in.
- */
-export type VerseStyle = Pick<
-  BroadcastTheme,
-  "resolution" | "verseText" | "verseNumbers" | "reference" | "layout" | "textBox"
->
 
 // ── Live output content ──
 // These describe content pushed to the output window(s). They live here (not in

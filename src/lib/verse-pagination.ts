@@ -1,5 +1,5 @@
 import type {
-  BroadcastTheme,
+  VerseStyle,
   VerseRenderData,
   VerseSegment,
 } from "@/types/broadcast"
@@ -41,7 +41,7 @@ function offscreenContext(): CanvasRenderingContext2D | null {
 
 export function paginateVerse(
   verse: VerseRenderData,
-  theme: BroadcastTheme,
+  theme: VerseStyle,
   options: PaginateOptions,
   ctxOverride?: CanvasRenderingContext2D
 ): VerseRenderData[] {
