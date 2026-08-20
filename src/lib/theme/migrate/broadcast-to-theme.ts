@@ -30,8 +30,13 @@ import { backgroundToSlide } from "./background"
  * separate concern already proven by the Phase 4 payload parity gates — the live
  * flips consume that, not this.
  *
- * PURE: `newId`/`now` are injected (no `crypto`/`Date.now()` inline); no shared
- * mutable structure with the input. Mirrors the `lib/theme/model` constructors.
+ * The migrated theme **keeps the source `id`** (Phase 5c — the namespace merge):
+ * a stored `themeId` reference (an output, the base background, a countdown) must
+ * still resolve once the new store is the single source of truth, so a custom's
+ * id has to survive migration. (Element ids are already stable on the source.)
+ *
+ * PURE: `now` is injected (no `Date.now()` inline); no shared mutable structure
+ * with the input. Mirrors the `lib/theme/model` constructors.
  */
 
 /** Map a legacy {@link ThemeCategory} to the intrinsic {@link ThemeType}. */
@@ -308,11 +313,7 @@ function transitionOf(theme: BroadcastTheme): SlideTransition | undefined {
  * their authored layer order; the background is converted faithfully. Overlay
  * themes are forced transparent so they composite over live content.
  */
-export function broadcastToTheme(
-  bt: BroadcastTheme,
-  newId: () => string,
-  now = 0
-): Theme {
+export function broadcastToTheme(bt: BroadcastTheme, now = 0): Theme {
   const type = categoryToType(bt.category)
 
   // Decorative elements in the theme's authored back-to-front layer order (the
@@ -337,7 +338,7 @@ export function broadcastToTheme(
       : backgroundToSlide(bt.background)
 
   return {
-    id: newId(),
+    id: bt.id,
     name: bt.name,
     type,
     builtin: false,

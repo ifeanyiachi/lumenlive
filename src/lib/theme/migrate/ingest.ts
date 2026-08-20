@@ -62,7 +62,7 @@ export function ingestLegacyThemes(
   }
 
   for (const bt of sources.broadcast ?? []) {
-    tryMigrate(() => broadcastToTheme(bt, newId, now))
+    tryMigrate(() => broadcastToTheme(bt, now))
   }
   for (const st of sources.slide ?? []) {
     tryMigrate(() => slideThemeToTheme(st, newId, now))

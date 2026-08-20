@@ -4,9 +4,6 @@ import { validateTheme } from "@/lib/theme/model"
 import type { BroadcastTheme, ThemeElement } from "@/types/broadcast"
 import { broadcastToTheme, categoryToType } from "./broadcast-to-theme"
 
-let counter = 0
-const newId = () => `id-${counter++}`
-
 const CLASSIC = BUILTIN_THEMES.find((t) => t.id === "builtin-classic-dark")!
 const COUNTDOWN = BUILTIN_THEMES.find((t) => t.category === "countdown")!
 
@@ -28,7 +25,7 @@ describe("categoryToType", () => {
 describe("broadcastToTheme", () => {
   it("produces a valid Theme for every built-in broadcast theme", () => {
     for (const bt of BUILTIN_THEMES) {
-      const theme = broadcastToTheme(bt, newId)
+      const theme = broadcastToTheme(bt)
       // A migrated custom is never itself a built-in.
       expect(theme.builtin).toBe(false)
       // Structural validity: the type's required placeholder(s) are present.
@@ -37,8 +34,9 @@ describe("broadcastToTheme", () => {
   })
 
   it("carries identity, resolution, and pinned; bumps updatedAt to now", () => {
-    const theme = broadcastToTheme(CLASSIC, () => "fixed", 999)
-    expect(theme.id).toBe("fixed")
+    const theme = broadcastToTheme(CLASSIC, 999)
+    // The source id is preserved so stored themeId references survive (Phase 5c).
+    expect(theme.id).toBe(CLASSIC.id)
     expect(theme.name).toBe(CLASSIC.name)
     expect(theme.pinned).toBe(CLASSIC.pinned)
     expect(theme.createdAt).toBe(CLASSIC.createdAt)
@@ -47,7 +45,7 @@ describe("broadcastToTheme", () => {
   })
 
   it("turns a scripture/general theme's verse region into a scripture placeholder", () => {
-    const theme = broadcastToTheme(CLASSIC, newId)
+    const theme = broadcastToTheme(CLASSIC)
     expect(theme.type).toBe("scripture")
     const ph = theme.elements.find((e) => e.type === "scripture")
     expect(ph).toBeDefined()
@@ -64,7 +62,7 @@ describe("broadcastToTheme", () => {
   })
 
   it("turns a countdown theme's verse region into a timer placeholder", () => {
-    const theme = broadcastToTheme(COUNTDOWN, newId)
+    const theme = broadcastToTheme(COUNTDOWN)
     expect(theme.type).toBe("countdown")
     const timer = theme.elements.find((e) => e.type === "timer")
     expect(timer).toBeDefined()
@@ -77,7 +75,7 @@ describe("broadcastToTheme", () => {
 
   it("forces an overlay theme transparent with no content placeholder", () => {
     const bt: BroadcastTheme = { ...CLASSIC, category: "overlay" }
-    const theme = broadcastToTheme(bt, newId)
+    const theme = broadcastToTheme(bt)
     expect(theme.type).toBe("overlay")
     expect(theme.background.type).toBe("transparent")
     expect(
@@ -109,7 +107,7 @@ describe("broadcastToTheme", () => {
       elements: [img],
       layerOrder: ["logo"],
     }
-    const theme = broadcastToTheme(bt, newId)
+    const theme = broadcastToTheme(bt)
     const el = theme.elements.find((e) => e.id === "logo")
     expect(el).toBeDefined()
     if (el?.type === "image") {
@@ -135,7 +133,7 @@ describe("broadcastToTheme", () => {
         direction: "right",
       },
     }
-    expect(broadcastToTheme(slid, newId).transition).toEqual({
+    expect(broadcastToTheme(slid).transition).toEqual({
       type: "push-right",
       duration: 400,
     })
@@ -144,11 +142,11 @@ describe("broadcastToTheme", () => {
       ...CLASSIC,
       transition: { type: "none", duration: 0, easing: "linear", direction: "up" },
     }
-    expect(broadcastToTheme(none, newId).transition).toBeUndefined()
+    expect(broadcastToTheme(none).transition).toBeUndefined()
   })
 
   it("does not share mutable structure with the source (deep copy)", () => {
-    const theme = broadcastToTheme(CLASSIC, newId)
+    const theme = broadcastToTheme(CLASSIC)
     theme.resolution.width = 1
     expect(CLASSIC.resolution.width).not.toBe(1)
   })

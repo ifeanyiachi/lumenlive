@@ -82,6 +82,8 @@ describe("slideThemeToTheme", () => {
   it("migrates a song theme to a valid song Theme with a lyrics placeholder", () => {
     const theme = slideThemeToTheme(songTheme(), newId, 5)
     expect(theme.type).toBe("song")
+    // Source id preserved so stored references survive the store merge (Phase 5c).
+    expect(theme.id).toBe("st-song")
     expect(theme.builtin).toBe(false)
     expect(theme.createdAt).toBe(5)
     expect(theme.updatedAt).toBe(5)

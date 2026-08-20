@@ -99,7 +99,7 @@ describe("ingestLegacyThemes", () => {
     for (const t of themes) expect(validateTheme(t).valid).toBe(true)
   })
 
-  it("gives migrated themes fresh ids that never collide with existing", () => {
+  it("preserves each legacy theme's id so stored references survive the merge", () => {
     const { themes } = ingestLegacyThemes(
       { broadcast: [CLASSIC], slide: [slideSong] },
       existing,
@@ -108,6 +108,8 @@ describe("ingestLegacyThemes", () => {
     const ids = themes.map((t) => t.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids).toContain("already-there")
+    expect(ids).toContain(CLASSIC.id)
+    expect(ids).toContain(slideSong.id)
   })
 
   it("returns existing unchanged when there is nothing to ingest", () => {

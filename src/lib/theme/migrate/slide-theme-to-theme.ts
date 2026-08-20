@@ -182,7 +182,9 @@ export function slideThemeToTheme(
   const elements = ensurePlaceholder(lifted, type, newId)
 
   return {
-    id: newId(),
+    // Keep the source id so stored `themeId` references survive the store merge
+    // (Phase 5c); elements are the ones that get fresh ids.
+    id: st.id,
     name: st.name,
     type,
     builtin: false,
