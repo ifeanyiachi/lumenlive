@@ -31,7 +31,6 @@ export function registerMediaListeners(
       const src = safeFileSrc(filePath)
       rt.logDebug("Received broadcast:media-update", { name, mediaType })
 
-      rt.latestData.current = null
       rt.latestSlide.current = null
       rt.latestMedia.current = null
       rt.layerFilterRef.current = event.payload.layerFilter ?? null
@@ -49,7 +48,7 @@ export function registerMediaListeners(
         v.pause()
       }
       rt.activeMode.current = "media"
-      // Leaving verse mode: stop the verse theme's animated-background loop.
+      // Stop any theme animated-background loop left running by a prior slide.
       renderLoop.deactivate("themeAnim")
 
       rt.mediaKindRef.current = mediaType

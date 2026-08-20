@@ -20,7 +20,6 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { createRenderLoop } from "@/lib/broadcast-output/render-loop"
 import type { OutputRuntime } from "../runtime"
 import type { MediaPlayback } from "./use-media-playback"
-import { registerVerseListener } from "../events/verse-listener"
 import { registerSlideListener } from "../events/slide-listener"
 import { registerMediaListeners } from "../events/media-listeners"
 import { registerOverlayListeners } from "../events/overlay-listeners"
@@ -72,7 +71,6 @@ export function useBroadcastEvents(rt: OutputRuntime, media: MediaPlayback) {
     // Register every subsystem. Surface/lifecycle is last so `output-ready` only
     // fires once the content listeners above are all live.
     const disposers = [
-      registerVerseListener(rt, renderLoop),
       registerSlideListener(rt, renderLoop),
       registerMediaListeners(rt, renderLoop, media),
       registerOverlayListeners(rt, renderLoop),

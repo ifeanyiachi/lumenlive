@@ -30,11 +30,7 @@ import {
   snapshotCanvas,
   snapshotSlideElements,
 } from "@/lib/broadcast-output/transitions"
-import {
-  preloadThemeAssets,
-  preloadSlideAssets,
-} from "@/lib/broadcast-output/asset-cache"
-import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
+import { preloadSlideAssets } from "@/lib/broadcast-output/asset-cache"
 import { captureAndSendNdiFrame } from "@/lib/broadcast-output/ndi-push"
 import type { RenderLoop } from "@/lib/broadcast-output/render-loop"
 import { parseBroadcastConfig } from "@/lib/broadcast-output/config"
@@ -47,10 +43,7 @@ import {
 } from "@/lib/broadcast-output/surface"
 import { shouldSendTransparentNdi } from "@/lib/broadcast-output/ndi-key"
 import { sendNdiFrame } from "@/services/ndi-output-gateway"
-import type {
-  VerseUpdatePayload,
-  SlideUpdatePayload,
-} from "@/services/broadcast-content-gateway"
+import type { SlideUpdatePayload } from "@/services/broadcast-content-gateway"
 import type { StageDisplayData } from "@/lib/stage-display-renderer"
 import type { SlideAnimationTracker } from "@/lib/slide-animation"
 import type {
@@ -79,7 +72,6 @@ export const { outputId: OUTPUT_ID, outputMode: OUTPUT_MODE } =
 // shared contract, compiler-enforced on both ends). Aliased here for the refs
 // that cache the latest received payload; every listener is typed by
 // `listenOutputEvent`.
-export type BroadcastPayload = VerseUpdatePayload
 export type SlidePayload = SlideUpdatePayload
 
 /**
@@ -91,7 +83,6 @@ export type OutputRuntime = ReturnType<typeof useOutputRuntime>
 
 export function useOutputRuntime() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latestData = useRef<BroadcastPayload | null>(null)
   const latestSlide = useRef<SlidePayload | null>(null)
   const latestMedia = useRef<{ img: HTMLImageElement } | null>(null)
   // The active per-output layer filter, kept in sync by every content handler
@@ -134,7 +125,7 @@ export function useOutputRuntime() {
     }[]
   >([])
   const activeProps = useRef<BroadcastProp[]>([])
-  const activeMode = useRef<"verse" | "slide" | "media">("verse")
+  const activeMode = useRef<"slide" | "media">("slide")
   const slideAnimTracker = useRef<SlideAnimationTracker | null>(null)
   const mediaLayerRef = useRef<MediaLayerState | null>(null)
   const mediaLayerImgRef = useRef<HTMLImageElement | null>(null)
@@ -222,7 +213,6 @@ export function useOutputRuntime() {
       layerFilter: layerFilterRef.current,
       clearForeground: clearForegroundRef.current,
       activeMode: activeMode.current,
-      latestData: latestData.current,
       latestSlide: latestSlide.current,
       latestMedia: latestMedia.current,
       mediaBlank: mediaBlankRef.current,
@@ -244,10 +234,8 @@ export function useOutputRuntime() {
       minVerseFontSize: displayConfigRef.current.minVerseFontSize,
       frameTime: performance.now(),
       now: Date.now(),
-      onNullVerse: () =>
-        logDebug("renderVerse returned null; drew fallback frame"),
     }),
-    [logDebug]
+    []
   )
 
   const snapshotCurrentCanvas = useCallback(() => {
@@ -330,12 +318,6 @@ export function useOutputRuntime() {
     composeFrame(ctx, sw, sh, readCompositorState())
   }, [computeSurface, readCompositorState])
 
-  const preloadThemeImages = useCallback(
-    (theme: BroadcastTheme) => {
-      preloadThemeAssets(theme, imageCacheRef.current, draw)
-    },
-    [draw]
-  )
 
   // The base backdrop is a slide-model Theme (RF3a): preload its slide-shaped assets.
   const preloadBaseThemeImages = useCallback(
@@ -394,15 +376,11 @@ export function useOutputRuntime() {
             backgroundType:
               activeMode.current === "slide"
                 ? latestSlide.current?.slide.background.type
-                : activeMode.current === "verse"
-                  ? latestData.current?.theme.background.type
-                  : undefined,
-            hasOpaqueBaseTheme:
-              activeMode.current === "verse" &&
-              !!baseThemeRef.current &&
-              !!latestData.current &&
-              baseThemeRef.current.id !==
-                resolveLegacyThemeId(latestData.current.theme.id),
+                : undefined,
+            // The base theme composits behind a transparent slide inside the slide
+            // branch itself (paintBaseTheme); there is no separate opaque-base case
+            // now that the verse path is retired.
+            hasOpaqueBaseTheme: false,
             hasMediaLayer:
               mediaLayerRef.current !== null &&
               (!layerFilterRef.current ||
@@ -517,7 +495,6 @@ export function useOutputRuntime() {
       outputMode: OUTPUT_MODE,
       // refs
       canvasRef,
-      latestData,
       latestSlide,
       latestMedia,
       layerFilterRef,
@@ -566,7 +543,6 @@ export function useOutputRuntime() {
       snapshotElementsOnly,
       drawTransitionFrame,
       draw,
-      preloadThemeImages,
       preloadBaseThemeImages,
       drawNdiForeground,
       pushNdiFrame,
@@ -583,7 +559,6 @@ export function useOutputRuntime() {
       snapshotElementsOnly,
       drawTransitionFrame,
       draw,
-      preloadThemeImages,
       preloadBaseThemeImages,
       drawNdiForeground,
       pushNdiFrame,

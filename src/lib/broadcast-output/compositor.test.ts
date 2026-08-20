@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import type { CompositorState } from "./compositor"
-import type { BroadcastTheme, MediaLayerState } from "@/types/broadcast"
+import type { MediaLayerState } from "@/types/broadcast"
 import type { Slide } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 
 /**
  * Golden-frame harness for the output-window compositor (S2 Phase 1).
@@ -22,13 +23,6 @@ import type { Slide } from "@/types/slide"
 
 // Shared op log, populated by both the recording ctx and the sub-renderer mocks.
 const { ops } = vi.hoisted(() => ({ ops: [] as string[] }))
-
-vi.mock("@/lib/verse-renderer", () => ({
-  renderVerse: vi.fn((_ctx: unknown, theme: { id: string }) => {
-    ops.push(`renderVerse(${theme.id})`)
-    return {} // truthy metrics — no null fallback unless a test overrides it
-  }),
-}))
 
 vi.mock("@/lib/slide-renderer", () => ({
   renderSlide: vi.fn((_ctx: unknown, slide: { name: string }) => {
@@ -58,13 +52,9 @@ vi.mock("./overlays", () => ({
   drawPropsOverlay: vi.fn(() => ops.push("props")),
 }))
 
-// The scripture-slide seam is exercised in its own byte-parity suite; here we only
-// assert the compositor routes the live verse through the slide path (flip F5).
+// The scripture-slide seam is exercised in its own suite; here we only assert the
+// compositor routes a live scripture slide through the slide path (flip RF2).
 vi.mock("./scripture-slide", () => ({
-  buildScriptureSlide: vi.fn(() => ({
-    slide: { name: "live-scripture" },
-    scriptureContent: new Map(),
-  })),
   buildScriptureContent: vi.fn(() => new Map([["s", { verse: {}, style: {} }]])),
   // The base backdrop is now painted via renderSlide over this slide (RF3a).
   buildBaseSlide: vi.fn(() => ({ name: "base", background: { type: "solid" } })),
@@ -76,7 +66,6 @@ vi.mock("@/lib/slide-animation", () => ({
 
 // Imported after the mocks so the compositor binds to the stubbed sub-renderers.
 const { composeFrame, composeNdiForeground } = await import("./compositor")
-const { renderVerse } = await import("@/lib/verse-renderer")
 
 const SW = 1920
 const SH = 1080
@@ -106,10 +95,10 @@ function recCtx(): CanvasRenderingContext2D {
 
 // --- Fixtures ---------------------------------------------------------------
 
-const opaqueTheme = (id = "theme-a") =>
-  ({ id, background: { type: "solid" } }) as unknown as BroadcastTheme
-const transparentTheme = (id = "theme-t") =>
-  ({ id, background: { type: "transparent" } }) as unknown as BroadcastTheme
+// The base/master backdrop is a typed Theme (RF3a); its actual shape is ignored by
+// the mocked buildBaseSlide, so a minimal cast fixture suffices.
+const baseThemeFixture = (id = "base") =>
+  ({ id, type: "scripture", background: { type: "solid" } }) as unknown as Theme
 const opaqueSlide = (name = "S1") =>
   ({ name, background: { type: "solid" }, elements: [] }) as unknown as Slide
 const transparentSlide = (name = "ST") =>
@@ -130,8 +119,7 @@ function makeState(over: Partial<CompositorState> = {}): CompositorState {
     videoCache: new Map(),
     layerFilter: null,
     clearForeground: false,
-    activeMode: "verse",
-    latestData: null,
+    activeMode: "slide",
     latestSlide: null,
     latestMedia: null,
     mediaBlank: false,
@@ -159,13 +147,6 @@ function makeState(over: Partial<CompositorState> = {}): CompositorState {
 
 beforeEach(() => {
   ops.length = 0
-  vi.mocked(renderVerse).mockClear()
-  vi.mocked(renderVerse).mockImplementation(
-    (_ctx: unknown, theme: { id: string }) => {
-      ops.push(`renderVerse(${theme.id})`)
-      return {} as ReturnType<typeof renderVerse>
-    }
-  )
 })
 
 // --- composeFrame: content branches -----------------------------------------
@@ -208,7 +189,7 @@ describe("composeFrame — clear foreground", () => {
         clearForeground: true,
         mediaLayer: imageLayer(),
         mediaLayerImg: labeled("ml-img"),
-        baseTheme: opaqueTheme("base"),
+        baseTheme: baseThemeFixture("base"),
       })
     )
     expect(ops).toEqual([
@@ -299,7 +280,7 @@ describe("composeFrame — slide mode", () => {
         latestSlide: { slide: transparentSlide("ST") },
         mediaLayer: imageLayer(),
         mediaLayerImg: labeled("ml-img"),
-        baseTheme: opaqueTheme("base"),
+        baseTheme: baseThemeFixture("base"),
       })
     )
     expect(ops).toEqual([
@@ -314,148 +295,12 @@ describe("composeFrame — slide mode", () => {
   })
 })
 
-describe("composeFrame — verse mode", () => {
-  it("no data → black fallback frame + overlays, no verse render", () => {
-    composeFrame(recCtx(), SW, SH, makeState({ latestData: null }))
+describe("composeFrame — no live content (fallback)", () => {
+  it("with no slide falls back to Clear (black floor + overlays)", () => {
+    // The live verse path is retired: with nothing live, the else branch paints
+    // the Clear backdrop (black floor + base theme, here none) then overlays.
+    composeFrame(recCtx(), SW, SH, makeState({ latestSlide: null }))
     expect(ops).toEqual([...FILL_BLACK, "props", "alerts", "countdowns"])
-  })
-
-  it("opaque theme renders the verse directly with no pre-fill", () => {
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
-      })
-    )
-    expect(ops).toEqual([
-      "renderVerse(theme-a)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("a live verse draws chrome via renderVerse then the verse via the slide path (flip F5)", () => {
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: {
-          theme: opaqueTheme("theme-a"),
-          verse: { reference: "John 3:16", segments: [] },
-        },
-      })
-    )
-    expect(ops).toEqual([
-      "renderVerse(theme-a)",
-      "drawSlideElements(live-scripture)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("a null chrome render skips the verse foreground and runs the black fallback", () => {
-    vi.mocked(renderVerse).mockImplementationOnce(
-      (_ctx: unknown, theme: { id: string }) => {
-        ops.push(`renderVerse(${theme.id})`)
-        return null
-      }
-    )
-    const onNullVerse = vi.fn()
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: {
-          theme: opaqueTheme("theme-a"),
-          verse: { reference: "John 3:16", segments: [] },
-        },
-        onNullVerse,
-      })
-    )
-    expect(onNullVerse).toHaveBeenCalledTimes(1)
-    // No drawSlideElements — the foreground is skipped when the chrome render fails.
-    expect(ops).toEqual([
-      "renderVerse(theme-a)",
-      ...FILL_BLACK,
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("transparent theme with a DIFFERENT base theme composits the base behind", () => {
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: { theme: transparentTheme("theme-t"), verse: null },
-        baseTheme: opaqueTheme("base"),
-        mediaLayer: imageLayer(),
-        mediaLayerImg: labeled("ml-img"),
-      })
-    )
-    expect(ops).toEqual([
-      ...FILL_BLACK,
-      "drawMediaFitted(ml-img)",
-      "renderSlide(base)",
-      "renderVerse(theme-t)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("transparent theme with the SAME id as base skips the duplicate base paint", () => {
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: { theme: transparentTheme("same"), verse: null },
-        baseTheme: transparentTheme("same"),
-      })
-    )
-    expect(ops).toEqual([
-      ...FILL_BLACK,
-      "renderVerse(same)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("renderVerse returning null triggers the black fallback + onNullVerse", () => {
-    vi.mocked(renderVerse).mockImplementationOnce(
-      (_ctx: unknown, theme: { id: string }) => {
-        ops.push(`renderVerse(${theme.id})`)
-        return null
-      }
-    )
-    const onNullVerse = vi.fn()
-    composeFrame(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
-        onNullVerse,
-      })
-    )
-    expect(onNullVerse).toHaveBeenCalledTimes(1)
-    expect(ops).toEqual([
-      "renderVerse(theme-a)",
-      ...FILL_BLACK,
-      "props",
-      "alerts",
-      "countdowns",
-    ])
   })
 })
 
@@ -489,7 +334,8 @@ describe("composeFrame — layer filter gating", () => {
       SW,
       SH,
       makeState({
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
+        activeMode: "slide",
+        latestSlide: { slide: opaqueSlide() },
         layerFilter: {
           showMediaLayer: true,
           showContent: true,
@@ -499,7 +345,7 @@ describe("composeFrame — layer filter gating", () => {
         } as CompositorState["layerFilter"],
       })
     )
-    expect(ops).toEqual(["renderVerse(theme-a)", "props", "countdowns"])
+    expect(ops).toEqual(["renderSlide(S1)", "props", "countdowns"])
   })
 })
 
@@ -510,13 +356,14 @@ describe("composeFrame — logo and blackout finishers", () => {
       SW,
       SH,
       makeState({
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
+        activeMode: "slide",
+        latestSlide: { slide: opaqueSlide() },
         showLogo: true,
         logoImg: labeled("logo"),
       })
     )
     expect(ops).toEqual([
-      "renderVerse(theme-a)",
+      "renderSlide(S1)",
       "props",
       "alerts",
       "countdowns",
@@ -531,14 +378,15 @@ describe("composeFrame — logo and blackout finishers", () => {
       SW,
       SH,
       makeState({
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
+        activeMode: "slide",
+        latestSlide: { slide: opaqueSlide() },
         showLogo: true,
         logoImg: labeled("logo"),
         blackout: true,
       })
     )
     expect(ops).toEqual([
-      "renderVerse(theme-a)",
+      "renderSlide(S1)",
       "props",
       "alerts",
       "countdowns",
@@ -562,25 +410,6 @@ describe("composeNdiForeground", () => {
     expect(ops).toEqual([
       `clearRect(0,0,${SW},${SH})`,
       "drawSlideElements(S1)",
-      "props",
-      "alerts",
-      "countdowns",
-    ])
-  })
-
-  it("clears, renders the verse foreground, then overlays", () => {
-    composeNdiForeground(
-      recCtx(),
-      SW,
-      SH,
-      makeState({
-        activeMode: "verse",
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
-      })
-    )
-    expect(ops).toEqual([
-      `clearRect(0,0,${SW},${SH})`,
-      "renderVerse(theme-a)",
       "props",
       "alerts",
       "countdowns",
@@ -611,8 +440,8 @@ describe("composeNdiForeground", () => {
       SW,
       SH,
       makeState({
-        activeMode: "verse",
-        latestData: { theme: opaqueTheme("theme-a"), verse: null },
+        activeMode: "slide",
+        latestSlide: { slide: opaqueSlide() },
         layerFilter: {
           showMediaLayer: true,
           showContent: true,
@@ -624,7 +453,7 @@ describe("composeNdiForeground", () => {
     )
     expect(ops).toEqual([
       `clearRect(0,0,${SW},${SH})`,
-      "renderVerse(theme-a)",
+      "drawSlideElements(S1)",
       "alerts",
     ])
   })

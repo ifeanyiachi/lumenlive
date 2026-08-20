@@ -14,7 +14,6 @@
 //
 // Pure over plain data + a Canvas2D context; no React/Zustand/Tauri.
 
-import { renderVerse } from "@/lib/verse-renderer"
 import { renderSlide } from "@/lib/slide-renderer"
 import { buildScriptureContent } from "@/lib/broadcast-output/scripture-slide"
 import { surfaceFontScale } from "@/lib/canvas-constants"
@@ -135,8 +134,8 @@ function renderContentPreview(
     // A presented scripture slide arrives with its verse alongside (RF3b): fill its
     // style-only placeholder through the slide renderer's scripture payload — the same
     // recipe the audience compositor uses — so the stage mirrors the output. Auto-fit
-    // is off, matching the stage's prior `renderVerse` call. A real schedule slide has
-    // no verse and renders plainly.
+    // is off, matching the audience stage render. A real schedule slide has no verse
+    // and renders plainly.
     const opts = verse
       ? {
           scriptureContent: buildScriptureContent(slide, verse, {
@@ -155,9 +154,6 @@ function renderContentPreview(
       videoCache,
       opts
     )
-  } else if (verse) {
-    // Fallback: no scripture theme resolved in the new store — legacy verse path.
-    renderVerse(offCtx, theme, verse, { imageCache })
   }
 
   ctx.drawImage(offscreen, x, y, w, h)
