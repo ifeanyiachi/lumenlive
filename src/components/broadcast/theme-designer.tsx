@@ -111,6 +111,24 @@ export function ThemeDesigner() {
     const sess = s.typedThemeSession
     const slide = s.draftPresentation?.slides[0]
     if (!sess || !slide) return
+    const name = sess.identity.name.trim()
+    if (!name) {
+      toast.error("Enter a theme name before saving")
+      return
+    }
+    // Names must be unique across the library (built-ins + customs), case-insensitive.
+    const nameTaken = useThemesStore
+      .getState()
+      .allThemes()
+      .some(
+        (t) =>
+          t.id !== sess.identity.id &&
+          t.name.trim().toLowerCase() === name.toLowerCase()
+      )
+    if (nameTaken) {
+      toast.error(`A theme named “${name}” already exists`)
+      return
+    }
     const theme = slideToTheme(slide, sess.identity, Date.now())
     useThemesStore.getState().upsertTheme(theme)
     usePresentationStore.setState({

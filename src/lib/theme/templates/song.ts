@@ -18,7 +18,14 @@ export function songTemplate(newId: () => string, now = 0): Theme {
           "lyrics-placeholder",
           "lyrics",
           { x: 8, y: 20, width: 84, height: 60 },
-          { fontSize: 60, fontWeight: 700, lineHeight: 1.3 }
+          {
+            // Sample lyric so the placeholder is visible while authoring; the
+            // current lyric lines replace it at go-live.
+            text: "Verse lyrics here",
+            fontSize: 60,
+            fontWeight: 700,
+            lineHeight: 1.3,
+          }
         ),
       ],
     },

@@ -168,7 +168,25 @@ export function EditorToolbar({
         <Button
           size="sm"
           onClick={() => {
-            usePresentationStore.getState().saveDraft()
+            const store = usePresentationStore.getState()
+            const d = store.draftPresentation
+            if (!d) return
+            const name = d.name.trim()
+            if (!name) {
+              toast.error("Enter a presentation name before saving")
+              return
+            }
+            // Presentation names must be unique (case-insensitive) across the library.
+            const nameTaken = store.presentations.some(
+              (p) =>
+                p.id !== d.id &&
+                p.name.trim().toLowerCase() === name.toLowerCase()
+            )
+            if (nameTaken) {
+              toast.error(`A presentation named “${name}” already exists`)
+              return
+            }
+            store.saveDraft()
             toast.success(themeMode ? "Theme saved" : "Presentation saved")
           }}
         >

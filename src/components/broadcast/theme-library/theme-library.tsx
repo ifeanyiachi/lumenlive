@@ -67,6 +67,7 @@ export function ThemeLibrary({
   )
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterTab>("all")
+  const [typeFilter, setTypeFilter] = useState<ThemeType | "all">("all")
 
   const filtered = useMemo(() => {
     let result = allThemes
@@ -74,10 +75,12 @@ export function ThemeLibrary({
       const q = search.toLowerCase()
       result = result.filter((t) => t.name.toLowerCase().includes(q))
     }
+    if (typeFilter !== "all")
+      result = result.filter((t) => t.type === typeFilter)
     if (filter === "pinned") result = result.filter((t) => t.pinned)
     else if (filter === "custom") result = result.filter((t) => !t.builtin)
     return result
-  }, [allThemes, search, filter])
+  }, [allThemes, search, filter, typeFilter])
 
   const builtinThemes = filtered.filter((t) => t.builtin)
   const customThemes = filtered.filter((t) => !t.builtin)
@@ -141,6 +144,23 @@ export function ThemeLibrary({
         </TabsList>
       </Tabs>
 
+      {/* Type filter chips */}
+      <div className="flex shrink-0 flex-wrap gap-1 px-3 pb-3">
+        <TypeChip
+          label="All"
+          active={typeFilter === "all"}
+          onClick={() => setTypeFilter("all")}
+        />
+        {THEME_TYPES.map((type) => (
+          <TypeChip
+            key={type}
+            label={TYPE_META[type].label}
+            active={typeFilter === type}
+            onClick={() => setTypeFilter(type)}
+          />
+        ))}
+      </div>
+
       {/* Theme list */}
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 px-2 pb-4">
@@ -184,6 +204,32 @@ export function ThemeLibrary({
         </div>
       </ScrollArea>
     </div>
+  )
+}
+
+/** A pill toggle in the type-filter row. */
+function TypeChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-2.5 py-0.5 text-[0.6875rem] font-medium transition-colors",
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
+      )}
+    >
+      {label}
+    </button>
   )
 }
 

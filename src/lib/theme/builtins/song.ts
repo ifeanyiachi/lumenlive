@@ -22,6 +22,9 @@ export const SONG_BUILTIN: Theme = {
       "lyrics",
       { x: 8, y: 20, width: 84, height: 60 },
       {
+        // Sample lyric so the placeholder shows while authoring; replaced by the
+        // current lyric lines at go-live.
+        text: "Verse lyrics here",
         fontSize: 60,
         fontWeight: 700,
         lineHeight: 1.3,

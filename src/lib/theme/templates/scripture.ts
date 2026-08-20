@@ -17,7 +17,16 @@ export function scriptureTemplate(newId: () => string, now = 0): Theme {
         scriptureEl(
           "scripture-placeholder",
           { x: 8, y: 16, width: 84, height: 68 },
-          { fontSize: 56, referenceFontSize: 30 }
+          {
+            fontSize: 56,
+            referenceFontSize: 30,
+            // Sample content so the placeholder is visible while authoring; the
+            // pushed reference + verse replace it at go-live.
+            reference: "John 3:16",
+            verseText:
+              "For God so loved the world, that he gave his only begotten Son.",
+            translation: "KJV",
+          }
         ),
       ],
     },

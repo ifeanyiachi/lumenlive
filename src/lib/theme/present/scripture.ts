@@ -52,8 +52,16 @@ export function presentScripturePages(
   newId: () => string,
   now = 0
 ): PresentedSlide[] {
-  return pages.map((verse) => ({
-    slide: themeToSlide(theme, newId, now),
-    scriptureContent: verse,
-  }))
+  return pages.map((verse) => {
+    const slide = themeToSlide(theme, newId, now)
+    // The live verse rides as `scriptureContent`; strip any authoring sample text
+    // from the scripture placeholder so the presented slide stays style-only
+    // (decision D2 — the payload is authoritative for content).
+    const elements = slide.elements.map((el) =>
+      el.type === "scripture"
+        ? { ...el, reference: "", verseText: "", translation: "" }
+        : el
+    )
+    return { slide: { ...slide, elements }, scriptureContent: verse }
+  })
 }

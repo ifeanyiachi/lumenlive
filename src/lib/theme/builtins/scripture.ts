@@ -35,6 +35,12 @@ export const SCRIPTURE_BUILTIN: Theme = {
         lineHeight: 1.5,
         referenceFontSize: 26,
         referenceColor: "#94a3b8",
+        // Sample content so the placeholder shows while authoring; replaced by the
+        // pushed reference + verse at go-live.
+        reference: "John 3:16",
+        verseText:
+          "For God so loved the world, that he gave his only begotten Son.",
+        translation: "KJV",
       }
     ),
   ],

@@ -39,7 +39,10 @@ function songTheme(t: {
         "lyrics-placeholder",
         "lyrics",
         { x: 5, y: 15, width: 90, height: 70 },
-        t.lyric
+        // Sample lyric so the placeholder is visible while authoring/in thumbnails;
+        // the current lyric lines replace it at go-live (a per-look `lyric` may
+        // still override).
+        { text: "Verse lyrics here", ...t.lyric }
       ),
     ],
   }
