@@ -606,7 +606,7 @@ export function SlideFormatToolbar({
   const elType = element.type ?? "text"
 
   return (
-    <div className="flex h-10 items-center gap-1 overflow-x-auto border-b border-border bg-card px-3">
+    <div className="flex min-h-10 flex-wrap items-center gap-x-1 gap-y-1.5 border-b border-border bg-card px-3 py-1.5">
       {elType === "text" && (
         <TextToolbar element={element as SlideTextElement} />
       )}

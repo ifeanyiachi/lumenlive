@@ -53,7 +53,7 @@ export function RightPanel({
   )
 
   return (
-    <div className="flex w-[20%] min-w-0 shrink-0 flex-col border-l border-border bg-card">
+    <div className="flex w-[25%] min-w-[16rem] shrink-0 flex-col border-l border-border bg-card">
       <div className="flex h-11 border-b border-border">
         <button
           type="button"

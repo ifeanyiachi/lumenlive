@@ -229,7 +229,13 @@ export function ThemeDesigner() {
           {/* Library (left) + editor (right) */}
           <div
             className="min-h-0 flex-1"
-            style={{ display: "grid", gridTemplateColumns: "300px 1fr" }}
+            style={{
+              display: "grid",
+              // minmax(0, 1fr) — a bare `1fr` track has an implicit min-width:auto
+              // that refuses to shrink below the editor's min-content, overflowing
+              // under the dialog's overflow-hidden and clipping the right panel.
+              gridTemplateColumns: "300px minmax(0, 1fr)",
+            }}
           >
             <ThemeLibrary
               activeThemeId={activeThemeId}
