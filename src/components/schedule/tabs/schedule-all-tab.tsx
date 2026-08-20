@@ -62,7 +62,7 @@ export function ScheduleAllTab({
   const selectedItemId = useScheduleStore((s) => s.selectedItemId)
   const highlightedId = useScheduleStore((s) => s.highlightedId)
   const presentations = usePresentationStore((s) => s.presentations)
-  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  const customSlideThemes = useThemesStore((s) => s.customThemes)
   const songs = useSongStore((s) => s.songs)
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
   const [editingName, setEditingName] = useState(false)

@@ -56,6 +56,26 @@ export function resolveScriptureTheme(
 }
 
 /**
+ * Resolve the Song {@link Theme} a schedule/song uses to generate lyric slides, from
+ * the *new* typed theme store (themeredo.md, flip VR3) — the analogue of
+ * `resolveScriptureTheme` for the `song` type. A stored `themeId` (a legacy `SlideTheme`
+ * id) is reconciled through the alias; only a `song`-type theme qualifies. Returns
+ * `undefined` for an unknown id so the caller can fall back (e.g. a plain background).
+ *
+ * PURE: a plain lookup over the passed theme list.
+ */
+export function resolveSongTheme(
+  themeId: string | undefined,
+  themes: readonly Theme[]
+): Theme | undefined {
+  if (!themeId) return undefined
+  const aliased = resolveLegacyThemeId(themeId)
+  return themes.find(
+    (t) => (t.id === themeId || t.id === aliased) && t.type === "song"
+  )
+}
+
+/**
  * Resolve the central base/master backdrop into a concrete {@link Theme} for the
  * output to paint behind Clear and transparent content (themeredo.md, flip RF3a /
  * decision D1) — the new-model analogue of `lib/broadcast/base-theme.ts`'s

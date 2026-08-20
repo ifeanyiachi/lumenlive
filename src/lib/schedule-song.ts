@@ -2,6 +2,7 @@ import { toast } from "sonner"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useSongStore } from "@/stores/song-store"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useThemesStore } from "@/stores/themes"
 import { usePresentationStore } from "@/stores/presentation-store"
 import {
   generateSlidesFromSong,
@@ -110,7 +111,7 @@ export function addSongAsIndividualSlides({
     options,
     undefined,
     undefined,
-    usePresentationStore.getState().customSlideThemes
+    useThemesStore.getState().customThemes
   )
   if (deck.slides.length === 0) {
     toast.info("This song has no lyrics to add as slides")

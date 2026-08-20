@@ -1,4 +1,5 @@
-import { BUILTIN_SLIDE_THEMES } from "@/lib/slide-themes"
+import { BUILTIN_THEMES as NEW_BUILTINS } from "@/lib/theme/builtins"
+import { resolveSongTheme } from "@/lib/theme/resolve"
 import { createDefaultTextElement } from "@/lib/slide-defaults"
 import type {
   AnimatedBackground,
@@ -7,15 +8,14 @@ import type {
   SlideBackground,
   SlideElement,
   SlideTextElement,
-  SlideTheme,
 } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 import type {
   Song,
   SongArrangement,
   SongSection,
   SongSlideOptions,
 } from "@/types/song"
-import { resolveThemeSlideContent } from "@/lib/presentation/presentation-mutations"
 
 /**
  * Auto slide generation (design doc §9) — the headline operator feature: expand a
@@ -132,6 +132,17 @@ function firstTextElement(elements?: SlideElement[]): SlideTextElement | null {
   return el ?? null
 }
 
+/**
+ * The lyric typography template for a song {@link Theme}: its `role:"lyrics"` text
+ * placeholder, or the first text element if none is tagged (a hand-authored theme).
+ */
+function lyricsElement(theme: Theme): SlideTextElement | null {
+  const roled = theme.elements.find(
+    (e): e is SlideTextElement => e.type === "text" && e.role === "lyrics"
+  )
+  return roled ?? firstTextElement(theme.elements)
+}
+
 /** Clone a text style template (or the app default) with a fresh id and text. */
 function textFrom(
   style: SlideTextElement | null,
@@ -230,44 +241,26 @@ export function generateSlidesFromSong(
   options: SongSlideOptions,
   newId: () => string = uuid,
   now: number = Date.now(),
-  customThemes: SlideTheme[] = []
+  customThemes: Theme[] = []
 ): Presentation {
-  // Resolve `themeId` against the built-ins plus any user-authored custom song
-  // themes (theme-unification-plan.md, Phase 3d). Empty custom list → built-ins
-  // only, keeping the historical (golden-tested) output byte-identical.
-  const themes = customThemes.length
-    ? [...BUILTIN_SLIDE_THEMES, ...customThemes]
-    : BUILTIN_SLIDE_THEMES
-  // Resolve the chosen theme's content + blank backgrounds and lyric typography
-  // once; each slide clones from these so no two slides share nested objects.
-  const content = resolveThemeSlideContent(
-    options.themeId,
-    "content-only",
-    newId,
-    themes
-  )
-  const blank = resolveThemeSlideContent(
-    options.themeId,
-    "blank",
-    newId,
-    themes
-  )
-  // Transparent output replaces the theme background entirely (lyrics keyed
-  // over live video / NDI); the theme still supplies typography.
+  // Resolve the chosen song theme in the new typed store (themeredo.md, flip VR3):
+  // the built-ins plus any user-authored customs, reconciled through the legacy-id
+  // alias. An unknown id resolves to nothing → a plain fallback background + default
+  // lyric typography (preserving the "unknown themeId → black" behaviour).
+  const songTheme = resolveSongTheme(options.themeId, [
+    ...NEW_BUILTINS,
+    ...customThemes,
+  ])
+  const themeBackground = songTheme?.background ?? FALLBACK_BACKGROUND
+  // Transparent output replaces the theme background entirely (lyrics keyed over live
+  // video / NDI); the theme still supplies typography. The new Theme is a single slide
+  // (no separate blank variant), so blanks reuse the same background.
   const transparent: SlideBackground = { type: "transparent" }
   const background = options.transparentBackground
     ? transparent
-    : withAnimatedOverride(
-        content?.background ?? FALLBACK_BACKGROUND,
-        options.animatedBackground
-      )
-  const blankBackground = options.transparentBackground
-    ? transparent
-    : withAnimatedOverride(
-        blank?.background ?? background,
-        options.animatedBackground
-      )
-  const lyricStyle = firstTextElement(content?.elements)
+    : withAnimatedOverride(themeBackground, options.animatedBackground)
+  const blankBackground = background
+  const lyricStyle = songTheme ? lyricsElement(songTheme) : null
 
   const sectionById = new Map(song.sections.map((s) => [s.id, s]))
   const slides: Slide[] = []

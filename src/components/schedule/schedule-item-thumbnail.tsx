@@ -62,7 +62,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
   )
   // Re-render the song thumbnail if the global default theme changes.
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
-  const customSlideThemes = usePresentationStore((s) => s.customSlideThemes)
+  const customSlideThemes = useThemesStore((s) => s.customThemes)
   // Holds the latest draw so the async image-load callback can redraw without
   // draw() referencing itself (which the compiler flags and risks stale closures).
   const drawRef = useRef<() => void>(() => {})

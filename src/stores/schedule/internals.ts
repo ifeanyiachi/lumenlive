@@ -1,7 +1,7 @@
 import type { ScheduleItem, SongScheduleItem } from "@/types/schedule"
 import type { Presentation } from "@/types/slide"
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import { usePresentationStore } from "@/stores/presentation-store"
+import { useThemesStore } from "@/stores/themes"
 import { useSongStore } from "@/stores/song-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import {
@@ -45,7 +45,7 @@ export function deckForSongItem(item: SongScheduleItem): Presentation | null {
     options,
     undefined,
     undefined,
-    usePresentationStore.getState().customSlideThemes
+    useThemesStore.getState().customThemes
   )
 }
 

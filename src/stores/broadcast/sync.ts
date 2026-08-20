@@ -6,6 +6,7 @@ import {
 import { resolveScriptureTheme, resolveBaseTheme } from "@/lib/theme/resolve"
 import type { VerseRenderData } from "@/types/broadcast"
 import { presentScripture } from "@/lib/theme/present"
+import { themeToSlide } from "@/lib/theme/render"
 import { useThemesStore } from "@/stores/themes"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
 import { buildStageUpdatePayload } from "@/lib/stage-layout/stage-payload"
@@ -98,12 +99,31 @@ export const createSyncSlice: StateCreator<
     // active — not just while showing a verse.
     const layerFilter = resolveLayerFilter(effective)
 
+    // The idle backdrop (not live, or live with nothing pushed): the output's own theme
+    // with no content. Rendered through the slide path (VR3) so it matches the audience
+    // scripture render + the operator preview — was the legacy `renderVerse` backdrop.
+    // Falls back to the legacy verse path only if no theme resolves in the new store.
+    const emitIdleBackdrop = () => {
+      if (outputTheme) {
+        emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
+          slide: {
+            ...themeToSlide(outputTheme, () => "idle-backdrop"),
+            transition: undefined,
+          },
+          verse: null,
+          layerFilter,
+        })
+      } else {
+        emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
+          theme,
+          verse: null,
+          layerFilter,
+        })
+      }
+    }
+
     if (!s.isLive) {
-      emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
-        theme,
-        verse: null,
-        layerFilter,
-      })
+      emitIdleBackdrop()
       return
     }
 
@@ -144,12 +164,8 @@ export const createSyncSlice: StateCreator<
         })
       }
     } else {
-      // Live but nothing pushed yet — show the theme backdrop via the legacy path.
-      emitOutputEvent(outputId, BROADCAST_EVENTS.verseUpdate, {
-        theme,
-        verse: null,
-        layerFilter,
-      })
+      // Live but nothing pushed yet — show the theme backdrop (VR3).
+      emitIdleBackdrop()
     }
   },
   syncBroadcastOutput: () => {

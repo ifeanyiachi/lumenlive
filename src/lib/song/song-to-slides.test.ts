@@ -6,7 +6,7 @@ import {
   DEFAULT_SONG_SLIDE_OPTIONS,
 } from "./song-to-slides"
 import type { Song, SongArrangement, SongSlideOptions } from "@/types/song"
-import type { SlideTheme } from "@/types/slide"
+import type { Theme } from "@/types/theme"
 
 /** Deterministic id generator so output is byte-comparable across runs. */
 function seededIds() {
@@ -126,43 +126,57 @@ describe("generateSlidesFromSong", () => {
     ])
   })
 
-  const customSongTheme: SlideTheme = {
+  // A custom song Theme (new typed model): its background + role:"lyrics" typography
+  // drive the generated slides (VR3).
+  const customSongTheme: Theme = {
     id: "custom-song-1",
     name: "My Custom Theme",
-    category: "song",
+    type: "song",
     builtin: false,
-    variants: [
+    pinned: false,
+    createdAt: NOW,
+    updatedAt: NOW,
+    resolution: { width: 1920, height: 1080 },
+    background: { type: "solid", color: "#ff0000" },
+    elements: [
       {
-        layout: "content-only",
-        background: { type: "solid", color: "#ff0000" },
-        elements: [
-          {
-            type: "text",
-            text: "Verse lyrics here",
-            x: 5,
-            y: 15,
-            width: 90,
-            height: 70,
-            fontFamily: "Inter",
-            fontSize: 61,
-            fontWeight: 700,
-            bold: false,
-            italic: false,
-            underline: false,
-            color: "#00ff00",
-            horizontalAlign: "center",
-            verticalAlign: "middle",
-            lineHeight: 1.4,
-            textTransform: "none",
-          },
-        ],
-      },
-      {
-        layout: "blank",
-        background: { type: "solid", color: "#ff0000" },
-        elements: [],
+        id: "lyrics-1",
+        type: "text",
+        role: "lyrics",
+        text: "Verse lyrics here",
+        x: 5,
+        y: 15,
+        width: 90,
+        height: 70,
+        fontFamily: "Inter",
+        fontSize: 61,
+        fontWeight: 700,
+        bold: false,
+        italic: false,
+        underline: false,
+        color: "#00ff00",
+        horizontalAlign: "center",
+        verticalAlign: "middle",
+        lineHeight: 1.4,
+        letterSpacing: 0,
+        textTransform: "none",
       },
     ],
+  }
+
+  const auroraSongTheme: Theme = {
+    ...customSongTheme,
+    id: "custom-aurora",
+    name: "Aurora Song",
+    background: {
+      type: "animated",
+      animated: {
+        preset: "aurora",
+        palette: ["#4c1d95", "#1e3a8a", "#0ea5e9"],
+        speed: 1,
+        intensity: 0.5,
+      },
+    },
   }
 
   it("resolves a custom (non-builtin) song theme passed via customThemes", () => {
@@ -287,9 +301,10 @@ describe("generateSlidesFromSong", () => {
     const deck = generateSlidesFromSong(
       s,
       arrangement(["c"]),
-      { ...OPTS, themeId: "theme-aurora-worship" },
+      { ...OPTS, themeId: "custom-aurora" },
       seededIds(),
-      NOW
+      NOW,
+      [auroraSongTheme]
     )
     const bg = deck.slides[0].background
     expect(bg.type).toBe("animated")
@@ -302,11 +317,12 @@ describe("generateSlidesFromSong", () => {
       arrangement(["c"]),
       {
         ...OPTS,
-        themeId: "theme-aurora-worship",
+        themeId: "custom-aurora",
         animatedBackground: { speed: 1.75, intensity: 0.2, preset: "bokeh" },
       },
       seededIds(),
-      NOW
+      NOW,
+      [auroraSongTheme]
     )
     const anim = deck.slides[0].background.animated!
     expect(anim.speed).toBe(1.75)
