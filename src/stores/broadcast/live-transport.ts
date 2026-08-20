@@ -8,6 +8,7 @@ import {
 } from "@/services/broadcast-content-gateway"
 import { clearedLiveFields } from "@/lib/broadcast/live-reset"
 import { resolveVersePages } from "@/lib/broadcast/pagination-commit"
+import { useThemesStore } from "@/stores/themes"
 import { toWebContentPayload } from "@/lib/broadcast/web-payload"
 import type { BroadcastState, BroadcastSource } from "./types"
 import { clearWebOutputs, emitVisibility } from "./internals"
@@ -93,7 +94,11 @@ export const createLiveTransportSlice: StateCreator<
     // Paginate long multi-verse blocks so they stay readable (see
     // resolveVersePages): single pages leave `liveVersePages` null and `liveVerse`
     // always points at the current page, so the emit path renders it unchanged.
-    const pages = resolveVersePages(liveVerse, s.outputs, s.themes)
+    const pages = resolveVersePages(
+      liveVerse,
+      s.outputs,
+      useThemesStore.getState().allThemes()
+    )
     set({
       ...clearedLiveFields(),
       liveVerse: pages[0] ?? liveVerse,
