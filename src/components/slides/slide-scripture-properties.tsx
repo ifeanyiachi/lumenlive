@@ -4,15 +4,33 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { SettingsIcon, SearchIcon, BookOpenIcon } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 import { usePresentationStore } from "@/stores/presentation-store"
+import { FontFamilyPicker } from "@/components/shared/font-family-picker"
 import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
 import { useBibleStore } from "@/stores"
 import type { Verse, Book } from "@/types"
 import type { SlideScriptureElement } from "@/types/slide"
+
+const FONT_WEIGHTS: { value: number; label: string }[] = [
+  { value: 300, label: "Light" },
+  { value: 400, label: "Regular" },
+  { value: 500, label: "Medium" },
+  { value: 600, label: "Semibold" },
+  { value: 700, label: "Bold" },
+  { value: 800, label: "Extra Bold" },
+]
 
 function parseReference(
   input: string,
@@ -226,11 +244,94 @@ export function SlideScriptureProperties({
 
           <Separator />
 
-          {/* Spacing */}
+          {/* Verse styling — the body of the scripture */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Spacing
+              Verse Style
             </span>
+            <PropertyRow label="Font">
+              <FontFamilyPicker
+                value={element.fontFamily}
+                onChange={(v) => update({ fontFamily: v })}
+              />
+            </PropertyRow>
+            <div className="grid grid-cols-2 gap-2">
+              <PropertyRow label="Size">
+                <Input
+                  type="number"
+                  value={element.fontSize}
+                  onChange={(e) => update({ fontSize: Number(e.target.value) })}
+                  className="h-7 text-xs"
+                  min={8}
+                  max={200}
+                />
+              </PropertyRow>
+              <PropertyRow label="Color">
+                <input
+                  type="color"
+                  value={element.color}
+                  onChange={(e) => update({ color: e.target.value })}
+                  className="h-7 w-full cursor-pointer rounded border border-border"
+                  aria-label="Verse color"
+                />
+              </PropertyRow>
+            </div>
+            <PropertyRow label="Weight">
+              <Select
+                value={String(element.fontWeight)}
+                onValueChange={(v) => update({ fontWeight: Number(v) })}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_WEIGHTS.map((w) => (
+                    <SelectItem key={w.value} value={String(w.value)}>
+                      {w.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            <PropertyRow label="Align">
+              <Select
+                value={element.horizontalAlign}
+                onValueChange={(v) =>
+                  update({
+                    horizontalAlign:
+                      v as SlideScriptureElement["horizontalAlign"],
+                  })
+                }
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            <PropertyRow label="Case">
+              <Select
+                value={element.textTransform ?? "none"}
+                onValueChange={(v) =>
+                  update({
+                    textTransform: v as SlideScriptureElement["textTransform"],
+                  })
+                }
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Normal</SelectItem>
+                  <SelectItem value="uppercase">UPPERCASE</SelectItem>
+                  <SelectItem value="lowercase">lowercase</SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
             <PropertyRow label="Line Height">
               <Slider
                 value={[element.lineHeight]}
@@ -240,18 +341,148 @@ export function SlideScriptureProperties({
                 step={0.1}
               />
             </PropertyRow>
-            <PropertyRow label="Ref Size">
-              <Input
-                type="number"
-                value={element.referenceFontSize}
-                onChange={(e) =>
-                  update({ referenceFontSize: Number(e.target.value) })
+          </div>
+
+          <Separator />
+
+          {/* Reference styling — the citation label (e.g. John 3:16) */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              Reference Style
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <PropertyRow label="Size">
+                <Input
+                  type="number"
+                  value={element.referenceFontSize}
+                  onChange={(e) =>
+                    update({ referenceFontSize: Number(e.target.value) })
+                  }
+                  className="h-7 text-xs"
+                  min={8}
+                  max={120}
+                />
+              </PropertyRow>
+              <PropertyRow label="Color">
+                <input
+                  type="color"
+                  value={element.referenceColor}
+                  onChange={(e) => update({ referenceColor: e.target.value })}
+                  className="h-7 w-full cursor-pointer rounded border border-border"
+                  aria-label="Reference color"
+                />
+              </PropertyRow>
+            </div>
+            <PropertyRow label="Position">
+              <Select
+                value={element.referencePosition ?? "below"}
+                onValueChange={(v) =>
+                  update({
+                    referencePosition:
+                      v as SlideScriptureElement["referencePosition"],
+                  })
                 }
-                className="h-7 text-xs"
-                min={8}
-                max={120}
-              />
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="above">Above verse</SelectItem>
+                  <SelectItem value="below">Below verse</SelectItem>
+                  <SelectItem value="inline">Inline</SelectItem>
+                </SelectContent>
+              </Select>
             </PropertyRow>
+            <div className="flex items-center justify-between">
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Uppercase
+              </span>
+              <Switch
+                checked={element.referenceUppercase ?? false}
+                onCheckedChange={(v) => update({ referenceUppercase: v })}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Verse numbers — superscript markers before each verse */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+                Verse Numbers
+              </span>
+              <Switch
+                checked={element.verseNumbers?.visible ?? false}
+                onCheckedChange={(v) =>
+                  update({
+                    verseNumbers: {
+                      fontSize:
+                        element.verseNumbers?.fontSize ??
+                        Math.round(element.fontSize * 0.5),
+                      color: element.verseNumbers?.color ?? element.color,
+                      superscript: element.verseNumbers?.superscript ?? true,
+                      visible: v,
+                    },
+                  })
+                }
+              />
+            </div>
+            {element.verseNumbers?.visible && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <PropertyRow label="Size">
+                    <Input
+                      type="number"
+                      value={element.verseNumbers.fontSize}
+                      onChange={(e) =>
+                        update({
+                          verseNumbers: {
+                            ...element.verseNumbers!,
+                            fontSize: Number(e.target.value),
+                          },
+                        })
+                      }
+                      className="h-7 text-xs"
+                      min={6}
+                      max={80}
+                    />
+                  </PropertyRow>
+                  <PropertyRow label="Color">
+                    <input
+                      type="color"
+                      value={element.verseNumbers.color}
+                      onChange={(e) =>
+                        update({
+                          verseNumbers: {
+                            ...element.verseNumbers!,
+                            color: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 w-full cursor-pointer rounded border border-border"
+                      aria-label="Verse number color"
+                    />
+                  </PropertyRow>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.6875rem] text-muted-foreground">
+                    Superscript
+                  </span>
+                  <Switch
+                    checked={element.verseNumbers.superscript}
+                    onCheckedChange={(v) =>
+                      update({
+                        verseNumbers: {
+                          ...element.verseNumbers!,
+                          superscript: v,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <Separator />
