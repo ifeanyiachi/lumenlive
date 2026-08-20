@@ -822,24 +822,40 @@ holds.
 > - **Wave 2 (DONE — commit `7e1fd58`):** deleted the interim `UnifiedTheme` container + adapters —
 >   `lib/theme/convert.ts`, `lib/theme/builtin-themes.ts`, `UnifiedTheme`/`ThemeKind` from `types/theme.ts`,
 >   stale barrel re-exports. `types/theme.ts` is now just the type-first `Theme` model.
-> - **Wave 3 (PENDING — LIVE repoints, need smoke tests):** three blockers, each a repoint then a delete:
->   - **A — CanvasVerse in verse-edit modals.** Repoint `verse-edit-modal.tsx:268` + `multi-verse-edit-modal.tsx:250`
->     off `CanvasVerse` onto the slide-renderer preview; then delete `components/ui/canvas-verse.tsx`.
->   - **B — audience + stage still call `renderVerse` (the F5 hybrid chrome pass).** Repoint `compositor.ts`
->     (`renderVerse(theme,null)` chrome) + `stage-display-renderer.ts` onto a slide-renderer chrome path; then
->     delete `verse-renderer/index.ts` (`renderVerse`) + `background.ts` + `project-element.ts`. **KEEP**
->     `verse-renderer/{layout,verse-text,verse-tokens,text-style}.ts` — live infra reused by
->     `slide-renderer/text-drawing.ts` + `verse-pagination.ts` (relocate under `slide-renderer/` later).
->   - **C — legacy `customSlideThemes` (presentation store).** Repoint `slide-theme-picker.tsx:62`,
->     `song-projection-options.tsx:71`, `songs-section.tsx:26` → `useThemesStore.customThemes`; then delete the
->     slice + `presentations.json` persistence of it.
-> - **Wave 4 (PENDING — after B+C):** retire the legacy broadcast store (`theme-crud`, `theme-designer` slice,
->   `broadcast-store` hydrate/persist, `main.tsx` `hydrateBroadcastThemes`); delete `lib/builtin-themes.ts`
->   (`BUILTIN_THEMES`), `BroadcastTheme` + `ThemeCategory` types, `types/index.ts` export; delete `migrate/**` +
->   legacy read paths once no user needs the one-time ingest. **Keep** `SlideThemeCategory` (live slide model).
-> - **Safety net kept until Wave 3:** `countdown/theme-render.ts` + the `present/parity/**` harness stay (they're
->   the byte-identity gate for the still-live `renderVerse` path); delete them with Wave 3/4 once the slide path is
->   trusted.
+> - **Wave 3A (DONE — commit `f4386fb`):** verse-edit + multi-verse-edit modals previewed scripture via
+>   `CanvasVerse`/`renderVerse`; repointed both to `ScripturePreview` (slide path, resolves the output Theme from
+>   the typed store). Deleted `components/ui/canvas-verse.tsx`.
+> - **Wave 3B (DONE — commit `dc68ac3`):** KEY FINDING — after RF2/VR3, `sync.ts` always resolves a builtin
+>   `Theme` and emits `slideUpdate`, so the compositor/stage **verse path was already unreachable dead code**.
+>   Removed it end-to-end: compositor `drawScriptureThemeHybrid`/`renderVerseContent`/`buildVerseRenderOpts` +
+>   the `activeMode:"verse"`/`latestData` `CompositorState` fields; the output-window `verse-listener.ts` (deleted)
+>   + its runtime plumbing (`latestData` ref, `onNullVerse`, `preloadThemeImages`, `activeMode:"verse"`); the
+>   stage `renderVerse` fallback. `composeFrame`'s no-content else now falls back to `renderClear`. **`renderVerse`
+>   is now off ALL live paths** — it survives only as the test-only parity reference. compositor.test verse cases
+>   pruned/converted to slides.
+> - **⚠ SMOKE-TEST GATE (before any further deletion).** Everything remaining removes the safety net /
+>   fallback for live paths that have NOT been hardware-smoke-tested (scripture/idle/countdown/base/song all
+>   render through the new slide path now, but only tests prove it). **Recommend a real output+stage+NDI smoke
+>   test here** before deleting `renderVerse`/the parity harness or retiring the legacy broadcast store.
+> - **Wave 3B-tail (PENDING — after smoke test):** delete `verse-renderer/index.ts`'s `renderVerse` (reduce to
+>   the re-export barrel), `verse-renderer/background.ts` + `project-element.ts` (+ tests), `countdown/theme-render.ts`
+>   (+ test), the `present/parity/**` harness (scripture + countdown), and `scripture-slide.ts`'s now-unused
+>   `buildScriptureSlide`. All are now test-only leaves. **KEEP** `verse-renderer/{layout,verse-text,verse-tokens,
+>   text-style}.ts` — live infra reused by `slide-renderer/text-drawing.ts` + `verse-pagination.ts`.
+> - **Wave 3C (BLOCKED — needs a design decision, NOT a clean swap).** The map under-scoped this: the three
+>   `customSlideThemes` consumers (`slide-theme-picker.tsx`, `song-projection-options.tsx`, `songs-section.tsx`)
+>   are built on the OLD `SlideTheme` model — `BUILTIN_SLIDE_THEMES`, `.variants` (content-only / lower-third /…),
+>   `.category`, `applyThemeToSlide(themeId, variant)`. The new single-slide `Theme` has **no variants concept**,
+>   so `SlideThemePicker` (apply-a-theme-to-a-deck) has no drop-in new-model equivalent — porting it is a UX
+>   decision, not a store swap. **Do NOT blind-swap.** Options: (a) port the picker to the new model; (b) keep
+>   `SlideTheme`/`customSlideThemes` as a separate live model and scope VR4 to only the BroadcastTheme track.
+> - **Wave 4 (PENDING — after smoke test + 3C decision):** retire the legacy broadcast store (`theme-crud`,
+>   `theme-designer` slice + `draftTheme` + `emitDraftToBroadcast`, `broadcast-store` hydrate/persist of
+>   `broadcast-themes.json`, `main.tsx` `hydrateBroadcastThemes`); repoint output-config UIs (`output-selectors`,
+>   `output-row`, mirroring) from `s.themes: BroadcastTheme[]` to the new store; delete `lib/builtin-themes.ts`
+>   (`BUILTIN_THEMES`), `BroadcastTheme` + `ThemeCategory` types, `types/index.ts` export; retire the `verseUpdate`
+>   gateway event + `VerseUpdatePayload`; delete `migrate/**` + legacy read paths once no user needs the one-time
+>   ingest. **Large (~60 files + the ~1100-line `broadcast-store.test.ts`).** **Keep** `SlideThemeCategory`.
 >
 > **Original plan for Phase 5:**
 
