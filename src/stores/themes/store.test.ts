@@ -1,13 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Theme } from "@/types/theme"
 
+import type { LegacyThemeSources } from "@/lib/theme/migrate"
+
 // Mock the persistence gateway so the store can run without a Tauri runtime and
 // so we can assert what gets loaded/saved.
 const loadStoredThemes = vi.fn(async (): Promise<Theme[] | null> => null)
 const saveThemes = vi.fn(async (_themes: Theme[]): Promise<void> => {})
+// Legacy ingest (Phase 5b): default to "already ingested" so the CRUD/hydration
+// tests below are unaffected; the ingest suite overrides these per-case.
+const hasIngestedLegacy = vi.fn(async (): Promise<boolean> => true)
+const loadLegacyThemeSources = vi.fn(
+  async (): Promise<LegacyThemeSources> => ({ broadcast: [], slide: [] })
+)
+const markLegacyIngested = vi.fn(async (): Promise<void> => {})
 vi.mock("@/services/theme-store-gateway", () => ({
   loadStoredThemes: () => loadStoredThemes(),
   saveThemes: (t: Theme[]) => saveThemes(t),
+  hasIngestedLegacy: () => hasIngestedLegacy(),
+  loadLegacyThemeSources: () => loadLegacyThemeSources(),
+  markLegacyIngested: () => markLegacyIngested(),
 }))
 
 const mkTheme = (id: string, over: Partial<Theme> = {}): Theme => ({
@@ -113,5 +125,37 @@ describe("themes store — hydration + persistence", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe("themes store — one-time legacy ingest (Phase 5b)", () => {
+  beforeEach(() => vi.resetModules())
+
+  it("ingests legacy themes on first hydrate, then marks it done", async () => {
+    const { BUILTIN_THEMES } = await import("@/lib/builtin-themes")
+    const classic = BUILTIN_THEMES.find((t) => t.id === "builtin-classic-dark")!
+    const { useThemesStore, hydrateThemes } = await freshStore()
+    // Set overrides after freshStore()'s clearAllMocks, before hydrate runs.
+    hasIngestedLegacy.mockResolvedValue(false)
+    loadLegacyThemeSources.mockResolvedValue({ broadcast: [classic], slide: [] })
+
+    await hydrateThemes()
+
+    // The migrated legacy theme is now in the store and was persisted + marked.
+    expect(useThemesStore.getState().customThemes).toHaveLength(1)
+    expect(saveThemes).toHaveBeenCalledTimes(1)
+    expect(markLegacyIngested).toHaveBeenCalledTimes(1)
+
+    hasIngestedLegacy.mockResolvedValue(true)
+    loadLegacyThemeSources.mockResolvedValue({ broadcast: [], slide: [] })
+  })
+
+  it("does not re-ingest once the marker is set", async () => {
+    const { useThemesStore, hydrateThemes } = await freshStore()
+    hasIngestedLegacy.mockResolvedValue(true)
+    await hydrateThemes()
+    expect(loadLegacyThemeSources).not.toHaveBeenCalled()
+    expect(useThemesStore.getState().customThemes).toHaveLength(0)
+    expect(markLegacyIngested).not.toHaveBeenCalled()
   })
 })

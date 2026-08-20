@@ -5,4 +5,10 @@
 // without data loss.
 
 export { broadcastToTheme, categoryToType } from "./broadcast-to-theme"
+export { slideThemeToTheme, slideCategoryToType } from "./slide-theme-to-theme"
 export { backgroundToSlide } from "./background"
+export {
+  ingestLegacyThemes,
+  type LegacyThemeSources,
+  type IngestResult,
+} from "./ingest"
