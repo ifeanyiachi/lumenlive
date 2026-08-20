@@ -14,25 +14,14 @@ import {
 import { TimerIcon } from "lucide-react"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
+import {
+  PropertyRow,
+  ShadowSection,
+  OutlineSection,
+  PositionSizeSection,
+} from "@/components/slides/element-property-sections"
 import type { SlideTimerElement } from "@/types/slide"
 import type { CountdownFormat, CountdownMode } from "@/types/alert"
-
-function PropertyRow({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex-1">{children}</div>
-    </div>
-  )
-}
 
 /** Parse an optional seconds field: blank → undefined, otherwise a clamped int. */
 function parseThreshold(raw: string): number | undefined {
@@ -238,54 +227,21 @@ export function SlideTimerProperties({
 
           <Separator />
 
-          {/* Position & Size */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Position & Size (%)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyRow label="X">
-                <Input
-                  type="number"
-                  value={element.x}
-                  onChange={(e) => update({ x: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="Y">
-                <Input
-                  type="number"
-                  value={element.y}
-                  onChange={(e) => update({ y: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="W">
-                <Input
-                  type="number"
-                  value={element.width}
-                  onChange={(e) => update({ width: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="H">
-                <Input
-                  type="number"
-                  value={element.height}
-                  onChange={(e) => update({ height: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-            </div>
-          </div>
+          <ShadowSection
+            shadow={element.shadow}
+            onChange={(shadow) => update({ shadow })}
+          />
+
+          <Separator />
+
+          <OutlineSection
+            outline={element.outline}
+            onChange={(outline) => update({ outline })}
+          />
+
+          <Separator />
+
+          <PositionSizeSection rect={element} onChange={update} />
 
           <ElementAnimationProperties element={element} />
         </div>

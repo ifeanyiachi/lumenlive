@@ -51,7 +51,7 @@ export function scriptureElementToVerseStyle(
     lineHeight: el.lineHeight,
     letterSpacing: el.letterSpacing ?? 0,
     shadow,
-    outline: null,
+    outline: el.outline ? { width: el.outline.width, color: el.outline.color } : null,
   }
 
   // Reference reuses the body's font family/weight (the placeholder does not carry a

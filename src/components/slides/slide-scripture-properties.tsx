@@ -19,6 +19,12 @@ import { invoke } from "@tauri-apps/api/core"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { FontFamilyPicker } from "@/components/shared/font-family-picker"
 import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
+import {
+  PropertyRow,
+  ShadowSection,
+  OutlineSection,
+  PositionSizeSection,
+} from "@/components/slides/element-property-sections"
 import { useBibleStore } from "@/stores"
 import type { Verse, Book } from "@/types"
 import type { SlideScriptureElement } from "@/types/slide"
@@ -52,23 +58,6 @@ function parseReference(
     chapter: Number(ch),
     verse: Number(vs),
   }
-}
-
-function PropertyRow({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex-1">{children}</div>
-    </div>
-  )
 }
 
 export function SlideScriptureProperties({
@@ -487,110 +476,21 @@ export function SlideScriptureProperties({
 
           <Separator />
 
-          {/* Shadow */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Shadow
-              </span>
-              <Button
-                variant={element.shadow ? "default" : "outline"}
-                size="icon-sm"
-                className="size-5 text-[0.5625rem]"
-                onClick={() =>
-                  update({
-                    shadow: element.shadow
-                      ? undefined
-                      : {
-                          offsetX: 2,
-                          offsetY: 2,
-                          blur: 4,
-                          color: "rgba(0,0,0,0.5)",
-                        },
-                  })
-                }
-              >
-                {element.shadow ? "On" : "Off"}
-              </Button>
-            </div>
-            {element.shadow && (
-              <>
-                <PropertyRow label="Blur">
-                  <Slider
-                    value={[element.shadow.blur]}
-                    onValueChange={([v]) =>
-                      update({ shadow: { ...element.shadow!, blur: v } })
-                    }
-                    min={0}
-                    max={50}
-                    step={1}
-                  />
-                </PropertyRow>
-                <PropertyRow label="Color">
-                  <Input
-                    value={element.shadow.color}
-                    onChange={(e) =>
-                      update({
-                        shadow: { ...element.shadow!, color: e.target.value },
-                      })
-                    }
-                    className="h-7 text-xs"
-                  />
-                </PropertyRow>
-              </>
-            )}
-          </div>
+          <ShadowSection
+            shadow={element.shadow}
+            onChange={(shadow) => update({ shadow })}
+          />
 
           <Separator />
 
-          {/* Position & Size */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Position & Size (%)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyRow label="X">
-                <Input
-                  type="number"
-                  value={element.x}
-                  onChange={(e) => update({ x: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="Y">
-                <Input
-                  type="number"
-                  value={element.y}
-                  onChange={(e) => update({ y: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="W">
-                <Input
-                  type="number"
-                  value={element.width}
-                  onChange={(e) => update({ width: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="H">
-                <Input
-                  type="number"
-                  value={element.height}
-                  onChange={(e) => update({ height: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-            </div>
-          </div>
+          <OutlineSection
+            outline={element.outline}
+            onChange={(outline) => update({ outline })}
+          />
+
+          <Separator />
+
+          <PositionSizeSection rect={element} onChange={update} />
 
           <ElementAnimationProperties element={element} />
         </div>

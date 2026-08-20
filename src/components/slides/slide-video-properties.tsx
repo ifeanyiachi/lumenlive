@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -17,6 +16,7 @@ import {
 import { SettingsIcon, VideoIcon } from "lucide-react"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
+import { PositionSizeSection } from "@/components/slides/element-property-sections"
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog"
 import type { SlideVideoElement } from "@/types/slide"
 import type { MediaAsset } from "@/types/media"
@@ -195,54 +195,7 @@ export function SlideVideoProperties({
 
           <Separator />
 
-          {/* Position & Size */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Position & Size (%)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyRow label="X">
-                <Input
-                  type="number"
-                  value={element.x}
-                  onChange={(e) => update({ x: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="Y">
-                <Input
-                  type="number"
-                  value={element.y}
-                  onChange={(e) => update({ y: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={0}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="W">
-                <Input
-                  type="number"
-                  value={element.width}
-                  onChange={(e) => update({ width: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-              <PropertyRow label="H">
-                <Input
-                  type="number"
-                  value={element.height}
-                  onChange={(e) => update({ height: Number(e.target.value) })}
-                  className="h-7 text-xs"
-                  min={1}
-                  max={100}
-                />
-              </PropertyRow>
-            </div>
-          </div>
+          <PositionSizeSection rect={element} onChange={update} />
 
           <ElementAnimationProperties element={element} />
         </div>

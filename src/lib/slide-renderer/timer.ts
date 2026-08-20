@@ -121,6 +121,18 @@ export function drawTimerElement(
     ctx.shadowBlur = element.shadow.blur
   }
 
+  // Outline: stroke behind the fill. Clear the shadow first so it doesn't double
+  // under both the stroke and the fill.
+  if (element.outline && element.outline.width > 0) {
+    ctx.save()
+    ctx.shadowColor = "transparent"
+    ctx.lineWidth = element.outline.width
+    ctx.strokeStyle = element.outline.color
+    ctx.lineJoin = "round"
+    ctx.strokeText(text, textX, textY)
+    ctx.restore()
+  }
+
   ctx.fillText(text, textX, textY)
 
   ctx.restore()

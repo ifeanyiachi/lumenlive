@@ -140,6 +140,7 @@ export interface SlideScriptureElement extends SlideElementBase {
   referenceColor: string
   backgroundColor?: string
   shadow?: { offsetX: number; offsetY: number; blur: number; color: string }
+  outline?: { width: number; color: string }
   // ── Verse-style carriers (themeredo.md, RF1) ──
   // The lean scripture placeholder gains the verse-styling the live path needs so
   // the verse body can render from the element alone (retiring the dependency on the
@@ -214,6 +215,7 @@ export interface SlideTimerElement extends SlideElementBase {
   dangerSeconds?: number
   backgroundColor?: string
   shadow?: { offsetX: number; offsetY: number; blur: number; color: string }
+  outline?: { width: number; color: string }
 }
 
 // ── Shape element ──
