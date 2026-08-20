@@ -3,7 +3,7 @@
 // caller injects `newId`/`now` and the source theme is never mutated.
 
 import type { Theme } from "@/types/theme"
-import { presentScripture } from "./scripture"
+import { presentScripture, presentScripturePages } from "./scripture"
 import { presentSong } from "./song"
 import { presentCountdown } from "./countdown"
 import { presentSermon } from "./sermon"
@@ -25,6 +25,7 @@ export type {
 
 export {
   presentScripture,
+  presentScripturePages,
   presentSong,
   presentCountdown,
   presentSermon,

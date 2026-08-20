@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
-import type { BroadcastTheme, VerseRenderData } from "@/types/broadcast"
+import type {
+  BroadcastTheme,
+  VerseRenderData,
+  VerseSegment,
+} from "@/types/broadcast"
+import { paginateVerse } from "@/lib/verse-pagination"
 import {
   diffScriptureParity,
   flattenVerse,
@@ -124,5 +129,51 @@ describe("diffScriptureParity — the Phase 4b parity gate", () => {
       const report = diffScriptureParity(bt, MULTI_VERSE)
       expect(report.divergences).toEqual([])
     }
+  })
+})
+
+describe("scripture paging materialization parity (F4)", () => {
+  // measureText proportional to length (font-size-independent) so pagination
+  // splits deterministically headless — same fake ctx pattern as
+  // verse-pagination.test.ts.
+  const fakeCtx = (charWidth = 10): CanvasRenderingContext2D =>
+    ({
+      font: "",
+      letterSpacing: "",
+      textAlign: "left",
+      textBaseline: "top",
+      save() {},
+      restore() {},
+      measureText: (t: string) => ({ width: t.length * charWidth }),
+    }) as unknown as CanvasRenderingContext2D
+
+  const longSeg = (n: number): VerseSegment => ({
+    verseNumber: n,
+    text: `Verse ${n} ${"word ".repeat(40)}`.trim(),
+  })
+  const BLOCK: VerseRenderData = {
+    reference: "Psalm 1:1-5",
+    segments: [longSeg(1), longSeg(2), longSeg(3), longSeg(4), longSeg(5)],
+  }
+
+  it("splits a long block and renders each page byte-identical to renderVerse", () => {
+    // A large readable floor forces a genuine multi-page split.
+    const pages = paginateVerse(
+      BLOCK,
+      CLASSIC,
+      { minFontSize: 120, enabled: true },
+      fakeCtx()
+    )
+    expect(pages.length).toBeGreaterThan(1)
+
+    // Paging introduces no new render path: each materialized page is just a
+    // VerseRenderData, so the existing scripture gate must hold for every one —
+    // this is what makes F4's multi-slide expansion byte-identical vs renderVerse.
+    for (const page of pages) {
+      expect(diffScriptureParity(CLASSIC, page).divergences).toEqual([])
+    }
+
+    // And the split is loss-free: every verse survives exactly once, in order.
+    expect(pages.flatMap((p) => p.segments)).toEqual(BLOCK.segments)
   })
 })

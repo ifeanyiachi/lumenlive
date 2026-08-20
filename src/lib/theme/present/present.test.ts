@@ -8,6 +8,7 @@ import {
   presentCountdown,
   presentOverlay,
   presentScripture,
+  presentScripturePages,
   presentSermon,
   presentSong,
   presentTheme,
@@ -44,6 +45,60 @@ describe("presentScripture", () => {
     const theme = BUILTIN_THEME_BY_TYPE.scripture
     const before = structuredClone(theme)
     presentScripture(theme, { type: "scripture", verse: VERSE }, idSource())
+    expect(theme).toEqual(before)
+  })
+})
+
+describe("presentScripturePages (F4)", () => {
+  // A block split upstream into three pages (verse-boundary subsets).
+  const PAGES: VerseRenderData[] = [
+    { reference: "John 3:16-18", segments: [{ verseNumber: 16, text: "a" }] },
+    { reference: "John 3:16-18", segments: [{ verseNumber: 17, text: "b" }] },
+    { reference: "John 3:16-18", segments: [{ verseNumber: 18, text: "c" }] },
+  ]
+
+  it("materializes one slide per page, each riding its own page verse", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.scripture
+    const slides = presentScripturePages(theme, PAGES, idSource())
+    expect(slides).toHaveLength(3)
+    slides.forEach((s, i) => {
+      // Each page carries exactly its own subset as the render-time payload…
+      expect(s.scriptureContent).toEqual(PAGES[i])
+      // …and the placeholder stays style-only (nothing baked in).
+      const el = findScriptureElement(s.slide.elements)
+      expect(el?.verseText).toBe("")
+      expect(el?.reference).toBe("")
+    })
+  })
+
+  it("preserves every verse exactly once across the pages (no loss/dup)", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.scripture
+    const slides = presentScripturePages(theme, PAGES, idSource())
+    const flat = slides.flatMap((s) => s.scriptureContent!.segments)
+    expect(flat).toEqual(PAGES.flatMap((p) => p.segments))
+  })
+
+  it("a single page is identical to presentScripture", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.scripture
+    const paged = presentScripturePages(theme, [VERSE], idSource())
+    const single = presentScripture(
+      theme,
+      { type: "scripture", verse: VERSE },
+      idSource()
+    )
+    expect(paged).toEqual(single)
+  })
+
+  it("gives each page a distinct, deep-cloned slide, leaving the theme untouched", () => {
+    const theme = BUILTIN_THEME_BY_TYPE.scripture
+    const before = structuredClone(theme)
+    const slides = presentScripturePages(theme, PAGES, idSource())
+    // Distinct slide identities (fresh id per page).
+    const slideIds = slides.map((s) => s.slide.id)
+    expect(new Set(slideIds).size).toBe(slides.length)
+    // Deep-cloned: pages share no element object with each other or the source.
+    expect(slides[0].slide.elements[0]).not.toBe(slides[1].slide.elements[0])
+    expect(slides[0].slide.elements[0]).not.toBe(theme.elements[0])
     expect(theme).toEqual(before)
   })
 })
