@@ -6,10 +6,16 @@ import type {
   SlideScriptureElement,
   SlideShapeElement,
   SlideVideoElement,
+  SlideTimerElement,
 } from "@/types/slide"
-import type { SlideRenderCaches, SlideRenderOptions } from "./types"
+import type {
+  ScriptureRenderPayload,
+  SlideRenderCaches,
+  SlideRenderOptions,
+} from "./types"
 import { drawSlideBackground } from "./background"
 import { drawTextElement, drawScriptureElement } from "./text-drawing"
+import { drawTimerElement } from "./timer"
 import {
   buildShapePath,
   drawImageElement,
@@ -29,14 +35,24 @@ import { applyAnimationTransform, applyRotation } from "./transforms"
  * imports keep working unchanged.
  */
 
-export type { SlideRenderCaches, SlideRenderOptions } from "./types"
+export type {
+  ScriptureRenderPayload,
+  SlideRenderCaches,
+  SlideRenderOptions,
+} from "./types"
 export {
   slideHasVideoBackground,
   slideHasVideo,
   slideHasScrollingText,
   slideHasAnimatedBackground,
+  slideHasTimer,
   sameAnimatedBackground,
 } from "./predicates"
+export {
+  drawTimerElement,
+  computeTimerDisplay,
+  computeTimerRemaining,
+} from "./timer"
 export { getTextLineCount, getTextWordCount } from "./text-drawing"
 
 function drawSingleElement(
@@ -45,7 +61,9 @@ function drawSingleElement(
   canvasWidth: number,
   canvasHeight: number,
   caches?: SlideRenderCaches,
-  textBuildProgress?: number
+  textBuildProgress?: number,
+  now?: number,
+  scripturePayload?: ScriptureRenderPayload
 ): void {
   const elType = element.type ?? "text"
   switch (elType) {
@@ -72,7 +90,8 @@ function drawSingleElement(
         ctx,
         element as SlideScriptureElement,
         canvasWidth,
-        canvasHeight
+        canvasHeight,
+        scripturePayload
       )
       break
     case "shape":
@@ -90,6 +109,15 @@ function drawSingleElement(
         canvasWidth,
         canvasHeight,
         caches
+      )
+      break
+    case "timer":
+      drawTimerElement(
+        ctx,
+        element as SlideTimerElement,
+        canvasWidth,
+        canvasHeight,
+        now
       )
       break
   }
@@ -122,8 +150,21 @@ function drawSlideElement(
 
   // Check if any shape masks target this element
   const textBuild = opts?.textBuildProgress?.get(element.id)
+  const scripturePayload =
+    element.type === "scripture"
+      ? opts?.scriptureContent?.get(element.id)
+      : undefined
 
-  drawSingleElement(ctx, element, canvasWidth, canvasHeight, caches, textBuild)
+  drawSingleElement(
+    ctx,
+    element,
+    canvasWidth,
+    canvasHeight,
+    caches,
+    textBuild,
+    opts?.now,
+    scripturePayload
+  )
 
   if (rotated) ctx.restore()
   ctx.restore()

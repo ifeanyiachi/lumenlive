@@ -29,8 +29,17 @@ import { projectElementToSurface } from "./project-element"
  */
 
 export { wrapText, wrapTextWithHardBreaks } from "./verse-tokens"
-export { anchorPosition, computeVerseLayoutMetrics } from "./layout"
+export {
+  anchorPosition,
+  computeVerseLayoutMetrics,
+  measureVerseHeightAtFont,
+} from "./layout"
 export type { VerseLayoutRect, VerseLayoutMetrics } from "./layout"
+// Low-level draw passes, exposed so the slide renderer can reuse them verbatim
+// when a scripture placeholder carries a live verse payload (themeredo.md,
+// Phase 4b) — reproducing verse output byte-for-byte rather than reimplementing
+// verse numbers / styled spans / reference formatting in the slide path.
+export { drawReference, drawVerseText } from "./verse-text"
 
 export function renderVerse(
   ctx: CanvasRenderingContext2D,

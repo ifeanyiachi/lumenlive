@@ -8,6 +8,7 @@ import {
   slideThemeToEditableSlide,
   editableSlideToSlideTheme,
 } from "@/lib/theme/slide-theme-edit"
+import { themeToSlide, type ThemeIdentity } from "@/lib/theme/render"
 import { newId, resetHistory, pushUndo } from "./internals"
 import type { PresentationState } from "./types"
 
@@ -24,6 +25,7 @@ export type LifecycleSlice = Pick<
   | "draftPresentation"
   | "customSlideThemes"
   | "themeEditSession"
+  | "typedThemeSession"
   | "startEditing"
   | "startEditingNewPresentation"
   | "saveDraft"
@@ -32,6 +34,7 @@ export type LifecycleSlice = Pick<
   | "deleteCustomSlideTheme"
   | "renameCustomSlideTheme"
   | "startEditingSlideTheme"
+  | "startEditingTheme"
   | "applyThemeToSlide"
   | "applyThemeToPresentation"
 >
@@ -46,6 +49,7 @@ export const createLifecycleSlice: StateCreator<
   draftPresentation: null,
   customSlideThemes: [],
   themeEditSession: null,
+  typedThemeSession: null,
 
   startEditing: (id) => {
     const p = get().presentations.find((p) => p.id === id)
@@ -57,6 +61,8 @@ export const createLifecycleSlice: StateCreator<
       draftPresentation: draft,
       activeSlideIndex: 0,
       selectedElementId: draft.slides[0]?.elements[0]?.id ?? null,
+      themeEditSession: null,
+      typedThemeSession: null,
     })
   },
 
@@ -72,11 +78,17 @@ export const createLifecycleSlice: StateCreator<
       activeSlideIndex: 0,
       selectedElementId: draft.slides[0]?.elements[0]?.id ?? null,
       themeEditSession: null,
+      typedThemeSession: null,
     })
   },
 
   saveDraft: () =>
     set((s) => {
+      // Type-first theme session (themeredo.md, Phase 3): saving is driven by the
+      // Theme Designer, which projects the draft back into a `Theme` and writes to
+      // `useThemesStore`. Never fall through to the deck path — the draft's
+      // `__theme__` id isn't a library presentation and must not be appended.
+      if (s.typedThemeSession) return s
       // Theme-authoring session: the draft's single slide becomes a custom
       // SlideTheme rather than a library presentation. Editing a *built-in*
       // theme forks it to a new custom one (built-ins live in code and stay
@@ -137,6 +149,7 @@ export const createLifecycleSlice: StateCreator<
       activeSlideIndex: 0,
       selectedElementId: null,
       themeEditSession: null,
+      typedThemeSession: null,
     }),
 
   saveCustomSlideTheme: (theme) =>
@@ -187,6 +200,40 @@ export const createLifecycleSlice: StateCreator<
       activeSlideIndex: 0,
       selectedElementId: slide.elements[0]?.id ?? null,
       themeEditSession: { themeId: theme.id, isNew },
+      typedThemeSession: null,
+    })
+  },
+
+  startEditingTheme: (theme, isNew) => {
+    resetHistory()
+    // A theme is a styled single slide; project it into a one-slide draft the
+    // slide editor can operate on. Element ids are minted deterministically off
+    // the theme id (not `crypto`), so the same theme always opens identically.
+    let n = 0
+    const slide = themeToSlide(theme, () => `${theme.id}-el-${n++}`, Date.now())
+    const draft: Presentation = {
+      id: `__theme__${theme.id}`,
+      name: theme.name,
+      slides: [slide],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    const identity: ThemeIdentity = {
+      id: theme.id,
+      type: theme.type,
+      name: theme.name,
+      pinned: theme.pinned,
+      createdAt: theme.createdAt,
+      resolution: theme.resolution,
+    }
+    set({
+      editingPresentationId: draft.id,
+      draftPresentation: draft,
+      activeSlideIndex: 0,
+      // Start with nothing selected so the type-specific theme panel shows first.
+      selectedElementId: null,
+      themeEditSession: null,
+      typedThemeSession: { identity, isNew },
     })
   },
 

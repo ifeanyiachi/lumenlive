@@ -5,6 +5,7 @@ import {
   createDefaultScriptureElement,
   createDefaultShapeElement,
   createDefaultVideoElement,
+  createDefaultTimerElement,
 } from "@/lib/slide-defaults"
 import * as slides from "@/lib/presentation/slide-mutations"
 import { pushUndo, pushUndoDebounced } from "./internals"
@@ -34,6 +35,7 @@ export type ElementsSlice = Pick<
   | "addScriptureElement"
   | "addShapeElement"
   | "addVideoElement"
+  | "addTimerElement"
   | "removeElement"
   | "setSelectedElement"
   | "reorderElement"
@@ -211,6 +213,23 @@ export const createElementsSlice: StateCreator<
       if (!s.draftPresentation) return s
       pushUndo(s.draftPresentation)
       const el = createDefaultVideoElement()
+      return {
+        draftPresentation: slides.appendElementToSlide(
+          s.draftPresentation,
+          s.activeSlideIndex,
+          el,
+          Date.now()
+        ),
+        selectedElementId: el.id,
+        selectedElementIds: [],
+      }
+    }),
+
+  addTimerElement: () =>
+    set((s) => {
+      if (!s.draftPresentation) return s
+      pushUndo(s.draftPresentation)
+      const el = createDefaultTimerElement()
       return {
         draftPresentation: slides.appendElementToSlide(
           s.draftPresentation,

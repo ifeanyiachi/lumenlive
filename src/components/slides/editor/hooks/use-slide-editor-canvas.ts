@@ -6,6 +6,7 @@ import {
   slideHasVideo,
   slideHasVideoBackground,
   slideHasAnimatedBackground,
+  slideHasTimer,
   sameAnimatedBackground,
   getTextLineCount,
   getTextWordCount,
@@ -75,7 +76,10 @@ export function useSlideEditorCanvas(
     if (!ctx) return
     canvas.width = DESIGN_WIDTH
     canvas.height = DESIGN_HEIGHT
-    const renderOpts: SlideRenderOptions = { frameTime: performance.now() }
+    const renderOpts: SlideRenderOptions = {
+      frameTime: performance.now(),
+      now: Date.now(),
+    }
     const tracker = editorAnimTrackerRef.current
     if (tracker && isAnimationActive(tracker)) {
       renderOpts.animationStates = tracker.elementStates
@@ -248,7 +252,7 @@ export function useSlideEditorCanvas(
         DESIGN_HEIGHT,
         getSlideImageCache(),
         videoCacheRef.current,
-        { frameTime: performance.now() }
+        { frameTime: performance.now(), now: Date.now() }
       )
 
       // Overlay the previous slide with the transition effect.
@@ -361,8 +365,12 @@ export function useSlideEditorCanvas(
         }
       }
       if (pendingLoads === 0) startLoop()
-    } else if (activeSlide && slideHasAnimatedBackground(activeSlide)) {
-      // No video, but a time-driven animated background needs a persistent loop.
+    } else if (
+      activeSlide &&
+      (slideHasAnimatedBackground(activeSlide) || slideHasTimer(activeSlide))
+    ) {
+      // No video, but a time-driven animated background or ticking timer element
+      // needs a persistent loop.
       cancelAnimationFrame(editorRafRef.current)
       const tick = () => {
         draw()

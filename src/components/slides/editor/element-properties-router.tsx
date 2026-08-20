@@ -3,12 +3,14 @@ import { SlideImageProperties } from "@/components/slides/slide-image-properties
 import { SlideScriptureProperties } from "@/components/slides/slide-scripture-properties"
 import { SlideShapeProperties } from "@/components/slides/slide-shape-properties"
 import { SlideVideoProperties } from "@/components/slides/slide-video-properties"
+import { SlideTimerProperties } from "@/components/slides/slide-timer-properties"
 import type {
   SlideElement,
   SlideImageElement,
   SlideScriptureElement,
   SlideShapeElement,
   SlideVideoElement,
+  SlideTimerElement,
   SlideTextElement,
 } from "@/types/slide"
 
@@ -30,6 +32,8 @@ export function ElementPropertiesRouter({
       return <SlideShapeProperties element={element as SlideShapeElement} />
     case "video":
       return <SlideVideoProperties element={element as SlideVideoElement} />
+    case "timer":
+      return <SlideTimerProperties element={element as SlideTimerElement} />
     default:
       return <SlideElementProperties element={element as SlideTextElement} />
   }

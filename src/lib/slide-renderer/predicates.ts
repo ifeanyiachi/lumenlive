@@ -34,6 +34,17 @@ export function slideHasAnimatedBackground(slide: Slide): boolean {
 }
 
 /**
+ * True when the slide carries a timer element. A timer's displayed time changes
+ * over wall-clock time (clock mode) or would tick live at go-live, so surfaces
+ * use this to keep a per-frame redraw loop alive — the same role
+ * {@link slideHasScrollingText}/{@link slideHasAnimatedBackground} play for their
+ * animated content.
+ */
+export function slideHasTimer(slide: Slide): boolean {
+  return slide.elements.some((el) => el.type === "timer")
+}
+
+/**
  * True when two backgrounds are the same animated spec. Used by transitions to
  * decide whether the background can persist (keep animating continuously) while
  * only the element/text layers cross-fade — avoiding a double-background ghost.

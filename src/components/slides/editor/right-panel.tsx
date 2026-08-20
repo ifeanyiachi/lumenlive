@@ -12,6 +12,7 @@ import {
   ArrowDownToLineIcon,
   SquareIcon,
   VideoIcon,
+  TimerIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +28,7 @@ import type { Slide, SlideElement } from "@/types/slide"
 
 import { LayerList } from "./layer-list"
 import { ElementPropertiesRouter } from "./element-properties-router"
+import { ThemePropertiesRouter } from "./theme-properties/theme-properties-router"
 
 /**
  * Right-hand tabbed panel: "Layers" (z-order toolbar, add-element menu, the
@@ -43,6 +45,12 @@ export function RightPanel({
   selectedElement: SlideElement | null
 }) {
   const [rightTab, setRightTab] = useState<"layers" | "background">("layers")
+  // When a type-first theme is being authored, the add-menu is curated to that
+  // type and — with nothing selected — the panel shows the type-specific theme
+  // controls instead of a bare "select an element" hint (themeredo.md, Phase 3).
+  const themeType = usePresentationStore(
+    (s) => s.typedThemeSession?.identity.type ?? null
+  )
 
   return (
     <div className="flex w-[20%] min-w-0 shrink-0 flex-col border-l border-border bg-card">
@@ -158,14 +166,16 @@ export function RightPanel({
                   <ImageIcon className="mr-2 size-3.5" />
                   Image
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    usePresentationStore.getState().addScriptureElement()
-                  }
-                >
-                  <BookOpenIcon className="mr-2 size-3.5" />
-                  Scripture
-                </DropdownMenuItem>
+                {(themeType === null || themeType === "scripture") && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      usePresentationStore.getState().addScriptureElement()
+                    }
+                  >
+                    <BookOpenIcon className="mr-2 size-3.5" />
+                    Scripture
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() =>
                     usePresentationStore.getState().addShapeElement()
@@ -182,6 +192,16 @@ export function RightPanel({
                   <VideoIcon className="mr-2 size-3.5" />
                   Video
                 </DropdownMenuItem>
+                {(themeType === null || themeType === "countdown") && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      usePresentationStore.getState().addTimerElement()
+                    }
+                  >
+                    <TimerIcon className="mr-2 size-3.5" />
+                    Timer
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -194,6 +214,8 @@ export function RightPanel({
           <div className="min-h-0 flex-1 overflow-hidden">
             {selectedElement ? (
               <ElementPropertiesRouter element={selectedElement} />
+            ) : themeType && activeSlide ? (
+              <ThemePropertiesRouter type={themeType} slide={activeSlide} />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <p className="text-xs text-muted-foreground">

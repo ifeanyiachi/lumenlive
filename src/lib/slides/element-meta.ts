@@ -24,6 +24,8 @@ export function elementLabel(el: SlideElement): string {
         : "Shape"
     case "video":
       return "Video"
+    case "timer":
+      return "Timer"
     default:
       return el.type === "text"
         ? el.text.slice(0, 30) || "Empty text"

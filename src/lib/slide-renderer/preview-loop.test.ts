@@ -242,8 +242,10 @@ describe("slide-frame parity: operator preview vs output compositor", () => {
     expect(calledSlide).toBe(slide)
     expect(sw).toBe(1920)
     expect(sh).toBe(1080)
-    // The operator passes { frameTime, hideElements: undefined }; the compositor
-    // passes { frameTime } — identical render (hideElements: undefined is inert).
-    expect(opts).toEqual({ frameTime: 1234 })
+    // The operator passes { frameTime, now, hideElements: undefined }; the
+    // compositor passes { frameTime, now } — identical render (hideElements:
+    // undefined is inert). `now` is threaded so clock-mode timer elements tick
+    // identically on preview and output.
+    expect(opts).toEqual({ frameTime: 1234, now: 0 })
   })
 })

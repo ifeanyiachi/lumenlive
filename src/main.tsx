@@ -7,11 +7,13 @@ import "./index.css"
 import App from "./App.tsx"
 import { TooltipProvider } from "@/components/ui/tooltip.tsx"
 import { flushSettings, hydrateSettings } from "@/stores/settings-store"
+import { flushThemes } from "@/stores/themes"
 import { hydrateBibleStore, initBiblePersistence } from "@/stores/bible-store"
 import { hydrateBroadcastThemes } from "@/stores/broadcast-store"
 import { hydrateMediaStore } from "@/stores/media-store"
 import { hydrateSongStore } from "@/stores/song-store"
 import { hydratePresentations } from "@/stores/presentation-store"
+import { hydrateThemes } from "@/stores/themes"
 import { hydrateSchedules } from "@/stores/schedule-store"
 import { hydrateAlertTemplates } from "@/stores/alert-store"
 import { hydrateCountdownTimers } from "@/stores/countdown-store"
@@ -26,6 +28,7 @@ import { hydrateWebBookmarks } from "@/stores/web-store"
 // bible store so the UI reflects the user's choices immediately.
 window.addEventListener("beforeunload", () => {
   flushSettings()
+  void flushThemes()
 })
 
 // LumenLive is dark-only. Clear the obsolete theme preference left by older
@@ -69,6 +72,7 @@ invoke("stop_transcription")
       hydrateMediaStore(),
       hydrateSongStore(),
       hydratePresentations(),
+      hydrateThemes(),
       hydrateSchedules(),
       hydrateAlertTemplates(),
       hydrateCountdownTimers(),

@@ -9,6 +9,7 @@ import {
   slideHasVideoBackground,
   slideHasScrollingText,
   slideHasAnimatedBackground,
+  slideHasTimer,
   sameAnimatedBackground,
   getTextLineCount,
   getTextWordCount,
@@ -142,8 +143,9 @@ export function registerSlideListener(
     )
     const hasScrolling = slideHasScrollingText(slide)
     const hasAnimatedBg = slideHasAnimatedBackground(slide)
+    const hasTimer = slideHasTimer(slide)
 
-    if (hasAnimatedElements || hasScrolling || hasAnimatedBg) {
+    if (hasAnimatedElements || hasScrolling || hasAnimatedBg || hasTimer) {
       const tracker = createSlideAnimationTracker()
       rt.slideAnimTracker.current = tracker
 
@@ -184,7 +186,8 @@ export function registerSlideListener(
       renderLoop.activate("slideAnim", {
         beforeFrame: () =>
           updateAnimationTracker(tracker, animInfo, performance.now()),
-        keepAlive: () => !tracker.isComplete || hasScrolling || hasAnimatedBg,
+        keepAlive: () =>
+          !tracker.isComplete || hasScrolling || hasAnimatedBg || hasTimer,
         keepAliveTiming: "after",
       })
     } else {

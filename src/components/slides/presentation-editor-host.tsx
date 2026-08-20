@@ -12,10 +12,12 @@ import { usePresentationStore } from "@/stores/presentation-store"
  */
 export function PresentationEditorHost() {
   const editingId = usePresentationStore((s) => s.editingPresentationId)
-  // A song-theme authoring session renders embedded inside the Theme Designer,
-  // not as this global full-screen overlay — so skip it here (Phase 4).
+  // A theme-authoring session (legacy song `themeEditSession`, or the type-first
+  // `typedThemeSession` from themeredo.md Phase 3) renders embedded inside the
+  // Theme Designer, not as this global full-screen overlay — so skip it here.
   const themeEditSession = usePresentationStore((s) => s.themeEditSession)
-  if (!editingId || themeEditSession) return null
+  const typedThemeSession = usePresentationStore((s) => s.typedThemeSession)
+  if (!editingId || themeEditSession || typedThemeSession) return null
   return (
     <PresentationEditor
       onClose={() => usePresentationStore.getState().discardDraft()}

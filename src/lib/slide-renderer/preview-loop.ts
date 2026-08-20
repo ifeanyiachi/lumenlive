@@ -21,6 +21,7 @@
 import type { Slide } from "@/types/slide"
 import {
   slideHasAnimatedBackground,
+  slideHasTimer,
   slideHasVideoBackground,
 } from "./predicates"
 import { ensureSlideImages } from "@/lib/slide-image-cache"
@@ -70,7 +71,7 @@ export function runSlidePreviewEffect(
     refs.rafRef.current = requestAnimationFrame(tick)
   }
 
-  if (slideHasAnimatedBackground(slide)) {
+  if (slideHasAnimatedBackground(slide) || slideHasTimer(slide)) {
     startLoop()
   } else if (slideHasVideoBackground(slide)) {
     const url = slide.background.videoUrl!

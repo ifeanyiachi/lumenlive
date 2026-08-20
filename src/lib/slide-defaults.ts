@@ -6,6 +6,7 @@ import type {
   SlideScriptureElement,
   SlideVideoElement,
   SlideShapeElement,
+  SlideTimerElement,
 } from "@/types/slide"
 
 export function createDefaultTextElement(): SlideTextElement {
@@ -105,6 +106,27 @@ export function createDefaultShapeElement(): SlideShapeElement {
     strokeWidth: 2,
     opacity: 1,
     borderRadius: 12,
+  }
+}
+
+export function createDefaultTimerElement(): SlideTimerElement {
+  return {
+    id: crypto.randomUUID(),
+    type: "timer",
+    mode: "duration",
+    durationSeconds: 300,
+    format: "mm:ss",
+    x: 20,
+    y: 35,
+    width: 60,
+    height: 30,
+    fontFamily: "Inter",
+    fontSize: 96,
+    fontWeight: 700,
+    italic: false,
+    color: "#ffffff",
+    horizontalAlign: "center",
+    verticalAlign: "middle",
   }
 }
 

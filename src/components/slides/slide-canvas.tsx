@@ -48,6 +48,7 @@ export const SlideCanvas = memo(function SlideCanvas({
       videoCacheRef.current,
       {
         frameTime: performance.now(),
+        now: Date.now(),
         hideElements,
       }
     )

@@ -1,7 +1,8 @@
-import { useEffect, useCallback, useState } from "react"
+import { useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useBroadcastStore } from "@/stores"
-import { isEditableTarget } from "@/lib/dom/is-editable-target"
+import { useThemesStore } from "@/stores/themes"
+import { usePresentationStore } from "@/stores/presentation-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,234 +11,134 @@ import {
   XIcon,
   Undo2Icon,
   Redo2Icon,
-  RotateCcwIcon,
-  PaletteIcon,
-  StarIcon,
   GridIcon,
+  PaletteIcon,
 } from "lucide-react"
-import { DesignCanvas } from "@/components/broadcast/design-canvas"
-import { ThemeFormatToolbar } from "@/components/broadcast/theme-format-toolbar"
-import { PropertiesPanel } from "@/components/broadcast/properties-panel"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
 import { PresentationEditor } from "@/components/slides/presentation-editor"
-import { usePresentationStore } from "@/stores/presentation-store"
-import { cn } from "@/lib/utils"
+import { createThemeFromTemplate } from "@/lib/theme/templates"
+import { slideToTheme } from "@/lib/theme/render"
+import type { Slide } from "@/types/slide"
+import type { Theme, ThemeType } from "@/types/theme"
 import { toast } from "sonner"
 
+const uuid = () => crypto.randomUUID()
+const snapshotOf = (slide: Slide | undefined) =>
+  slide ? JSON.stringify(slide) : ""
+
+/**
+ * The Theme Designer for the type-first model (themeredo.md, Phase 3). Left: the
+ * theme library (built-ins + customs from `useThemesStore`). Right: the shared
+ * slide editor, embedded and parameterized by the theme's intrinsic type — its
+ * type-specific properties panel and curated add-menu come from the editor's own
+ * `typedThemeSession`. The designer's top bar is the single chrome (name, undo,
+ * grid, save/discard) so there's no duplicate toolbar. Saving projects the edited
+ * single-slide draft back into a `Theme` via `slideToTheme`.
+ */
 export function ThemeDesigner() {
   const isDesignerOpen = useBroadcastStore((s) => s.isDesignerOpen)
-  const draftTheme = useBroadcastStore((s) => s.draftTheme)
-  const editingThemeId = useBroadcastStore((s) => s.editingThemeId)
-  const defaultThemeId = useBroadcastStore((s) => s.defaultThemeId)
-  const canUndo = useBroadcastStore((s) => s.undoStack.length > 0)
-  const canRedo = useBroadcastStore((s) => s.redoStack.length > 0)
-  // A song-theme authoring session (presentation-store) — when active, the
-  // designer embeds the slide editor in place of the verse canvas, keeping the
-  // theme list on the left (theme-unification-plan.md, Phase 4 editor shell).
-  const themeEditSession = usePresentationStore((s) => s.themeEditSession)
-  const songDraftName = usePresentationStore(
-    (s) => s.draftPresentation?.name ?? ""
-  )
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editingNameValue, setEditingNameValue] = useState("")
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
-  // Grid overlay for the embedded song editor — the designer owns it because the
-  // song editor's own toolbar (which used to host this toggle) is suppressed so
-  // there's a single top bar (Phase 0 fix for the duplicate-chrome disconnect).
-  const [songShowGrid, setSongShowGrid] = useState(false)
+  const session = usePresentationStore((s) => s.typedThemeSession)
+  const draftName = usePresentationStore((s) => s.draftPresentation?.name ?? "")
+  const activeThemeId = session?.identity.id ?? null
+  const isEditing = session != null
 
-  const isEditing = draftTheme != null
-  const isEditingSong = themeEditSession != null
+  const [showGrid, setShowGrid] = useState(false)
+  const [pendingSwitch, setPendingSwitch] = useState<(() => void) | null>(null)
+  // Snapshot of the draft slide as it was last opened/saved — the dirty signal
+  // that gates switching away (the presentation store's undo stack isn't
+  // reactive state, so we compare the slide directly).
+  const cleanSnapshot = useRef("")
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isDesignerOpen || !useBroadcastStore.getState().draftTheme) return
-      const isInput = isEditableTarget(e.target)
-      const store = useBroadcastStore.getState()
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault()
-        store.undo()
-        return
-      }
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        (e.key === "y" || (e.key === "z" && e.shiftKey))
-      ) {
-        e.preventDefault()
-        store.redo()
-        return
-      }
-      if (isInput) return
-
-      const sel = store.selectedElement
-      if (!sel) return
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (sel !== "verse" && sel !== "reference" && sel !== "textArea") {
-          e.preventDefault()
-          store.removeElement(sel)
-        }
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
-        if (sel !== "verse" && sel !== "reference" && sel !== "textArea") {
-          e.preventDefault()
-          store.duplicateElement(sel)
-        }
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
-        e.preventDefault()
-        const draft = store.draftTheme
-        if (!draft) return
-        if (sel === "verse") {
-          store.updateDraftNested(
-            "verseText.fontWeight",
-            draft.verseText.fontWeight >= 700 ? 400 : 700
-          )
-        } else if (sel === "reference") {
-          store.updateDraftNested(
-            "reference.fontWeight",
-            draft.reference.fontWeight >= 700 ? 400 : 700
-          )
-        }
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
-        e.preventDefault()
-        const draft = store.draftTheme
-        if (!draft) return
-        if (sel === "verse") {
-          store.updateDraftNested(
-            "verseText.fontStyle",
-            draft.verseText.fontStyle === "italic" ? "normal" : "italic"
-          )
-        } else if (sel === "reference") {
-          store.updateDraftNested(
-            "reference.fontStyle",
-            draft.reference.fontStyle === "italic" ? "normal" : "italic"
-          )
-        }
-        return
-      }
-
-      const step = e.shiftKey ? 10 : 1
-      if (e.key === "ArrowUp") {
-        e.preventDefault()
-        store.nudgeElement(0, -step)
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        store.nudgeElement(0, step)
-      }
-      if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        store.nudgeElement(-step, 0)
-      }
-      if (e.key === "ArrowRight") {
-        e.preventDefault()
-        store.nudgeElement(step, 0)
-      }
-    },
-    [isDesignerOpen]
-  )
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
-
-  // Reset name-editing state whenever the theme being edited changes.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsEditingName(false)
-  }, [editingThemeId])
-
-  const handleDiscard = () => {
-    setShowDiscardConfirm(true)
+  const markClean = () => {
+    const slide = usePresentationStore.getState().draftPresentation?.slides[0]
+    cleanSnapshot.current = snapshotOf(slide)
   }
 
-  const handleConfirmDiscard = () => {
-    setShowDiscardConfirm(false)
-    useBroadcastStore.getState().discardDraft()
+  const isDirty = () => {
+    if (!usePresentationStore.getState().typedThemeSession) return false
+    const slide = usePresentationStore.getState().draftPresentation?.slides[0]
+    return snapshotOf(slide) !== cleanSnapshot.current
   }
 
-  const handleReset = () => {
-    useBroadcastStore.getState().discardDraft()
+  // Guard a destructive switch (open another theme / New / close) behind an
+  // unsaved-changes confirm when the current draft has edits.
+  const guardSwitch = (action: () => void) => {
+    if (isDirty()) setPendingSwitch(() => action)
+    else action()
+  }
+
+  const openTheme = (theme: Theme) => {
+    guardSwitch(() => {
+      // Built-ins are immutable code constants — editing one forks it to a fresh
+      // custom copy (new id) so Save writes a distinct theme.
+      const editable: Theme = theme.builtin
+        ? {
+            ...structuredClone(theme),
+            id: uuid(),
+            name: `${theme.name} (Custom)`,
+            builtin: false,
+          }
+        : theme
+      usePresentationStore.getState().startEditingTheme(editable, theme.builtin)
+      markClean()
+    })
+  }
+
+  const newTheme = (type: ThemeType) => {
+    guardSwitch(() => {
+      const theme = createThemeFromTemplate(type, uuid, Date.now())
+      usePresentationStore.getState().startEditingTheme(theme, true)
+      markClean()
+    })
+  }
+
+  const setSessionName = (name: string) => {
+    const s = usePresentationStore.getState()
+    if (!s.typedThemeSession) return
+    usePresentationStore.setState({
+      typedThemeSession: {
+        ...s.typedThemeSession,
+        identity: { ...s.typedThemeSession.identity, name },
+      },
+      draftPresentation: s.draftPresentation
+        ? { ...s.draftPresentation, name }
+        : s.draftPresentation,
+    })
   }
 
   const handleSave = () => {
-    useBroadcastStore.getState().saveDraft()
+    const s = usePresentationStore.getState()
+    const sess = s.typedThemeSession
+    const slide = s.draftPresentation?.slides[0]
+    if (!sess || !slide) return
+    const theme = slideToTheme(slide, sess.identity, Date.now())
+    useThemesStore.getState().upsertTheme(theme)
+    usePresentationStore.setState({
+      typedThemeSession: { ...sess, isNew: false },
+    })
+    markClean()
     toast.success("Theme saved")
   }
 
-  const handleSetDefault = () => {
-    // Save first so an edited built-in becomes a real custom theme, then mark
-    // whatever we're now editing as the default.
-    useBroadcastStore.getState().saveDraft()
-    const id = useBroadcastStore.getState().editingThemeId
-    if (id) {
-      useBroadcastStore.getState().setDefaultTheme(id)
-      toast.success("Set as default theme")
-    }
+  const handleDiscard = () => {
+    guardSwitch(() => usePresentationStore.getState().discardDraft())
   }
 
   const handleClose = () => {
-    // Closing the designer abandons any in-progress song-theme session.
-    if (usePresentationStore.getState().themeEditSession) {
+    guardSwitch(() => {
       usePresentationStore.getState().discardDraft()
-    }
-    useBroadcastStore.getState().setDesignerOpen(false)
-  }
-
-  // Song-theme session (presentation store) — the unified top bar drives it in
-  // place of the suppressed embedded EditorToolbar.
-  const handleSongNameChange = (value: string) => {
-    const store = usePresentationStore.getState()
-    if (store.draftPresentation) {
-      usePresentationStore.setState({
-        draftPresentation: { ...store.draftPresentation, name: value },
-      })
-    }
-  }
-
-  const handleSongSave = () => {
-    usePresentationStore.getState().saveDraft()
-    toast.success("Theme saved")
-  }
-
-  const handleSongDiscard = () => {
-    usePresentationStore.getState().discardDraft()
-  }
-
-  const handleStartEditingName = () => {
-    if (draftTheme) {
-      setEditingNameValue(draftTheme.name)
-      setIsEditingName(true)
-    }
-  }
-
-  const handleCommitName = () => {
-    const trimmed = editingNameValue.trim()
-    if (trimmed && draftTheme && editingThemeId) {
-      useBroadcastStore.getState().renameTheme(editingThemeId, trimmed)
-      useBroadcastStore.getState().updateDraft({ name: trimmed })
-    }
-    setIsEditingName(false)
+      useBroadcastStore.getState().setDesignerOpen(false)
+    })
   }
 
   return (
     <DialogPrimitive.Root
       open={isDesignerOpen}
       onOpenChange={(open) => {
-        if (!open && usePresentationStore.getState().themeEditSession) {
+        if (!open) {
           usePresentationStore.getState().discardDraft()
+          useBroadcastStore.getState().setDesignerOpen(false)
         }
-        useBroadcastStore.getState().setDesignerOpen(open)
       }}
     >
       <DialogPrimitive.Portal>
@@ -251,50 +152,12 @@ export function ThemeDesigner() {
             Theme Designer
           </DialogPrimitive.Title>
 
-          {/* Top bar */}
+          {/* Top bar — the single chrome for the embedded editor */}
           <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
             {isEditing ? (
-              isEditingName ? (
-                <Input
-                  autoFocus
-                  value={editingNameValue}
-                  onChange={(e) => setEditingNameValue(e.target.value)}
-                  onBlur={handleCommitName}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCommitName()
-                    if (e.key === "Escape") {
-                      e.stopPropagation()
-                      setIsEditingName(false)
-                    }
-                  }}
-                  className="h-8 w-56 text-lg font-semibold"
-                />
-              ) : (
-                <span
-                  className={cn(
-                    "rounded px-1.5 py-0.5 text-lg font-semibold text-foreground",
-                    draftTheme &&
-                      !draftTheme.builtin &&
-                      "cursor-pointer hover:bg-muted"
-                  )}
-                  onDoubleClick={
-                    draftTheme && !draftTheme.builtin
-                      ? handleStartEditingName
-                      : undefined
-                  }
-                  title={
-                    draftTheme && !draftTheme.builtin
-                      ? "Double-click to rename"
-                      : undefined
-                  }
-                >
-                  {draftTheme?.name ?? "Theme Editor"}
-                </span>
-              )
-            ) : isEditingSong ? (
               <Input
-                value={songDraftName}
-                onChange={(e) => handleSongNameChange(e.target.value)}
+                value={draftName}
+                onChange={(e) => setSessionName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") e.stopPropagation()
                 }}
@@ -308,31 +171,6 @@ export function ThemeDesigner() {
             )}
 
             {isEditing && (
-              <div className="ml-2 flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-8"
-                  disabled={!canUndo}
-                  onClick={() => useBroadcastStore.getState().undo()}
-                  title="Undo (Ctrl+Z)"
-                >
-                  <Undo2Icon className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-8"
-                  disabled={!canRedo}
-                  onClick={() => useBroadcastStore.getState().redo()}
-                  title="Redo (Ctrl+Y)"
-                >
-                  <Redo2Icon className="size-4" />
-                </Button>
-              </div>
-            )}
-
-            {isEditingSong && (
               <div className="ml-2 flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -353,10 +191,10 @@ export function ThemeDesigner() {
                   <Redo2Icon className="size-4" />
                 </Button>
                 <Button
-                  variant={songShowGrid ? "default" : "ghost"}
+                  variant={showGrid ? "default" : "ghost"}
                   size="icon-sm"
                   className="size-8"
-                  onClick={() => setSongShowGrid((v) => !v)}
+                  onClick={() => setShowGrid((v) => !v)}
                   title="Toggle grid"
                 >
                   <GridIcon className="size-4" />
@@ -368,46 +206,13 @@ export function ThemeDesigner() {
 
             {isEditing && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={handleReset}
-                  title="Reset changes and stay in editor"
-                >
-                  <RotateCcwIcon className="size-4" />
-                  Reset
-                </Button>
                 <Button variant="outline" onClick={handleDiscard}>
                   <TrashIcon className="size-4" />
                   Discard
                 </Button>
                 <Button
-                  variant="outline"
-                  onClick={handleSetDefault}
-                  disabled={editingThemeId === defaultThemeId}
-                  title="Save and make this the default theme"
-                >
-                  <StarIcon className="size-4" />
-                  Set Default
-                </Button>
-                <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"
                   onClick={handleSave}
-                >
-                  <SaveIcon className="size-4" />
-                  Save Theme
-                </Button>
-              </>
-            )}
-
-            {isEditingSong && (
-              <>
-                <Button variant="outline" onClick={handleSongDiscard}>
-                  <TrashIcon className="size-4" />
-                  Discard
-                </Button>
-                <Button
-                  className="bg-primary text-primary-foreground hover:bg-primary/80"
-                  onClick={handleSongSave}
                 >
                   <SaveIcon className="size-4" />
                   Save Theme
@@ -421,41 +226,26 @@ export function ThemeDesigner() {
             </Button>
           </div>
 
-          {/* Library (left) + editor (right) layout */}
+          {/* Library (left) + editor (right) */}
           <div
             className="min-h-0 flex-1"
-            style={{
-              display: "grid",
-              // Key the grid on the *active* editor. The song editor carries its
-              // own properties panel, so it needs 2 columns; the verse editor's
-              // panel is a separate 3rd column. Keying on the wrong flag left a
-              // phantom 340px column that clipped the song panel off-screen.
-              gridTemplateColumns:
-                isEditingSong || !isEditing ? "300px 1fr" : "300px 1fr 340px",
-            }}
+            style={{ display: "grid", gridTemplateColumns: "300px 1fr" }}
           >
-            <ThemeLibrary />
+            <ThemeLibrary
+              activeThemeId={activeThemeId}
+              onOpenTheme={openTheme}
+              onNewTheme={newTheme}
+            />
 
-            {isEditingSong ? (
-              // Song theme: embed the full slide editor in place (its own canvas
-              // + properties), so the theme list stays visible on the left. Its
-              // toolbar is suppressed — the designer top bar is the only chrome.
+            {isEditing ? (
               <PresentationEditor
                 embedded
                 themeMode
                 hideToolbar
-                showGrid={songShowGrid}
-                onShowGridChange={setSongShowGrid}
+                showGrid={showGrid}
+                onShowGridChange={setShowGrid}
                 onClose={() => usePresentationStore.getState().discardDraft()}
               />
-            ) : isEditing ? (
-              <>
-                <div className="flex min-h-0 flex-col overflow-hidden">
-                  <ThemeFormatToolbar />
-                  <DesignCanvas />
-                </div>
-                <PropertiesPanel />
-              </>
             ) : (
               <div className="flex min-h-0 flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
                 <PaletteIcon className="size-10 opacity-40" strokeWidth={1.5} />
@@ -471,28 +261,35 @@ export function ThemeDesigner() {
               </div>
             )}
           </div>
-          {/* Discard confirmation modal */}
-          {showDiscardConfirm && (
+
+          {/* Unsaved-changes guard */}
+          {pendingSwitch && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
               <div className="w-full max-w-sm rounded-xl bg-popover p-6 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
                 <div className="flex flex-col gap-2">
                   <h3 className="font-heading leading-none font-medium">
-                    Discard changes?
+                    Discard unsaved changes?
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    All unsaved changes to this theme will be lost. This action
-                    cannot be undone.
+                    This theme has unsaved edits. Continuing will lose them. This
+                    action cannot be undone.
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setShowDiscardConfirm(false)}
+                    onClick={() => setPendingSwitch(null)}
                   >
                     Cancel
                   </Button>
-                  <Button variant="destructive" onClick={handleConfirmDiscard}>
-                    Discard
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      pendingSwitch()
+                      setPendingSwitch(null)
+                    }}
+                  >
+                    Discard &amp; Continue
                   </Button>
                 </div>
               </div>

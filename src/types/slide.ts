@@ -3,6 +3,7 @@
 // Imported for local use and re-exported so existing `@/types/slide` imports
 // keep resolving unchanged.
 import type { AnimatedBackground, AnimatedBackgroundPreset } from "./canvas"
+import type { CountdownFormat, CountdownMode } from "./alert"
 export type { AnimatedBackground, AnimatedBackgroundPreset }
 
 // ── Element Animation ──
@@ -22,6 +23,22 @@ export interface ElementAnimation {
   delay: number
   easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
 }
+
+/**
+ * Placeholder role for a text element inside a {@link import("./theme").Theme}
+ * (themeredo.md — the type-first theme model). Marks *what* live/authored
+ * content flows into this element when the theme is presented:
+ *
+ * - `"lyrics"` — the current lyric lines of a song theme
+ * - `"title"` — the sermon / announcement heading (authored at build time)
+ * - `"points"` — the sermon points block (authored at build time)
+ * - `"body"` — the announcement body (authored at build time)
+ *
+ * Undefined for ordinary decorative text (the common case). Scripture and timer
+ * placeholders stay dedicated element types because they render differently, not
+ * just as styled text — only text placeholders carry a `role`.
+ */
+export type TextPlaceholderRole = "lyrics" | "title" | "points" | "body"
 
 export type TextBuildType = "none" | "line-by-line" | "word-by-word"
 
@@ -85,6 +102,12 @@ export interface SlideTextElement extends SlideElementBase {
   outline?: { width: number; color: string }
   textBuild?: TextBuildAnimation
   scrolling?: ScrollingConfig
+  /**
+   * Typed-placeholder marker for the Theme model (themeredo.md). Present only on
+   * theme placeholder text; content flows into it at go-live. See
+   * {@link TextPlaceholderRole}.
+   */
+  role?: TextPlaceholderRole
 }
 
 // ── Image element ──
@@ -115,6 +138,48 @@ export interface SlideScriptureElement extends SlideElementBase {
   lineHeight: number
   referenceFontSize: number
   referenceColor: string
+  backgroundColor?: string
+  shadow?: { offsetX: number; offsetY: number; blur: number; color: string }
+}
+
+// ── Timer element ──
+
+/**
+ * A live countdown/clock **placeholder** for the Theme model (themeredo.md — the
+ * Countdown type's required element). Unlike an `ActiveCountdown` runtime
+ * instance, this is authored *configuration* embedded in a slide/theme: it stores
+ * how the time is derived (`mode` + `durationSeconds`/`targetTime`) and how it is
+ * styled. The renderer projects it to a formatted time string at draw time,
+ * reusing the pure `lib/countdown` math (no duplication) — so preview and live
+ * output agree frame-to-frame. In authoring/preview (no injected wall-clock) it
+ * renders the static configured duration; at go-live it ticks against `now`.
+ */
+export interface SlideTimerElement extends SlideElementBase {
+  type: "timer"
+  /** How remaining time is derived: a fixed length, or a wall-clock time-of-day. */
+  mode: CountdownMode
+  /** Duration-mode length in seconds; also the static value shown in preview. */
+  durationSeconds: number
+  /** Clock-mode target time-of-day, "HH:MM" (24h). Ignored in duration mode. */
+  targetTime?: string
+  format: CountdownFormat
+  /**
+   * When true, keep counting past zero with a leading "-" (how far over), instead
+   * of clamping the display at 00:00.
+   */
+  overtime?: boolean
+  fontFamily: string
+  fontSize: number
+  fontWeight: number
+  italic: boolean
+  /** Base time-text color; overridden by the warn/danger thresholds below. */
+  color: string
+  horizontalAlign: "left" | "center" | "right"
+  verticalAlign: "top" | "middle" | "bottom"
+  /** Recolor to amber at/under this many seconds remaining (optional). */
+  warnSeconds?: number
+  /** Recolor to red at/under this many seconds remaining (optional). */
+  dangerSeconds?: number
   backgroundColor?: string
   shadow?: { offsetX: number; offsetY: number; blur: number; color: string }
 }
@@ -153,6 +218,7 @@ export type SlideElement =
   | SlideScriptureElement
   | SlideShapeElement
   | SlideVideoElement
+  | SlideTimerElement
 
 // ── Background ──
 
@@ -221,6 +287,7 @@ export type SlideThemeElement =
   | Omit<SlideScriptureElement, "id">
   | Omit<SlideShapeElement, "id">
   | Omit<SlideVideoElement, "id">
+  | Omit<SlideTimerElement, "id">
 
 export interface SlideThemeVariant {
   layout: SlideLayoutVariant

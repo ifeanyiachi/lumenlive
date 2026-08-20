@@ -1,5 +1,10 @@
 import type { BroadcastTheme, ThemeCategory } from "./broadcast"
-import type { SlideTheme } from "./slide"
+import type {
+  SlideBackground,
+  SlideElement,
+  SlideTheme,
+  SlideTransition,
+} from "./slide"
 
 // The unified theme model (theme-unification-plan.md, Phase 1).
 //
@@ -17,6 +22,58 @@ import type { SlideTheme } from "./slide"
 // each side verbatim makes the adapters near-identity and the round-trip exact.
 
 export type { ThemeCategory }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The type-first theme model (themeredo.md — the clean-slate rebuild).
+//
+// This is the *target* model that eventually replaces `UnifiedTheme` and both
+// legacy authoring systems. It is introduced additively in Phase 1: the two
+// models coexist, nothing user-facing consumes `Theme` yet, and the old paths
+// stay byte-identical. `UnifiedTheme` (below) is deleted in Phase 5.
+//
+// A `Theme` is exactly a styled single **Slide** with an **intrinsic type**,
+// whose type-required elements are **placeholders** that content flows into at
+// presentation time (the ProPresenter model — a look with placeholders, not a
+// category tag on a fixed-slot skin). The type is chosen once at New and can
+// never change; there is no "category" and no "general" theme.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The intrinsic kind of a {@link Theme}. Chosen once at creation, it drives the
+ * builder, the type-specific properties panel, and how content flows in at
+ * go-live. There is intentionally no "general" type.
+ */
+export type ThemeType =
+  | "scripture"
+  | "song"
+  | "countdown"
+  | "sermon"
+  | "overlay"
+  | "announcement"
+
+/**
+ * A styled single-slide template of a given {@link ThemeType}. Its
+ * type-required elements are placeholders (a `SlideScriptureElement`, a text
+ * element with a `role`, or — from Phase 2 — a timer element) that live or
+ * authored content fills when the theme is presented. Everything else is free
+ * decoration the author adds around the placeholder.
+ */
+export interface Theme {
+  id: string
+  name: string
+  /** Intrinsic, chosen at New; drives builder + controls + presentation. */
+  type: ThemeType
+  /** True for the code-defined catalog themes (never persisted). */
+  builtin: boolean
+  pinned: boolean
+  createdAt: number
+  updatedAt: number
+  resolution: { width: number; height: number }
+  background: SlideBackground
+  /** The authored look, including this type's typed placeholders. */
+  elements: SlideElement[]
+  transition?: SlideTransition
+}
 
 /** Which render engine a unified theme drives, and thus which payload is set. */
 export type ThemeKind = "verse" | "slide"

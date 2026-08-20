@@ -5,6 +5,8 @@ import type {
   SlideTheme,
   SlideLayoutVariant,
 } from "@/types/slide"
+import type { Theme } from "@/types/theme"
+import type { ThemeIdentity } from "@/lib/theme/render"
 
 export interface PresentationState {
   presentations: Presentation[]
@@ -47,6 +49,18 @@ export interface PresentationState {
   /** Open the slide editor on a song theme (an existing custom, or a new/duplicate). */
   startEditingSlideTheme: (theme: SlideTheme, isNew: boolean) => void
 
+  // ── Type-first themes (themeredo.md, Phase 3) ──
+  /**
+   * Non-null while the slide editor is authoring a type-first {@link Theme}
+   * (scripture/song/countdown/…) rather than a deck or a legacy song theme.
+   * Carries the theme's intrinsic identity so `slideToTheme` can fold the edited
+   * slide back onto it at Save (Save is driven by the Theme Designer, which
+   * writes to `useThemesStore`). `isNew` distinguishes a just-created draft.
+   */
+  typedThemeSession: { identity: ThemeIdentity; isNew: boolean } | null
+  /** Open the slide editor on a type-first theme; drives the type-specific panel. */
+  startEditingTheme: (theme: Theme, isNew: boolean) => void
+
   addSlide: () => void
   removeSlide: (index: number) => void
   duplicateSlide: (index: number) => void
@@ -77,6 +91,7 @@ export interface PresentationState {
   moveElementDown: (elementId: string) => void
 
   addVideoElement: () => void
+  addTimerElement: () => void
 
   selectedElementIds: string[]
   toggleSelectElement: (id: string) => void

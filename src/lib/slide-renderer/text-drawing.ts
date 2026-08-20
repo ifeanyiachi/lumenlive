@@ -1,7 +1,15 @@
 import type { SlideTextElement, SlideScriptureElement } from "@/types/slide"
-import { wrapText, wrapTextWithHardBreaks } from "@/lib/verse-renderer"
+import {
+  computeVerseLayoutMetrics,
+  drawReference,
+  drawVerseText,
+  wrapText,
+  wrapTextWithHardBreaks,
+} from "@/lib/verse-renderer"
 import { applyTextTransform } from "@/lib/canvas-draw"
 import { surfaceFontScale } from "@/lib/canvas-constants"
+import type { RenderOptions } from "@/types/broadcast"
+import type { ScriptureRenderPayload } from "./types"
 
 /**
  * Text rendering for slides: font strings, line drawing (with alignment,
@@ -420,11 +428,67 @@ export function drawTextElement(
   ctx.restore()
 }
 
+/**
+ * Draw a live verse payload for a scripture placeholder by delegating to the
+ * verse-renderer's own layout + draw passes (themeredo.md, Phase 4b → 4c).
+ *
+ * Rather than reimplementing verse geometry, this runs the identical measurement
+ * pass `renderVerse` uses — {@link computeVerseLayoutMetrics} — and draws the verse
+ * body and reference at the *same* rects, mirroring `renderVerseImpl`'s fixed-region
+ * pass. The surface is the draw canvas itself, so the theme projects onto the true
+ * output resolution (surface font-scaling) and, when `payload.options.verseAutoFit`
+ * is set, the verse font grows/shrinks to fill the box exactly as it does live.
+ * Result: verse numbers, styled spans, interlinear, reference format/uppercase,
+ * auto-fit, and surface scaling all reproduce `renderVerse` **byte-for-byte** — the
+ * placeholder element's own box/typography is intentionally not consulted for the
+ * payload path (the theme layout is authoritative, as it is on the verse path).
+ */
+function drawScriptureVersePayload(
+  ctx: CanvasRenderingContext2D,
+  payload: ScriptureRenderPayload,
+  canvasWidth: number,
+  canvasHeight: number
+): void {
+  const { verse, style } = payload
+  // Surface is always the draw canvas — a payload authored once renders correctly
+  // at any output resolution — so any `surface` in `payload.options` is ignored.
+  const options: RenderOptions = {
+    ...payload.options,
+    surface: { width: canvasWidth, height: canvasHeight },
+  }
+
+  const metrics = computeVerseLayoutMetrics(ctx, style, verse, options)
+  const scaledTheme = metrics.scaledTheme
+
+  if (metrics.verseRect) {
+    drawVerseText(
+      ctx,
+      scaledTheme,
+      verse,
+      metrics.textRect.x,
+      metrics.textRect.width,
+      metrics.verseRect.y,
+      metrics.wrappedVerse ?? undefined
+    )
+  }
+  if (metrics.referenceRect) {
+    drawReference(
+      ctx,
+      scaledTheme,
+      verse.reference,
+      metrics.textRect.x,
+      metrics.textRect.width,
+      metrics.referenceRect.y
+    )
+  }
+}
+
 export function drawScriptureElement(
   ctx: CanvasRenderingContext2D,
   element: SlideScriptureElement,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  payload?: ScriptureRenderPayload
 ): void {
   const x = (element.x / 100) * canvasWidth
   const y = (element.y / 100) * canvasHeight
@@ -436,6 +500,19 @@ export function drawScriptureElement(
   if (element.backgroundColor) {
     ctx.fillStyle = element.backgroundColor
     ctx.fillRect(x, y, w, h)
+  }
+
+  // Live-verse path (themeredo.md, Phase 4b → 4c — decision D2): when a render-time
+  // payload is present, draw the pushed verse through the verse-renderer's own
+  // layout + draw passes so the output is byte-identical to `renderVerse` — verse
+  // numbers, styled spans, interlinear, reference format/uppercase/transform, AND
+  // (Phase 4c) surface font-scaling + auto-fit, since the layout runs against the
+  // draw surface. The theme layout is authoritative for geometry (as on the verse
+  // path); the stored element's box/typography is not consulted for this path.
+  if (payload) {
+    drawScriptureVersePayload(ctx, payload, canvasWidth, canvasHeight)
+    ctx.restore()
+    return
   }
 
   const fontScale = surfaceFontScale(canvasWidth, canvasHeight)

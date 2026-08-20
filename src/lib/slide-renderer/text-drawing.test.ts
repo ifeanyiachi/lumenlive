@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { __textDrawingTesting, drawTextElement } from "./text-drawing"
+import {
+  __textDrawingTesting,
+  drawScriptureElement,
+  drawTextElement,
+} from "./text-drawing"
 import { wrapText } from "@/lib/verse-renderer"
 import {
   surfaceFontScale,
   DESIGN_WIDTH,
   DESIGN_HEIGHT,
 } from "@/lib/canvas-constants"
-import { createDefaultTextElement } from "@/lib/slide-defaults"
+import {
+  createDefaultScriptureElement,
+  createDefaultTextElement,
+} from "@/lib/slide-defaults"
+import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import type { SlideTextElement } from "@/types/slide"
+import type { VerseRenderData } from "@/types/broadcast"
 
 const { autoShrinkFontSize, clearShrinkCache } = __textDrawingTesting
 
@@ -331,6 +340,42 @@ function firstFontPx(fontSize: number, w: number, h: number): number {
   )
   return pxOf(fonts[0])
 }
+
+describe("drawScriptureElement — render-time verse payload (Phase 4b)", () => {
+  const VERSE: VerseRenderData = {
+    reference: "John 3:16",
+    segments: [{ verseNumber: 16, text: "For God so loved the world" }],
+  }
+  const classic = () =>
+    BUILTIN_THEMES.find((t) => t.id === "builtin-classic-dark") ??
+    BUILTIN_THEMES[0]
+
+  it("keeps the legacy flat-string path when no payload is given", () => {
+    const { ctx, fills } = fillTextRecorder()
+    const el = {
+      ...createDefaultScriptureElement(),
+      reference: "John 3:16",
+      verseText: "For God so loved the world",
+      translation: "",
+    }
+    drawScriptureElement(ctx, el, 1920, 1080)
+    // The legacy dash-prefixed reference label is unchanged.
+    expect(fills.some((f) => f.includes("— John 3:16"))).toBe(true)
+    // No standalone verse-number token on the flat path.
+    expect(fills).not.toContain("16")
+  })
+
+  it("delegates to the verse draw passes when a payload is present", () => {
+    const { ctx, fills } = fillTextRecorder()
+    const el = createDefaultScriptureElement()
+    drawScriptureElement(ctx, el, 1920, 1080, { verse: VERSE, style: classic() })
+    // The verse number is emitted as its own token (token path)…
+    expect(fills).toContain("16")
+    // …the reference is drawn (contains the ref) without the legacy dash prefix.
+    expect(fills.some((f) => /3:16/.test(f))).toBe(true)
+    expect(fills.some((f) => f.trimStart().startsWith("—"))).toBe(false)
+  })
+})
 
 describe("surfaceFontScale", () => {
   it("is exactly 1 at the design resolution (parity)", () => {

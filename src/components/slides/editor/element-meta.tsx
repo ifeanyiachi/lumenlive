@@ -3,6 +3,7 @@ import {
   BookOpenIcon,
   SquareIcon,
   VideoIcon,
+  TimerIcon,
   TypeIcon,
 } from "lucide-react"
 
@@ -24,6 +25,8 @@ export function elementIcon(el: SlideElement) {
       return <SquareIcon className="size-3 shrink-0" />
     case "video":
       return <VideoIcon className="size-3 shrink-0" />
+    case "timer":
+      return <TimerIcon className="size-3 shrink-0" />
     default:
       return <TypeIcon className="size-3 shrink-0" />
   }

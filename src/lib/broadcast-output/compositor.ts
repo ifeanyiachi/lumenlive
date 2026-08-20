@@ -186,7 +186,7 @@ function paintBaseTheme(
 
 /** Build slide render options, honouring the active entry-animation tracker. */
 function buildSlideRenderOpts(s: CompositorState): SlideRenderOptions {
-  const renderOpts: SlideRenderOptions = { frameTime: s.frameTime }
+  const renderOpts: SlideRenderOptions = { frameTime: s.frameTime, now: s.now }
   const tracker = s.slideAnimTracker
   if (tracker && isAnimationActive(tracker)) {
     renderOpts.animationStates = tracker.elementStates
