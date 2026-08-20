@@ -19,7 +19,7 @@ const ALIAS: Record<string, string> = {
   "builtin-modern-light": "builtin-scripture",
   "builtin-broadcast-overlay": "builtin-overlay",
   "builtin-worship-night": "builtin-song",
-  "builtin-hymnal": "builtin-song",
+  "builtin-hymnal": "builtin-song-hymnal",
   "builtin-praise-bold": "builtin-song",
   "builtin-parchment": "builtin-scripture",
   "builtin-scripture-focus": "builtin-scripture",
@@ -29,26 +29,28 @@ const ALIAS: Record<string, string> = {
   "builtin-lower-third-glass": "builtin-overlay",
   "builtin-countdown-midnight": "builtin-countdown",
   "builtin-countdown-minimal": "builtin-countdown",
-  // Legacy slide/song built-ins (SlideTheme, scripture → scripture, else → song)
+  // Legacy slide/song built-ins (SlideTheme). Scripture looks → the scripture
+  // built-in; the generic decorative looks → the generic Song default; each named
+  // song look → its specific recreation in the Song library (builtins/song-library).
   "theme-midnight": "builtin-song",
   "theme-warm-glow": "builtin-song",
   "theme-ocean": "builtin-song",
   "theme-forest": "builtin-song",
   "theme-clean-white": "builtin-song",
   "theme-worship-lyrics": "builtin-song",
-  "theme-lyric-glow": "builtin-song",
-  "theme-hymnal": "builtin-song",
+  "theme-lyric-glow": "builtin-song-lyric-glow",
+  "theme-hymnal": "builtin-song-hymnal",
   "theme-scripture-classic": "builtin-scripture",
   "theme-scripture-warm": "builtin-scripture",
   "theme-ember": "builtin-song",
   "theme-royal-purple": "builtin-song",
-  "theme-aurora-worship": "builtin-song",
-  "theme-golden-bokeh": "builtin-song",
-  "theme-ember-glow": "builtin-song",
-  "theme-starry-host": "builtin-song",
-  "theme-silent-night": "builtin-song",
-  "theme-light-of-the-world": "builtin-song",
-  "theme-flowing-grace": "builtin-song",
+  "theme-aurora-worship": "builtin-song-aurora",
+  "theme-golden-bokeh": "builtin-song-bokeh",
+  "theme-ember-glow": "builtin-song-embers",
+  "theme-starry-host": "builtin-song-starfield",
+  "theme-silent-night": "builtin-song-snow",
+  "theme-light-of-the-world": "builtin-song-godrays",
+  "theme-flowing-grace": "builtin-song-drift",
 }
 
 /**

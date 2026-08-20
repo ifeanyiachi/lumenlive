@@ -13,12 +13,20 @@ describe("legacyThemeIdAlias", () => {
     )
   })
 
-  it("maps legacy slide built-ins (scripture → scripture, else → song)", () => {
+  it("maps legacy slide built-ins (scripture → scripture, generic → song)", () => {
     expect(legacyThemeIdAlias("theme-scripture-classic")).toBe(
       "builtin-scripture"
     )
     expect(legacyThemeIdAlias("theme-midnight")).toBe("builtin-song")
-    expect(legacyThemeIdAlias("theme-aurora-worship")).toBe("builtin-song")
+    expect(legacyThemeIdAlias("theme-worship-lyrics")).toBe("builtin-song")
+  })
+
+  it("maps each named song look to its specific Song-library recreation", () => {
+    expect(legacyThemeIdAlias("theme-lyric-glow")).toBe("builtin-song-lyric-glow")
+    expect(legacyThemeIdAlias("theme-hymnal")).toBe("builtin-song-hymnal")
+    expect(legacyThemeIdAlias("theme-aurora-worship")).toBe("builtin-song-aurora")
+    expect(legacyThemeIdAlias("theme-golden-bokeh")).toBe("builtin-song-bokeh")
+    expect(legacyThemeIdAlias("theme-flowing-grace")).toBe("builtin-song-drift")
   })
 
   it("returns undefined for an unknown / custom / already-new id", () => {

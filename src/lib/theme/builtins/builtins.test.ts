@@ -12,13 +12,21 @@ const ALL_TYPES: ThemeType[] = [
 ]
 
 describe("BUILTIN_THEMES", () => {
-  it("has exactly one theme per type, with unique ids", () => {
-    expect(BUILTIN_THEMES).toHaveLength(ALL_TYPES.length)
+  it("covers every type at least once, with unique ids", () => {
+    // One primary per type, plus the extra Song look library — so the catalog
+    // is >= ALL_TYPES, and the Song type is represented several times.
     expect(new Set(BUILTIN_THEMES.map((t) => t.type))).toEqual(
       new Set(ALL_TYPES)
     )
+    expect(BUILTIN_THEMES.length).toBeGreaterThanOrEqual(ALL_TYPES.length)
     const ids = BUILTIN_THEMES.map((t) => t.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it("indexes exactly one primary per type in BUILTIN_THEME_BY_TYPE", () => {
+    expect(new Set(Object.keys(BUILTIN_THEME_BY_TYPE))).toEqual(
+      new Set(ALL_TYPES)
+    )
   })
 
   it("marks every built-in as builtin and deterministic (createdAt 0)", () => {
