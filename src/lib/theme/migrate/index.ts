@@ -7,6 +7,7 @@
 export { broadcastToTheme, categoryToType } from "./broadcast-to-theme"
 export { slideThemeToTheme, slideCategoryToType } from "./slide-theme-to-theme"
 export { backgroundToSlide } from "./background"
+export { legacyThemeIdAlias, resolveLegacyThemeId } from "./legacy-id"
 export {
   ingestLegacyThemes,
   type LegacyThemeSources,
