@@ -1,6 +1,7 @@
 import { check, type Update } from "@tauri-apps/plugin-updater"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { load } from "@tauri-apps/plugin-store"
+import { getVersion } from "@tauri-apps/api/app"
 import type { AvailableUpdate } from "@/lib/updater/version"
 
 /**
@@ -35,6 +36,15 @@ export async function checkForUpdate(): Promise<AvailableUpdate | null> {
   }
   pending = update
   return { version: update.version, notes: update.body ?? "" }
+}
+
+/**
+ * The running app's version (from the bundle manifest, e.g. "1.4.0"). Shown in
+ * the always-visible Software Update panel so the user can see what they're on
+ * even when no newer build exists.
+ */
+export async function getCurrentVersion(): Promise<string> {
+  return getVersion()
 }
 
 /** Download-progress callback: `fraction` runs 0 → 1 over the download. */

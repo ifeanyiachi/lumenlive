@@ -21,6 +21,14 @@ export type UpdateStatus =
 interface UpdateState {
   status: UpdateStatus
   available: AvailableUpdate | null
+  /** The running build's version (e.g. "1.4.0"); loaded once at boot. */
+  currentVersion: string | null
+  /**
+   * Epoch ms of the last completed check (success *or* up-to-date), or null if
+   * no check has finished yet. Lets the Software Update panel tell "never
+   * checked" apart from "checked, you're up to date" — both leave status "idle".
+   */
+  lastCheckedAt: number | null
   /** Version the user dismissed; hydrated from disk at boot. */
   dismissedVersion: string | null
   /** Download progress 0..1 while status === "downloading". */
@@ -33,6 +41,8 @@ interface UpdateState {
 export const useUpdateStore = create<UpdateState>((set, get) => ({
   status: "idle",
   available: null,
+  currentVersion: null,
+  lastCheckedAt: null,
   dismissedVersion: null,
   progress: 0,
 
@@ -42,8 +52,8 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       const info = await updater.checkForUpdate()
       set(
         info
-          ? { status: "available", available: info }
-          : { status: "idle", available: null }
+          ? { status: "available", available: info, lastCheckedAt: Date.now() }
+          : { status: "idle", available: null, lastCheckedAt: Date.now() }
       )
     } catch (err) {
       console.warn("[updater] check failed", err)
@@ -79,6 +89,12 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
  * block startup.
  */
 export async function initUpdateNotifier(): Promise<void> {
+  try {
+    const version = await updater.getCurrentVersion()
+    useUpdateStore.setState({ currentVersion: version })
+  } catch {
+    /* current version is best-effort; the panel falls back to "unknown" */
+  }
   try {
     const dismissed = await updater.loadDismissedVersion()
     useUpdateStore.setState({ dismissedVersion: dismissed })
