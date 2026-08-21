@@ -35,6 +35,15 @@
     "active": true,
     "targets": ["nsis"],
     "publisher": "94streetStudio",
+    "fileAssociations": [
+      {
+        "ext": ["lumsched"],
+        "name": "LumenLive Service Schedule",
+        "description": "LumenLive Service Schedule",
+        "mimeType": "application/json",
+        "role": "Editor"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
