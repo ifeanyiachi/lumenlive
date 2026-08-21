@@ -86,6 +86,50 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("idle backdrop shows the configured Clear & Idle image background (not the output theme)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore.getState().outputs
+    outputs.find((o) => o.id === "main")!.themeId = SCRIPTURE_BUILTIN.id
+    // Not live → idle backdrop path. Configure an image base background.
+    useBroadcastStore.setState({ isLive: false, outputs: [...outputs] })
+    useBroadcastStore.getState().setBaseBackground({
+      kind: "background",
+      background: {
+        type: "image",
+        color: "#000000",
+        gradient: null,
+        image: {
+          url: "asset://localhost/holding.png",
+          fit: "cover",
+          blur: 0,
+          brightness: 100,
+          tint: null,
+        },
+        video: null,
+      },
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutput()
+
+    // The idle backdrop slide now carries the base background's image, so the
+    // audience sees the holding image on idle — not the scripture theme.
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:slide-update",
+      expect.objectContaining({
+        slide: expect.objectContaining({
+          id: "idle-backdrop",
+          background: expect.objectContaining({
+            type: "image",
+            imageUrl: "asset://localhost/holding.png",
+          }),
+        }),
+        verse: null,
+      })
+    )
+  })
+
   it("toggleBlackout flips ephemeral state and emits output-visibility", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const outputs = useBroadcastStore
