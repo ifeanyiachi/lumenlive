@@ -650,6 +650,67 @@ describe("broadcast store — stage monitor targeting", () => {
   })
 })
 
+describe("broadcast store — stage layout persistence", () => {
+  beforeEach(async () => {
+    emitToMock.mockReset()
+    emitToMock.mockResolvedValue(undefined)
+    vi.resetModules()
+  })
+
+  // A stage output assigned a built-in layout ("Standard"), which is the
+  // out-of-the-box default that the reported bug hits.
+  const withBuiltinStageOutput = (useBroadcastStore: {
+    setState: (patch: Record<string, unknown>) => void
+  }) => {
+    useBroadcastStore.setState({
+      outputs: [
+        {
+          id: "main",
+          name: "Program",
+          themeId: SCRIPTURE_BUILTIN.id,
+          mode: "normal",
+          contentSource: { type: "independent" },
+          enabled: true,
+        },
+        {
+          id: "stage-a",
+          name: "Musicians",
+          themeId: SCRIPTURE_BUILTIN.id,
+          mode: "stage",
+          contentSource: { type: "independent" },
+          enabled: true,
+          stageLayoutId: "stage-standard",
+        },
+      ],
+    })
+  }
+
+  it("editing a built-in layout forks it and repoints the output at the fork", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    withBuiltinStageOutput(useBroadcastStore)
+
+    // Edit the built-in the output currently uses, then add a zone and save.
+    useBroadcastStore.getState().startEditingStageLayout("stage-standard")
+    useBroadcastStore.getState().addZone("announcement")
+    useBroadcastStore.getState().saveStageDraft()
+
+    const s = useBroadcastStore.getState()
+    const output = s.outputs.find((o) => o.id === "stage-a")!
+    // The output no longer points at the immutable built-in…
+    expect(output.stageLayoutId).not.toBe("stage-standard")
+    // …but at the freshly-created custom fork, which persists (non-builtin).
+    const fork = s.stageLayouts.find((l) => l.id === output.stageLayoutId)!
+    expect(fork).toBeDefined()
+    expect(fork.builtin).toBe(false)
+    expect(fork.zones.some((z) => z.source === "announcement")).toBe(true)
+    // Reopening by the output's id now loads the fork with the edit intact,
+    // rather than the pristine built-in.
+    useBroadcastStore.getState().startEditingStageLayout(output.stageLayoutId!)
+    const draft = useBroadcastStore.getState().draftStageLayout!
+    expect(draft.zones.some((z) => z.source === "announcement")).toBe(true)
+  })
+})
+
 /**
  * YouTube plays inside each output window now (an embedded `OutputWebLayer`),
  * not a separate overlay window. `syncWebOutput` therefore fans the cue out over
@@ -817,6 +878,51 @@ describe("broadcast store stage-layout designer", () => {
     expect(useBroadcastStore.getState().draftStageLayout!.zones).toHaveLength(
       original
     )
+  })
+
+  it("createNewStageLayout opens a draft without adding it to the library", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const before = useBroadcastStore.getState().stageLayouts.length
+
+    useBroadcastStore.getState().createNewStageLayout()
+    const s = useBroadcastStore.getState()
+
+    // A draft is open and flagged new, but the library is untouched.
+    expect(s.draftStageLayout).not.toBeNull()
+    expect(s.isNewStageDraft).toBe(true)
+    expect(s.editingStageLayoutId).toBe(s.draftStageLayout!.id)
+    expect(s.stageLayouts).toHaveLength(before)
+  })
+
+  it("saving a new draft persists it once and clears the new flag", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const before = useBroadcastStore.getState().stageLayouts.length
+
+    useBroadcastStore.getState().createNewStageLayout()
+    const draftId = useBroadcastStore.getState().draftStageLayout!.id
+    useBroadcastStore.getState().saveStageDraft()
+
+    const s = useBroadcastStore.getState()
+    expect(s.stageLayouts).toHaveLength(before + 1)
+    expect(s.stageLayouts.some((l) => l.id === draftId)).toBe(true)
+    expect(s.isNewStageDraft).toBe(false)
+  })
+
+  it("discarding a new draft resets to a blank one, still unsaved", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const before = useBroadcastStore.getState().stageLayouts.length
+
+    useBroadcastStore.getState().createNewStageLayout()
+    useBroadcastStore.getState().addZone("timer")
+    expect(
+      useBroadcastStore.getState().draftStageLayout!.zones.length
+    ).toBeGreaterThan(0)
+
+    useBroadcastStore.getState().discardStageDraft()
+    const s = useBroadcastStore.getState()
+    expect(s.draftStageLayout!.zones).toHaveLength(0)
+    expect(s.isNewStageDraft).toBe(true)
+    expect(s.stageLayouts).toHaveLength(before)
   })
 })
 
