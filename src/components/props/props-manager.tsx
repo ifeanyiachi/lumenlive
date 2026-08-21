@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   Dialog,
   DialogContent,
@@ -559,11 +560,10 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
           <div className="grid grid-cols-2 gap-3">
             <FieldGroup label="Text Color">
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  className="size-6 cursor-pointer rounded border border-border"
+                <ColorSwatch
+                  className="size-6"
                   value={prop.color ?? "#ffffff"}
-                  onChange={(e) => update({ color: e.target.value })}
+                  onChange={(color) => update({ color })}
                 />
                 <Input
                   className="h-7 flex-1 text-xs"
@@ -574,11 +574,10 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
             </FieldGroup>
             <FieldGroup label="Background">
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  className="size-6 cursor-pointer rounded border border-border"
+                <ColorSwatch
+                  className="size-6"
                   value={prop.backgroundColor ?? "#000000"}
-                  onChange={(e) => update({ backgroundColor: e.target.value })}
+                  onChange={(backgroundColor) => update({ backgroundColor })}
                 />
                 <Input
                   className="h-7 flex-1 text-xs"

@@ -1,5 +1,6 @@
 import { useBroadcastStore } from "@/stores"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -151,11 +152,10 @@ function ZoneProperties({
               onCommit={(n) => set("text.fontSize", Math.max(8, n))}
             />
             <Field label="Colour">
-              <Input
-                type="color"
+              <ColorSwatch
                 value={zone.text.color}
-                onChange={(e) => set("text.color", e.target.value)}
-                className="h-8 p-1"
+                onChange={(color) => set("text.color", color)}
+                className="h-8 w-full"
               />
             </Field>
           </div>
@@ -186,13 +186,12 @@ function LayoutProperties({ draft }: { draft: StageLayout }) {
         </Select>
       </Field>
       <Field label="Background Colour">
-        <Input
-          type="color"
+        <ColorSwatch
           value={draft.background.color}
-          onChange={(e) =>
-            store().updateStageDraftNested("background.color", e.target.value)
+          onChange={(color) =>
+            store().updateStageDraftNested("background.color", color)
           }
-          className="h-8 p-1"
+          className="h-8 w-full"
         />
       </Field>
       <p className="text-xs text-muted-foreground">

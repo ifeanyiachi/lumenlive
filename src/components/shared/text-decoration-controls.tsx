@@ -1,5 +1,6 @@
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 
 interface ShadowValue {
   color: string
@@ -119,16 +120,15 @@ export function TextShadowControls({
               Shadow Color
             </label>
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorSwatch
                 value={shadowColor.hex}
-                onChange={(e) =>
+                onChange={(hex) =>
                   onUpdate(
                     "color",
-                    buildColorWithOpacity(e.target.value, shadowColor.opacity)
+                    buildColorWithOpacity(hex, shadowColor.opacity)
                   )
                 }
-                className="h-7 w-8 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                className="h-7 w-8 border-input bg-transparent p-0.5"
               />
               <Input
                 value={shadowColor.hex}
@@ -218,11 +218,10 @@ export function TextOutlineControls({
               Outline Color
             </label>
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorSwatch
                 value={outlineColor.hex}
-                onChange={(e) => onUpdate("color", e.target.value)}
-                className="h-7 w-8 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                onChange={(hex) => onUpdate("color", hex)}
+                className="h-7 w-8 border-input bg-transparent p-0.5"
               />
               <Input
                 value={outlineColor.hex}

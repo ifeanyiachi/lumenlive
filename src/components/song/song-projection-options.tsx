@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { RotateCcwIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -169,16 +170,15 @@ export function SongProjectionOptions({ song }: { song: Song }) {
             <div className="flex flex-wrap items-center gap-1.5">
               {effAnim.palette.map((color, i) => (
                 <div key={i} className="group relative">
-                  <input
-                    type="color"
+                  <ColorSwatch
                     value={color}
-                    onChange={(e) => {
+                    onChange={(hex) => {
                       const next = [...effAnim.palette]
-                      next[i] = e.target.value
+                      next[i] = hex
                       setAnim({ palette: next })
                     }}
-                    className="size-7 cursor-pointer rounded border border-border"
-                    aria-label={`Color ${i + 1}`}
+                    className="size-7"
+                    title={`Color ${i + 1}`}
                   />
                   {effAnim.palette.length > 1 && (
                     <button

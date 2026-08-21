@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/react"
 import { Button } from "@/components/ui/button"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   BoldIcon,
   ItalicIcon,
@@ -79,11 +80,10 @@ function ColorGrid({
       <div className="flex items-center gap-2">
         <label className="flex flex-1 items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Custom</span>
-          <input
-            type="color"
+          <ColorSwatch
             value={activeColor || "#ffffff"}
-            onChange={(e) => onSelect(e.target.value)}
-            className="h-6 w-8 cursor-pointer rounded border border-border bg-transparent"
+            onChange={onSelect}
+            className="h-6 w-8 bg-transparent"
           />
         </label>
         <Button

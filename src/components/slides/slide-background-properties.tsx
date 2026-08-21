@@ -3,6 +3,7 @@ import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   Select,
   SelectContent,
@@ -260,16 +261,15 @@ function AnimatedControls({
         <div className="flex flex-wrap items-center gap-1.5">
           {anim.palette.map((color, i) => (
             <div key={i} className="group relative">
-              <input
-                type="color"
+              <ColorSwatch
                 value={color}
-                onChange={(e) => {
+                onChange={(hex) => {
                   const next = [...anim.palette]
-                  next[i] = e.target.value
+                  next[i] = hex
                   setAnim({ palette: next })
                 }}
-                className="size-7 cursor-pointer rounded border border-border"
-                aria-label={`Color ${i + 1}`}
+                className="size-7"
+                title={`Color ${i + 1}`}
               />
               {anim.palette.length > 1 && (
                 <button
@@ -467,16 +467,15 @@ function ImageControls({
                 return (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
+                      <ColorSwatch
                         value={tintHex}
-                        onChange={(e) =>
+                        onChange={(hex) =>
                           onUpdate({
                             ...bg,
-                            tint: buildTint(e.target.value, tintOpacity),
+                            tint: buildTint(hex, tintOpacity),
                           })
                         }
-                        className="size-7 cursor-pointer rounded border border-border"
+                        className="size-7"
                       />
                       <Input
                         value={tintHex}
@@ -626,16 +625,15 @@ function VideoControls({
                 return (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
+                      <ColorSwatch
                         value={tintHex}
-                        onChange={(e) =>
+                        onChange={(hex) =>
                           onUpdate({
                             ...bg,
-                            tint: buildTint(e.target.value, tintOpacity),
+                            tint: buildTint(hex, tintOpacity),
                           })
                         }
-                        className="size-7 cursor-pointer rounded border border-border"
+                        className="size-7"
                       />
                       <Input
                         value={tintHex}

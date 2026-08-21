@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import {
@@ -212,13 +213,12 @@ export function MediaFitEditor({
               ))}
             </select>
             {(item.containBackground ?? "black") === "color" && (
-              <input
-                type="color"
+              <ColorSwatch
                 value={item.containBackgroundColor ?? "#000000"}
-                onChange={(e) =>
-                  applyFit({ containBackgroundColor: e.target.value })
+                onChange={(containBackgroundColor) =>
+                  applyFit({ containBackgroundColor })
                 }
-                className="h-7 w-8 shrink-0 cursor-pointer rounded border border-border bg-background"
+                className="h-7 w-8 shrink-0 bg-background"
                 title="Letterbox color"
               />
             )}

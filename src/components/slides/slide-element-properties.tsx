@@ -1,5 +1,6 @@
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -100,11 +101,10 @@ export function SlideElementProperties({
             </span>
             <PropertyRow label="Color">
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={element.backgroundColor ?? "#000000"}
-                  onChange={(e) => update({ backgroundColor: e.target.value })}
-                  className="size-7 cursor-pointer rounded border border-border"
+                  onChange={(backgroundColor) => update({ backgroundColor })}
+                  className="size-7"
                 />
                 <Input
                   value={element.backgroundColor ?? ""}

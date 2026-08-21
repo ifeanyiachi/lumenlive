@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -256,12 +257,11 @@ export function SlideScriptureProperties({
                 />
               </PropertyRow>
               <PropertyRow label="Color">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={element.color}
-                  onChange={(e) => update({ color: e.target.value })}
-                  className="h-7 w-full cursor-pointer rounded border border-border"
-                  aria-label="Verse color"
+                  onChange={(color) => update({ color })}
+                  className="h-7 w-full"
+                  title="Verse color"
                 />
               </PropertyRow>
             </div>
@@ -353,12 +353,11 @@ export function SlideScriptureProperties({
                 />
               </PropertyRow>
               <PropertyRow label="Color">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={element.referenceColor}
-                  onChange={(e) => update({ referenceColor: e.target.value })}
-                  className="h-7 w-full cursor-pointer rounded border border-border"
-                  aria-label="Reference color"
+                  onChange={(referenceColor) => update({ referenceColor })}
+                  className="h-7 w-full"
+                  title="Reference color"
                 />
               </PropertyRow>
             </div>
@@ -438,19 +437,18 @@ export function SlideScriptureProperties({
                     />
                   </PropertyRow>
                   <PropertyRow label="Color">
-                    <input
-                      type="color"
+                    <ColorSwatch
                       value={element.verseNumbers.color}
-                      onChange={(e) =>
+                      onChange={(color) =>
                         update({
                           verseNumbers: {
                             ...element.verseNumbers!,
-                            color: e.target.value,
+                            color,
                           },
                         })
                       }
-                      className="h-7 w-full cursor-pointer rounded border border-border"
-                      aria-label="Verse number color"
+                      className="h-7 w-full"
+                      title="Verse number color"
                     />
                   </PropertyRow>
                 </div>

@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   Select,
   SelectContent,
@@ -143,11 +144,10 @@ export function GradientControls({
 
         {gradient.stops.map((stop, i) => (
           <div key={i} className="flex items-center gap-1.5">
-            <input
-              type="color"
+            <ColorSwatch
               value={stop.color}
-              onChange={(e) => updateStop(i, { color: e.target.value })}
-              className="size-6 cursor-pointer rounded border border-border"
+              onChange={(color) => updateStop(i, { color })}
+              className="size-6"
             />
             <Input
               value={stop.color}
@@ -192,12 +192,7 @@ export function SolidControls({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <input
-        type="color"
-        value={color}
-        onChange={(e) => onChange(e.target.value)}
-        className="size-7 cursor-pointer rounded border border-border"
-      />
+      <ColorSwatch value={color} onChange={onChange} className="size-7" />
       <Input
         value={color}
         onChange={(e) => onChange(e.target.value)}

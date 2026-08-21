@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { cn } from "@/lib/utils"
 
 /**
@@ -80,11 +81,10 @@ function ColorRow({
   return (
     <PropertyRow label="Color">
       <div className="flex items-center gap-2">
-        <input
-          type="color"
+        <ColorSwatch
           value={value.startsWith("rgba") ? "#000000" : value}
-          onChange={(e) => onChange(e.target.value)}
-          className="size-7 cursor-pointer rounded border border-border"
+          onChange={onChange}
+          className="size-7"
         />
         <Input
           value={value}

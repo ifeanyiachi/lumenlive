@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 
 /**
  * Shared building blocks for the type-specific theme-properties panels
@@ -84,12 +85,7 @@ export function ColorRow({
   return (
     <PropertyRow label={label}>
       <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="size-7 cursor-pointer rounded border border-border"
-        />
+        <ColorSwatch value={value} onChange={onChange} className="size-7" />
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}

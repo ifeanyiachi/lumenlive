@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { FontFamilyPicker } from "@/components/shared/font-family-picker"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   ToolbarDivider,
   ToolbarToggle,
@@ -104,13 +105,12 @@ function TextToolbar({ element }: { element: SlideTextElement }) {
       <ToolbarDivider />
 
       {/* Color + opacity */}
-      <input
-        type="color"
+      <ColorSwatch
         value={colorHex}
-        onChange={(e) =>
-          update({ color: buildColorWithOpacity(e.target.value, colorOpacity) })
+        onChange={(hex) =>
+          update({ color: buildColorWithOpacity(hex, colorOpacity) })
         }
-        className="size-7 cursor-pointer rounded border border-border"
+        className="size-7"
         title="Text color"
       />
       <div className="w-16" title="Color opacity">
@@ -302,20 +302,18 @@ function ScriptureToolbar({ element }: { element: SlideScriptureElement }) {
       <ToolbarDivider />
 
       {/* Verse color */}
-      <input
-        type="color"
+      <ColorSwatch
         value={element.color}
-        onChange={(e) => update({ color: e.target.value })}
-        className="size-7 cursor-pointer rounded border border-border"
+        onChange={(color) => update({ color })}
+        className="size-7"
         title="Verse color"
       />
 
       {/* Reference color */}
-      <input
-        type="color"
+      <ColorSwatch
         value={element.referenceColor}
-        onChange={(e) => update({ referenceColor: e.target.value })}
-        className="size-7 cursor-pointer rounded border border-border"
+        onChange={(referenceColor) => update({ referenceColor })}
+        className="size-7"
         title="Reference color"
       />
 
@@ -467,13 +465,12 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
 
       {/* Fill color */}
       <span className="text-[0.6875rem] text-muted-foreground">Fill</span>
-      <input
-        type="color"
+      <ColorSwatch
         value={
           element.fillColor.startsWith("rgba") ? "#ffffff" : element.fillColor
         }
-        onChange={(e) => update({ fillColor: e.target.value })}
-        className="size-7 cursor-pointer rounded border border-border"
+        onChange={(fillColor) => update({ fillColor })}
+        className="size-7"
         title="Fill color"
       />
 
@@ -481,11 +478,10 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
 
       {/* Stroke color */}
       <span className="text-[0.6875rem] text-muted-foreground">Stroke</span>
-      <input
-        type="color"
+      <ColorSwatch
         value={element.strokeColor}
-        onChange={(e) => update({ strokeColor: e.target.value })}
-        className="size-7 cursor-pointer rounded border border-border"
+        onChange={(strokeColor) => update({ strokeColor })}
+        className="size-7"
         title="Stroke color"
       />
 

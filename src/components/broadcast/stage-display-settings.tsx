@@ -1,6 +1,7 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { DEFAULT_STAGE_DISPLAY_CONFIG } from "@/types/broadcast"
 import { Switch } from "@/components/ui/switch"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
   Select,
   SelectContent,
@@ -118,11 +119,10 @@ export function StageDisplaySettings() {
                 Background
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={config.backgroundColor}
-                  onChange={(e) => update({ backgroundColor: e.target.value })}
-                  className="h-8 w-8 shrink-0 cursor-pointer rounded border border-border"
+                  onChange={(backgroundColor) => update({ backgroundColor })}
+                  className="h-8 w-8 shrink-0"
                 />
                 <span className="text-xs text-muted-foreground">
                   {config.backgroundColor}
@@ -134,11 +134,10 @@ export function StageDisplaySettings() {
                 Text Color
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={config.textColor}
-                  onChange={(e) => update({ textColor: e.target.value })}
-                  className="h-8 w-8 shrink-0 cursor-pointer rounded border border-border"
+                  onChange={(textColor) => update({ textColor })}
+                  className="h-8 w-8 shrink-0"
                 />
                 <span className="text-xs text-muted-foreground">
                   {config.textColor}

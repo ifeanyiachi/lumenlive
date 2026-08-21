@@ -1,5 +1,6 @@
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -67,15 +68,14 @@ export function SlideShapeProperties({
             </span>
             <PropertyRow label="Color">
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={
                     element.fillColor.startsWith("rgba")
                       ? "#ffffff"
                       : element.fillColor
                   }
-                  onChange={(e) => update({ fillColor: e.target.value })}
-                  className="size-7 cursor-pointer rounded border border-border"
+                  onChange={(fillColor) => update({ fillColor })}
+                  className="size-7"
                 />
                 <Input
                   value={element.fillColor}
@@ -104,11 +104,10 @@ export function SlideShapeProperties({
             </span>
             <PropertyRow label="Color">
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
+                <ColorSwatch
                   value={element.strokeColor}
-                  onChange={(e) => update({ strokeColor: e.target.value })}
-                  className="size-7 cursor-pointer rounded border border-border"
+                  onChange={(strokeColor) => update({ strokeColor })}
+                  className="size-7"
                 />
                 <Input
                   value={element.strokeColor}
@@ -216,17 +215,16 @@ export function SlideShapeProperties({
                 </PropertyRow>
                 <PropertyRow label="Color">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
+                    <ColorSwatch
                       value={
                         shadow.color.startsWith("rgba")
                           ? "#000000"
                           : shadow.color
                       }
-                      onChange={(e) =>
-                        update({ shadow: { ...shadow, color: e.target.value } })
+                      onChange={(color) =>
+                        update({ shadow: { ...shadow, color } })
                       }
-                      className="size-7 cursor-pointer rounded border border-border"
+                      className="size-7"
                     />
                     <Input
                       value={shadow.color}

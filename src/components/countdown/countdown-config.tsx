@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import { useThemesStore } from "@/stores/themes"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { countdownThemeColors } from "@/lib/countdown/theme-colors"
@@ -276,28 +277,24 @@ export function TimerEditor({
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[0.6875rem] text-muted-foreground">BG</span>
-              <input
-                type="color"
+              <ColorSwatch
                 value={
                   draft.backgroundColor.startsWith("rgba")
                     ? "#000000"
                     : draft.backgroundColor
                 }
-                onChange={(e) =>
-                  setDraft({ ...draft, backgroundColor: e.target.value })
+                onChange={(backgroundColor) =>
+                  setDraft({ ...draft, backgroundColor })
                 }
-                className="size-6 cursor-pointer rounded border border-border"
+                className="size-6"
               />
               <span className="text-[0.6875rem] text-muted-foreground">
                 Text
               </span>
-              <input
-                type="color"
+              <ColorSwatch
                 value={draft.textColor}
-                onChange={(e) =>
-                  setDraft({ ...draft, textColor: e.target.value })
-                }
-                className="size-6 cursor-pointer rounded border border-border"
+                onChange={(textColor) => setDraft({ ...draft, textColor })}
+                className="size-6"
               />
               <Input
                 type="number"

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAlertStore } from "@/stores/alert-store"
 import { FontFamilyPicker } from "@/components/shared/font-family-picker"
+import { ColorSwatch } from "@/components/ui/color-swatch"
 import type {
   AlertTemplate,
   AlertStyle,
@@ -157,11 +158,10 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       <div className="grid grid-cols-2 gap-3">
         <FieldGroup label="Background Color">
           <div className="flex items-center gap-2">
-            <input
-              type="color"
-              className="size-7 cursor-pointer rounded border border-border"
+            <ColorSwatch
+              className="size-7"
               value={template.backgroundColor}
-              onChange={(e) => update({ backgroundColor: e.target.value })}
+              onChange={(backgroundColor) => update({ backgroundColor })}
             />
             <Input
               className="h-7 flex-1 text-xs"
@@ -173,11 +173,10 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
 
         <FieldGroup label="Text Color">
           <div className="flex items-center gap-2">
-            <input
-              type="color"
-              className="size-7 cursor-pointer rounded border border-border"
+            <ColorSwatch
+              className="size-7"
               value={template.textColor}
-              onChange={(e) => update({ textColor: e.target.value })}
+              onChange={(textColor) => update({ textColor })}
             />
             <Input
               className="h-7 flex-1 text-xs"
@@ -255,17 +254,16 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       <FieldGroup label="Text Shadow">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <input
-              type="color"
-              className="size-6 cursor-pointer rounded border border-border"
+            <ColorSwatch
+              className="size-6"
               value={template.textShadow?.color ?? "#000000"}
-              onChange={(e) =>
+              onChange={(color) =>
                 update({
                   textShadow: {
                     offsetX: template.textShadow?.offsetX ?? 2,
                     offsetY: template.textShadow?.offsetY ?? 2,
                     blur: template.textShadow?.blur ?? 4,
-                    color: e.target.value,
+                    color,
                   },
                 })
               }
@@ -307,15 +305,14 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       {/* Text Outline */}
       <FieldGroup label="Text Outline">
         <div className="flex items-center gap-2">
-          <input
-            type="color"
-            className="size-6 cursor-pointer rounded border border-border"
+          <ColorSwatch
+            className="size-6"
             value={template.outline?.color ?? "#000000"}
-            onChange={(e) =>
+            onChange={(color) =>
               update({
                 outline: {
                   width: template.outline?.width ?? 2,
-                  color: e.target.value,
+                  color,
                 },
               })
             }
