@@ -111,6 +111,39 @@ pub(super) fn spawn_transcript_processing(
         // passes. Cleared on each final so the next utterance re-detects.
         let mut last_partial_detect = String::new();
 
+        // Semantic dispatch is gated to utterance boundaries so ONNX
+        // (~300-600ms) runs at most once per utterance, not per fragment. Two
+        // boundary signals feed it: `speech_final` (fast, ~endpointing latency)
+        // when Deepgram attaches it, and `UtteranceEnd` (reliable,
+        // ~utterance_end_ms) as the fallback for utterances where Deepgram never
+        // marks a final `speech_final` — notably the first utterance of a
+        // session, which otherwise never reached the semantic worker. Moonshine/
+        // REST always set `speech_final`, so they take the fast path and the
+        // fallback finds nothing pending.
+        let send_semantic = |text: String| {
+            if semantic_tx.try_send(text).is_ok() {
+                let n = semantic_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
+                if n % 25 == 0 {
+                    let depth = semantic_tx.max_capacity() - semantic_tx.capacity();
+                    let dropped = semantic_dropped_evt.load(Ordering::Relaxed);
+                    log::info!(
+                        "[QUEUE] semantic_tx sent={n} dropped={dropped} depth={depth}/{}",
+                        semantic_tx.max_capacity()
+                    );
+                }
+            } else {
+                let d = semantic_dropped_evt.fetch_add(1, Ordering::Relaxed) + 1;
+                let sent = semantic_sent_evt.load(Ordering::Relaxed);
+                log::warn!(
+                    "[QUEUE] semantic_tx DROPPED (consumer behind) sent={sent} dropped={d}"
+                );
+            }
+        };
+        // Most recent final not yet dispatched to semantic. Cleared as soon as a
+        // dispatch happens, so `speech_final` and `UtteranceEnd` can't both fire
+        // ONNX for the same utterance.
+        let mut last_final_text = String::new();
+
         while let Some(event) = event_rx.recv().await {
             if !evt_active.load(Ordering::SeqCst) {
                 break;
@@ -232,34 +265,31 @@ pub(super) fn spawn_transcript_processing(
                         }
 
                         // Semantic detection runs ONNX vector search (~300-600ms),
-                        // so gate it to utterance boundaries (`speech_final`) instead
-                        // of every partial fragment. Moonshine/REST set this true on
-                        // every Final; Deepgram sets it only at end-of-speech, which
-                        // keeps the capacity-bounded semantic channel from backing up.
+                        // so gate it to utterance boundaries instead of every
+                        // partial fragment. When Deepgram marks the boundary on
+                        // this final (`speech_final`), dispatch now for the lowest
+                        // latency; otherwise remember it so the `UtteranceEnd`
+                        // fallback below dispatches it once the boundary arrives.
                         if speech_final {
-                            if let Ok(()) = semantic_tx.try_send(transcript.clone()) {
-                                let n = semantic_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
-                                if n % 25 == 0 {
-                                    let depth = semantic_tx.max_capacity() - semantic_tx.capacity();
-                                    let dropped = semantic_dropped_evt.load(Ordering::Relaxed);
-                                    log::info!(
-                                        "[QUEUE] semantic_tx sent={n} dropped={dropped} depth={depth}/{}",
-                                        semantic_tx.max_capacity()
-                                    );
-                                }
-                            } else {
-                                let d = semantic_dropped_evt.fetch_add(1, Ordering::Relaxed) + 1;
-                                let sent = semantic_sent_evt.load(Ordering::Relaxed);
-                                log::warn!(
-                                    "[QUEUE] semantic_tx DROPPED (consumer behind) sent={sent} dropped={d}"
-                                );
-                            }
+                            send_semantic(transcript.clone());
+                            last_final_text.clear();
+                        } else {
+                            last_final_text.clone_from(&transcript);
                         }
 
                         log::debug!("[EVT] Final processed in {:?} ({:?})", t0.elapsed(), truncate_safe(&transcript, 40));
                     }
                 }
-                TranscriptEvent::UtteranceEnd => {}
+                TranscriptEvent::UtteranceEnd => {
+                    // Reliable utterance boundary (Deepgram `utterance_end_ms`).
+                    // Dispatch the last final that `speech_final` never covered —
+                    // the first utterance of a Deepgram session commonly lands
+                    // here rather than on `speech_final`, so without this the
+                    // phrase/semantic path would silently miss it.
+                    if !last_final_text.is_empty() {
+                        send_semantic(std::mem::take(&mut last_final_text));
+                    }
+                }
                 TranscriptEvent::SpeechStarted => {
                     // Capture the first utterance's onset for latency attribution.
                     if speech_started_at.is_none() {

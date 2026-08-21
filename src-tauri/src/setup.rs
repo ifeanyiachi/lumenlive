@@ -186,6 +186,17 @@ pub fn init_semantic(app: &tauri::App) {
         }
     };
 
+    // Warm-up inference: the first `embed()` after load pays the ORT cold-start
+    // cost (arena allocation + thread-pool spin-up), which would otherwise land
+    // on the operator's first spoken phrase. Pay it here at startup instead. The
+    // result is discarded; a failure is non-fatal (the real query would surface
+    // the same error) and never disables semantic search.
+    let warm_start = std::time::Instant::now();
+    match embedder.embed("for god so loved the world") {
+        Ok(_) => log::info!("ONNX warm-up embed complete in {:?}", warm_start.elapsed()),
+        Err(e) => log::warn!("ONNX warm-up embed failed (non-fatal): {e}"),
+    }
+
     // Qwen3-Embedding uses a symmetric no-prefix contract: verse embeddings are
     // pre-computed with no prefix, so live query text must also carry no prefix
     // (any prefix would place queries in a different subspace than the verses).
