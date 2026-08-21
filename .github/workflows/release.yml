@@ -59,10 +59,22 @@ jobs:
 
       # Caches the cargo registry + target dir keyed on the workspace, so only
       # the first build compiles the whole dependency tree from scratch.
+      #
+      # cache-directories ALSO caches the native libraries that the sherpa-rs and
+      # ort build scripts download to AppData (sherpa-onnx + ONNX Runtime). These
+      # live outside `target` and are referenced by absolute LIBPATH at link time.
+      # Without them cached, a warm-cache run that only recompiles Rust source
+      # skips those build scripts (their fingerprint is unchanged) and the final
+      # link fails with `LNK1181: cannot open input file 'cargs.lib'`. prefix-key
+      # is bumped so the first run after this change repopulates a complete cache.
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+          prefix-key: v2-rust
+          cache-directories: |
+            ~/AppData/Local/sherpa-rs
+            ~/AppData/Local/ort.pyke.io
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
