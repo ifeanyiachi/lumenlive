@@ -50,10 +50,11 @@ export function StageZoneList() {
     .filter((x): x is NonNullable<typeof x> => x != null)
 
   const move = (id: string, dir: -1 | 1) => {
-    // layerOrder is bottom→top; the list is reversed, so "up" in the list means
-    // later in layerOrder.
+    // layerOrder is bottom→top; the list is rendered reversed, so moving a row
+    // "up" (dir = 1) means moving it *later* in layerOrder (higher index), and
+    // "down" (dir = -1) means earlier. Hence `to = i + dir`.
     const i = draft.layerOrder.indexOf(id)
-    const to = i + (dir === -1 ? 1 : -1)
+    const to = i + dir
     if (i < 0 || to < 0 || to >= draft.layerOrder.length) return
     useBroadcastStore.getState().reorderStageLayers(i, to)
   }
