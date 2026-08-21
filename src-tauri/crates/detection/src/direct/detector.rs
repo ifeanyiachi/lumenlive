@@ -324,6 +324,45 @@ const NAV_BACKWARD_PHRASES: &[&str] = &[
     "step back",
 ];
 
+/// A spoken command that changes which verse is on the program screen.
+///
+/// Two intents, both resolved *frontend-side* against the live selection (the
+/// same contract as [`NavDirection`] — the command carries intent, never a
+/// resolved verse):
+/// - [`VerseCommand::Relative`] — step `count` verses in `direction` ("next
+///   verse", "skip the next two verses", "go back one verse").
+/// - [`VerseCommand::Absolute`] — jump to verse `verse` of the current chapter.
+///   Ordinal and cardinal phrasings collapse here: "the third verse", "verse
+///   three", and "verse 3" all yield `Absolute { verse: 3 }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerseCommand {
+    /// Step relative to the verse currently on screen.
+    Relative {
+        /// Which way to step.
+        direction: NavDirection,
+        /// How many verses to move (1 for a plain "next verse").
+        count: u32,
+    },
+    /// Jump to an absolute verse number within the current chapter.
+    Absolute {
+        /// The 1-based verse number to show.
+        verse: u32,
+    },
+}
+
+/// Upper bound on a spoken relative step. A believable "skip the next N verses"
+/// is small; a larger number parsed out of an utterance is almost certainly a
+/// mishearing, so it is clamped away rather than trusted.
+const MAX_RELATIVE_STEP: i32 = 50;
+
+/// Whitespace-delimited whole-word membership test (so "back" does not match
+/// inside "background"). Trims surrounding punctuation from each word.
+fn contains_word(text: &str, word: &str) -> bool {
+    text.split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
+        .any(|w| w == word)
+}
+
 pub struct DirectDetector {
     matcher: BookMatcher,
     context: ReferenceContext,
@@ -425,6 +464,91 @@ impl DirectDetector {
         if NAV_BACKWARD_PHRASES.iter().any(|p| lower.contains(p)) {
             return Some(NavDirection::Previous);
         }
+        None
+    }
+
+    /// Classify a spoken *verse* command — a relative step ("skip the next two
+    /// verses") or an absolute jump ("go to the third verse", "verse 5") — into
+    /// a [`VerseCommand`].
+    ///
+    /// Like [`Self::detect_navigation_command`], this returns *intent only*: the
+    /// verse to act on is resolved frontend-side against the live selection, so
+    /// the command works no matter how the current verse reached the screen. It
+    /// supersedes the direction-only classifier (a plain "next verse" comes back
+    /// as `Relative { count: 1 }`); the older one is kept for the existing
+    /// `nav_command` path until the frontend migrates.
+    ///
+    /// Returns `None` when the utterance is too long to be a bare command
+    /// (dominance guard), contains a real book reference (that's a jump the main
+    /// detector owns), or mentions a chapter (chapter navigation belongs to
+    /// reading mode).
+    pub fn detect_verse_command(&self, text: &str) -> Option<VerseCommand> {
+        let cleaned = clean_transcript(text);
+        let lower = cleaned.to_lowercase();
+
+        // Dominance guard: a command is a short, standalone utterance, not a
+        // sentence of preaching that happens to name a verse.
+        if lower.split_whitespace().count() > MAX_NAV_WORDS {
+            return None;
+        }
+        // A real book reference is a jump the main detector owns.
+        if !self.matcher.find_books(&cleaned).is_empty() {
+            return None;
+        }
+        // Chapter navigation is reading mode's lane, not ours.
+        if contains_word(&lower, "chapter") {
+            return None;
+        }
+
+        // --- Relative: a direction marker scoped to a verse. ---
+        // The bare direction keywords ("next", "back") only count when the
+        // utterance also mentions a verse, so unrelated speech doesn't step.
+        let has_verse = contains_word(&lower, "verse") || contains_word(&lower, "verses");
+        let forward = NAV_FORWARD_PHRASES.iter().any(|p| lower.contains(p))
+            || (has_verse
+                && ["next", "forward", "following", "ahead"]
+                    .iter()
+                    .any(|k| contains_word(&lower, k)));
+        let backward = NAV_BACKWARD_PHRASES.iter().any(|p| lower.contains(p))
+            || (has_verse
+                && ["previous", "back", "before", "prior"]
+                    .iter()
+                    .any(|k| contains_word(&lower, k)));
+
+        // Both directions named — refuse rather than guess wrong.
+        if forward && backward {
+            return None;
+        }
+        if forward || backward {
+            let direction = if forward {
+                NavDirection::Next
+            } else {
+                NavDirection::Previous
+            };
+            let count = parser::first_number(&lower)
+                .filter(|n| (1..=MAX_RELATIVE_STEP).contains(n))
+                .unwrap_or(1);
+            #[allow(
+                clippy::cast_sign_loss,
+                reason = "count is filtered to 1..=MAX_RELATIVE_STEP, always positive"
+            )]
+            return Some(VerseCommand::Relative {
+                direction,
+                count: count as u32,
+            });
+        }
+
+        // --- Absolute: "verse N" / "the Nth verse". ---
+        if let Some(verse) = parser::find_verse_number(&lower) {
+            #[allow(
+                clippy::cast_sign_loss,
+                reason = "find_verse_number returns 1..=176, always positive"
+            )]
+            return Some(VerseCommand::Absolute {
+                verse: verse as u32,
+            });
+        }
+
         None
     }
 
@@ -1218,5 +1342,128 @@ mod tests {
     fn test_nav_no_command() {
         let d = DirectDetector::new();
         assert!(d.detect_navigation_command("the weather is nice today").is_none());
+    }
+
+    // ========== Verse Command Tests ==========
+    //
+    // detect_verse_command unifies relative steps and absolute jumps. Like the
+    // nav classifier it returns intent only; the frontend resolves the target
+    // against the live selection.
+
+    #[test]
+    fn test_verse_absolute_by_number() {
+        let d = DirectDetector::new();
+        for (cmd, verse) in [
+            ("verse 3", 3),
+            ("go to verse 5", 5),
+            ("start from verse 10", 10),
+            ("verse three", 3),
+            ("go to verse fifteen", 15),
+        ] {
+            assert_eq!(
+                d.detect_verse_command(cmd),
+                Some(VerseCommand::Absolute { verse }),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_verse_absolute_by_ordinal() {
+        // "the third verse" == "verse 3"; ordinals collapse to the cardinal.
+        let d = DirectDetector::new();
+        for (cmd, verse) in [
+            ("go to the third verse", 3),
+            ("turn the third verse", 3),
+            ("the fifth verse", 5),
+            ("go to the fifteenth verse", 15),
+            ("the 15th verse", 15),
+            ("the twentieth verse", 20),
+            ("the twenty first verse", 21),
+        ] {
+            assert_eq!(
+                d.detect_verse_command(cmd),
+                Some(VerseCommand::Absolute { verse }),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_verse_relative_single() {
+        let d = DirectDetector::new();
+        assert_eq!(
+            d.detect_verse_command("next verse"),
+            Some(VerseCommand::Relative {
+                direction: NavDirection::Next,
+                count: 1,
+            })
+        );
+        assert_eq!(
+            d.detect_verse_command("go to the previous verse"),
+            Some(VerseCommand::Relative {
+                direction: NavDirection::Previous,
+                count: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn test_verse_relative_with_count() {
+        let d = DirectDetector::new();
+        assert_eq!(
+            d.detect_verse_command("skip to the next two verses"),
+            Some(VerseCommand::Relative {
+                direction: NavDirection::Next,
+                count: 2,
+            })
+        );
+        assert_eq!(
+            d.detect_verse_command("go back three verses"),
+            Some(VerseCommand::Relative {
+                direction: NavDirection::Previous,
+                count: 3,
+            })
+        );
+    }
+
+    #[test]
+    fn test_verse_ignores_long_utterance() {
+        // Preaching that names a verse must not move the screen.
+        let d = DirectDetector::new();
+        assert!(
+            d.detect_verse_command(
+                "and when you get to the third verse you will see what Paul means",
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_verse_ignores_explicit_reference() {
+        // A real book reference is a jump the main detector owns, not a command.
+        let d = DirectDetector::new();
+        assert!(d.detect_verse_command("John chapter 3 verse 16").is_none());
+        assert!(d.detect_verse_command("Genesis verse 5").is_none());
+    }
+
+    #[test]
+    fn test_verse_ignores_chapter_navigation() {
+        // "chapter" belongs to reading mode.
+        let d = DirectDetector::new();
+        assert!(d.detect_verse_command("go to chapter 3 verse 5").is_none());
+    }
+
+    #[test]
+    fn test_verse_ignores_ambiguous_direction() {
+        let d = DirectDetector::new();
+        assert!(d.detect_verse_command("next verse or previous verse").is_none());
+    }
+
+    #[test]
+    fn test_verse_no_command() {
+        let d = DirectDetector::new();
+        assert!(d.detect_verse_command("the weather is nice today").is_none());
+        assert!(d.detect_verse_command("let us pray together").is_none());
     }
 }

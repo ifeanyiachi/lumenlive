@@ -17,7 +17,7 @@ use crate::events::{
 };
 
 use super::detection::{
-    check_navigation_command, check_reading_mode, check_translation_command, run_direct_detection,
+    check_reading_mode, check_translation_command, check_verse_command, run_direct_detection,
     run_semantic_detection,
 };
 use super::truncate_safe;
@@ -234,11 +234,13 @@ pub(super) fn spawn_transcript_processing(
                         // Check for translation commands (cheap, <1ms, stays inline)
                         check_translation_command(&event_app, &transcript);
 
-                        // Check for spoken navigation ("next verse" / "previous
-                        // verse"). Finals ONLY — navigation isn't idempotent, so
-                        // running it on partials would double-advance when the
-                        // final repeats the phrase.
-                        check_navigation_command(&event_app, &transcript);
+                        // Check for spoken verse commands — relative steps
+                        // ("next verse", "skip the next two verses") and absolute
+                        // jumps ("go to the third verse", "verse 5"). Finals ONLY:
+                        // verse commands aren't idempotent, so running them on
+                        // volatile partials would double-fire when the final
+                        // repeats the phrase.
+                        check_verse_command(&event_app, &transcript);
 
                         // A final closes the utterance: reset the partial-dedup
                         // guard so the next utterance's partials re-detect fresh.

@@ -775,40 +775,53 @@ pub(super) fn check_translation_command(app: &AppHandle, transcript: &str) {
     }
 }
 
-/// Check for a spoken navigation command ("turn to the next verse", "go back one
-/// verse") and emit `nav_command` with the direction to step.
+/// Check for a spoken *verse* command — a jump to a specific verse ("go to the
+/// third verse", "verse 5") or a multi-step relative move ("skip the next two
+/// verses") — and emit `verse_command` with the intent.
 ///
-/// This carries only the *direction*: the verse to step FROM is the frontend's
-/// live selection (`bibleStore.selectedVerse`), which tracks whatever is on the
-/// program screen no matter how it got there — a spoken reference, a manual
-/// book-panel pick, a queue take, or reading mode. The frontend does the step
-/// (and chapter-boundary roll-over) against that selection. Anchoring here to the
-/// last *detected* verse would ignore every non-voice path, so the anchor lives
-/// where the live state lives.
+/// The payload is a tagged union mirroring `VerseCommand`:
+/// - `{ kind: "relative", direction: "next" | "previous", count }`
+/// - `{ kind: "absolute", verse }`
 ///
-/// Finals-only: navigation is *not* idempotent (two "next verse"s = +2), so
-/// unlike translation switching it must never run on volatile partials, which
-/// would double-advance when the final repeats the phrase.
-pub(super) fn check_navigation_command(app: &AppHandle, transcript: &str) {
-    use lumenlive_detection::{DirectDetector, NavDirection};
+/// Like [`check_navigation_command`], the command carries only intent; the verse
+/// to act on is resolved frontend-side against the live selection. Finals-only,
+/// for the same reason: verse jumps and multi-steps are not idempotent, so
+/// running on volatile partials would double-fire when the final repeats.
+pub(super) fn check_verse_command(app: &AppHandle, transcript: &str) {
+    use lumenlive_detection::{DirectDetector, NavDirection, VerseCommand};
 
-    #[derive(serde::Serialize, Clone)]
-    struct NavCommand {
-        direction: &'static str,
+    #[derive(serde::Serialize, Clone, Debug)]
+    #[serde(tag = "kind", rename_all = "lowercase")]
+    enum VerseCommandPayload {
+        Relative {
+            direction: &'static str,
+            count: u32,
+        },
+        Absolute {
+            verse: u32,
+        },
     }
 
     let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
-    let direction = {
-        let Ok(detector) = detector_state.lock() else { return };
-        detector.detect_navigation_command(transcript)
+    let command = {
+        let Ok(detector) = detector_state.lock() else {
+            return;
+        };
+        detector.detect_verse_command(transcript)
     };
-    let Some(direction) = direction else { return };
+    let Some(command) = command else { return };
 
-    let direction = match direction {
-        NavDirection::Next => "next",
-        NavDirection::Previous => "previous",
+    let payload = match command {
+        VerseCommand::Relative { direction, count } => VerseCommandPayload::Relative {
+            direction: match direction {
+                NavDirection::Next => "next",
+                NavDirection::Previous => "previous",
+            },
+            count,
+        },
+        VerseCommand::Absolute { verse } => VerseCommandPayload::Absolute { verse },
     };
 
-    log::info!("[STT] Voice nav command: {direction}");
-    let _ = app.emit("nav_command", NavCommand { direction });
+    log::info!("[STT] Voice verse command: {payload:?}");
+    let _ = app.emit("verse_command", payload);
 }

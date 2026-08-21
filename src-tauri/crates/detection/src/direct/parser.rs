@@ -650,6 +650,154 @@ pub fn parse_spoken_number(word: &str) -> Option<i32> {
     }
 }
 
+/// Convert an ordinal number word to its cardinal value: "third" → 3,
+/// "fifteenth" → 15, "twentieth" → 20. Returns None for non-ordinal words.
+///
+/// Spoken verse commands say "the third verse" as often as "verse three", and
+/// both mean the same verse — so ordinals collapse straight to the cardinal
+/// here. Compound ordinals ("twenty first") are handled by [`parse_verse_number`],
+/// which combines a cardinal tens word with the ordinal ones word.
+fn ordinal_word_to_cardinal(word: &str) -> Option<i32> {
+    Some(match word.to_lowercase().as_str() {
+        "first" => 1,
+        "second" => 2,
+        "third" => 3,
+        "fourth" => 4,
+        "fifth" => 5,
+        "sixth" => 6,
+        "seventh" => 7,
+        "eighth" => 8,
+        "ninth" => 9,
+        "tenth" => 10,
+        "eleventh" => 11,
+        "twelfth" => 12,
+        "thirteenth" => 13,
+        "fourteenth" => 14,
+        "fifteenth" => 15,
+        "sixteenth" => 16,
+        "seventeenth" => 17,
+        "eighteenth" => 18,
+        "nineteenth" => 19,
+        "twentieth" => 20,
+        "thirtieth" => 30,
+        "fortieth" => 40,
+        "fiftieth" => 50,
+        "sixtieth" => 60,
+        "seventieth" => 70,
+        "eightieth" => 80,
+        "ninetieth" => 90,
+        "hundredth" => 100,
+        _ => return None,
+    })
+}
+
+/// Parse a verse number at `start`, accepting every form a verse command can
+/// take: a digit ("3"), a digit ordinal ("3rd"/"15th" — tokenized as a Number
+/// followed by a bare suffix word), a cardinal word ("three", "twenty two"), an
+/// ordinal word ("third", "fifteenth"), or a compound ordinal ("twenty first").
+/// Returns `(value, next_index)`.
+fn parse_verse_number(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
+    if start >= tokens.len() {
+        return None;
+    }
+
+    // Digit form. STT emits ordinals as "3rd"/"15th", which tokenize into a
+    // Number plus a suffix word ("rd"/"th") — swallow the suffix if present.
+    if let Token::Number(n) = &tokens[start] {
+        let mut next = start + 1;
+        if let Some(Token::Word(w)) = tokens.get(next) {
+            if matches!(w.as_str(), "st" | "nd" | "rd" | "th") {
+                next += 1;
+            }
+        }
+        return Some((*n, next));
+    }
+
+    if let Token::Word(w) = &tokens[start] {
+        // Standalone ordinal word ("third", "fifteenth", "twentieth").
+        if let Some(n) = ordinal_word_to_cardinal(w) {
+            return Some((n, start + 1));
+        }
+        // Compound ordinal: cardinal tens word + ordinal ones word
+        // ("twenty first" → 21, "thirty second" → 32).
+        if let Some(tens) = parse_spoken_number(w) {
+            if tens >= 20 && tens % 10 == 0 {
+                if let Some(Token::Word(next_w)) = tokens.get(start + 1) {
+                    if let Some(ones) = ordinal_word_to_cardinal(next_w) {
+                        if (1..=9).contains(&ones) {
+                            return Some((tens + ones, start + 2));
+                        }
+                    }
+                }
+            }
+        }
+        // Plain cardinal, including compounds ("twenty two", "one hundred five").
+        return consume_number_at(tokens, start);
+    }
+
+    None
+}
+
+/// Maximum verse number in any chapter (Psalm 119 has 176). A verse-bound
+/// number outside `1..=MAX_VERSE` is rejected as a mishearing.
+const MAX_VERSE: i32 = 176;
+
+/// Find a verse number that a spoken command explicitly bound to the word
+/// "verse" — either `verse N` / `verse three` or `the third verse` / `Nth verse`.
+/// Returns `None` when no verse-bound number is present.
+///
+/// Requiring the "verse" keyword is what separates a jump command from prose
+/// that merely contains a number; the caller has already ruled out real book
+/// references and chapter navigation before reaching here.
+pub fn find_verse_number(text: &str) -> Option<i32> {
+    let tokens = tokenize(&text.to_lowercase());
+
+    // Pattern A: "verse" then a number ("verse 3", "verse three").
+    for (i, token) in tokens.iter().enumerate() {
+        if let Token::Word(w) = token {
+            if w == "verse" || w == "verses" {
+                if let Some((v, _)) = parse_verse_number(&tokens, i + 1) {
+                    if (1..=MAX_VERSE).contains(&v) {
+                        return Some(v);
+                    }
+                }
+            }
+        }
+    }
+
+    // Pattern B: a number then "verse" ("the third verse", "15th verse").
+    let mut i = 0;
+    while i < tokens.len() {
+        if let Some((v, next)) = parse_verse_number(&tokens, i) {
+            if let Some(Token::Word(w)) = tokens.get(next) {
+                if (w == "verse" || w == "verses") && (1..=MAX_VERSE).contains(&v) {
+                    return Some(v);
+                }
+            }
+            i = next.max(i + 1);
+        } else {
+            i += 1;
+        }
+    }
+
+    None
+}
+
+/// Return the first standalone number anywhere in `text`, in any spoken form.
+/// Used to pull the *count* out of a relative command ("skip the next **two**
+/// verses"); returns `None` when the command carries no explicit count.
+pub fn first_number(text: &str) -> Option<i32> {
+    let tokens = tokenize(&text.to_lowercase());
+    let mut i = 0;
+    while i < tokens.len() {
+        if let Some((n, _)) = parse_verse_number(&tokens, i) {
+            return Some(n);
+        }
+        i += 1;
+    }
+    None
+}
+
 /// Try to extract a chapter and/or verse continuation from text that follows
 /// an incomplete reference (book-only or book+chapter).
 ///
@@ -820,6 +968,54 @@ mod tests {
         assert_eq!(parse_spoken_number("thirty"), Some(30));
         assert_eq!(parse_spoken_number("hundred"), Some(100));
         assert_eq!(parse_spoken_number("dog"), None);
+    }
+
+    #[test]
+    fn test_ordinal_word_to_cardinal() {
+        assert_eq!(ordinal_word_to_cardinal("first"), Some(1));
+        assert_eq!(ordinal_word_to_cardinal("third"), Some(3));
+        assert_eq!(ordinal_word_to_cardinal("fifteenth"), Some(15));
+        assert_eq!(ordinal_word_to_cardinal("twentieth"), Some(20));
+        assert_eq!(ordinal_word_to_cardinal("hundredth"), Some(100));
+        assert_eq!(ordinal_word_to_cardinal("three"), None);
+        assert_eq!(ordinal_word_to_cardinal("dog"), None);
+    }
+
+    #[test]
+    fn test_find_verse_number_verse_first() {
+        assert_eq!(find_verse_number("verse 3"), Some(3));
+        assert_eq!(find_verse_number("verse three"), Some(3));
+        assert_eq!(find_verse_number("go to verse fifteen"), Some(15));
+        assert_eq!(find_verse_number("start from verse ten"), Some(10));
+    }
+
+    #[test]
+    fn test_find_verse_number_ordinal_first() {
+        assert_eq!(find_verse_number("the third verse"), Some(3));
+        assert_eq!(find_verse_number("the fifteenth verse"), Some(15));
+        assert_eq!(find_verse_number("the 15th verse"), Some(15));
+        assert_eq!(find_verse_number("the twenty first verse"), Some(21));
+    }
+
+    #[test]
+    fn test_find_verse_number_rejects_out_of_range() {
+        // Psalm 119 tops out at 176; anything past that is a mishearing.
+        assert_eq!(find_verse_number("verse two hundred"), None);
+        assert_eq!(find_verse_number("verse 0"), None);
+    }
+
+    #[test]
+    fn test_find_verse_number_none() {
+        assert_eq!(find_verse_number("go to the next slide"), None);
+        assert_eq!(find_verse_number("the weather today"), None);
+    }
+
+    #[test]
+    fn test_first_number_extracts_count() {
+        assert_eq!(first_number("skip the next two verses"), Some(2));
+        assert_eq!(first_number("go back three verses"), Some(3));
+        assert_eq!(first_number("skip the next 2 verses"), Some(2));
+        assert_eq!(first_number("next verse"), None);
     }
 
     #[test]
