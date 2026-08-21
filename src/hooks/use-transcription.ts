@@ -97,7 +97,13 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     useTranscriptStore.getState().setConnectionStatus("disconnected")
   })
   useTauriEvent<string>("stt_error", (msg) => {
-    useTranscriptStore.getState().setConnectionStatus("error")
+    const transcript = useTranscriptStore.getState()
+    transcript.setConnectionStatus("error")
+    // An stt_error means the live engine is broken — including the on-device
+    // engine failing to start during a failover. Drop the "on-device" badge so
+    // it can't linger over a dead session (it's already false during the cloud
+    // phase, so clearing here only affects the failed-failover case).
+    transcript.setOnDeviceFallback(false)
     toast.error("Transcription error", { description: msg })
   })
 

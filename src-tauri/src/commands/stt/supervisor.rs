@@ -73,6 +73,11 @@ fn spawn_connectivity_watchdog(
 /// `stt_failback` so the UI can show which engine is live. Both providers re-arm
 /// on `start()`, so the same instances are reused across cycles (no per-cycle
 /// model reload beyond the first Moonshine load).
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive cloud↔on-device supervision loop; extracting the phases \
+              would obscure the failover/failback control flow it exists to express"
+)]
 pub(super) async fn run_stt_supervisor(
     primary: std::sync::Arc<dyn SttProvider>,
     fallback: Option<std::sync::Arc<dyn SttProvider>>,
@@ -171,8 +176,24 @@ pub(super) async fn run_stt_supervisor(
             let fallback = fallback.clone();
             let audio_rx = audio_rx.clone();
             let event_tx = event_tx.clone();
+            let moon_app = app.clone();
             tauri::async_runtime::spawn(async move {
-                let _ = fallback.start(audio_rx, event_tx).await;
+                // `stt_failover` was emitted optimistically above, so if the
+                // on-device engine can't actually start (model files missing, or
+                // the native recognizer fails to load) we must surface that —
+                // otherwise the UI shows a false "on-device active" badge over a
+                // silent dead session. Emitting `stt_error` both toasts the real
+                // reason and clears the on-device indicator. (A recognizer that
+                // loads then fails per-utterance already reports via
+                // `TranscriptEvent::Error`; this covers the `start()` error that
+                // was previously discarded.)
+                if let Err(e) = fallback.start(audio_rx, event_tx).await {
+                    log::error!("[STT] on-device Moonshine failed to start: {e}");
+                    let _ = moon_app.emit(
+                        "stt_error",
+                        format!("On-device transcription unavailable: {e}"),
+                    );
+                }
             })
         };
 

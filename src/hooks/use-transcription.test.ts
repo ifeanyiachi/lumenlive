@@ -259,6 +259,22 @@ describe("use-transcription", () => {
         description: "WebSocket closed unexpectedly",
       })
     })
+
+    it("clears the on-device badge when an error follows a failover", async () => {
+      const { useTranscriptStore } = await loadModules()
+
+      // Failover flipped the badge on; the on-device engine then failed to start
+      // and emitted stt_error. The handler must drop the badge so it can't
+      // linger over a dead session.
+      useTranscriptStore.getState().setOnDeviceFallback(true)
+
+      const transcript = useTranscriptStore.getState()
+      transcript.setConnectionStatus("error")
+      transcript.setOnDeviceFallback(false)
+
+      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
+      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
+    })
   })
 
   describe("stt engine failover/failback contract", () => {

@@ -21,15 +21,32 @@ fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, St
     let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join(&model_subdir);
-    if dev_path.exists() {
-        return Ok(dev_path);
+    let dir = if dev_path.exists() {
+        dev_path
+    } else {
+        app.path()
+            .resource_dir()
+            .map(|p| p.join(&model_subdir))
+            .ok()
+            .filter(|p| p.exists())
+            .ok_or_else(|| {
+                "Moonshine model not found. Run: bun run download:sherpa".to_string()
+            })?
+    };
+
+    // A directory that exists but is missing a model file is NOT ready. Verify
+    // the full file set here — the same definition `SherpaProvider::start` uses —
+    // so the primary path fails fast with an actionable message and the offline
+    // fallback is correctly treated as unavailable, instead of a partial install
+    // slipping through to surface a raw "no on-device fallback" error mid-service.
+    if let Some(missing) = lumenlive_stt::sherpa::missing_moonshine_file(&dir) {
+        return Err(format!(
+            "Moonshine model incomplete — missing {}. Run: bun run download:sherpa",
+            missing.display()
+        ));
     }
-    app.path()
-        .resource_dir()
-        .map(|p| p.join(&model_subdir))
-        .ok()
-        .filter(|p| p.exists())
-        .ok_or_else(|| "Moonshine model not found. Run: bun run download:sherpa".to_string())
+
+    Ok(dir)
 }
 
 /// Inference threads for Moonshine — half the logical CPUs, at least one.

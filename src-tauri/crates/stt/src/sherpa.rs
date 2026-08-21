@@ -7,7 +7,7 @@
 //! inference queue never backs up on low-end hardware. Emits the same
 //! [`TranscriptEvent`] types as the other providers.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -66,6 +66,27 @@ const ENCODE: &str = "encode.int8.onnx";
 const UNCACHED_DECODE: &str = "uncached_decode.int8.onnx";
 const CACHED_DECODE: &str = "cached_decode.int8.onnx";
 const TOKENS: &str = "tokens.txt";
+
+/// The five int8 files a `sherpa-onnx-moonshine-*-en-int8` directory must
+/// contain for [`SherpaProvider`] to load.
+pub const MOONSHINE_MODEL_FILES: [&str; 5] =
+    [PREPROCESS, ENCODE, UNCACHED_DECODE, CACHED_DECODE, TOKENS];
+
+/// Path of the first required Moonshine model file missing from `model_dir`, or
+/// `None` when all five are present.
+///
+/// Single-sources the readiness definition so the app's provider builder and
+/// `SherpaProvider::start`'s own gate agree on exactly what "the model is
+/// installed" means: a directory that merely *exists* but is missing a file is
+/// **not** ready. Callers use it to fail fast with an actionable message (and to
+/// treat the offline fallback as unavailable) instead of surfacing a raw error
+/// deeper in the pipeline.
+pub fn missing_moonshine_file(model_dir: &Path) -> Option<PathBuf> {
+    MOONSHINE_MODEL_FILES
+        .iter()
+        .map(|name| model_dir.join(name))
+        .find(|path| !path.exists())
+}
 
 /// Convert i16 PCM samples to f32 in [-1.0, 1.0] range.
 fn i16_to_f32(samples: &[i16]) -> Vec<f32> {
@@ -146,14 +167,11 @@ impl SttProvider for SherpaProvider {
         self.cancelled.store(false, Ordering::SeqCst);
 
         // All five model files must be present before we announce Connected.
-        for name in [PREPROCESS, ENCODE, UNCACHED_DECODE, CACHED_DECODE, TOKENS] {
-            let path = self.model_dir.join(name);
-            if !path.exists() {
-                return Err(SttError::ModelNotFound(format!(
-                    "Moonshine model file not found: {}",
-                    path.display()
-                )));
-            }
+        if let Some(missing) = missing_moonshine_file(&self.model_dir) {
+            return Err(SttError::ModelNotFound(format!(
+                "Moonshine model file not found: {}",
+                missing.display()
+            )));
         }
 
         let _ = event_tx.send(TranscriptEvent::Connected).await;
@@ -451,5 +469,55 @@ impl SttProvider for SherpaProvider {
 
     fn name(&self) -> &'static str {
         "sherpa"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{missing_moonshine_file, MOONSHINE_MODEL_FILES};
+
+    /// A unique temp dir for this test process, created fresh.
+    fn temp_model_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir()
+            .join(format!("lumenlive-moonshine-{}-{}", std::process::id(), tag));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn empty_dir_reports_first_missing_file() {
+        let dir = temp_model_dir("empty");
+        // Nothing present → the first required file is reported missing.
+        let missing = missing_moonshine_file(&dir).expect("empty dir must be incomplete");
+        assert_eq!(missing, dir.join(MOONSHINE_MODEL_FILES[0]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn complete_dir_reports_none() {
+        let dir = temp_model_dir("complete");
+        for name in MOONSHINE_MODEL_FILES {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        assert!(
+            missing_moonshine_file(&dir).is_none(),
+            "a dir with all five files must be ready"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn partial_dir_reports_the_absent_file() {
+        let dir = temp_model_dir("partial");
+        // Write every file except the last one — a dir that "exists" but is not
+        // ready. This is exactly the case the dir-only check used to miss.
+        for name in &MOONSHINE_MODEL_FILES[..MOONSHINE_MODEL_FILES.len() - 1] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        let last = MOONSHINE_MODEL_FILES[MOONSHINE_MODEL_FILES.len() - 1];
+        let missing = missing_moonshine_file(&dir).expect("partial dir must be incomplete");
+        assert_eq!(missing, dir.join(last));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
