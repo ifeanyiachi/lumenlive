@@ -4,6 +4,7 @@ import { useQueueStore } from "@/stores"
 import { addAssetsToSchedule } from "@/lib/schedule-media"
 import { addSlideToSchedule } from "@/lib/schedule-slide"
 import { addSongToSchedule } from "@/lib/schedule-song"
+import { buildGroupedScriptureScheduleItem } from "@/lib/search/schedule-items"
 import type { DragPayload } from "@/stores/drag-store"
 import type { ScriptureScheduleItem } from "@/types/schedule"
 
@@ -23,44 +24,46 @@ export function addVersesToSchedule(
   const scheduleId = store.activeScheduleId
   if (!scheduleId) return
   const schedule = store.getActiveSchedule()
-  let insertAt =
+  const insertAt =
     insertIndex ??
     (store.activeItemIndex !== null
       ? store.activeItemIndex + 1
       : (schedule?.items.length ?? 0))
-  let added = 0
-  for (const verse of verses) {
-    const item: ScriptureScheduleItem = {
-      id: crypto.randomUUID(),
-      type: "scripture",
-      label: `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`,
-      order: insertAt,
-      notes: "",
-      translationId: translationId ?? verse.translation_id,
-      bookNumber: verse.book_number,
-      chapter: verse.chapter,
-      verseStart: verse.verse,
-      verseEnd: verse.verse,
-      cachedReference: `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`,
-      cachedText: verse.text,
-    }
+
+  // A multi-verse drag lands as one grouped scripture item (matching the
+  // multi-select bar's "Add group to Schedule"); a single dragged verse stays a
+  // single item.
+  if (verses.length > 1) {
+    const item = buildGroupedScriptureScheduleItem(verses, translation, insertAt)
     if (store.insertItemAt(scheduleId, item, insertAt)) {
-      added++
-      insertAt++
+      toast.success(`Added group of ${verses.length} verses to schedule`)
+    } else {
+      toast.info("Already in the schedule")
     }
+    return
   }
-  const skipped = verses.length - added
-  if (added === 0) {
-    toast.info(
-      skipped > 1
-        ? "Those verses are already in the schedule"
-        : "Already in the schedule"
-    )
+
+  const verse = verses[0]
+  if (!verse) return
+  const label = `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`
+  const item: ScriptureScheduleItem = {
+    id: crypto.randomUUID(),
+    type: "scripture",
+    label,
+    order: insertAt,
+    notes: "",
+    translationId: translationId ?? verse.translation_id,
+    bookNumber: verse.book_number,
+    chapter: verse.chapter,
+    verseStart: verse.verse,
+    verseEnd: verse.verse,
+    cachedReference: label,
+    cachedText: verse.text,
+  }
+  if (store.insertItemAt(scheduleId, item, insertAt)) {
+    toast.success("Verse added to schedule")
   } else {
-    toast.success(
-      `${added} verse${added > 1 ? "s" : ""} added to schedule` +
-        (skipped > 0 ? ` · ${skipped} already there` : "")
-    )
+    toast.info("Already in the schedule")
   }
 }
 

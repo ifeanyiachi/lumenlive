@@ -202,7 +202,19 @@ export function SearchPanel() {
           const target = verses.find((v) => v.verse === navVerse)
           if (target) {
             setSelectedVerseId(target.id)
-            bibleActions.selectVerse(target)
+            // Schedule/detection-driven navigations (focusPanel:false) have already
+            // staged their own content into Program — often a multi-verse block
+            // whose first verse this is. Use the raw store select so the book
+            // search reflects the verse WITHOUT releasing that pin; releasing it
+            // (bibleActions.selectVerse → followManualSelection) would flip Program
+            // off the staged block and onto this single verse. Operator-driven
+            // navigations (quick-nav / present) do release the pin so the preview
+            // follows the new selection.
+            if (pendingNavigation.focusPanel === false) {
+              useBibleStore.getState().selectVerse(target)
+            } else {
+              bibleActions.selectVerse(target)
+            }
             quickNavRef.current?.setValue(verseReference(target))
             document
               .getElementById(`verse-${target.id}`)

@@ -69,4 +69,53 @@ describe("shouldStageManualVerse", () => {
       })
     ).toBe(true)
   })
+
+  it("does not clobber a live multi-verse block presented from the schedule", () => {
+    // A grouped block taken live (pending=false) must stay pinned — the single
+    // selection can't represent it, so following would shrink Program to 1 verse.
+    expect(
+      shouldStageManualVerse({
+        ...base,
+        previewPending: false,
+        previewSource: "schedule",
+        previewSegments: 3,
+      })
+    ).toBe(false)
+  })
+
+  it("does not clobber a live multi-verse block presented from the queue", () => {
+    expect(
+      shouldStageManualVerse({
+        ...base,
+        previewPending: false,
+        previewSource: "queue",
+        previewSegments: 4,
+      })
+    ).toBe(false)
+  })
+
+  it("still follows a single presented verse once taken live", () => {
+    // Single-verse present: the selection does represent it, so the follow is
+    // harmless and browsing away should keep working.
+    expect(
+      shouldStageManualVerse({
+        ...base,
+        previewPending: false,
+        previewSource: "queue",
+        previewSegments: 1,
+      })
+    ).toBe(true)
+  })
+
+  it("follows again once a group pin is released (manual selection nulls source)", () => {
+    // followManualSelection resets previewSource to null; browsing then stages.
+    expect(
+      shouldStageManualVerse({
+        ...base,
+        previewPending: false,
+        previewSource: null,
+        previewSegments: 3,
+      })
+    ).toBe(true)
+  })
 })

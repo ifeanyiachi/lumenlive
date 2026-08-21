@@ -97,6 +97,7 @@ export function LiveOutputPanel() {
         hasSelection: selectedVerse !== null,
         previewPending: bs.previewPending,
         previewSource: bs.previewSource,
+        previewSegments: bs.previewVerse?.segments.length ?? 1,
       })
     ) {
       return

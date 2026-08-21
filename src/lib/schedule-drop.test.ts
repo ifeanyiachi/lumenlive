@@ -96,16 +96,12 @@ describe("addVersesToSchedule", () => {
     ])
   })
 
-  it("keeps multiple dropped verses in order from the drop point", () => {
+  it("collapses multiple dropped verses into one grouped item at the drop point", () => {
     const scheduleId = seedSchedule(1) // Item 0
 
     addVersesToSchedule(versesPayload(1, 2), 0)
 
-    expect(labelsOf(scheduleId)).toEqual([
-      "John 3:1 (KJV)",
-      "John 3:2 (KJV)",
-      "Item 0",
-    ])
+    expect(labelsOf(scheduleId)).toEqual(["John 3:1-2 (KJV)", "Item 0"])
   })
 
   it("falls back to just after the active item when no index is given", () => {

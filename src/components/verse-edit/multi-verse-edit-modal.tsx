@@ -30,7 +30,6 @@ import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
-import { useQueueStore } from "@/stores/queue-store"
 import { verseEditKey } from "@/types/verse-edit"
 import type { StyledVerseSegment } from "@/types/verse-edit"
 import type { Verse } from "@/types/bible"
@@ -241,26 +240,6 @@ export function MultiVerseEditModal({
     onOpenChange,
   ])
 
-  // Save edits, then add the selected verses to the queue as one grouped item
-  // (mirrors the multi-select bar's "Queue group"), so the queued block carries
-  // this formatting.
-  const handleQueueGroup = useCallback(() => {
-    if (verses.length === 0) return
-    persistEdits()
-    useQueueStore.getState().addItem({
-      id: crypto.randomUUID(),
-      verse: verses[0],
-      verses,
-      reference: buildMultiVerseReference(verses, translationAbbreviation),
-      confidence: 1,
-      source: "manual",
-      added_at: Date.now(),
-    })
-    toast.success(`Queued group of ${verses.length} verses`)
-    onApplied?.()
-    onOpenChange(false)
-  }, [persistEdits, verses, translationAbbreviation, onApplied, onOpenChange])
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -315,9 +294,6 @@ export function MultiVerseEditModal({
                 onCheckedChange={setGoLiveEnabled}
               />
             </div>
-            <Button variant="outline" onClick={handleQueueGroup}>
-              Queue group
-            </Button>
             <Button onClick={handleAddToSchedule}>Add to Schedule</Button>
           </div>
         </DialogFooter>

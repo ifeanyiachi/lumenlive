@@ -119,7 +119,11 @@ export function useVerseMultiselect({
   // Present the whole selection straight to the audience: stage it into the
   // Program preview and push it live in one action (bypassing the operator's
   // take-to-live gate), so the block shows on the live output and the preview
-  // together.
+  // together. Stage under the "queue" source — the generic "staged verse block"
+  // source (see presentQueueVerse / presentDetectionLive) — so the Program
+  // preview pins to the whole block instead of falling back to the single Bible
+  // selection, which can't represent a multi-verse group. A later manual verse
+  // pick releases the pin via followManualSelection (see bibleActions.selectVerse).
   const handleMultiPresent = useCallback(() => {
     if (multiSelectedVerses.length === 0) return
     const renderData = toMultiVerseRenderData(
@@ -127,7 +131,7 @@ export function useVerseMultiselect({
       translationAbbr()
     )
     const broadcast = useBroadcastStore.getState()
-    broadcast.setLiveVerse(renderData, "manual")
+    broadcast.setLiveVerse(renderData, "queue")
     broadcast.takeToLive()
     if (multiSelectedVerses.length === 1) {
       bibleActions.selectVerse(multiSelectedVerses[0])

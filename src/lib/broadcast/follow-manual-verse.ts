@@ -15,6 +15,12 @@
  *    a *subsequent* change the operator makes to the selection;
  *  - never overwrite a slide/media/web/queue item deliberately staged from
  *    another source (a pending, non-"manual" preview);
+ *  - never overwrite a multi-verse *block* deliberately staged from the
+ *    queue/schedule (e.g. "Present"/"Add group" of a selection), even once it has
+ *    been taken live — the single Bible selection can't represent the group, so
+ *    following it would flip Program off the block and onto one verse. The
+ *    operator releases this pin by manually picking a verse (followManualSelection
+ *    resets the source), which is the intended "browse away" gesture;
  *  - do nothing when there is no selection.
  */
 export function shouldStageManualVerse(params: {
@@ -28,9 +34,20 @@ export function shouldStageManualVerse(params: {
   previewPending: boolean
   /** Source that staged the current preview, if any. */
   previewSource: "schedule" | "queue" | "manual" | null
+  /**
+   * Segment count of the currently-staged preview verse (a multi-verse block has
+   * more than one). Defaults to a single segment when omitted.
+   */
+  previewSegments?: number
 }): boolean {
-  const { isLive, wasLive, hasSelection, previewPending, previewSource } =
-    params
+  const {
+    isLive,
+    wasLive,
+    hasSelection,
+    previewPending,
+    previewSource,
+    previewSegments = 1,
+  } = params
   if (!isLive) return false
   // Off→on Live transition: start clean, don't auto-stage the default selection.
   if (!wasLive) return false
@@ -38,6 +55,16 @@ export function shouldStageManualVerse(params: {
   // A pending item staged from another source is the operator's deliberate
   // "next up" — never clobber it by following the Bible selection.
   if (previewPending && previewSource !== null && previewSource !== "manual") {
+    return false
+  }
+  // A multi-verse block staged from the queue/schedule stays pinned even after it
+  // is taken live: the single selection can't represent it, so following would
+  // shrink Program to one verse. Released when the operator manually picks a verse
+  // (which nulls previewSource via followManualSelection).
+  if (
+    previewSegments > 1 &&
+    (previewSource === "queue" || previewSource === "schedule")
+  ) {
     return false
   }
   return true
