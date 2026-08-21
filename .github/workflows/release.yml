@@ -49,6 +49,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast (before the ~1 GB asset fetch and Rust compile) if the pushed
+      # tag doesn't match the app version. The tag drives the GitHub Release and
+      # thus the update manifest's URL, while tauri.conf.json's version is what
+      # the running app compares against — a mismatch ships an update that either
+      # never triggers or points users at the wrong build. package.json is kept
+      # in lockstep too so the two version sources never drift. Tag `v0.2.3`
+      # must equal both versions `0.2.3`. Only runs on tag pushes.
+      - name: Verify tag matches app version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag=$tag  tauri.conf.json=$conf  package.json=$pkg"
+          fail=0
+          if [ "$tag" != "$conf" ]; then
+            echo "::error::Tag '$tag' != tauri.conf.json version '$conf'"
+            fail=1
+          fi
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag '$tag' != package.json version '$pkg'"
+            fail=1
+          fi
+          exit $fail
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -96,10 +122,19 @@ jobs:
       # installer. On a tag push, tauri-action also creates/updates the GitHub
       # Release for that tag and uploads the installer to it; on manual dispatch
       # (no tag) it just builds, and the artifact step below captures the output.
+      #
+      # SIGNED UPDATES: because tauri.conf.json sets bundle.createUpdaterArtifacts
+      # = true, the presence of the TAURI_SIGNING_* env vars makes tauri-action
+      # sign each installer and emit `latest.json` (the update manifest the app
+      # fetches). It uploads latest.json + the .sig alongside the installer on a
+      # tag push. Without these secrets the build still succeeds but produces no
+      # update manifest, so the in-app updater would find nothing.
       - name: Build installer
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tauriScript: bun run tauri
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
@@ -115,6 +150,8 @@ jobs:
           name: installer-${{ matrix.platform }}
           path: |
             src-tauri/target/release/bundle/**/*-setup.exe
+            src-tauri/target/release/bundle/**/*-setup.exe.sig
             src-tauri/target/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/latest.json
           if-no-files-found: warn

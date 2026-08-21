@@ -20,6 +20,7 @@ import { usePresentationStore } from "@/stores/presentation-store"
 import { useMediaStore } from "@/stores/media-store"
 import { useSongStore } from "@/stores/song-store"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import { verseEditKey } from "@/types/verse-edit"
 import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
@@ -223,7 +224,41 @@ export const createNavigationSlice: StateCreator<
       case "scripture": {
         const si = item as ScriptureScheduleItem
         useBroadcastStore.setState({ broadcastSource: "schedule" })
+        const abbr =
+          useBibleStore
+            .getState()
+            .translations.find((t) => t.id === si.translationId)
+            ?.abbreviation ??
+          si.cachedReference.match(/\(([^)]+)\)/)?.[1] ??
+          "KJV"
         try {
+          if (si.verseEnd > si.verseStart) {
+            // Grouped range: render the whole block (applying any saved per-verse
+            // edits), matching the multi-verse editor's Go Live output. Without
+            // this a range item would only ever show its first verse.
+            const chapter = await invoke<Verse[]>("get_chapter", {
+              translationId: si.translationId,
+              bookNumber: si.bookNumber,
+              chapter: si.chapter,
+            })
+            const range = chapter.filter(
+              (v) => v.verse >= si.verseStart && v.verse <= si.verseEnd
+            )
+            if (range.length > 0) {
+              useBibleStore.getState().selectVerse(range[0])
+              if (si.bookNumber > 0) {
+                bibleActions.navigateToVerse(
+                  si.bookNumber,
+                  si.chapter,
+                  si.verseStart,
+                  false
+                )
+              }
+              const renderData = toMultiVerseRenderData(range, abbr)
+              useBroadcastStore.getState().setLiveVerse(renderData, "schedule")
+            }
+            break
+          }
           const verse = await invoke<Verse | null>("get_verse", {
             translationId: si.translationId,
             bookNumber: si.bookNumber,
@@ -243,13 +278,6 @@ export const createNavigationSlice: StateCreator<
                 false
               )
             }
-            const abbr =
-              useBibleStore
-                .getState()
-                .translations.find((t) => t.id === si.translationId)
-                ?.abbreviation ??
-              si.cachedReference.match(/\(([^)]+)\)/)?.[1] ??
-              "KJV"
             const editKey = verseEditKey(
               si.translationId,
               si.bookNumber,

@@ -233,7 +233,7 @@ export function SearchPanel() {
     multiSelectedVerses,
     handleVerseClick,
     handleMultiPresent,
-    handleMultiQueueGroup,
+    handleMultiAddGroupToSchedule,
     handleMultiAddToSchedule,
     handleClearMultiSelect,
   } = useVerseMultiselect({
@@ -401,7 +401,7 @@ export function SearchPanel() {
           handleVerseClick={handleVerseClick}
           onMultiAddToSchedule={handleMultiAddToSchedule}
           onMultiEdit={() => setMultiEditOpen(true)}
-          onMultiQueueGroup={handleMultiQueueGroup}
+          onMultiAddGroupToSchedule={handleMultiAddGroupToSchedule}
           onMultiPresent={handleMultiPresent}
           onMultiClear={handleClearMultiSelect}
         />

@@ -11,6 +11,8 @@
     "core:default",
     "store:default",
     "log:default",
+    "updater:default",
+    "process:default",
     "dialog:default",
     "opener:default",
     "opener:allow-reveal-item-in-dir",

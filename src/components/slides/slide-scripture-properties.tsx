@@ -474,6 +474,19 @@ export function SlideScriptureProperties({
 
           <Separator />
 
+          {/* Verse layout — how multiple verses shown together are arranged */}
+          <div className="flex items-center justify-between">
+            <span className="pr-2 text-[0.6875rem] text-muted-foreground">
+              Break each verse onto a new line
+            </span>
+            <Switch
+              checked={element.breakPerVerse ?? false}
+              onCheckedChange={(v) => update({ breakPerVerse: v })}
+            />
+          </div>
+
+          <Separator />
+
           <ShadowSection
             shadow={element.shadow}
             onChange={(shadow) => update({ shadow })}

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { bibleActions } from "@/hooks/use-bible"
-import { useQueueStore, useBroadcastStore } from "@/stores"
+import { useBroadcastStore } from "@/stores"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import {
-  toMultiVerseRenderData,
-  buildMultiVerseReference,
-} from "@/lib/multi-verse"
-import { makeQueueItem } from "@/lib/search/queue-item"
-import { buildScriptureScheduleItem } from "@/lib/search/schedule-items"
+  buildScriptureScheduleItem,
+  buildGroupedScriptureScheduleItem,
+} from "@/lib/search/schedule-items"
 import { verseReference } from "@/lib/search/verse-keys"
 import { toast } from "sonner"
 import type { Verse, Translation } from "@/types"
@@ -29,13 +28,14 @@ export interface UseVerseMultiselectArgs {
 
 /**
  * Book-search multi-verse selection (D4): ctrl/⌘-toggle + shift-range picking over
- * the current chapter, plus the group actions (present, queue as a group, add each
- * to the schedule) driven by the floating action bar. Context search has no
+ * the current chapter, plus the group actions driven by the floating action bar:
+ * present the block straight to the audience, add the whole selection as one
+ * grouped schedule item, or add each verse individually. Context search has no
  * multiselect, so this stays book-only.
  *
- * The queue/schedule item shapes come from the shared `makeQueueItem` /
- * `buildScriptureScheduleItem` builders so a grouped queue add and a single add
- * stay in lockstep.
+ * The schedule item shapes come from the shared `buildScriptureScheduleItem` /
+ * `buildGroupedScriptureScheduleItem` builders so the individual add and the
+ * grouped add stay in lockstep.
  */
 export function useVerseMultiselect({
   currentChapter,
@@ -116,31 +116,51 @@ export function useVerseMultiselect({
     [currentChapter, multiSelected]
   )
 
+  // Present the whole selection straight to the audience: stage it into the
+  // Program preview and push it live in one action (bypassing the operator's
+  // take-to-live gate), so the block shows on the live output and the preview
+  // together.
   const handleMultiPresent = useCallback(() => {
     if (multiSelectedVerses.length === 0) return
     const renderData = toMultiVerseRenderData(
       multiSelectedVerses,
       translationAbbr()
     )
-    useBroadcastStore.getState().setLiveVerse(renderData, "manual")
+    const broadcast = useBroadcastStore.getState()
+    broadcast.setLiveVerse(renderData, "manual")
+    broadcast.takeToLive()
     if (multiSelectedVerses.length === 1) {
       bibleActions.selectVerse(multiSelectedVerses[0])
     }
   }, [multiSelectedVerses, translationAbbr])
 
-  const handleMultiQueueGroup = useCallback(() => {
+  // Add the whole selection to the running order as a single grouped scripture
+  // item — straight into the schedule, never the AI verse queue.
+  const handleMultiAddGroupToSchedule = useCallback(() => {
     if (multiSelectedVerses.length === 0) return
-    useQueueStore.getState().addItem(
-      makeQueueItem({
-        verse: multiSelectedVerses[0],
-        verses: multiSelectedVerses,
-        reference: buildMultiVerseReference(
-          multiSelectedVerses,
-          translationAbbr()
-        ),
-        confidence: 1,
-      })
+    const scheduleStore = useScheduleStore.getState()
+    const activeScheduleId = scheduleStore.activeScheduleId
+    if (!activeScheduleId) {
+      toast.error("No active schedule — select or create one first")
+      return
+    }
+    const schedule = scheduleStore.getActiveSchedule()
+    const insertAt =
+      scheduleStore.activeItemIndex !== null
+        ? scheduleStore.activeItemIndex + 1
+        : (schedule?.items.length ?? 0)
+    const item = buildGroupedScriptureScheduleItem(
+      multiSelectedVerses,
+      translationAbbr(),
+      insertAt
     )
+    if (scheduleStore.insertItemAt(activeScheduleId, item, insertAt)) {
+      toast.success(
+        `Added group of ${multiSelectedVerses.length} verses to schedule`
+      )
+    } else {
+      toast.info("Already in the schedule")
+    }
     setMultiSelected(new Set())
   }, [multiSelectedVerses, translationAbbr])
 
@@ -192,7 +212,7 @@ export function useVerseMultiselect({
     multiSelectedVerses,
     handleVerseClick,
     handleMultiPresent,
-    handleMultiQueueGroup,
+    handleMultiAddGroupToSchedule,
     handleMultiAddToSchedule,
     handleClearMultiSelect,
   }

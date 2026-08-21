@@ -19,6 +19,7 @@ import { hydrateAlertTemplates } from "@/stores/alert-store"
 import { hydrateCountdownTimers } from "@/stores/countdown-store"
 import { hydrateVerseEdits } from "@/stores/verse-edit-store"
 import { hydrateWebBookmarks } from "@/stores/web-store"
+import { initUpdateNotifier } from "@/stores/update-store"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
 // left running from the previous webview session still has
@@ -90,4 +91,7 @@ invoke("stop_transcription")
         </TooltipProvider>
       </StrictMode>
     )
+    // Check for app updates after first paint — fire-and-forget so a slow or
+    // offline endpoint never delays the UI. Populates the Store banner + nav dot.
+    void initUpdateNotifier()
   })

@@ -28,6 +28,7 @@ import {
 } from "@/lib/multi-verse"
 import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useScheduleStore } from "@/stores/schedule-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useQueueStore } from "@/stores/queue-store"
 import { verseEditKey } from "@/types/verse-edit"
@@ -181,14 +182,53 @@ export function MultiVerseEditModal({
     }
   }, [verses, translationAbbreviation, saveEdit])
 
-  const handleSave = useCallback(() => {
+  // Save every verse's edit, then add the whole block to the running order as one
+  // grouped scripture item (verseStart..verseEnd of the sorted selection). When
+  // Go Live is on, the block is staged into the Program preview and pushed
+  // straight to the audience — bypassing the operator's take-to-live gate.
+  const handleAddToSchedule = useCallback(() => {
     persistEdits()
-    toast.success(`Saved edits for ${verses.length} verses`)
+
+    // toMultiVerseRenderData reads the edits we just saved (and sorts), so both
+    // the schedule item's cached text and the live block reflect this formatting.
+    const renderData = toMultiVerseRenderData(verses, translationAbbreviation)
+    const reference = buildMultiVerseReference(verses, translationAbbreviation)
+
+    const sorted = [...verses].sort((a, b) => {
+      if (a.book_number !== b.book_number) return a.book_number - b.book_number
+      if (a.chapter !== b.chapter) return a.chapter - b.chapter
+      return a.verse - b.verse
+    })
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+
+    const scheduleStore = useScheduleStore.getState()
+    const activeScheduleId = scheduleStore.activeScheduleId
+    if (activeScheduleId && first) {
+      const ok = scheduleStore.addItem(activeScheduleId, {
+        id: crypto.randomUUID(),
+        type: "scripture",
+        label: reference,
+        order: scheduleStore.getActiveSchedule()?.items.length ?? 0,
+        notes: "",
+        translationId: first.translation_id,
+        bookNumber: first.book_number,
+        chapter: first.chapter,
+        verseStart: first.verse,
+        verseEnd: last.verse,
+        cachedReference: reference,
+        cachedText: renderData.segments.map((s) => s.text).join(" "),
+      })
+      if (ok) toast.success(`Added ${verses.length} verses to schedule`)
+      else toast.info("Edits saved · already in the schedule")
+    } else {
+      toast.info("Edits saved (no active schedule)")
+    }
+
     if (goLiveEnabled) {
-      // toMultiVerseRenderData reads the edits we just saved, so the live block
-      // reflects this formatting.
-      const renderData = toMultiVerseRenderData(verses, translationAbbreviation)
-      useBroadcastStore.getState().setLiveVerse(renderData, "manual")
+      const broadcast = useBroadcastStore.getState()
+      broadcast.setLiveVerse(renderData, "manual")
+      broadcast.takeToLive()
     }
     onApplied?.()
     onOpenChange(false)
@@ -278,7 +318,7 @@ export function MultiVerseEditModal({
             <Button variant="outline" onClick={handleQueueGroup}>
               Queue group
             </Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button onClick={handleAddToSchedule}>Add to Schedule</Button>
           </div>
         </DialogFooter>
       </DialogContent>

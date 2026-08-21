@@ -39,7 +39,7 @@ export interface BookSearchTabProps {
   handleVerseClick: (verse: Verse, e: React.MouseEvent) => void
   onMultiAddToSchedule: () => void
   onMultiEdit: () => void
-  onMultiQueueGroup: () => void
+  onMultiAddGroupToSchedule: () => void
   onMultiPresent: () => void
   onMultiClear: () => void
 }
@@ -70,7 +70,7 @@ export function BookSearchTab({
   handleVerseClick,
   onMultiAddToSchedule,
   onMultiEdit,
-  onMultiQueueGroup,
+  onMultiAddGroupToSchedule,
   onMultiPresent,
   onMultiClear,
 }: BookSearchTabProps) {
@@ -257,9 +257,9 @@ export function BookSearchTab({
       {multiSelected.size >= 2 && (
         <MultiSelectBar
           count={multiSelected.size}
-          onAddToSchedule={onMultiAddToSchedule}
+          onAddIndividually={onMultiAddToSchedule}
           onEdit={onMultiEdit}
-          onQueueGroup={onMultiQueueGroup}
+          onAddGroupToSchedule={onMultiAddGroupToSchedule}
           onPresent={onMultiPresent}
           onClear={onMultiClear}
         />

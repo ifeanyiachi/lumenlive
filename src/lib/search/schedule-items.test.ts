@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest"
 import type { Verse } from "@/types"
-import { buildScriptureScheduleItem } from "./schedule-items"
+import {
+  buildScriptureScheduleItem,
+  buildGroupedScriptureScheduleItem,
+} from "./schedule-items"
 
 const verse = (over: Partial<Verse> = {}): Verse =>
   ({
@@ -47,5 +50,47 @@ describe("buildScriptureScheduleItem", () => {
     )
     expect(item.cachedReference).toBe(item.label)
     expect(item.label).toBe("Psalms 23:1 (ESV)")
+  })
+})
+
+describe("buildGroupedScriptureScheduleItem", () => {
+  it("collapses a contiguous selection into one ranged item", () => {
+    const verses = [
+      verse({ id: 1, verse: 16, text: "For God so loved the world" }),
+      verse({ id: 2, verse: 17, text: "For God sent not his Son" }),
+      verse({ id: 3, verse: 18, text: "He that believeth on him" }),
+    ]
+    const item = buildGroupedScriptureScheduleItem(verses, "KJV", 4)
+    expect(item).toMatchObject({
+      type: "scripture",
+      label: "John 3:16-18 (KJV)",
+      order: 4,
+      bookNumber: 43,
+      chapter: 3,
+      verseStart: 16,
+      verseEnd: 18,
+      cachedReference: "John 3:16-18 (KJV)",
+      cachedText:
+        "For God so loved the world For God sent not his Son He that believeth on him",
+    })
+  })
+
+  it("sorts an out-of-order selection so range + text read canonically", () => {
+    const verses = [
+      verse({ id: 3, verse: 18, text: "c" }),
+      verse({ id: 1, verse: 16, text: "a" }),
+      verse({ id: 2, verse: 17, text: "b" }),
+    ]
+    const item = buildGroupedScriptureScheduleItem(verses, "KJV", 0)
+    expect(item.verseStart).toBe(16)
+    expect(item.verseEnd).toBe(18)
+    expect(item.cachedText).toBe("a b c")
+  })
+
+  it("handles a single-verse group like a plain reference", () => {
+    const item = buildGroupedScriptureScheduleItem([verse()], "KJV", 2)
+    expect(item.label).toBe("John 3:16 (KJV)")
+    expect(item.verseStart).toBe(16)
+    expect(item.verseEnd).toBe(16)
   })
 })

@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import BibleStoreCard from "./bible-store-card"
 import { ImportBibleDialog } from "./import-bible-dialog"
 import { SongPacksSection } from "./song-packs-section"
+import { UpdateBanner } from "./update-banner"
 import { cn } from "@/lib/utils"
 
 /**
@@ -102,6 +103,9 @@ export function ResourceStorePage() {
 
   return (
     <div className="flex w-full flex-col gap-6 px-8 py-8">
+      {/* App update notice — dismissable, shown only when a newer build ships */}
+      <UpdateBanner />
+
       {/* Header */}
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">

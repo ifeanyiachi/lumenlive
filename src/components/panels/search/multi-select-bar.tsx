@@ -9,21 +9,22 @@ import {
 
 /**
  * The floating action bar shown when 2+ verses are multi-selected in the book
- * search list: add the group to the schedule, edit their formatting together,
- * queue them as one grouped item, present them, or clear the selection.
+ * search list: add each verse to the schedule individually, edit their
+ * formatting together, add them as one grouped schedule item, present them
+ * straight to the audience, or clear the selection.
  */
 export function MultiSelectBar({
   count,
-  onAddToSchedule,
+  onAddIndividually,
   onEdit,
-  onQueueGroup,
+  onAddGroupToSchedule,
   onPresent,
   onClear,
 }: {
   count: number
-  onAddToSchedule: () => void
+  onAddIndividually: () => void
   onEdit: () => void
-  onQueueGroup: () => void
+  onAddGroupToSchedule: () => void
   onPresent: () => void
   onClear: () => void
 }) {
@@ -37,10 +38,10 @@ export function MultiSelectBar({
         variant="ghost"
         size="sm"
         className="h-7 gap-1.5 text-xs hover:bg-sky-500/20 hover:text-sky-300"
-        onClick={onAddToSchedule}
+        onClick={onAddIndividually}
       >
         <ListPlusIcon className="size-3" />
-        Add to Schedule
+        Add individually
       </Button>
       <Button
         variant="ghost"
@@ -55,10 +56,10 @@ export function MultiSelectBar({
         variant="ghost"
         size="sm"
         className="h-7 gap-1.5 text-xs hover:bg-sky-500/20 hover:text-sky-300"
-        onClick={onQueueGroup}
+        onClick={onAddGroupToSchedule}
       >
         <LayersIcon className="size-3" />
-        Queue group
+        Add group to Schedule
       </Button>
       <Button
         size="sm"

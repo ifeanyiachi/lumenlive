@@ -25,7 +25,9 @@ import {
   useTranscriptStore,
   useBroadcastStore,
   useAppStore,
+  useUpdateStore,
 } from "@/stores"
+import { shouldNotifyUpdate } from "@/lib/updater/version"
 import { AlertTrigger } from "@/components/alerts/alert-trigger"
 import { CountdownTrigger } from "@/components/countdown/countdown-trigger"
 import { cn } from "@/lib/utils"
@@ -64,6 +66,10 @@ export function TransportBar() {
   const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const currentView = useAppStore((s) => s.view)
+  // Same predicate as the Store-page banner, so dismissing there clears the dot.
+  const updateAvailable = useUpdateStore((s) =>
+    shouldNotifyUpdate(s.available, s.dismissedVersion)
+  )
 
   return (
     <div
@@ -100,6 +106,12 @@ export function TransportBar() {
           >
             {icon}
             {label}
+            {view === "store" && updateAvailable && (
+              <span
+                className="size-1.5 rounded-full bg-red-500"
+                aria-label="Update available"
+              />
+            )}
           </Button>
         ))}
       </div>

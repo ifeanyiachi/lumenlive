@@ -86,7 +86,27 @@ export function ThemeLibrary({
     return result
   }, [allThemes, search, filter, typeFilter])
 
-  const builtinThemes = filtered.filter((t) => t.builtin)
+  // The app-wide default scripture theme (resolved through the legacy-id alias
+  // so a stored built-in id still matches). Used to float it to the top and to
+  // badge its thumbnail.
+  const scriptureDefaultThemeId = useSettingsStore(
+    (s) => s.scriptureDefaultThemeId
+  )
+  const defaultThemeId = useMemo(
+    () => resolveLegacyThemeId(scriptureDefaultThemeId),
+    [scriptureDefaultThemeId]
+  )
+
+  const builtinThemes = useMemo(() => {
+    // Surface the current default first so it's the first theme in the list
+    // (sort is stable, so the rest keep their registry order).
+    return filtered
+      .filter((t) => t.builtin)
+      .sort(
+        (a, b) =>
+          (a.id === defaultThemeId ? 0 : 1) - (b.id === defaultThemeId ? 0 : 1)
+      )
+  }, [filtered, defaultThemeId])
   const customThemes = filtered.filter((t) => !t.builtin)
 
   return (
@@ -279,7 +299,14 @@ function ThemeCard({
           : "border-transparent hover:border-border hover:bg-muted/50"
       )}
     >
-      <ThemeThumbnail theme={theme} className="border border-border/50" />
+      <div className="relative">
+        <ThemeThumbnail theme={theme} className="border border-border/50" />
+        {isDefault && (
+          <span className="absolute top-1 left-1 rounded-sm bg-primary px-1.5 py-px text-[0.5625rem] font-semibold tracking-wide text-primary-foreground uppercase shadow-sm">
+            Default
+          </span>
+        )}
+      </div>
       <div className="mt-1.5 flex items-center gap-1.5 px-0.5">
         <Icon className="size-3 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
@@ -342,11 +369,6 @@ function ThemeCard({
               </>
             )}
           </div>
-        )}
-        {isDefault && (
-          <span className="shrink-0 rounded-sm bg-primary/15 px-1 py-px text-[0.5625rem] font-medium tracking-wide text-primary uppercase group-hover:hidden">
-            Default
-          </span>
         )}
         {theme.pinned && !isDefault && (
           <StarIcon className="size-3 shrink-0 fill-current text-amber-400 group-hover:hidden" />

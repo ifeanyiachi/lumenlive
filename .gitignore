@@ -86,3 +86,7 @@ __pycache__/
 .planning/
 # Full store upload staging (incl. copyrighted) — never commit
 data/store-upload/
+
+# Tauri updater signing keys — private key must never be committed
+src-tauri/*.key
+src-tauri/*.key.pub
