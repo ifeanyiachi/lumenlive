@@ -5,6 +5,7 @@ import {
   duplicateItem,
   renameCustom,
   togglePinById,
+  isNameTaken,
   type LibraryItem,
 } from "./library-crud"
 
@@ -88,6 +89,27 @@ describe("renameCustom", () => {
     const next = renameCustom(before, "a", "New", 500)
     expect(next[0].name).toBe("Old")
     expect(next[0].updatedAt).toBe(0)
+  })
+})
+
+describe("isNameTaken", () => {
+  const items = [
+    item({ id: "a", name: "Sunday" }),
+    item({ id: "b", name: "Midweek" }),
+  ]
+
+  it("matches case-insensitively and ignoring surrounding whitespace", () => {
+    expect(isNameTaken(items, "sunday")).toBe(true)
+    expect(isNameTaken(items, "  SUNDAY  ")).toBe(true)
+  })
+
+  it("returns false for an unused name", () => {
+    expect(isNameTaken(items, "Evening")).toBe(false)
+  })
+
+  it("excludes the item being saved/renamed via excludeId", () => {
+    expect(isNameTaken(items, "Sunday", "a")).toBe(false)
+    expect(isNameTaken(items, "Sunday", "b")).toBe(true)
   })
 })
 

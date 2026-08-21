@@ -4,6 +4,7 @@ import {
   MicIcon,
   TvIcon,
   BookOpenIcon,
+  ScrollTextIcon,
   PencilIcon,
   RadioIcon,
   HelpCircleIcon,
@@ -18,6 +19,7 @@ import type { SettingsSection } from "@/lib/settings-dialog"
 import { AudioSection } from "./sections/audio-section"
 import { SpeechSection } from "./sections/speech-section"
 import { BibleSection } from "./sections/bible-section"
+import { ScriptureSection } from "./sections/scripture-section"
 import { SavedEditsSection } from "./sections/saved-edits-section"
 import { DisplayModeSection } from "./sections/display-mode-section"
 import { ScheduleSection } from "./sections/schedule-section"
@@ -63,6 +65,13 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     title: "Bible Translation",
     icon: <BookOpenIcon strokeWidth={2} />,
     Component: BibleSection,
+  },
+  {
+    id: "scripture",
+    name: "Scripture",
+    title: "Scripture",
+    icon: <ScrollTextIcon strokeWidth={2} />,
+    Component: ScriptureSection,
   },
   {
     id: "saved-edits",

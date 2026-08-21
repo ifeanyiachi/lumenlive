@@ -7,10 +7,12 @@ import type { SlideBackground } from "@/types/slide"
  *
  * The two share one animated-background spec but differ elsewhere: canvas
  * gradients place stops on a 0–100 `position` scale, slide gradients on a 0–1
- * `offset`; canvas image/video are nested objects, slide backgrounds flatten
- * them to `imageUrl`/`videoUrl` + `blur`/`brightness`/`tint`. A malformed source
- * (e.g. `type: "gradient"` with a null `gradient`) degrades to the solid colour
- * so a migrated theme never renders blank.
+ * `offset`; canvas image/video brightness is a 0–100 percentage (100 = normal)
+ * while slide brightness is a 0–1 multiplier (1 = normal) — both are rescaled
+ * here. Canvas image/video are nested objects, slide backgrounds flatten them to
+ * `imageUrl`/`videoUrl` + `blur`/`brightness`/`tint`. A malformed source (e.g.
+ * `type: "gradient"` with a null `gradient`) degrades to the solid colour so a
+ * migrated theme never renders blank.
  *
  * PURE: no I/O, no shared mutable structure with the input.
  */
@@ -39,7 +41,11 @@ export function backgroundToSlide(bg: Background): SlideBackground {
         color: bg.color,
         imageUrl: bg.image.url,
         blur: bg.image.blur,
-        brightness: bg.image.brightness,
+        // Canvas 0–100 percentage → slide 0–1 multiplier (100 → 1 = no-op).
+        // Without this, a default brightness of 100 paints an opaque white wash
+        // over the image (drawBrightnessAndTint), rendering it solid white.
+        brightness:
+          bg.image.brightness != null ? bg.image.brightness / 100 : undefined,
         tint: bg.image.tint ?? undefined,
       }
     case "video":
@@ -48,7 +54,9 @@ export function backgroundToSlide(bg: Background): SlideBackground {
         type: "video",
         color: bg.color,
         videoUrl: bg.video.url,
-        brightness: bg.video.brightness,
+        // Canvas 0–100 percentage → slide 0–1 multiplier (see image case).
+        brightness:
+          bg.video.brightness != null ? bg.video.brightness / 100 : undefined,
       }
     case "animated":
       return {

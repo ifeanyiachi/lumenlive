@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/stores/settings-store"
 import { useSongStore } from "@/stores/song-store"
 import { useThemesStore } from "@/stores/themes"
 import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
+import { ANIMATED_PRESET_LABELS } from "@/lib/slide-renderer/animated-background"
 import { BUILTIN_THEMES } from "@/lib/theme/builtins"
 import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import type {
@@ -26,16 +27,6 @@ import type { Theme } from "@/types/theme"
 import type { Song, SongSlideOptions } from "@/types/song"
 
 const BUILTIN_SONG_THEMES = BUILTIN_THEMES.filter((t) => t.type === "song")
-
-const PRESET_LABELS: Record<AnimatedBackgroundPreset, string> = {
-  aurora: "Aurora",
-  bokeh: "Bokeh",
-  embers: "Embers",
-  starfield: "Starfield",
-  snow: "Snow",
-  godrays: "God rays",
-  "gradient-drift": "Gradient drift",
-}
 
 /** The animated-background spec of a song theme, or undefined if it isn't animated. */
 function themeAnimatedSpec(
@@ -157,7 +148,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
               </SelectTrigger>
               <SelectContent>
                 {(
-                  Object.entries(PRESET_LABELS) as [
+                  Object.entries(ANIMATED_PRESET_LABELS) as [
                     AnimatedBackgroundPreset,
                     string,
                   ][]

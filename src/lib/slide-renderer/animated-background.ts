@@ -222,6 +222,65 @@ const PRESETS: Record<AnimatedBackground["preset"], PresetConfig> = {
     twinkle: 0,
     beams: 0,
   },
+  // Colourful confetti drifting down with a lively side-to-side sway.
+  confetti: {
+    blobCount: 0,
+    blobRadius: 0.5,
+    blobAlpha: 0.1,
+    blobDrift: 0.4,
+    particleCount: 80,
+    motion: "fall",
+    particleAlpha: 0.85,
+    particleSize: 4,
+    particleSizeVar: 5,
+    sway: 0.09,
+    twinkle: 0.25,
+    beams: 0,
+  },
+  // Vivid, faster-morphing plasma — dense, high-contrast drifting colour.
+  plasma: {
+    blobCount: 5,
+    blobRadius: 0.7,
+    blobAlpha: 0.7,
+    blobDrift: 1.3,
+    particleCount: 0,
+    motion: "none",
+    particleAlpha: 0,
+    particleSize: 0,
+    particleSizeVar: 0,
+    sway: 0,
+    twinkle: 0,
+    beams: 0,
+  },
+}
+
+/**
+ * Human-readable labels for every preset, in the order they should appear in
+ * pickers. Kept next to {@link PRESETS} so the two stay in sync — a single
+ * source of truth shared by the generic background editor and the song panel.
+ */
+export const ANIMATED_PRESET_LABELS: Record<
+  AnimatedBackground["preset"],
+  string
+> = {
+  aurora: "Aurora",
+  bokeh: "Bokeh",
+  embers: "Embers",
+  starfield: "Starfield",
+  snow: "Snow",
+  godrays: "God rays",
+  "gradient-drift": "Gradient drift",
+  confetti: "Confetti",
+  plasma: "Plasma",
+}
+
+/** A sensible starting spec when a background is switched to "animated". */
+export const DEFAULT_ANIMATED_BACKGROUND: AnimatedBackground = {
+  preset: "aurora",
+  palette: ["#4c1d95", "#1e3a8a", "#0ea5e9"],
+  speed: 1,
+  intensity: 0.6,
+  baseColor: "#0b1020",
 }
 
 function configFor(preset: AnimatedBackground["preset"]): PresetConfig {

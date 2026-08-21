@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SongSlideOptions } from "@/types/song"
 import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
+import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 
 type SttProvider = "deepgram" | "sherpa"
 type MediaImportMode = "reference" | "copy"
@@ -74,6 +75,14 @@ interface SettingsState {
    */
   songSlideDefaults: SongSlideOptions
 
+  /**
+   * Global default Scripture theme id — the look new outputs adopt and the one
+   * the "Default Scripture Theme" setting drives. Scripture themes are otherwise
+   * chosen per broadcast output; this is the app-wide default (the song analogue
+   * is `songSlideDefaults.themeId`).
+   */
+  scriptureDefaultThemeId: string
+
   setDeepgramApiKey: (key: string | null) => void
   setGeniusApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
@@ -93,6 +102,7 @@ interface SettingsState {
   setMediaImportMode: (mode: MediaImportMode) => void
   setLexiconEnabled: (enabled: boolean) => void
   setSongSlideDefaults: (options: SongSlideOptions) => void
+  setScriptureDefaultThemeId: (themeId: string) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -115,6 +125,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   mediaImportMode: "reference",
   lexiconEnabled: false,
   songSlideDefaults: DEFAULT_SONG_SLIDE_OPTIONS,
+  scriptureDefaultThemeId: SCRIPTURE_BUILTIN.id,
 
   setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
@@ -136,6 +147,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setMediaImportMode: (mediaImportMode) => set({ mediaImportMode }),
   setLexiconEnabled: (lexiconEnabled) => set({ lexiconEnabled }),
   setSongSlideDefaults: (songSlideDefaults) => set({ songSlideDefaults }),
+  setScriptureDefaultThemeId: (scriptureDefaultThemeId) =>
+    set({ scriptureDefaultThemeId }),
 }))
 
 const PERSISTED_KEYS = [
@@ -158,6 +171,7 @@ const PERSISTED_KEYS = [
   "mediaImportMode",
   "lexiconEnabled",
   "songSlideDefaults",
+  "scriptureDefaultThemeId",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 let tauriStore: Store | null = null

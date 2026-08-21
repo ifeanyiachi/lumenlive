@@ -74,8 +74,10 @@ export const createSyncSlice: StateCreator<
     // theme (Option A). Now a typed Theme painted through the slide renderer (RF3a /
     // D1). Delivered every sync so the window can composite transparent content over
     // it and reveal it on Clear, regardless of which content mode is live.
-    if (outputTheme) {
-      const baseTheme = resolveBaseTheme(s.baseBackground, outputTheme, newThemes)
+    const baseTheme = outputTheme
+      ? resolveBaseTheme(s.baseBackground, outputTheme, newThemes)
+      : undefined
+    if (baseTheme) {
       emitOutputEvent(outputId, BROADCAST_EVENTS.baseTheme, {
         theme: baseTheme,
       })
@@ -96,15 +98,20 @@ export const createSyncSlice: StateCreator<
     // active — not just while showing a verse.
     const layerFilter = resolveLayerFilter(effective)
 
-    // The idle backdrop (not live, or live with nothing pushed): the output's own theme
-    // with no content, rendered through the slide path (VR3) so it matches the audience
-    // scripture render + the operator preview. A scripture built-in always resolves, so
-    // `outputTheme` is present in practice.
+    // The idle backdrop (not live, or live with nothing pushed): the resolved base
+    // theme with no content, rendered through the slide path (VR3) so it matches the
+    // audience scripture render + the operator preview. Using the *base* theme (not the
+    // bare output theme) means a configured Clear & Idle background — solid, gradient,
+    // image, or video — shows on idle too, exactly as it does on Clear, instead of the
+    // output's own scripture backdrop. When no base background is set the base theme IS
+    // the output theme, so idle looks unchanged. A scripture built-in always resolves,
+    // so `baseTheme` is present in practice.
     const emitIdleBackdrop = () => {
-      if (!outputTheme) return
+      const backdrop = baseTheme ?? outputTheme
+      if (!backdrop) return
       emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
         slide: {
-          ...themeToSlide(outputTheme, () => "idle-backdrop"),
+          ...themeToSlide(backdrop, () => "idle-backdrop"),
           transition: undefined,
         },
         verse: null,

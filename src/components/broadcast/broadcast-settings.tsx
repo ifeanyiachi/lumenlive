@@ -50,13 +50,15 @@ import { useOutputController } from "@/hooks/use-output-controller"
  * gradient/solid controls and file pickers.
  */
 function BaseBackgroundSection() {
-  // A base backdrop can be any look, so list every typed theme (themeredo.md, VR4).
-  const customThemes = useThemesStore((s) => s.customThemes)
-  const themes = buildThemeRegistry(customThemes)
   const baseBackground = useBroadcastStore((s) => s.baseBackground)
   const setBase = (bb: BaseBackground | null) =>
     useBroadcastStore.getState().setBaseBackground(bb)
-  const source = baseSourceOf(baseBackground)
+  // Theme is no longer an offered source; any legacy theme-kind base falls back
+  // to "output" in the picker (each output's own theme), which is what a theme
+  // backdrop effectively was. The resolver still honours a stored theme-kind for
+  // back-compat until the operator picks a new source here.
+  const rawSource = baseSourceOf(baseBackground)
+  const source = rawSource === "theme" ? "output" : rawSource
   const bg =
     baseBackground?.kind === "background" ? baseBackground.background : null
   const setBg = (next: Background) =>
@@ -96,8 +98,6 @@ function BaseBackgroundSection() {
 
   const onSource = (v: string) => {
     if (v === "output") setBase(null)
-    else if (v === "theme")
-      setBase({ kind: "theme", themeId: themes[0]?.id ?? "" })
     else
       setBase({
         kind: "background",
@@ -127,31 +127,12 @@ function BaseBackgroundSection() {
           <SelectItem value="output">
             Nothing extra — each output&apos;s own theme
           </SelectItem>
-          <SelectItem value="theme">A theme…</SelectItem>
           <SelectItem value="solid">Solid color</SelectItem>
           <SelectItem value="gradient">Gradient</SelectItem>
           <SelectItem value="image">An image (logo / holding slide)</SelectItem>
           <SelectItem value="video">A video loop</SelectItem>
         </SelectContent>
       </Select>
-
-      {source === "theme" && (
-        <Select
-          value={baseBackground?.kind === "theme" ? baseBackground.themeId : ""}
-          onValueChange={(id) => setBase({ kind: "theme", themeId: id })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a theme" />
-          </SelectTrigger>
-          <SelectContent>
-            {themes.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
 
       {bg?.type === "solid" && (
         <SolidControls

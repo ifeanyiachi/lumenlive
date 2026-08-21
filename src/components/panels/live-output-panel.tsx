@@ -387,6 +387,11 @@ export function LiveOutputPanel() {
             />
           ) : showSlide ? (
             <SlideCanvas slide={liveSlide} />
+          ) : !liveVerse && baseBackground ? (
+            // Idle with a configured Clear & Idle background: show it here too
+            // (image / video / solid / gradient), matching the audience idle
+            // backdrop — the feature applies to idle, not just Clear.
+            <BasePreview themeId={activeThemeId} baseBackground={baseBackground} />
           ) : (
             // Live scripture through the slide path (RF3c) — matches the audience output.
             <ScripturePreview

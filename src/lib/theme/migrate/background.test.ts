@@ -42,7 +42,7 @@ describe("backgroundToSlide", () => {
     })
   })
 
-  it("flattens an image background and drops a null tint", () => {
+  it("flattens an image background, rescaling brightness 0–100 → 0–1 and dropping a null tint", () => {
     const bg: Background = {
       ...base,
       type: "image",
@@ -50,7 +50,10 @@ describe("backgroundToSlide", () => {
         url: "u",
         fit: "cover",
         blur: 4,
-        brightness: 0.8,
+        // Canvas percentage scale (100 = normal), as the base-background editor
+        // produces. Must arrive at the slide as the 0–1 multiplier 1 (a no-op),
+        // else drawBrightnessAndTint paints an opaque white wash over the image.
+        brightness: 100,
         tint: null,
       },
     }
@@ -59,22 +62,22 @@ describe("backgroundToSlide", () => {
       color: "#123456",
       imageUrl: "u",
       blur: 4,
-      brightness: 0.8,
+      brightness: 1,
       tint: undefined,
     })
   })
 
-  it("flattens a video background", () => {
+  it("flattens a video background, rescaling brightness 0–100 → 0–1", () => {
     const bg: Background = {
       ...base,
       type: "video",
-      video: { url: "v", fit: "cover", brightness: 1 },
+      video: { url: "v", fit: "cover", brightness: 80 },
     }
     expect(backgroundToSlide(bg)).toEqual({
       type: "video",
       color: "#123456",
       videoUrl: "v",
-      brightness: 1,
+      brightness: 0.8,
     })
   })
 

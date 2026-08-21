@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand"
-import type { StageLayout } from "@/types"
 import { BUILTIN_STAGE_LAYOUTS } from "@/lib/stage-layout/builtin-stage-layouts"
 import * as libraryCrud from "@/lib/broadcast/library-crud"
+import * as stageEditing from "@/lib/stage-layout/editing"
 import type { BroadcastState } from "./types"
 
 /**
@@ -64,28 +64,20 @@ export const createStageCrudSlice: StateCreator<
       stageLayouts: libraryCrud.togglePinById(s.stageLayouts, id, Date.now()),
     })),
   createNewStageLayout: () => {
-    const now = Date.now()
-    const layout: StageLayout = {
-      id: crypto.randomUUID(),
-      name: "New Stage Layout",
-      builtin: false,
-      pinned: false,
-      createdAt: now,
-      updatedAt: now,
-      resolution: { width: 1920, height: 1080 },
-      background: {
-        type: "solid",
-        color: "#1a1a2e",
-        gradient: null,
-        image: null,
-        video: null,
-      },
-      displayMode: "zone",
-      zones: [],
-      elements: [],
-      layerOrder: [],
-    }
-    set((s) => ({ stageLayouts: [...s.stageLayouts, layout] }))
-    get().startEditingStageLayout(layout.id)
+    // "New" seeds an in-memory draft only — the layout is not added to the
+    // library until the user saves. `saveStageDraft` inserts it on first save.
+    const layout = stageEditing.createBlankStageLayout(
+      crypto.randomUUID(),
+      Date.now()
+    )
+    set({
+      stageDesignerOpen: true,
+      editingStageLayoutId: layout.id,
+      draftStageLayout: layout,
+      isNewStageDraft: true,
+      selectedZone: null,
+      stageUndoStack: [],
+      stageRedoStack: [],
+    })
   },
 })

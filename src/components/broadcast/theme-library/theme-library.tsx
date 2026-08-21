@@ -11,6 +11,7 @@ import {
   PresentationIcon,
   LayersIcon,
   MegaphoneIcon,
+  CheckCheckIcon,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -25,8 +26,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useThemesStore } from "@/stores/themes"
+import { useSettingsStore } from "@/stores"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { THEME_TYPES } from "@/lib/theme/templates"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
 
@@ -243,6 +247,20 @@ function ThemeCard({
   onSelect: () => void
 }) {
   const { label, icon: Icon } = TYPE_META[theme.type]
+  // Scripture themes can be marked the app-wide default (the look new outputs
+  // adopt); the current default is resolved through the legacy-id alias so a
+  // stored built-in id still matches. Non-scripture themes have no default.
+  const scriptureDefaultThemeId = useSettingsStore(
+    (s) => s.scriptureDefaultThemeId
+  )
+  const isScripture = theme.type === "scripture"
+  const isDefault =
+    isScripture && resolveLegacyThemeId(scriptureDefaultThemeId) === theme.id
+  const setAsDefault = () => {
+    useSettingsStore.getState().setScriptureDefaultThemeId(theme.id)
+    // Apply to the Program output so the new default is live immediately.
+    useBroadcastStore.getState().setActiveTheme(theme.id)
+  }
   return (
     <div
       role="button"
@@ -270,41 +288,67 @@ function ThemeCard({
         <span className="shrink-0 text-[0.5625rem] tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
-        {/* Pin / delete actions live only on custom themes; built-ins are code. */}
-        {!theme.builtin && (
+        {/* Hover actions: "Set as default" for any scripture theme (built-ins
+            included), plus pin/delete for custom themes (built-ins are code). */}
+        {(isScripture || !theme.builtin) && (
           <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-6"
-              title={theme.pinned ? "Unpin" : "Pin"}
-              onClick={(e) => {
-                e.stopPropagation()
-                useThemesStore.getState().setThemePinned(theme.id, !theme.pinned)
-              }}
-            >
-              <StarIcon
-                className={cn(
-                  "size-3",
-                  theme.pinned && "fill-current text-amber-400"
-                )}
-              />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-6 text-muted-foreground hover:text-destructive"
-              title="Delete"
-              onClick={(e) => {
-                e.stopPropagation()
-                useThemesStore.getState().deleteTheme(theme.id)
-              }}
-            >
-              <Trash2Icon className="size-3" />
-            </Button>
+            {isScripture && !isDefault && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="size-6"
+                title="Set as default scripture theme"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setAsDefault()
+                }}
+              >
+                <CheckCheckIcon className="size-3" />
+              </Button>
+            )}
+            {!theme.builtin && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-6"
+                  title={theme.pinned ? "Unpin" : "Pin"}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    useThemesStore
+                      .getState()
+                      .setThemePinned(theme.id, !theme.pinned)
+                  }}
+                >
+                  <StarIcon
+                    className={cn(
+                      "size-3",
+                      theme.pinned && "fill-current text-amber-400"
+                    )}
+                  />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-6 text-muted-foreground hover:text-destructive"
+                  title="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    useThemesStore.getState().deleteTheme(theme.id)
+                  }}
+                >
+                  <Trash2Icon className="size-3" />
+                </Button>
+              </>
+            )}
           </div>
         )}
-        {theme.pinned && (
+        {isDefault && (
+          <span className="shrink-0 rounded-sm bg-primary/15 px-1 py-px text-[0.5625rem] font-medium tracking-wide text-primary uppercase group-hover:hidden">
+            Default
+          </span>
+        )}
+        {theme.pinned && !isDefault && (
           <StarIcon className="size-3 shrink-0 fill-current text-amber-400 group-hover:hidden" />
         )}
       </div>

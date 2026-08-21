@@ -89,6 +89,8 @@ export type AnimatedBackgroundPreset =
   | "snow"
   | "godrays"
   | "gradient-drift"
+  | "confetti"
+  | "plasma"
 
 /**
  * Parameters for an animated (procedural) background. Rendered as a pure

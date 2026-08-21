@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useBroadcastStore } from "@/stores"
+import { useBroadcastStore, useSettingsStore } from "@/stores"
 import { useCountdownStore } from "@/stores/countdown-store"
 import { useThemesStore } from "@/stores/themes"
 import { buildThemeRegistry } from "@/lib/theme/registry"
@@ -115,7 +115,12 @@ export function OutputManager({
     const newOutput: BroadcastOutput = {
       id: crypto.randomUUID().slice(0, 8),
       name: `Output ${outputs.length + 1}`,
-      themeId: themes[0]?.id ?? "",
+      // Seed from the app-wide default Scripture theme, falling back to the
+      // first available scripture theme.
+      themeId:
+        useSettingsStore.getState().scriptureDefaultThemeId ||
+        themes[0]?.id ||
+        "",
       mode: "normal",
       contentSource: { type: "mirror", sourceOutputId: "main" },
       enabled: false,

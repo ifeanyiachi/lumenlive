@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   computeAnimatedScene,
   drawAnimatedBackground,
+  ANIMATED_PRESET_LABELS,
 } from "./animated-background"
 import type { AnimatedBackground } from "@/types/slide"
+import type { AnimatedBackgroundPreset } from "@/types/canvas"
+
+const ALL_PRESETS = Object.keys(
+  ANIMATED_PRESET_LABELS
+) as AnimatedBackgroundPreset[]
 
 function spec(overrides: Partial<AnimatedBackground> = {}): AnimatedBackground {
   return {
@@ -88,18 +94,12 @@ describe("computeAnimatedScene", () => {
   })
 
   it("every preset computes a deterministic scene without throwing", () => {
-    for (const preset of [
-      "aurora",
-      "bokeh",
-      "embers",
-      "starfield",
-      "snow",
-      "godrays",
-      "gradient-drift",
-    ] as const) {
+    for (const preset of ALL_PRESETS) {
       const a = computeAnimatedScene(spec({ preset }), 1920, 1080, 42)
       const b = computeAnimatedScene(spec({ preset }), 1920, 1080, 42)
       expect(a).toEqual(b)
+      // Every preset paints an opaque base wash so nothing shows through.
+      expect(a.baseStops.length).toBeGreaterThan(0)
     }
   })
 

@@ -21,6 +21,7 @@ export type StageDesignerSlice = Pick<
   | "stageDesignerOpen"
   | "editingStageLayoutId"
   | "draftStageLayout"
+  | "isNewStageDraft"
   | "selectedZone"
   | "stageUndoStack"
   | "stageRedoStack"
@@ -52,6 +53,7 @@ export const createStageDesignerSlice: StateCreator<
   stageDesignerOpen: false,
   editingStageLayoutId: null,
   draftStageLayout: null,
+  isNewStageDraft: false,
   selectedZone: null,
   stageUndoStack: [],
   stageRedoStack: [],
@@ -62,6 +64,7 @@ export const createStageDesignerSlice: StateCreator<
         stageDesignerOpen: false,
         editingStageLayoutId: null,
         draftStageLayout: null,
+        isNewStageDraft: false,
         selectedZone: null,
         stageUndoStack: [],
         stageRedoStack: [],
@@ -77,6 +80,7 @@ export const createStageDesignerSlice: StateCreator<
       stageDesignerOpen: true,
       editingStageLayoutId: id,
       draftStageLayout: stageEditing.createStageDraft(layout, Date.now()),
+      isNewStageDraft: false,
       selectedZone: null,
       stageUndoStack: [],
       stageRedoStack: [],
@@ -226,6 +230,12 @@ export const createStageDesignerSlice: StateCreator<
     const { draftStageLayout } = get()
     if (!draftStageLayout) return
     if (draftStageLayout.builtin) {
+      // Built-ins are immutable and re-seeded from constants on every load, so
+      // an edit can only survive as a new custom fork. Repoint any stage output
+      // still assigned the built-in at that fork — otherwise the fork is
+      // orphaned and the output keeps rendering the pristine built-in, which is
+      // exactly the "my edits reverted on reopen" bug.
+      const builtinId = draftStageLayout.id
       const custom = stageEditing.promoteBuiltinToCustom(
         draftStageLayout,
         crypto.randomUUID(),
@@ -235,14 +245,39 @@ export const createStageDesignerSlice: StateCreator<
         stageLayouts: [...s.stageLayouts, custom],
         editingStageLayoutId: custom.id,
         draftStageLayout: custom,
+        outputs: s.outputs.map((o) =>
+          o.stageLayoutId === builtinId
+            ? { ...o, stageLayoutId: custom.id }
+            : o
+        ),
       }))
       get().syncStageOutput()
     } else {
+      // Custom layout — `saveStageLayout` upserts by id, so this both creates a
+      // brand-new (previously unsaved) layout and updates an existing one. Once
+      // saved, the draft is no longer "new".
       get().saveStageLayout(draftStageLayout)
+      if (get().isNewStageDraft) set({ isNewStageDraft: false })
     }
   },
   discardStageDraft: () => {
-    const { editingStageLayoutId } = get()
+    const { editingStageLayoutId, isNewStageDraft } = get()
+    // A never-saved draft has nothing in the library to revert to — reset it to
+    // a fresh blank layout instead of leaving the edited draft in place.
+    if (isNewStageDraft) {
+      const blank = stageEditing.createBlankStageLayout(
+        crypto.randomUUID(),
+        Date.now()
+      )
+      set({
+        editingStageLayoutId: blank.id,
+        draftStageLayout: blank,
+        selectedZone: null,
+        stageUndoStack: [],
+        stageRedoStack: [],
+      })
+      return
+    }
     if (editingStageLayoutId)
       get().startEditingStageLayout(editingStageLayoutId)
   },

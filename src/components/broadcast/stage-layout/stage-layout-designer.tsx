@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useBroadcastStore } from "@/stores"
 import { isEditableTarget } from "@/lib/dom/is-editable-target"
+import { isNameTaken } from "@/lib/broadcast/library-crud"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -91,15 +92,33 @@ export function StageLayoutDesigner() {
   }, [editingId])
 
   const handleSave = () => {
-    useBroadcastStore.getState().saveStageDraft()
+    const store = useBroadcastStore.getState()
+    const current = store.draftStageLayout
+    if (!current) return
+    const name = current.name.trim()
+    if (!name) {
+      toast.error("Enter a layout name before saving")
+      return
+    }
+    // Names must be unique across the library (built-ins + customs).
+    if (isNameTaken(store.stageLayouts, name, current.id)) {
+      toast.error(`A stage layout named “${name}” already exists`)
+      return
+    }
+    store.saveStageDraft()
     toast.success("Stage layout saved")
   }
 
   const handleCommitName = () => {
     const trimmed = nameValue.trim()
     if (trimmed && draft && editingId) {
-      useBroadcastStore.getState().renameStageLayout(editingId, trimmed)
-      useBroadcastStore.getState().updateStageDraft({ name: trimmed })
+      const store = useBroadcastStore.getState()
+      if (isNameTaken(store.stageLayouts, trimmed, editingId)) {
+        toast.error(`A stage layout named “${trimmed}” already exists`)
+        return
+      }
+      store.renameStageLayout(editingId, trimmed)
+      store.updateStageDraft({ name: trimmed })
     }
     setIsEditingName(false)
   }

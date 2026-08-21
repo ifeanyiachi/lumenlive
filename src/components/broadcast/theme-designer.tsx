@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
-import { useBroadcastStore } from "@/stores"
+import { useBroadcastStore, useSettingsStore } from "@/stores"
 import { useThemesStore } from "@/stores/themes"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,9 @@ import {
   Redo2Icon,
   GridIcon,
   PaletteIcon,
+  CheckCheckIcon,
 } from "lucide-react"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
 import { PresentationEditor } from "@/components/slides/presentation-editor"
 import { createThemeFromTemplate } from "@/lib/theme/templates"
@@ -41,6 +43,13 @@ export function ThemeDesigner() {
   const draftName = usePresentationStore((s) => s.draftPresentation?.name ?? "")
   const activeThemeId = session?.identity.id ?? null
   const isEditing = session != null
+  const scriptureDefaultThemeId = useSettingsStore(
+    (s) => s.scriptureDefaultThemeId
+  )
+  const isScriptureTheme = session?.identity.type === "scripture"
+  const isCurrentDefault =
+    isScriptureTheme &&
+    resolveLegacyThemeId(scriptureDefaultThemeId) === session?.identity.id
 
   const [showGrid, setShowGrid] = useState(false)
   const [pendingSwitch, setPendingSwitch] = useState<(() => void) | null>(null)
@@ -106,15 +115,17 @@ export function ThemeDesigner() {
     })
   }
 
-  const handleSave = () => {
+  // Saves the edited draft back to a Theme. Returns true on success so callers
+  // (e.g. "Set as default") can chain only when the save actually landed.
+  const handleSave = (): boolean => {
     const s = usePresentationStore.getState()
     const sess = s.typedThemeSession
     const slide = s.draftPresentation?.slides[0]
-    if (!sess || !slide) return
+    if (!sess || !slide) return false
     const name = sess.identity.name.trim()
     if (!name) {
       toast.error("Enter a theme name before saving")
-      return
+      return false
     }
     // Names must be unique across the library (built-ins + customs), case-insensitive.
     const nameTaken = useThemesStore
@@ -127,7 +138,7 @@ export function ThemeDesigner() {
       )
     if (nameTaken) {
       toast.error(`A theme named “${name}” already exists`)
-      return
+      return false
     }
     const theme = slideToTheme(slide, sess.identity, Date.now())
     useThemesStore.getState().upsertTheme(theme)
@@ -136,6 +147,20 @@ export function ThemeDesigner() {
     })
     markClean()
     toast.success("Theme saved")
+    return true
+  }
+
+  // Save the current scripture theme and make it the app-wide default (the look
+  // new outputs adopt). Saves first so the default points at a persisted theme —
+  // editing a built-in forks it to an unsaved custom id until Save runs.
+  const handleSaveAsDefault = () => {
+    if (!handleSave()) return
+    const id = usePresentationStore.getState().typedThemeSession?.identity.id
+    if (!id) return
+    useSettingsStore.getState().setScriptureDefaultThemeId(id)
+    // Apply to the Program output so the new default is live immediately.
+    useBroadcastStore.getState().setActiveTheme(id)
+    toast.success("Set as default scripture theme")
   }
 
   const handleDiscard = () => {
@@ -228,6 +253,17 @@ export function ThemeDesigner() {
                   <TrashIcon className="size-4" />
                   Discard
                 </Button>
+                {isScriptureTheme && (
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveAsDefault}
+                    disabled={isCurrentDefault}
+                    title="Save and set as the default scripture theme"
+                  >
+                    <CheckCheckIcon className="size-4" />
+                    {isCurrentDefault ? "Default" : "Set as Default"}
+                  </Button>
+                )}
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"
                   onClick={handleSave}

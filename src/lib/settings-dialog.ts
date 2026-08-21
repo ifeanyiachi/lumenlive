@@ -4,6 +4,7 @@ type SettingsSection =
   | "audio"
   | "speech"
   | "bible"
+  | "scripture"
   | "saved-edits"
   | "display"
   | "schedule"

@@ -76,6 +76,23 @@ export function renameCustom<T extends LibraryItem>(
 }
 
 /**
+ * Case-insensitive check for whether `name` is already used by another item in
+ * the library. `excludeId` skips the item currently being saved/renamed so it
+ * doesn't collide with itself. Names are trimmed before comparison. Used to keep
+ * preset names unique across the library (built-ins + customs).
+ */
+export function isNameTaken<T extends LibraryItem>(
+  items: T[],
+  name: string,
+  excludeId?: string
+): boolean {
+  const target = name.trim().toLowerCase()
+  return items.some(
+    (i) => i.id !== excludeId && i.name.trim().toLowerCase() === target
+  )
+}
+
+/**
  * Flip an item's pinned flag (built-ins CAN be pinned — pinning only reorders
  * the library, it doesn't mutate the preset's content), bumping `updatedAt`.
  */

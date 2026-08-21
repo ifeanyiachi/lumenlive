@@ -312,6 +312,34 @@ export function promoteBuiltinToCustom(
   }
 }
 
+/**
+ * Build a blank custom stage layout for the "New" flow. Kept pure (id + `now`
+ * injected) so the designer can seed an unsaved in-memory draft without touching
+ * the library until the user saves.
+ */
+export function createBlankStageLayout(id: string, now: number): StageLayout {
+  return {
+    id,
+    name: "New Stage Layout",
+    builtin: false,
+    pinned: false,
+    createdAt: now,
+    updatedAt: now,
+    resolution: { width: 1920, height: 1080 },
+    background: {
+      type: "solid",
+      color: "#1a1a2e",
+      gradient: null,
+      image: null,
+      video: null,
+    },
+    displayMode: "zone",
+    zones: [],
+    elements: [],
+    layerOrder: [],
+  }
+}
+
 /** Look up whichever layer (zone or element) an id refers to. */
 export function findLayer(
   draft: StageLayout,

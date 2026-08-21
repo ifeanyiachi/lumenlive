@@ -18,9 +18,17 @@ import {
   SolidControls as SharedSolidControls,
 } from "@/components/shared/gradient-controls"
 import type { GradientValue } from "@/components/shared/gradient-controls"
-import type { SlideBackground } from "@/types/slide"
+import {
+  ANIMATED_PRESET_LABELS,
+  DEFAULT_ANIMATED_BACKGROUND,
+} from "@/lib/slide-renderer/animated-background"
+import type {
+  SlideBackground,
+  AnimatedBackground,
+  AnimatedBackgroundPreset,
+} from "@/types/slide"
 import type { MediaAsset } from "@/types/media"
-import { ImageIcon, FilmIcon, XIcon } from "lucide-react"
+import { ImageIcon, FilmIcon, XIcon, PlusIcon } from "lucide-react"
 import { BackgroundMediaLibrary } from "@/components/slides/background-media-library"
 
 function parseTintColor(tint: string): { hex: string; opacity: number } {
@@ -81,6 +89,12 @@ export function SlideBackgroundProperties() {
           brightness: bg.brightness ?? 1,
         })
         break
+      case "animated":
+        update({
+          type: "animated",
+          animated: bg.animated ?? DEFAULT_ANIMATED_BACKGROUND,
+        })
+        break
       case "transparent":
         update({ type: "transparent" })
         break
@@ -107,6 +121,7 @@ export function SlideBackgroundProperties() {
             <SelectItem value="gradient">Gradient</SelectItem>
             <SelectItem value="image">Image</SelectItem>
             <SelectItem value="video">Video</SelectItem>
+            <SelectItem value="animated">Animated</SelectItem>
             <SelectItem value="transparent">Transparent</SelectItem>
           </SelectContent>
         </Select>
@@ -125,6 +140,7 @@ export function SlideBackgroundProperties() {
       {bg.type === "gradient" && <GradientControls bg={bg} onUpdate={update} />}
       {bg.type === "image" && <ImageControls bg={bg} onUpdate={update} />}
       {bg.type === "video" && <VideoControls bg={bg} onUpdate={update} />}
+      {bg.type === "animated" && <AnimatedControls bg={bg} onUpdate={update} />}
       {bg.type === "transparent" && (
         <p className="text-[0.6875rem] text-muted-foreground">
           Transparent background for overlay mode.
@@ -193,6 +209,136 @@ function GradientControls({
       gradient={toSharedGradient(gradient)}
       onUpdate={(g) => onUpdate({ ...bg, gradient: fromSharedGradient(g) })}
     />
+  )
+}
+
+function AnimatedControls({
+  bg,
+  onUpdate,
+}: {
+  bg: SlideBackground
+  onUpdate: (bg: SlideBackground) => void
+}) {
+  const anim = bg.animated ?? DEFAULT_ANIMATED_BACKGROUND
+
+  // Merge a patch onto the animated spec and write the whole background back.
+  const setAnim = (patch: Partial<AnimatedBackground>) =>
+    onUpdate({ ...bg, type: "animated", animated: { ...anim, ...patch } })
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Style */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[0.6875rem] text-muted-foreground">Style</label>
+        <Select
+          value={anim.preset}
+          onValueChange={(v) =>
+            setAnim({ preset: v as AnimatedBackgroundPreset })
+          }
+        >
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(
+              Object.entries(ANIMATED_PRESET_LABELS) as [
+                AnimatedBackgroundPreset,
+                string,
+              ][]
+            ).map(([value, label]) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Palette */}
+      <div className="flex flex-col gap-1">
+        <label className="text-[0.6875rem] text-muted-foreground">Colors</label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {anim.palette.map((color, i) => (
+            <div key={i} className="group relative">
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => {
+                  const next = [...anim.palette]
+                  next[i] = e.target.value
+                  setAnim({ palette: next })
+                }}
+                className="size-7 cursor-pointer rounded border border-border"
+                aria-label={`Color ${i + 1}`}
+              />
+              {anim.palette.length > 1 && (
+                <button
+                  type="button"
+                  aria-label={`Remove color ${i + 1}`}
+                  onClick={() =>
+                    setAnim({
+                      palette: anim.palette.filter((_, j) => j !== i),
+                    })
+                  }
+                  className="absolute -top-1 -right-1 hidden rounded-full bg-background text-muted-foreground shadow group-hover:block hover:text-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          {anim.palette.length < 4 && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="size-7"
+              aria-label="Add color"
+              onClick={() => setAnim({ palette: [...anim.palette, "#ffffff"] })}
+            >
+              <PlusIcon className="size-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Speed */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <label className="text-[0.6875rem] text-muted-foreground">
+            Speed
+          </label>
+          <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
+            {anim.speed.toFixed(2)}×
+          </span>
+        </div>
+        <Slider
+          value={[anim.speed]}
+          onValueChange={([v]) => setAnim({ speed: v })}
+          min={0.25}
+          max={2}
+          step={0.05}
+        />
+      </div>
+
+      {/* Intensity */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <label className="text-[0.6875rem] text-muted-foreground">
+            Intensity
+          </label>
+          <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
+            {Math.round(anim.intensity * 100)}%
+          </span>
+        </div>
+        <Slider
+          value={[anim.intensity]}
+          onValueChange={([v]) => setAnim({ intensity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+      </div>
+    </div>
   )
 }
 

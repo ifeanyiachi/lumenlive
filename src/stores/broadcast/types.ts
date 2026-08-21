@@ -106,6 +106,12 @@ export interface BroadcastState {
   stageDesignerOpen: boolean
   editingStageLayoutId: string | null
   draftStageLayout: StageLayout | null
+  /**
+   * True while the draft is a brand-new layout that has not yet been persisted
+   * to `stageLayouts`. "New" builds an in-memory draft only; the layout is
+   * inserted into the library on the first save.
+   */
+  isNewStageDraft: boolean
   selectedZone: string | null
   stageUndoStack: StageLayout[]
   stageRedoStack: StageLayout[]
