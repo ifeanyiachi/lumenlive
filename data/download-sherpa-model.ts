@@ -1,7 +1,8 @@
 /**
  * Downloads the Moonshine base.en (int8) model for local streaming STT via
- * sherpa-onnx. Moonshine has no 30s padding and runs ~10x faster than Whisper
- * on CPU, making it the recommended offline provider for low-end machines.
+ * sherpa-onnx. Moonshine has no 30s input padding and runs fast enough for
+ * real-time transcription on CPU, making it the offline provider for low-end
+ * machines.
  *
  * Model: sherpa-onnx-moonshine-base-en-int8 (~287MB across 5 files)
  * Source: https://huggingface.co/csukuangfj/sherpa-onnx-moonshine-base-en-int8
