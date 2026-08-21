@@ -18,8 +18,18 @@ import { useTranscription } from "@/hooks/use-transcription"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { fetchChapter } from "@/services/bible-search-gateway"
-import { stepVerse, type NavDirection } from "@/lib/search/verse-navigation"
+import { stepVerseBy, type NavDirection } from "@/lib/search/verse-navigation"
 import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
+
+/**
+ * Payload of the backend `verse_command` event — a spoken command that changes
+ * which verse is live. Mirrors the Rust `VerseCommand`: a relative step ("next
+ * verse", "skip the next two verses") or an absolute jump ("the third verse",
+ * "verse 5"). The verse to act on is resolved here against the live selection.
+ */
+type VerseCommandPayload =
+  | { kind: "relative"; direction: NavDirection; count: number }
+  | { kind: "absolute"; verse: number }
 
 /**
  * Present a verse reached by spoken navigation: reflect it in the book panel and
@@ -43,6 +53,59 @@ function presentNavVerse(verse: Verse) {
   if (useSettingsStore.getState().navAutoLive) {
     bs.takeToLive()
   }
+}
+
+/**
+ * Resolve an absolute verse command ("go to the third verse" == "verse 3") by
+ * jumping to that verse number within the loaded chapter. No-op when the chapter
+ * has no such verse (a mishearing, or a number past the chapter's length).
+ */
+function presentVerseAbsolute(verseNumber: number) {
+  const { currentChapter } = useBibleStore.getState()
+  const target = currentChapter.find((v) => v.verse === verseNumber)
+  if (target) presentNavVerse(target)
+}
+
+/**
+ * Resolve a relative verse command ("next verse", "skip the next two verses").
+ * Steps `count` verses from the live selection, following chapter roll-overs by
+ * loading each adjacent chapter and continuing with the leftover steps. Stops on
+ * the first target that lands, or silently when it runs off the end of the book.
+ */
+async function presentVerseRelative(direction: NavDirection, count: number) {
+  const { selectedVerse, currentChapter, activeTranslationId } =
+    useBibleStore.getState()
+
+  let step = stepVerseBy(selectedVerse, currentChapter, direction, count)
+
+  // Follow chapter boundaries: land on the edge verse of each adjacent chapter,
+  // then continue stepping the remainder from there.
+  while (step.kind === "cross-chapter") {
+    let verses: Verse[]
+    try {
+      verses = await fetchChapter(
+        activeTranslationId,
+        step.bookNumber,
+        step.chapter
+      )
+    } catch (err) {
+      console.error("[VOICE] verse-command chapter load failed", err)
+      return
+    }
+    if (verses.length === 0) return // ran off the end of the book
+
+    useBibleStore.getState().setCurrentChapter(verses)
+    const edge =
+      step.edge === "first" ? verses[0] : verses[verses.length - 1]
+
+    if (step.remaining <= 0) {
+      presentNavVerse(edge)
+      return
+    }
+    step = stepVerseBy(edge, verses, direction, step.remaining)
+  }
+
+  if (step.kind === "verse") presentNavVerse(step.verse)
 }
 
 /**
@@ -251,36 +314,18 @@ export function TranscriptPanel() {
     }
   })
 
-  // Spoken navigation ("turn to the next verse", "go back one verse"): the
-  // backend classifies only the direction; the *anchor* is the verse currently
+  // Spoken verse commands ("next verse", "skip the next two verses", "go to the
+  // third verse", "verse 5"): the backend classifies only the *intent* — a
+  // relative step or an absolute verse number. The anchor is the verse currently
   // selected on the program screen, so this works no matter how that verse got
   // there — a spoken reference, a manual book-panel pick, a queue take, or
-  // reading mode. Step one verse through the loaded chapter (or roll over into
-  // the adjacent chapter), then present it — staged to Program preview, or live
-  // when "Voice navigation goes live" (navAutoLive) is on.
-  useTauriEvent<{ direction: NavDirection }>("nav_command", (payload) => {
-    const { selectedVerse, currentChapter, activeTranslationId } =
-      useBibleStore.getState()
-    const step = stepVerse(selectedVerse, currentChapter, payload.direction)
-
-    if (step.kind === "verse") {
-      presentNavVerse(step.verse)
-      return
-    }
-    if (step.kind === "cross-chapter") {
-      // Load the adjacent chapter and land on its first/last verse. An empty
-      // result means we ran off the end of the book — nothing to do.
-      fetchChapter(activeTranslationId, step.bookNumber, step.chapter)
-        .then((verses) => {
-          if (verses.length === 0) return
-          useBibleStore.getState().setCurrentChapter(verses)
-          presentNavVerse(
-            step.edge === "first" ? verses[0] : verses[verses.length - 1]
-          )
-        })
-        .catch((err) => {
-          console.error("[VOICE] nav chapter load failed", err)
-        })
+  // reading mode. The resolved verse is staged to Program preview, or pushed
+  // live when "Voice navigation goes live" (navAutoLive) is on.
+  useTauriEvent<VerseCommandPayload>("verse_command", (payload) => {
+    if (payload.kind === "absolute") {
+      presentVerseAbsolute(payload.verse)
+    } else {
+      void presentVerseRelative(payload.direction, payload.count)
     }
   })
 

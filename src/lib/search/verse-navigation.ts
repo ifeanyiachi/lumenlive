@@ -77,3 +77,85 @@ export function stepVerse(
     edge: "last",
   }
 }
+
+/**
+ * Result of stepping `count` verses from the current selection.
+ *
+ * Same shape as [`VerseStep`], but the `cross-chapter` variant also carries
+ * `remaining` — how many *more* steps to take once the caller has loaded the
+ * adjacent chapter and landed on its edge verse. The caller drives the loop:
+ * load the chapter, land on the edge, then call [`stepVerseBy`] again with
+ * `remaining` from that edge verse. `remaining` is 0 when the edge verse is the
+ * final target.
+ */
+export type VerseStepN =
+  | { kind: "verse"; verse: Verse }
+  | {
+      kind: "cross-chapter"
+      bookNumber: number
+      chapter: number
+      edge: "first" | "last"
+      remaining: number
+    }
+  | { kind: "none" }
+
+/**
+ * Step `count` verses from `selected` within `currentChapter`.
+ *
+ * Generalises [`stepVerse`] to multi-verse jumps ("skip the next two verses").
+ * When the jump lands inside the loaded chapter it resolves directly; when it
+ * runs off either end it returns `cross-chapter` with the `remaining` steps so
+ * the caller can continue in the next chapter (see [`VerseStepN`]). A backward
+ * overshoot within chapter 1 clamps to verse 1 rather than reporting `none`, so
+ * a too-large "back N" still lands somewhere sensible.
+ */
+export function stepVerseBy(
+  selected: Verse | null,
+  currentChapter: Verse[],
+  direction: NavDirection,
+  count: number
+): VerseStepN {
+  if (!selected) return { kind: "none" }
+
+  const steps = Math.max(1, Math.trunc(count))
+
+  const idx = currentChapter.findIndex(
+    (v) =>
+      v.book_number === selected.book_number &&
+      v.chapter === selected.chapter &&
+      v.verse === selected.verse
+  )
+  if (idx === -1) return { kind: "none" }
+
+  if (direction === "next") {
+    const target = idx + steps
+    const verse = currentChapter[target]
+    if (verse) return { kind: "verse", verse }
+    // Overflow: land on the next chapter's first verse (one step past the last
+    // verse of this one), carrying any leftover steps into it.
+    const stepsToEnd = currentChapter.length - 1 - idx
+    return {
+      kind: "cross-chapter",
+      bookNumber: selected.book_number,
+      chapter: selected.chapter + 1,
+      edge: "first",
+      remaining: steps - stepsToEnd - 1,
+    }
+  }
+
+  // previous
+  const target = idx - steps
+  if (target >= 0) return { kind: "verse", verse: currentChapter[target] }
+  // Underflow. In chapter 1 there is no earlier chapter — clamp to verse 1
+  // (or nothing if already there).
+  if (selected.chapter <= 1) {
+    return idx > 0 ? { kind: "verse", verse: currentChapter[0] } : { kind: "none" }
+  }
+  return {
+    kind: "cross-chapter",
+    bookNumber: selected.book_number,
+    chapter: selected.chapter - 1,
+    edge: "last",
+    remaining: steps - idx - 1,
+  }
+}
