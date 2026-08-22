@@ -48,6 +48,15 @@ interface SettingsState {
    */
   sherpaPartials: boolean
   directAutoDisplay: boolean
+  /**
+   * When `directAutoDisplay` is on, also auto-display a spoken *direct* verse
+   * reference the moment it's fully recognized in the interim (partial)
+   * transcript — instead of waiting for the STT final (~1-2s later, once the
+   * speaker pauses). Applies only to complete, stable direct references; the
+   * final reconciles. No effect on semantic/paraphrase detections (those stay
+   * finals-only). Ignored entirely when `directAutoDisplay` is off.
+   */
+  directInstantDisplay: boolean
   semanticAutoQueue: boolean
   /**
    * Where a spoken navigation command ("turn to the next verse", "go back one
@@ -114,6 +123,7 @@ interface SettingsState {
   setPauseSilenceMs: (ms: number) => void
   setSherpaPartials: (enabled: boolean) => void
   setDirectAutoDisplay: (enabled: boolean) => void
+  setDirectInstantDisplay: (enabled: boolean) => void
   setSemanticAutoQueue: (enabled: boolean) => void
   setNavAutoLive: (enabled: boolean) => void
   setPreventDuplicateScheduleItems: (enabled: boolean) => void
@@ -138,6 +148,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   pauseSilenceMs: 1400,
   sherpaPartials: false,
   directAutoDisplay: true,
+  directInstantDisplay: true,
   semanticAutoQueue: false,
   navAutoLive: false,
   preventDuplicateScheduleItems: true,
@@ -160,6 +171,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setPauseSilenceMs: (pauseSilenceMs) => set({ pauseSilenceMs }),
   setSherpaPartials: (sherpaPartials) => set({ sherpaPartials }),
   setDirectAutoDisplay: (directAutoDisplay) => set({ directAutoDisplay }),
+  setDirectInstantDisplay: (directInstantDisplay) =>
+    set({ directInstantDisplay }),
   setSemanticAutoQueue: (semanticAutoQueue) => set({ semanticAutoQueue }),
   setNavAutoLive: (navAutoLive) => set({ navAutoLive }),
   setPreventDuplicateScheduleItems: (preventDuplicateScheduleItems) =>
@@ -186,6 +199,7 @@ const PERSISTED_KEYS = [
   "pauseSilenceMs",
   "sherpaPartials",
   "directAutoDisplay",
+  "directInstantDisplay",
   "semanticAutoQueue",
   "navAutoLive",
   "preventDuplicateScheduleItems",

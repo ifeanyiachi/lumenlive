@@ -15,6 +15,8 @@ export function DisplayModeSection() {
     setCooldownMs,
     directAutoDisplay,
     setDirectAutoDisplay,
+    directInstantDisplay,
+    setDirectInstantDisplay,
     semanticAutoQueue,
     setSemanticAutoQueue,
     navAutoLive,
@@ -38,6 +40,17 @@ export function DisplayModeSection() {
             checked={directAutoDisplay}
             onCheckedChange={setDirectAutoDisplay}
           />
+
+          {directAutoDisplay && (
+            <div className="ml-3 border-l pl-3">
+              <ToggleCard
+                title="Instant direct display"
+                description="Display a spoken reference the moment it's recognized, instead of waiting for the sentence to finish (removes the ~1-2s pause). Applies only to direct references; the verse is confirmed as you keep speaking."
+                checked={directInstantDisplay}
+                onCheckedChange={setDirectInstantDisplay}
+              />
+            </div>
+          )}
 
           <ToggleCard
             title="Semantic verse auto-queue"

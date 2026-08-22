@@ -100,8 +100,13 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         if !results.is_empty() {
             let _ = app.emit("verse_detections_partial", &results);
             log::debug!(
-                "[DET-DIRECT] partial emitted {} in {:?}",
+                "[DET-DIRECT] partial emitted {} ({}) in {:?}",
                 results.len(),
+                results
+                    .iter()
+                    .map(|r| r.verse_ref.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 t0.elapsed()
             );
         }
