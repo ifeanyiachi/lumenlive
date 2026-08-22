@@ -140,6 +140,48 @@ export function presentDetectionLive(detection: DetectionResult): void {
   bs.takeToLive()
 }
 
+/**
+ * Preview an AI detection in the Program without going live: stage the verse
+ * into the Program preview (pinned to the "queue" source) and navigate the book
+ * panel to it — but no takeToLive, so the audience is untouched until the
+ * operator commits with the manual "Go Live" / Enter.
+ *
+ * Navigation goes through pendingNavigation with `focusPanel: false`, which the
+ * book panel resolves with the *raw* store selectVerse rather than the
+ * pin-releasing wrapper (see search-panel.tsx). That reflects the verse in the
+ * book search WITHOUT releasing the "queue" pin, so loadChapter's async
+ * chapter-reconcile can't clear the staged preview mid-audition — the flicker the
+ * previous no-navigation approach was avoiding. focusPanel is false so the audition
+ * keeps keyboard focus where the operator left it instead of grabbing the arrows.
+ */
+export function previewDetection(detection: DetectionResult): void {
+  const bible = useBibleStore.getState()
+  const verse: Verse = {
+    id: 0,
+    translation_id: bible.activeTranslationId,
+    book_number: detection.book_number,
+    book_name: detection.book_name,
+    book_abbreviation: "",
+    chapter: detection.chapter,
+    verse: detection.verse,
+    text: detection.verse_text,
+  }
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  useBroadcastStore
+    .getState()
+    .setLiveVerse(toVerseRenderData(verse, translation), "queue")
+  if (detection.book_number > 0) {
+    bible.setPendingNavigation({
+      bookNumber: detection.book_number,
+      chapter: detection.chapter,
+      verse: detection.verse,
+      focusPanel: false,
+    })
+  }
+}
+
 export async function presentSlide(slide: Slide): Promise<void> {
   const bs = useBroadcastStore.getState()
   bs.setLiveSlide(slide, "schedule")

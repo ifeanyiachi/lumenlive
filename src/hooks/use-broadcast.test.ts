@@ -5,6 +5,7 @@ import {
   deriveLiveVerse,
   presentQueueVerse,
   presentDetectionLive,
+  previewDetection,
 } from "./use-broadcast"
 
 const sampleVerse: Verse = {
@@ -138,5 +139,113 @@ describe("presentDetectionLive", () => {
     expect(bs.liveVerse).toEqual(
       expect.objectContaining({ reference: "Genesis 1:2 (KJV)" })
     )
+  })
+})
+
+describe("previewDetection", () => {
+  const detection: DetectionResult = {
+    verse_ref: "Genesis 1:2",
+    verse_text: "The earth was without form and void.",
+    book_name: "Genesis",
+    book_number: 1,
+    chapter: 1,
+    verse: 2,
+    confidence: 0.9,
+    source: "direct",
+    auto_queued: false,
+    transcript_snippet: "",
+    is_chapter_only: false,
+  }
+
+  const setupBible = () =>
+    useBibleStore.setState({
+      translations: [
+        {
+          id: 1,
+          abbreviation: "KJV",
+          title: "King James Version",
+          language: "en",
+          is_copyrighted: false,
+          is_downloaded: true,
+        },
+      ],
+      activeTranslationId: 1,
+      selectedVerse: null,
+      pendingNavigation: null,
+    })
+
+  it("stages the detection into the Program preview without going live", () => {
+    setupBible()
+    useBroadcastStore.setState({
+      liveVerse: null,
+      previewVerse: null,
+      previewPending: false,
+      broadcastSource: null,
+    })
+
+    previewDetection(detection)
+
+    const bs = useBroadcastStore.getState()
+    // Staged to preview (pending, pinned to queue) but the audience is untouched.
+    expect(bs.previewPending).toBe(true)
+    expect(bs.previewSource).toBe("queue")
+    expect(bs.previewVerse).toEqual(
+      expect.objectContaining({ reference: "Genesis 1:2 (KJV)" })
+    )
+    expect(bs.liveVerse).toBeNull()
+  })
+
+  it("navigates the book panel with focusPanel:false without releasing the pin", () => {
+    setupBible()
+    const priorSelection = { ...sampleVerse, id: 99 }
+    useBibleStore.setState({
+      selectedVerse: priorSelection,
+      pendingNavigation: null,
+    })
+    useBroadcastStore.setState({
+      previewVerse: null,
+      previewPending: false,
+    })
+
+    previewDetection(detection)
+
+    // Preview navigates the book search to the verse via pendingNavigation with
+    // focusPanel:false, which the panel resolves with the raw (non-pin-releasing)
+    // selectVerse — so the staged "queue" preview survives loadChapter's async
+    // reconcile instead of flickering off. previewDetection itself does not touch
+    // selectedVerse; the panel updates it (raw) once the chapter loads.
+    const bible = useBibleStore.getState()
+    expect(bible.selectedVerse).toBe(priorSelection)
+    expect(bible.pendingNavigation).toEqual({
+      bookNumber: detection.book_number,
+      chapter: detection.chapter,
+      verse: detection.verse,
+      focusPanel: false,
+    })
+  })
+
+  it("a released pin can't blank the live output on a later takeToLive", () => {
+    setupBible()
+    const existingLive = { reference: "Psalm 23:1 (KJV)", segments: [] }
+    useBroadcastStore.setState({
+      isLive: true,
+      liveVerse: existingLive,
+      previewVerse: null,
+      previewPending: false,
+      broadcastSource: null,
+    })
+
+    previewDetection(detection)
+    // Simulate a pin release (what a manual book-search select does):
+    // followManualSelection clears the staged preview. It must also clear
+    // previewPending — otherwise takeToLive would fire with a null previewVerse
+    // and overwrite the audience with a blank. With the pin released there is
+    // nothing to take, so the existing live verse must be left untouched.
+    useBroadcastStore.getState().followManualSelection()
+    useBroadcastStore.getState().takeToLive()
+
+    const bs = useBroadcastStore.getState()
+    expect(bs.previewPending).toBe(false)
+    expect(bs.liveVerse).toBe(existingLive)
   })
 })

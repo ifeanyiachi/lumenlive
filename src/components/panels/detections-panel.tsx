@@ -1,10 +1,10 @@
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
-import { PlayIcon, PlusIcon } from "lucide-react"
+import { EyeIcon, PlayIcon, PlusIcon } from "lucide-react"
 import { useDetection, detectionActions } from "@/hooks/use-detection"
 import { useQueueStore, useBibleStore } from "@/stores"
-import { presentDetectionLive } from "@/hooks/use-broadcast"
+import { presentDetectionLive, previewDetection } from "@/hooks/use-broadcast"
 import type { DetectionResult } from "@/types"
 
 const SOURCE_COLORS: Record<
@@ -38,6 +38,8 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
   // Present goes straight to the audience for AI detections (the one exception
   // to the stage-then-take flow); it also mirrors the verse into selection/search.
   const handlePresent = () => presentDetectionLive(detection)
+  // Preview stages the verse into the Program preview without going live.
+  const handlePreview = () => previewDetection(detection)
 
   return (
     <div className="border-b border-border p-3 last:border-0">
@@ -59,6 +61,15 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
         <Button size="sm" className="gap-1" onClick={handlePresent}>
           <PlayIcon className="size-3" />
           Present
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={handlePreview}
+        >
+          <EyeIcon className="size-3" />
+          Preview
         </Button>
         <Button
           variant="outline"

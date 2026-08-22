@@ -276,12 +276,17 @@ export const createLiveTransportSlice: StateCreator<
       )
     },
     followManualSelection: () =>
+      // Releasing the pin clears the staged preview, so there is nothing left to
+      // take: drop previewPending too. Otherwise it stays true with no staged
+      // item, leaving Go Live enabled and a later takeToLive committing a null
+      // verse over the audience (blanking the live output).
       set({
         previewVerse: null,
         previewSlide: null,
         previewMedia: null,
         previewWeb: null,
         previewSource: null,
+        previewPending: false,
         broadcastSource: null,
       }),
     setInterlinearText: (interlinearText) => set({ interlinearText }),
