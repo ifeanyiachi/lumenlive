@@ -48,7 +48,7 @@ codegen-units = 1
 
 [package]
 name = "lumenlive"
-version = "0.2.2-beta"
+version = "0.3.0"
 description = "LumenLive - Full suite church presentation and real time AI bible verse detection"
 authors = ["Ifeanyi Achi"]
 license = "PolyForm-Noncommercial-1.0.0"
