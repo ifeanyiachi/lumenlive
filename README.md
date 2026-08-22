@@ -47,10 +47,10 @@ LumenLive is a full live-production suite for worship services: build a run-of-s
 
 ### AI verse detection
 
-- **Real-time speech-to-text** via local Moonshine/sherpa-onnx (offline) or cloud Deepgram (WebSocket streaming with Bible keyterm boosting).
+- **Real-time speech-to-text** — offline on-device via sherpa-onnx (Moonshine, or a Zipformer transducer with Bible-keyterm hotword biasing) or cloud Deepgram (WebSocket streaming with Bible keyterm boosting), with automatic cloud→on-device failover.
 - **Multi-strategy detection** merged through one confidence-scored pipeline:
   - **Direct reference parsing** — Aho-Corasick automaton + fuzzy book-name matching for explicit citations ("John 3:16").
-  - **Semantic search** — local int8-quantized ONNX embeddings (Qwen3-0.6B) with vector similarity for paraphrased or quoted scripture.
+  - **Semantic search** — local int8-quantized ONNX embeddings (bge-base-en-v1.5) with vector similarity for paraphrased or quoted scripture.
   - **FTS5 keyword search** — BM25 ranking fused with vector results; agreement boosts confidence.
   - **Reading mode** — locks onto a passage and auto-advances verse-by-verse, refining chapter-only hits as the reading continues.
 - **Tunable behavior** — confidence threshold, cooldown, auto-display, and paraphrase-detection toggles.
@@ -75,6 +75,7 @@ LumenLive is a full live-production suite for worship services: build a run-of-s
 | [Bun](https://bun.sh) | Latest | Package manager and script runtime |
 | [Rust](https://rustup.rs) | Stable | Backend compilation |
 | [Tauri CLI](https://v2.tauri.app/start/create-project/) | v2 | Desktop app framework |
+| [Python](https://www.python.org/) | 3.10+ | Setup pipeline: exports the embedding model and precomputes verse embeddings (a `.venv` with torch/onnx is created automatically) |
 | [LLVM](https://releases.llvm.org/) | Latest | Required on Windows for native deps |
 | [CMake](https://cmake.org/) | Latest | Required on Windows for native deps |
 
@@ -91,7 +92,7 @@ bun install
 bun run setup:all
 ```
 
-`setup:all` is idempotent — it downloads Bible source data, builds the SQLite database, downloads the Qwen3 ONNX model, and precomputes verse embeddings, skipping any phase already complete.
+`setup:all` is idempotent — it provisions the Python `.venv`, downloads Bible source data, builds the SQLite database, exports the bge-base-en-v1.5 embedding model to int8 ONNX and precomputes verse embeddings, and downloads both on-device STT models (Moonshine + Zipformer). It skips any phase already complete. First run downloads torch and the source models, so expect several GB and a while. Running this once is what makes `bun run tauri build` succeed — all of these are required bundle resources.
 
 <details>
 <summary>Running individual setup steps</summary>
@@ -101,9 +102,10 @@ bun run setup:all
 | `bun run download:bible-data` | Download Bible translation source files |
 | `bun run build:bible` | Build the SQLite database from source files |
 | `bun run setup:lexicon` | Build the Hebrew/Greek lexicon database |
-| `bun run download:model` | Download the int8-quantized Qwen3-0.6B ONNX embedding model |
+| `bun run export:model` | Export the int8-quantized bge-base-en-v1.5 ONNX embedding model |
 | `bun run precompute:embeddings` | Precompute verse embeddings (Rust, release mode) |
 | `bun run download:sherpa` | Download the Moonshine base.en model (sherpa-onnx) for local STT |
+| `bun run download:zipformer` | Download the Zipformer transducer model (sherpa-onnx) for local STT, with Bible-keyterm hotword biasing |
 | `bun run download:ndi-sdk` | Download the NDI 6 SDK (only needed for broadcast output) |
 
 </details>
@@ -139,7 +141,7 @@ lumenlive/
 ├── src-tauri/        Rust workspace
 │   ├── crates/
 │   │   ├── audio         cpal capture, VAD, metering
-│   │   ├── stt           Deepgram (WS + REST), local Moonshine (sherpa-onnx)
+│   │   ├── stt           Deepgram (WS + REST), local sherpa-onnx (Moonshine + Zipformer)
 │   │   ├── bible         SQLite + FTS5, cross-references, lexicon
 │   │   ├── detection     Direct parsing, semantic + keyword search, merger
 │   │   ├── lyrics        Online lyrics search (LRCLIB, Genius)
@@ -160,8 +162,8 @@ lumenlive/
 | Canvas & editing | Fabric.js (theme designer), TipTap (verse editor) |
 | Import / export | JSZip (`.pptx` import), jsPDF (PDF export) |
 | Backend | Rust (workspace with 7 crates) |
-| Speech-to-text | Moonshine / sherpa-onnx (local) / Deepgram (cloud) |
-| Verse detection | Aho-Corasick + semantic embeddings (Qwen3-0.6B ONNX, int8-quantized) |
+| Speech-to-text | sherpa-onnx local (Moonshine + Zipformer transducer) / Deepgram (cloud) |
+| Verse detection | Aho-Corasick + semantic embeddings (bge-base-en-v1.5 ONNX, int8-quantized) |
 | Lyrics | LRCLIB + Genius search, OpenLyrics / OpenSong import |
 | Bible database | SQLite + FTS5 |
 | Broadcast | NDI 6 SDK via FFI |

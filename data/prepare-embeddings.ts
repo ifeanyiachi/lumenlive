@@ -8,6 +8,7 @@
  *   Phase 5 – Export KJV verses to JSON
  *   Phase 6 – Pre-compute verse embeddings (via the INT8 ONNX)
  *   Phase 7 – Download Moonshine model (sherpa-onnx) for local STT
+ *   Phase 8 – Download Zipformer transducer model (sherpa-onnx) for local STT
  *
  * Every phase is idempotent: if its output artifacts already exist it is
  * skipped. Pass --force to re-run everything regardless.
@@ -16,7 +17,7 @@
  *      bun run setup:all --force
  */
 
-import { join } from "node:path"
+import { join, dirname, delimiter } from "node:path"
 import { existsSync } from "node:fs"
 import { ensurePythonEnv, getVenvBin, PROJECT_ROOT } from "./lib/python-env"
 
@@ -38,6 +39,16 @@ const MOONSHINE_MODEL = join(
   "sherpa",
   "sherpa-onnx-moonshine-base-en-int8",
   "preprocess.onnx"
+)
+// Zipformer transducer model directory (higher-accuracy local STT). The encoder
+// ONNX is the sentinel artifact the download script writes; the bundle also
+// needs it, so `tauri build` fails without this phase having run.
+const ZIPFORMER_MODEL = join(
+  PROJECT_ROOT,
+  "models",
+  "sherpa",
+  "sherpa-onnx-zipformer-en-int8",
+  "encoder.int8.onnx"
 )
 const MODEL_INT8 = join(MODELS_DIR_INT8, "model_quantized.onnx")
 
@@ -78,7 +89,7 @@ async function main() {
   if (force) console.log("  (--force: re-running all phases)\n")
 
   // ── Phase 1: Python environment ────────────────────────────────
-  console.log("\n━━━ Phase 1/7: Python environment ━━━")
+  console.log("\n━━━ Phase 1/8: Python environment ━━━")
   await ensurePythonEnv([
     "sentence-transformers",
     "transformers",
@@ -89,22 +100,24 @@ async function main() {
     "onnx",
     "onnxscript",
     "onnxruntime",
+    // Needed by Phase 8 to generate the Zipformer `bpe.vocab` (hotword biasing).
+    "sentencepiece",
   ])
 
   // ── Phase 2: Bible source data (pre-built zip + cross-refs) ────
-  console.log("\n━━━ Phase 2/7: Download Bible source data ━━━")
+  console.log("\n━━━ Phase 2/8: Download Bible source data ━━━")
   if (!shouldSkip("Bible source data", KJV_SOURCE, CROSS_REFS)) {
     await run(["bun", "run", join(DATA_DIR, "download-sources.ts")])
   }
 
   // ── Phase 3: Build Bible database ──────────────────────────────
-  console.log("\n━━━ Phase 3/7: Build Bible database ━━━")
+  console.log("\n━━━ Phase 3/8: Build Bible database ━━━")
   if (!shouldSkip("Bible database", DB_PATH)) {
     await run(["bun", "run", join(DATA_DIR, "build-bible-db.ts")])
   }
 
   // ── Phase 4: Export bge embedding model to INT8 ONNX ───────────
-  console.log("\n━━━ Phase 4/7: Export bge embedding model (INT8 ONNX) ━━━")
+  console.log("\n━━━ Phase 4/8: Export bge embedding model (INT8 ONNX) ━━━")
   // Gate on the INT8 model alone: it is the only variant the app and the
   // precompute step load. data/export-bge-onnx.py bakes CLS pooling + L2 norm
   // into a `sentence_embedding` output and quantizes to int8.
@@ -123,7 +136,7 @@ async function main() {
   }
 
   // ── Phase 5: Export verses to JSON ─────────────────────────────
-  console.log("\n━━━ Phase 5/7: Export verses to JSON ━━━")
+  console.log("\n━━━ Phase 5/8: Export verses to JSON ━━━")
   if (!shouldSkip("verses JSON", VERSES_JSON)) {
     if (!existsSync(DB_PATH)) {
       console.error(
@@ -135,7 +148,7 @@ async function main() {
   }
 
   // ── Phase 6: Pre-compute embeddings ────────────────────────────
-  console.log("\n━━━ Phase 6/7: Pre-compute verse embeddings ━━━")
+  console.log("\n━━━ Phase 6/8: Pre-compute verse embeddings ━━━")
   if (!shouldSkip("precomputed embeddings", EMB_BIN, IDS_BIN)) {
     const venvPython = getVenvBin(
       process.platform === "win32" ? "python" : "python3"
@@ -150,9 +163,31 @@ async function main() {
   }
 
   // ── Phase 7: Moonshine (sherpa-onnx) local STT model ──────────
-  console.log("\n━━━ Phase 7/7: Download Moonshine STT model ━━━")
+  console.log("\n━━━ Phase 7/8: Download Moonshine STT model ━━━")
   if (!shouldSkip("Moonshine model", MOONSHINE_MODEL)) {
     await run(["bun", "run", join(DATA_DIR, "download-sherpa-model.ts")])
+  }
+
+  // ── Phase 8: Zipformer (sherpa-onnx) local STT model ──────────
+  // The higher-accuracy on-device engine (with Bible-keyterm hotword biasing).
+  // Also a required bundle resource, so a fork must have this before it can
+  // `bun run tauri build`. The download script generates bpe.vocab via the
+  // venv's sentencepiece (installed in Phase 1) so biasing is on.
+  console.log("\n━━━ Phase 8/8: Download Zipformer STT model ━━━")
+  if (!shouldSkip("Zipformer model", ZIPFORMER_MODEL)) {
+    // Prepend the venv bin dir to PATH so the download script's bare
+    // `python`/`python3` resolves to the venv interpreter (which has
+    // sentencepiece from Phase 1), keeping bpe.vocab biasing on.
+    const venvBinDir = dirname(
+      getVenvBin(process.platform === "win32" ? "python" : "python3")
+    )
+    await run(
+      ["bun", "run", join(DATA_DIR, "download-zipformer-model.ts")],
+      undefined,
+      {
+        PATH: `${venvBinDir}${delimiter}${process.env.PATH ?? ""}`,
+      }
+    )
   }
 
   // ── Done ───────────────────────────────────────────────────────
