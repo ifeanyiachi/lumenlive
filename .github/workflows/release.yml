@@ -27,9 +27,9 @@ permissions:
 # The pinned release holding the bundled runtime assets (see the assets-v1
 # GitHub Release). Bump this if you ever regenerate the models/DB/embeddings.
 env:
-  ASSETS_TAG: assets-v1
-  ASSETS_TAR: lumenlive-runtime-assets-v1.tar
-  ASSETS_SHA256: e9aceb0a8ef939dfa217c077b0b56c8332bcbe20f977abbbc06d4b2417c3eb6c
+  ASSETS_TAG: assets-v2
+  ASSETS_TAR: lumenlive-runtime-assets-v2.tar
+  ASSETS_SHA256: 44220030cedb45166c1dadf8b710a67eb754415fbdcde14152e30635447dae5a
 
 jobs:
   build:
