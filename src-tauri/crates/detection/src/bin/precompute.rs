@@ -2,11 +2,16 @@
 //!
 //! Usage:
 //!   cargo run -p lumenlive-detection --features onnx,vector-search --bin precompute -- \
-//!     --model models/qwen3-embedding-0.6b/model.onnx \
-//!     --tokenizer models/qwen3-embedding-0.6b/tokenizer.json \
+//!     --model models/bge-base-en-v1.5-int8/model_quantized.onnx \
+//!     --tokenizer models/bge-base-en-v1.5-int8/tokenizer.json \
 //!     --verses data/verses-for-embedding.json \
-//!     --output-embeddings embeddings/kjv-qwen3-0.6b.bin \
-//!     --output-ids embeddings/kjv-qwen3-0.6b-ids.bin
+//!     --output-embeddings embeddings/kjv-bge-base-en-v1.5.bin \
+//!     --output-ids embeddings/kjv-bge-base-en-v1.5-ids.bin
+//!
+//! Embeds verses (passages) with NO prefix — the passage side of bge's
+//! asymmetric contract. Runtime queries add the instruction prefix (see
+//! `setup.rs`). The Python path `data/precompute-embeddings-onnx.py` produces a
+//! byte-compatible index and is what currently generates the shipped `.bin`.
 
 use std::path::PathBuf;
 
@@ -24,19 +29,18 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
 
-    // Defaults point at the INT8 model — the same variant the app queries with
-    // at runtime — so the index is embedded in the query subspace. The FP32
-    // export is only the quantization source, never the embedding model.
+    // Defaults point at the INT8 bge model — the same variant the app queries
+    // with at runtime — so the index is embedded in the query subspace.
     let model_path = get_arg(&args, "--model")
-        .unwrap_or_else(|| "models/qwen3-embedding-0.6b-int8/model_quantized.onnx".to_string());
+        .unwrap_or_else(|| "models/bge-base-en-v1.5-int8/model_quantized.onnx".to_string());
     let tokenizer_path = get_arg(&args, "--tokenizer")
-        .unwrap_or_else(|| "models/qwen3-embedding-0.6b-int8/tokenizer.json".to_string());
+        .unwrap_or_else(|| "models/bge-base-en-v1.5-int8/tokenizer.json".to_string());
     let verses_path = get_arg(&args, "--verses")
         .unwrap_or_else(|| "data/verses-for-embedding.json".to_string());
     let output_embeddings = get_arg(&args, "--output-embeddings")
-        .unwrap_or_else(|| "embeddings/kjv-qwen3-0.6b.bin".to_string());
+        .unwrap_or_else(|| "embeddings/kjv-bge-base-en-v1.5.bin".to_string());
     let output_ids = get_arg(&args, "--output-ids")
-        .unwrap_or_else(|| "embeddings/kjv-qwen3-0.6b-ids.bin".to_string());
+        .unwrap_or_else(|| "embeddings/kjv-bge-base-en-v1.5-ids.bin".to_string());
 
     log::info!("=== LumenLive Verse Embedding Pre-computation ===");
     log::info!("Model: {model_path}");
@@ -50,10 +54,11 @@ fn main() {
         std::fs::create_dir_all(parent).expect("Failed to create output directory");
     }
 
-    // Load the ONNX model. No prompt prefix is applied: Qwen3-Embedding uses a
-    // symmetric no-prefix contract for both verses and runtime queries, matching
-    // the Python generators (data/precompute-embeddings*.py). These outputs must
-    // stay interchangeable with the runtime query embeddings.
+    // Load the ONNX model with NO prompt prefix — the passage side of bge's
+    // asymmetric contract (verses carry no prefix; runtime queries add the
+    // instruction prefix, see setup.rs). Matches the Python generators
+    // (data/precompute-embeddings-onnx.py) so this index stays interchangeable
+    // with the runtime query embeddings.
     log::info!("Loading ONNX model...");
     let embedder = lumenlive_detection::OnnxEmbedder::load(
         &PathBuf::from(&model_path),

@@ -25,13 +25,15 @@ from tokenizers import Tokenizer
 # ── Paths ───────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 VERSES_PATH = ROOT / "data" / "verses-for-embedding.json"
-EMB_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b.bin"
-IDS_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b-ids.bin"
+EMB_OUT = ROOT / "embeddings" / "kjv-bge-base-en-v1.5.bin"
+IDS_OUT = ROOT / "embeddings" / "kjv-bge-base-en-v1.5-ids.bin"
 
-# Try INT8 first, fall back to FP32
-MODEL_INT8 = ROOT / "models" / "qwen3-embedding-0.6b-int8" / "model_quantized.onnx"
-MODEL_FP32 = ROOT / "models" / "qwen3-embedding-0.6b" / "model.onnx"
-TOKENIZER_PATH = ROOT / "models" / "qwen3-embedding-0.6b" / "tokenizer.json"
+# bge-base-en-v1.5 int8, exported by data/export-bge-onnx.py with CLS pooling +
+# L2 norm baked into a `sentence_embedding` output. Same int8 model the runtime
+# OnnxEmbedder loads, so query and index share one subspace.
+MODEL_INT8 = ROOT / "models" / "bge-base-en-v1.5-int8" / "model_quantized.onnx"
+MODEL_FP32 = ROOT / "models" / "bge-base-en-v1.5-int8" / "model.onnx"  # not used; int8 is authoritative
+TOKENIZER_PATH = ROOT / "models" / "bge-base-en-v1.5-int8" / "tokenizer.json"
 
 MAX_LENGTH = 128  # Bible verses are short (~20 tokens avg). 128 is plenty and 4x faster than 512.
 BATCH_SIZE = 32
@@ -85,10 +87,10 @@ def main():
     print(f"  {len(entries)} verses loaded")
 
     ids = [e["id"] for e in entries]
-    # CANONICAL PREFIX CONTRACT: verses are embedded with NO prefix. Qwen3-Embedding
-    # uses a symmetric no-prefix contract; the Rust runtime (OnnxEmbedder) also applies
-    # no prefix, so these embeddings stay in the same subspace as runtime queries. Do
-    # NOT add a "passage:"/"query:" prefix here — it would silently degrade relevance.
+    # CANONICAL PREFIX CONTRACT (bge, asymmetric): verses (passages) are embedded
+    # with NO prefix. Runtime QUERIES get bge's retrieval instruction prefix,
+    # applied by the Rust OnnxEmbedder (see setup.rs / onnx_embedder.rs). Passages
+    # must stay prefix-free here or they land in a different subspace than queries.
     texts = [e["text"] for e in entries]
 
     # Process in batches

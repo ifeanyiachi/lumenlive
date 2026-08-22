@@ -4,9 +4,9 @@
  *   Phase 1 – Python environment (.venv + all pip deps)
  *   Phase 2 – Download Bible data (pre-built zip + cross-refs)
  *   Phase 3 – Build lumenlive.db (SQLite + FTS5)
- *   Phase 4 – Download & export ONNX model + INT8 quantization
+ *   Phase 4 – Export bge-base-en-v1.5 embedding model to INT8 ONNX
  *   Phase 5 – Export KJV verses to JSON
- *   Phase 6 – Pre-compute verse embeddings
+ *   Phase 6 – Pre-compute verse embeddings (via the INT8 ONNX)
  *   Phase 7 – Download Moonshine model (sherpa-onnx) for local STT
  *
  * Every phase is idempotent: if its output artifacts already exist it is
@@ -18,24 +18,18 @@
 
 import { join } from "node:path"
 import { existsSync } from "node:fs"
-import { rm } from "node:fs/promises"
 import { ensurePythonEnv, getVenvBin, PROJECT_ROOT } from "./lib/python-env"
 
 // ── Paths ────────────────────────────────────────────────────────────
 const DATA_DIR = join(PROJECT_ROOT, "data")
-const MODELS_DIR = join(PROJECT_ROOT, "models", "qwen3-embedding-0.6b")
-const MODELS_DIR_INT8 = join(
-  PROJECT_ROOT,
-  "models",
-  "qwen3-embedding-0.6b-int8"
-)
+const MODELS_DIR_INT8 = join(PROJECT_ROOT, "models", "bge-base-en-v1.5-int8")
 
 const KJV_SOURCE = join(DATA_DIR, "sources", "KJV.json")
 const CROSS_REFS = join(DATA_DIR, "cross-refs", "cross_references.txt")
 const DB_PATH = join(DATA_DIR, "lumenlive.db")
 const VERSES_JSON = join(DATA_DIR, "verses-for-embedding.json")
-const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-qwen3-0.6b.bin")
-const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-qwen3-0.6b-ids.bin")
+const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-bge-base-en-v1.5.bin")
+const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-bge-base-en-v1.5-ids.bin")
 // Moonshine base.en int8 model directory (local STT via sherpa-onnx). The
 // preprocessor ONNX is the sentinel artifact the download script writes last.
 const MOONSHINE_MODEL = join(
@@ -45,7 +39,6 @@ const MOONSHINE_MODEL = join(
   "sherpa-onnx-moonshine-base-en-int8",
   "preprocess.onnx"
 )
-const MODEL_ONNX = join(MODELS_DIR, "model.onnx")
 const MODEL_INT8 = join(MODELS_DIR_INT8, "model_quantized.onnx")
 
 const force = process.argv.includes("--force")
@@ -87,12 +80,15 @@ async function main() {
   // ── Phase 1: Python environment ────────────────────────────────
   console.log("\n━━━ Phase 1/7: Python environment ━━━")
   await ensurePythonEnv([
-    "optimum-onnx[onnxruntime]",
     "sentence-transformers",
+    "transformers",
     "accelerate",
     "tokenizers",
     "numpy",
     "torch",
+    "onnx",
+    "onnxscript",
+    "onnxruntime",
   ])
 
   // ── Phase 2: Bible source data (pre-built zip + cross-refs) ────
@@ -107,60 +103,23 @@ async function main() {
     await run(["bun", "run", join(DATA_DIR, "build-bible-db.ts")])
   }
 
-  // ── Phase 4: ONNX model download + quantize ────────────────────
-  console.log("\n━━━ Phase 4/7: ONNX model download & quantize ━━━")
+  // ── Phase 4: Export bge embedding model to INT8 ONNX ───────────
+  console.log("\n━━━ Phase 4/7: Export bge embedding model (INT8 ONNX) ━━━")
   // Gate on the INT8 model alone: it is the only variant the app and the
-  // precompute step load. The FP32 export is a transient quantization source
-  // that this phase deletes once INT8 exists, so its absence must not force a
-  // re-download when setup is already complete.
-  if (!shouldSkip("ONNX models", MODEL_INT8)) {
-    const optimumCli = getVenvBin("optimum-cli")
-
-    // Export FP32
-    if (force || !existsSync(MODEL_ONNX)) {
-      console.log(
-        "\n  🧠 Exporting Qwen3-Embedding-0.6B to ONNX (feature-extraction)..."
-      )
-      console.log("     This may take a few minutes on first run.\n")
-      await run([
-        optimumCli,
-        "export",
-        "onnx",
-        "--model",
-        "Qwen/Qwen3-Embedding-0.6B",
-        "--task",
-        "feature-extraction",
-        MODELS_DIR,
-      ])
-      console.log(`  ✓ Model exported to ${MODELS_DIR}`)
-    }
-
-    // Quantize to INT8
-    if (force || !existsSync(MODEL_INT8)) {
-      console.log("\n  ⚡ Quantizing to INT8 (ARM64)...")
-      try {
-        await run([
-          optimumCli,
-          "onnxruntime",
-          "quantize",
-          "--onnx_model",
-          MODELS_DIR,
-          "--arm64",
-          "-o",
-          MODELS_DIR_INT8,
-        ])
-        console.log(`  ✓ INT8 model saved to ${MODELS_DIR_INT8}`)
-
-        // INT8 is self-contained; the FP32 export was only the quantize source.
-        // Drop its ~4.8 GB now that INT8 exists (mirrors download-model.ts).
-        console.log("  🧹 Removing the FP32 export (quantize source only)...")
-        await rm(MODELS_DIR, { recursive: true, force: true })
-      } catch {
-        console.error(
-          "  ❌ Quantization failed — the app requires the INT8 model; semantic search stays disabled until it exists."
-        )
-      }
-    }
+  // precompute step load. data/export-bge-onnx.py bakes CLS pooling + L2 norm
+  // into a `sentence_embedding` output and quantizes to int8.
+  if (!shouldSkip("ONNX model", MODEL_INT8)) {
+    const venvPython = getVenvBin(
+      process.platform === "win32" ? "python" : "python3"
+    )
+    console.log(
+      "\n  🧠 Exporting BAAI/bge-base-en-v1.5 to INT8 ONNX (CLS pooling + L2 norm)..."
+    )
+    console.log("     Downloads the model on first run.\n")
+    await run([venvPython, join(DATA_DIR, "export-bge-onnx.py")], undefined, {
+      PYTHONUTF8: "1",
+    })
+    console.log(`  ✓ INT8 model saved to ${MODELS_DIR_INT8}`)
   }
 
   // ── Phase 5: Export verses to JSON ─────────────────────────────
@@ -181,9 +140,10 @@ async function main() {
     const venvPython = getVenvBin(
       process.platform === "win32" ? "python" : "python3"
     )
-    // Use sentence-transformers + MPS GPU (much faster than ONNX CPU)
+    // Embed via the exact INT8 ONNX the app loads (reads its `sentence_embedding`
+    // output → correct CLS pooling), so index and runtime queries share a subspace.
     await run(
-      [venvPython, join(DATA_DIR, "precompute-embeddings.py")],
+      [venvPython, join(DATA_DIR, "precompute-embeddings-onnx.py")],
       undefined,
       { PYTHONUTF8: "1" }
     )

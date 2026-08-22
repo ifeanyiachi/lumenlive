@@ -138,6 +138,10 @@ pub fn init_bible_db(app: &tauri::App) -> SetupResult {
 /// Load the ONNX embedding model and pre-computed verse index into the managed
 /// `DetectionPipeline`. Every failure here degrades (semantic search disabled) —
 /// it is an optional enhancement, so this never aborts startup.
+/// bge-base-en-v1.5's retrieval instruction, prepended to runtime query text
+/// (the query side of the asymmetric prefix contract; verses get no prefix).
+const BGE_QUERY_PREFIX: &str = "Represent this sentence for searching relevant passages: ";
+
 pub fn init_semantic(app: &tauri::App) {
     // Traits for `embedder.dimension()` / `index.len()`; declared before any
     // statement per clippy::items_after_statements.
@@ -159,23 +163,31 @@ pub fn init_semantic(app: &tauri::App) {
         }
         dev_base.join(rel)
     };
-    // The app uses the INT8 quantized Qwen3 embedding model exclusively: it is the
-    // only variant bundled into the installer (tauri.conf.json) and the
-    // pre-computed verse index is embedded with the same model, so query and index
-    // share one subspace. The FP32 export exists only transiently as the
-    // quantization source during setup and is never loaded at runtime. A missing
-    // model is handled by the exists() guard below (semantic search is disabled).
-    let model_path = resolve("models/qwen3-embedding-0.6b-int8/model_quantized.onnx");
-    let tokenizer_path = resolve("models/qwen3-embedding-0.6b-int8/tokenizer.json");
-    let embeddings_path = resolve("embeddings/kjv-qwen3-0.6b.bin");
-    let ids_path = resolve("embeddings/kjv-qwen3-0.6b-ids.bin");
+    // The app uses the INT8 bge-base-en-v1.5 embedding model exclusively: it is
+    // the only variant bundled into the installer (tauri.conf.json) and the
+    // pre-computed verse index is embedded with the same model (see
+    // data/export-bge-onnx.py + precompute-embeddings-onnx.py), so query and
+    // index share one subspace. A missing model is handled by the exists() guard
+    // below (semantic search is disabled).
+    let model_path = resolve("models/bge-base-en-v1.5-int8/model_quantized.onnx");
+    let tokenizer_path = resolve("models/bge-base-en-v1.5-int8/tokenizer.json");
+    let embeddings_path = resolve("embeddings/kjv-bge-base-en-v1.5.bin");
+    let ids_path = resolve("embeddings/kjv-bge-base-en-v1.5-ids.bin");
 
     if !(model_path.exists() && tokenizer_path.exists()) {
         log::info!("ONNX model not found. Semantic search disabled. Run 'bun run download:model' to download.");
         return;
     }
 
-    let embedder = match lumenlive_detection::OnnxEmbedder::load(&model_path, &tokenizer_path) {
+    // bge is asymmetric: passages (verses) are embedded with no prefix, runtime
+    // QUERIES carry BGE_QUERY_PREFIX. The pre-computed index was built
+    // prefix-free, so the query side must add exactly this — see the prefix
+    // contract on `OnnxEmbedder`.
+    let embedder = match lumenlive_detection::OnnxEmbedder::load_with_prefix(
+        &model_path,
+        &tokenizer_path,
+        BGE_QUERY_PREFIX,
+    ) {
         Ok(embedder) => {
             log::info!("ONNX embedding model loaded");
             embedder
@@ -197,10 +209,10 @@ pub fn init_semantic(app: &tauri::App) {
         Err(e) => log::warn!("ONNX warm-up embed failed (non-fatal): {e}"),
     }
 
-    // Qwen3-Embedding uses a symmetric no-prefix contract: verse embeddings are
-    // pre-computed with no prefix, so live query text must also carry no prefix
-    // (any prefix would place queries in a different subspace than the verses).
-    // The prefix knob was removed from OnnxEmbedder so this can no longer drift.
+    // bge is asymmetric: verse embeddings are pre-computed with no prefix, while
+    // live query text carries the retrieval instruction (applied by the embedder,
+    // constructed with BGE_QUERY_PREFIX above). Both sides must match or queries
+    // land in a different subspace than the verses.
     let managed_pipeline = app.state::<Mutex<lumenlive_detection::DetectionPipeline>>();
     let Ok(mut pipeline) = managed_pipeline.lock() else {
         log::warn!("DetectionPipeline lock poisoned during startup — semantic search disabled");

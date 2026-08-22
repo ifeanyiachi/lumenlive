@@ -29,21 +29,27 @@ use super::embedder::TextEmbedder;
 /// `Send` but not `Sync`, so we wrap both in separate `Mutex`es to satisfy
 /// the `&self` signature of the `TextEmbedder` trait.
 ///
-/// # Canonical prefix contract
+/// # Canonical prefix contract (bge, asymmetric)
 ///
-/// This embedder **never** prepends a prompt prefix. Qwen3-Embedding uses a
-/// symmetric no-prefix contract for both queries and documents (unlike the E5
-/// `"query: "`/`"passage: "` scheme, which uses tokens Qwen3 was not trained
-/// on). Verse embeddings are pre-computed with no prefix (see the Python
-/// generators and `bin/precompute.rs`), so runtime query text must also carry
-/// no prefix or similarities are computed across mismatched subspaces. The
-/// prefix knob was removed so this contract cannot silently drift again.
+/// bge-*-en-v1.5 is an **asymmetric** retriever: passages (verses) are embedded
+/// with **no prefix**, while queries carry a short retrieval instruction. This
+/// embedder applies [`Self::query_prefix`] to every text it embeds, so the
+/// caller controls the side:
+/// - **Precompute** (verses) constructs via [`Self::load`] → empty prefix.
+/// - **Runtime** (spoken queries) constructs via [`Self::load_with_prefix`] with
+///   bge's query instruction (see `setup.rs`).
+///
+/// Query and index must use exactly this split, or similarities are computed
+/// across mismatched subspaces. Keep the passage side prefix-free.
 #[cfg(feature = "onnx")]
 pub struct OnnxEmbedder {
     session: Mutex<Session>,
     tokenizer: Mutex<Tokenizer>,
     dim: usize,
     has_position_ids: bool,
+    /// Prepended to every embedded text. Empty for passages (precompute),
+    /// bge's instruction for queries (runtime). See the prefix contract above.
+    query_prefix: String,
 }
 
 // Safety: Tokenizer is Send but not Sync by default.  We never share
@@ -61,11 +67,23 @@ impl OnnxEmbedder {
     /// MUST match the Python precompute script (data/precompute-embeddings-onnx.py `MAX_LENGTH`).
     const MAX_TOKENS: usize = 128;
 
-    /// Load an ONNX model and its tokenizer from disk.
+    /// Load an ONNX model and its tokenizer with **no** query prefix — the
+    /// passage side of the contract (used by precompute to embed verses).
     ///
     /// `model_path` should point to a `.onnx` file and `tokenizer_path`
     /// to a `tokenizer.json` file (`HuggingFace` format).
     pub fn load(model_path: &Path, tokenizer_path: &Path) -> Result<Self, DetectionError> {
+        Self::load_with_prefix(model_path, tokenizer_path, "")
+    }
+
+    /// Load an ONNX model and tokenizer, prepending `query_prefix` to every
+    /// embedded text — the query side of the contract (runtime). Pass bge's
+    /// retrieval instruction here; pass `""` for the passage side.
+    pub fn load_with_prefix(
+        model_path: &Path,
+        tokenizer_path: &Path,
+        query_prefix: &str,
+    ) -> Result<Self, DetectionError> {
         // Determine thread counts: use half of available CPUs for intra-op
         let num_cpus = std::thread::available_parallelism()
             .map_or(4, std::num::NonZero::get);
@@ -164,18 +182,21 @@ impl OnnxEmbedder {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "dim validated to be positive and small")]
             dim: dim as usize,
             has_position_ids,
+            query_prefix: query_prefix.to_string(),
         })
     }
 
     /// Embed a single text string.
     ///
-    /// No prompt prefix is applied — see the [`OnnxEmbedder`] canonical prefix
-    /// contract. Steps:
-    /// 1. Tokenize (pad / truncate to `MAX_TOKENS`).
+    /// [`Self::query_prefix`] is prepended first (empty for passages, bge's
+    /// instruction for queries — see the [`OnnxEmbedder`] prefix contract).
+    /// Steps:
+    /// 1. Prepend the query prefix, then tokenize (pad / truncate to `MAX_TOKENS`).
     /// 2. Build `input_ids` and `attention_mask` tensors.
     /// 3. Run ONNX inference.
     /// 4. Mean-pool the last hidden state over the attention mask.
     /// 5. L2-normalise the resulting vector.
+    #[expect(clippy::too_many_lines, reason = "one linear tokenize→infer→pool→normalize path; splitting it would scatter the tensor-shape handling it exists to keep together")]
     fn embed_impl(&self, text: &str) -> Result<Vec<f32>, DetectionError> {
         let embed_start = std::time::Instant::now();
 
@@ -183,8 +204,17 @@ impl OnnxEmbedder {
             .tokenizer
             .lock()
             .map_err(|e| DetectionError::Internal(format!("tokenizer lock: {e}")))?;
+        // Prepend the query prefix (empty for the passage side; bge's retrieval
+        // instruction for the query side). Avoid an allocation when empty.
+        let prefixed;
+        let text_to_embed: &str = if self.query_prefix.is_empty() {
+            text
+        } else {
+            prefixed = format!("{}{text}", self.query_prefix);
+            prefixed.as_str()
+        };
         let encoding = tokenizer
-            .encode(text, true)
+            .encode(text_to_embed, true)
             .map_err(|e| DetectionError::Internal(format!("tokenize: {e}")))?;
         drop(tokenizer);
 
