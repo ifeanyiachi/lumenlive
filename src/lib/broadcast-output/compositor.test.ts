@@ -55,9 +55,14 @@ vi.mock("./overlays", () => ({
 // The scripture-slide seam is exercised in its own suite; here we only assert the
 // compositor routes a live scripture slide through the slide path (flip RF2).
 vi.mock("./scripture-slide", () => ({
-  buildScriptureContent: vi.fn(() => new Map([["s", { verse: {}, style: {} }]])),
+  buildScriptureContent: vi.fn(
+    () => new Map([["s", { verse: {}, style: {} }]])
+  ),
   // The base backdrop is now painted via renderSlide over this slide (RF3a).
-  buildBaseSlide: vi.fn(() => ({ name: "base", background: { type: "solid" } })),
+  buildBaseSlide: vi.fn(() => ({
+    name: "base",
+    background: { type: "solid" },
+  })),
 }))
 
 vi.mock("@/lib/slide-animation", () => ({

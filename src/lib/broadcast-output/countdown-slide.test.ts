@@ -80,7 +80,12 @@ describe("buildCountdownSlide", () => {
   })
 
   it("synthesises the label heading from the runtime timer label", () => {
-    const slide = buildCountdownSlide(timer({ label: "Doors open" }), theme, countdown, 11000)
+    const slide = buildCountdownSlide(
+      timer({ label: "Doors open" }),
+      theme,
+      countdown,
+      11000
+    )
     const label = slide.elements.find((e) => e.type === "text")
     expect(label).toBeDefined()
     if (label?.type === "text") expect(label.text).toBe("Doors open")
@@ -97,7 +102,10 @@ describe("buildCountdownSlide", () => {
 
   it("rebuilds when the theme identity changes", () => {
     const first = buildCountdownSlide(timer(), theme, countdown, 11000)
-    const other: Theme = { ...theme, background: { type: "solid", color: "#111" } }
+    const other: Theme = {
+      ...theme,
+      background: { type: "solid", color: "#111" },
+    }
     const second = buildCountdownSlide(timer(), other, countdown, 11000)
     expect(second).not.toBe(first)
   })

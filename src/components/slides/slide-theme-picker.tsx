@@ -78,9 +78,7 @@ export function SlideThemePicker() {
   )
 
   const filtered =
-    typeFilter === "all"
-      ? themes
-      : themes.filter((t) => t.type === typeFilter)
+    typeFilter === "all" ? themes : themes.filter((t) => t.type === typeFilter)
 
   const selectedTheme = themes.find((t) => t.id === selectedThemeId)
 

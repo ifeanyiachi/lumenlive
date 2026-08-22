@@ -36,7 +36,12 @@ export function scriptureElementToVerseStyle(
 ): VerseStyle {
   const fontStyle: TextStyle["fontStyle"] = el.italic ? "italic" : "normal"
   const shadow = el.shadow
-    ? { color: el.shadow.color, blur: el.shadow.blur, x: el.shadow.offsetX, y: el.shadow.offsetY }
+    ? {
+        color: el.shadow.color,
+        blur: el.shadow.blur,
+        x: el.shadow.offsetX,
+        y: el.shadow.offsetY,
+      }
     : null
 
   const verseText: TextStyle = {
@@ -51,7 +56,9 @@ export function scriptureElementToVerseStyle(
     lineHeight: el.lineHeight,
     letterSpacing: el.letterSpacing ?? 0,
     shadow,
-    outline: el.outline ? { width: el.outline.width, color: el.outline.color } : null,
+    outline: el.outline
+      ? { width: el.outline.width, color: el.outline.color }
+      : null,
   }
 
   // Reference reuses the body's font family/weight (the placeholder does not carry a

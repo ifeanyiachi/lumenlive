@@ -1,7 +1,4 @@
-import type {
-  SlideTextElement,
-  SlideTimerElement,
-} from "@/types/slide"
+import type { SlideTextElement, SlideTimerElement } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import { themeToSlide } from "../render"
 import { findTimerElement } from "../model"
@@ -44,7 +41,8 @@ export function presentCountdown(
     }
     if (content.format !== undefined) timer.format = content.format
     if (content.overtime !== undefined) timer.overtime = content.overtime
-    if (content.warnSeconds !== undefined) timer.warnSeconds = content.warnSeconds
+    if (content.warnSeconds !== undefined)
+      timer.warnSeconds = content.warnSeconds
     if (content.dangerSeconds !== undefined) {
       timer.dangerSeconds = content.dangerSeconds
     }

@@ -31,7 +31,12 @@ describe("scriptureElementToVerseStyle", () => {
       lineHeight: 1.3,
       referenceFontSize: 32,
       referenceColor: "#cccccc",
-      verseNumbers: { visible: true, fontSize: 24, color: "#ffcc00", superscript: true },
+      verseNumbers: {
+        visible: true,
+        fontSize: 24,
+        color: "#ffcc00",
+        superscript: true,
+      },
       referenceUppercase: true,
       referencePosition: "above",
       breakPerVerse: true,
@@ -88,5 +93,3 @@ describe("scriptureElementToVerseStyle", () => {
     expect(style.textBox.enabled).toBe(false)
   })
 })
-
-

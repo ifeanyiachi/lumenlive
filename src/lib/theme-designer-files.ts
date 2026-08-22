@@ -106,4 +106,3 @@ export async function pickMediaFile(): Promise<string | null> {
   if (!selected) return null
   return typeof selected === "string" ? selected : selected
 }
-

@@ -53,7 +53,7 @@ export function SongThemeProperties({
           />
         </Section>
       ) : (
-        <MissingPlaceholder what='a lyrics placeholder' />
+        <MissingPlaceholder what="a lyrics placeholder" />
       )}
       <SelectElementHint />
     </ThemePanelShell>

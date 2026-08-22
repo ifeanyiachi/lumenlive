@@ -95,10 +95,7 @@ export function anchorPosition(
   return { x: x + offsetX, y: y + offsetY }
 }
 
-function buildScaledTheme(
-  theme: VerseStyle,
-  scale: number
-): VerseStyle {
+function buildScaledTheme(theme: VerseStyle, scale: number): VerseStyle {
   // Fast path: the broadcast output renders at scale 1 every frame, so skip the
   // full deep-clone-and-multiply (pure garbage churn in the RAF hot path).
   if (scale === 1) return theme

@@ -62,12 +62,12 @@ export function AnnouncementThemeProperties({
       {title ? (
         <TextRoleSection label="Title" element={title} maxSize={160} />
       ) : (
-        <MissingPlaceholder what='a title placeholder' />
+        <MissingPlaceholder what="a title placeholder" />
       )}
       {body ? (
         <TextRoleSection label="Body" element={body} maxSize={120} />
       ) : (
-        <MissingPlaceholder what='a body placeholder' />
+        <MissingPlaceholder what="a body placeholder" />
       )}
       <SelectElementHint />
     </ThemePanelShell>

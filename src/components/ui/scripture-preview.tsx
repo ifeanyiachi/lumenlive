@@ -70,8 +70,7 @@ export function ScripturePreview({
   const scriptureContent = useMemo(() => {
     if (!slide || !verse) return undefined
     const el = slide.elements.find((e) => e.type === "scripture") as
-      | SlideScriptureElement
-      | undefined
+      SlideScriptureElement | undefined
     if (!el) return undefined
     const map = new Map<string, ScriptureRenderPayload>()
     map.set(el.id, {

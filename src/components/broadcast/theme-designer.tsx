@@ -331,8 +331,8 @@ export function ThemeDesigner() {
                     Discard unsaved changes?
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    This theme has unsaved edits. Continuing will lose them. This
-                    action cannot be undone.
+                    This theme has unsaved edits. Continuing will lose them.
+                    This action cannot be undone.
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-2">

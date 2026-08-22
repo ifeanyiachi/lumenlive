@@ -86,7 +86,9 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         const activeThemeId =
           findOutput(useBroadcastStore.getState().outputs, "main")?.themeId ??
           ""
-        const themes = buildThemeRegistry(useThemesStore.getState().customThemes)
+        const themes = buildThemeRegistry(
+          useThemesStore.getState().customThemes
+        )
         const theme =
           resolveScriptureTheme(activeThemeId, themes) ??
           themes.find((t) => t.type === "scripture")
@@ -110,8 +112,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
           () => "thumb-scripture"
         )[0].slide
         const el = slide.elements.find((e) => e.type === "scripture") as
-          | SlideScriptureElement
-          | undefined
+          SlideScriptureElement | undefined
         const scriptureContent = el
           ? new Map<string, ScriptureRenderPayload>([
               [
@@ -257,14 +258,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         break
       }
     }
-  }, [
-    item,
-    presentation,
-    mediaAsset,
-    song,
-    songSlideDefaults,
-    customThemes,
-  ])
+  }, [item, presentation, mediaAsset, song, songSlideDefaults, customThemes])
 
   useEffect(() => {
     drawRef.current = draw

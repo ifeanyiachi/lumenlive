@@ -37,7 +37,12 @@ export const ANNOUNCEMENT_BUILTIN: Theme = {
       "announcement-body",
       "body",
       { x: 12, y: 42, width: 76, height: 44 },
-      { text: "Details go here.", fontSize: 40, fontWeight: 400, lineHeight: 1.5 }
+      {
+        text: "Details go here.",
+        fontSize: 40,
+        fontWeight: 400,
+        lineHeight: 1.5,
+      }
     ),
   ],
 }

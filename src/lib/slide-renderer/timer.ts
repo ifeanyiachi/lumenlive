@@ -42,7 +42,11 @@ export function computeTimerDisplay(
 ): { text: string; color: string } {
   const remaining = computeTimerRemaining(element, now)
   return {
-    text: formatCountdownTime(remaining, element.format, element.overtime ?? false),
+    text: formatCountdownTime(
+      remaining,
+      element.format,
+      element.overtime ?? false
+    ),
     color: resolveTimeColor(remaining, {
       textColor: element.color,
       warnSeconds: element.warnSeconds,

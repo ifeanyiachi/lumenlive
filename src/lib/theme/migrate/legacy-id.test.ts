@@ -7,7 +7,9 @@ describe("legacyThemeIdAlias", () => {
     expect(legacyThemeIdAlias("builtin-parchment")).toBe("builtin-scripture")
     expect(legacyThemeIdAlias("builtin-worship-night")).toBe("builtin-song")
     expect(legacyThemeIdAlias("builtin-sermon-clean")).toBe("builtin-sermon")
-    expect(legacyThemeIdAlias("builtin-lower-third-dark")).toBe("builtin-overlay")
+    expect(legacyThemeIdAlias("builtin-lower-third-dark")).toBe(
+      "builtin-overlay"
+    )
     expect(legacyThemeIdAlias("builtin-countdown-midnight")).toBe(
       "builtin-countdown"
     )
@@ -22,9 +24,13 @@ describe("legacyThemeIdAlias", () => {
   })
 
   it("maps each named song look to its specific Song-library recreation", () => {
-    expect(legacyThemeIdAlias("theme-lyric-glow")).toBe("builtin-song-lyric-glow")
+    expect(legacyThemeIdAlias("theme-lyric-glow")).toBe(
+      "builtin-song-lyric-glow"
+    )
     expect(legacyThemeIdAlias("theme-hymnal")).toBe("builtin-song-hymnal")
-    expect(legacyThemeIdAlias("theme-aurora-worship")).toBe("builtin-song-aurora")
+    expect(legacyThemeIdAlias("theme-aurora-worship")).toBe(
+      "builtin-song-aurora"
+    )
     expect(legacyThemeIdAlias("theme-golden-bokeh")).toBe("builtin-song-bokeh")
     expect(legacyThemeIdAlias("theme-flowing-grace")).toBe("builtin-song-drift")
   })

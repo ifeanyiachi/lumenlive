@@ -8,7 +8,13 @@ import type { VerseStyle } from "@/types/broadcast"
  */
 export const CLASSIC_VERSE_STYLE: VerseStyle = {
   resolution: { width: 1920, height: 1080 },
-  textBox: { enabled: false, color: "#000000", opacity: 0, borderRadius: 0, padding: 0 },
+  textBox: {
+    enabled: false,
+    color: "#000000",
+    opacity: 0,
+    borderRadius: 0,
+    padding: 0,
+  },
   verseText: {
     fontFamily: "Source Serif 4 Variable",
     fontSize: 72,
@@ -23,7 +29,12 @@ export const CLASSIC_VERSE_STYLE: VerseStyle = {
     shadow: null,
     outline: null,
   },
-  verseNumbers: { visible: true, fontSize: 20, color: "#d4a574", superscript: false },
+  verseNumbers: {
+    visible: true,
+    fontSize: 20,
+    color: "#d4a574",
+    superscript: false,
+  },
   reference: {
     fontFamily: "Geist Variable",
     fontSize: 48,

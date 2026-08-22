@@ -32,10 +32,7 @@ export const OverlayCanvas = memo(function OverlayCanvas({
 }) {
   const props = useBroadcastStore((s) => s.props)
   const customThemes = useThemesStore((s) => s.customThemes)
-  const themes = useMemo(
-    () => buildThemeRegistry(customThemes),
-    [customThemes]
-  )
+  const themes = useMemo(() => buildThemeRegistry(customThemes), [customThemes])
   const activeAlerts = useAlertStore((s) => s.activeAlerts)
   const alertTemplates = useAlertStore((s) => s.templates)
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)

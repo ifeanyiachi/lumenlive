@@ -141,7 +141,10 @@ export function ShadowSection({
               step={1}
             />
           </PropertyRow>
-          <ColorRow value={s.color} onChange={(color) => onChange({ ...s, color })} />
+          <ColorRow
+            value={s.color}
+            onChange={(color) => onChange({ ...s, color })}
+          />
         </>
       )}
     </div>
@@ -176,7 +179,10 @@ export function OutlineSection({
               step={1}
             />
           </PropertyRow>
-          <ColorRow value={o.color} onChange={(color) => onChange({ ...o, color })} />
+          <ColorRow
+            value={o.color}
+            onChange={(color) => onChange({ ...o, color })}
+          />
         </>
       )}
     </div>

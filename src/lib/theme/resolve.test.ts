@@ -75,16 +75,24 @@ describe("resolveCountdownTheme", () => {
   })
 
   it("returns undefined for a custom-styled timer", () => {
-    expect(resolveCountdownTheme(timer({ styleMode: "custom" }), themes)).toBeUndefined()
+    expect(
+      resolveCountdownTheme(timer({ styleMode: "custom" }), themes)
+    ).toBeUndefined()
   })
 
   it("returns undefined for a dangling or missing themeId", () => {
-    expect(resolveCountdownTheme(timer({ themeId: "gone" }), themes)).toBeUndefined()
-    expect(resolveCountdownTheme(timer({ themeId: undefined }), themes)).toBeUndefined()
+    expect(
+      resolveCountdownTheme(timer({ themeId: "gone" }), themes)
+    ).toBeUndefined()
+    expect(
+      resolveCountdownTheme(timer({ themeId: undefined }), themes)
+    ).toBeUndefined()
   })
 
   it("does not resolve a non-countdown theme of the same id", () => {
-    const songThemed: Theme[] = [{ ...countdownTheme("custom-cd"), type: "song" }]
+    const songThemed: Theme[] = [
+      { ...countdownTheme("custom-cd"), type: "song" },
+    ]
     expect(resolveCountdownTheme(timer(), songThemed)).toBeUndefined()
   })
 })
@@ -127,8 +135,11 @@ describe("resolveBaseTheme (new-model / RF3a)", () => {
 
   it("kind:theme → the referenced theme (any type), via the alias", () => {
     expect(
-      resolveBaseTheme({ kind: "theme", themeId: "other-theme" }, output, themes)
-        .id
+      resolveBaseTheme(
+        { kind: "theme", themeId: "other-theme" },
+        output,
+        themes
+      ).id
     ).toBe("other-theme")
     // A legacy built-in id aliases to its new built-in.
     const pool = [output, scriptureTheme("builtin-scripture")]
@@ -155,7 +166,11 @@ describe("resolveBaseTheme (new-model / RF3a)", () => {
       image: null,
       video: null,
     }
-    const result = resolveBaseTheme({ kind: "background", background: bg }, output, themes)
+    const result = resolveBaseTheme(
+      { kind: "background", background: bg },
+      output,
+      themes
+    )
     expect(result.id).toBe("base-background")
     expect(result.elements).toEqual([])
     expect(result.background.type).toBe("solid")

@@ -212,11 +212,15 @@ function buildSlideRenderOpts(s: CompositorState): SlideRenderOptions {
   // own (RF1) styling — no pushed BroadcastTheme. Auto-fit knobs come from the output.
   const verse = s.latestSlide?.verse
   if (verse) {
-    renderOpts.scriptureContent = buildScriptureContent(s.latestSlide!.slide, verse, {
-      verseAutoFit: s.verseAutoFit,
-      maxVerseScale: s.maxVerseScale,
-      minVerseFontSize: s.minVerseFontSize,
-    })
+    renderOpts.scriptureContent = buildScriptureContent(
+      s.latestSlide!.slide,
+      verse,
+      {
+        verseAutoFit: s.verseAutoFit,
+        maxVerseScale: s.maxVerseScale,
+        minVerseFontSize: s.minVerseFontSize,
+      }
+    )
   }
   return renderOpts
 }

@@ -1072,7 +1072,6 @@ describe("broadcast store — persistence hydrate/migrate", () => {
     // Empty patch → no setState → same reference (no needless churn).
     expect(useBroadcastStore.getState().outputs).toBe(before)
   })
-
 })
 
 // ── Split-sensitive coverage for S1 Phase 3 (before the generic factories) ──

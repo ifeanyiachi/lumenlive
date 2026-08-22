@@ -94,7 +94,6 @@ export function emitStageDraftToOutputs(state: BroadcastState): void {
   }
 }
 
-
 // Tear down all web output everywhere: clear each output window's embedded
 // YouTube player (`broadcast:web-content` = null). Emits to every output
 // regardless of `enabled` so a just-disabled output can't keep a player running

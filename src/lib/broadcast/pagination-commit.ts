@@ -30,8 +30,7 @@ export function resolveVersePages(
     resolveScriptureTheme(themeId, themes) ??
     themes.find((t) => t.type === "scripture")
   const el = theme?.elements.find((e) => e.type === "scripture") as
-    | SlideScriptureElement
-    | undefined
+    SlideScriptureElement | undefined
   const autoFit = main?.verseAutoFit ?? true
   if (el && autoFit && (main?.paginateLongVerses ?? true)) {
     return paginateVerse(liveVerse, scriptureElementToVerseStyle(el), {

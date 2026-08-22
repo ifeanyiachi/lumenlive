@@ -317,7 +317,6 @@ export function useOutputRuntime() {
     composeFrame(ctx, sw, sh, readCompositorState())
   }, [computeSurface, readCompositorState])
 
-
   // The base backdrop is a slide-model Theme (RF3a): preload its slide-shaped assets.
   const preloadBaseThemeImages = useCallback(
     (theme: Theme) => {

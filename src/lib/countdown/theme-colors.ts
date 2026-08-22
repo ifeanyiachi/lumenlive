@@ -24,7 +24,6 @@ export function countdownThemeColors(theme: Theme): {
         ? (bg.gradient?.stops[0]?.color ?? "rgba(0,0,0,0.7)")
         : "rgba(0,0,0,0.7)"
   const timer = theme.elements.find((e) => e.type === "timer") as
-    | SlideTimerElement
-    | undefined
+    SlideTimerElement | undefined
   return { background, text: timer?.color ?? "#ffffff" }
 }

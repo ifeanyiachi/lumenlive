@@ -1,8 +1,4 @@
-import type {
-  SlideBackground,
-  SlideElement,
-  SlideTransition,
-} from "./slide"
+import type { SlideBackground, SlideElement, SlideTransition } from "./slide"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The type-first theme model (themeredo.md — the clean-slate rebuild).
@@ -20,12 +16,7 @@ import type {
  * go-live. There is intentionally no "general" type.
  */
 export type ThemeType =
-  | "scripture"
-  | "song"
-  | "countdown"
-  | "sermon"
-  | "overlay"
-  | "announcement"
+  "scripture" | "song" | "countdown" | "sermon" | "overlay" | "announcement"
 
 /**
  * A styled single-slide template of a given {@link ThemeType}. Its

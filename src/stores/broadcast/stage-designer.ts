@@ -246,9 +246,7 @@ export const createStageDesignerSlice: StateCreator<
         editingStageLayoutId: custom.id,
         draftStageLayout: custom,
         outputs: s.outputs.map((o) =>
-          o.stageLayoutId === builtinId
-            ? { ...o, stageLayoutId: custom.id }
-            : o
+          o.stageLayoutId === builtinId ? { ...o, stageLayoutId: custom.id } : o
         ),
       }))
       get().syncStageOutput()

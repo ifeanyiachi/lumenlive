@@ -25,8 +25,8 @@ export function OverlayThemeProperties({
       <Section label="Compositing">
         {isTransparent ? (
           <p className="text-[0.6875rem] leading-relaxed text-muted-foreground">
-            Background is transparent — this overlay will composite over the live
-            output. Add a lower-third bar, title, or logo as decoration.
+            Background is transparent — this overlay will composite over the
+            live output. Add a lower-third bar, title, or logo as decoration.
           </p>
         ) : (
           <div className="flex flex-col gap-2">

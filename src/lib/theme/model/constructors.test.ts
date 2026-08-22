@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { createTheme, updateTheme, DEFAULT_THEME_RESOLUTION } from "./constructors"
+import {
+  createTheme,
+  updateTheme,
+  DEFAULT_THEME_RESOLUTION,
+} from "./constructors"
 
 let counter = 0
 const newId = () => `id-${counter++}`

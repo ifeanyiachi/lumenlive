@@ -86,11 +86,7 @@ export function UpdateSection() {
             disabled={checking}
             onClick={() => void useUpdateStore.getState().check()}
           >
-            {checking ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <RefreshCw />
-            )}
+            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
             {checking ? "Checking…" : "Check for updates"}
           </Button>
         )}
@@ -126,7 +122,8 @@ export function UpdateSection() {
         ) : status === "error" ? (
           <p className="flex items-center gap-1.5 text-xs text-destructive">
             <TriangleAlert className="size-3.5 shrink-0" />
-            Couldn&apos;t check for updates. Check your connection and try again.
+            Couldn&apos;t check for updates. Check your connection and try
+            again.
           </p>
         ) : lastCheckedAt !== null ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -134,9 +131,7 @@ export function UpdateSection() {
             You&apos;re on the latest version.
           </p>
         ) : checking ? (
-          <p className="text-xs text-muted-foreground">
-            Checking for updates…
-          </p>
+          <p className="text-xs text-muted-foreground">Checking for updates…</p>
         ) : (
           <p className="text-xs text-muted-foreground">
             Check whether a newer version of LumenLive is available.

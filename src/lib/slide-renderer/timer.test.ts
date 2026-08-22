@@ -117,12 +117,7 @@ describe("drawTimerElement", () => {
     expect(bare.calls).not.toContain("fillRect")
 
     const filled = recordingCtx()
-    drawTimerElement(
-      filled.ctx,
-      timer({ backgroundColor: "#000" }),
-      1920,
-      1080
-    )
+    drawTimerElement(filled.ctx, timer({ backgroundColor: "#000" }), 1920, 1080)
     expect(filled.calls).toContain("fillRect")
   })
 

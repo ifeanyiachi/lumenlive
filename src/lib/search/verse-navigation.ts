@@ -149,7 +149,9 @@ export function stepVerseBy(
   // Underflow. In chapter 1 there is no earlier chapter — clamp to verse 1
   // (or nothing if already there).
   if (selected.chapter <= 1) {
-    return idx > 0 ? { kind: "verse", verse: currentChapter[0] } : { kind: "none" }
+    return idx > 0
+      ? { kind: "verse", verse: currentChapter[0] }
+      : { kind: "none" }
   }
   return {
     kind: "cross-chapter",

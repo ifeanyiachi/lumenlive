@@ -34,7 +34,11 @@ export function addVersesToSchedule(
   // multi-select bar's "Add group to Schedule"); a single dragged verse stays a
   // single item.
   if (verses.length > 1) {
-    const item = buildGroupedScriptureScheduleItem(verses, translation, insertAt)
+    const item = buildGroupedScriptureScheduleItem(
+      verses,
+      translation,
+      insertAt
+    )
     if (store.insertItemAt(scheduleId, item, insertAt)) {
       toast.success(`Added group of ${verses.length} verses to schedule`)
     } else {

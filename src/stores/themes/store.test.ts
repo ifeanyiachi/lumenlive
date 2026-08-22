@@ -115,4 +115,3 @@ describe("themes store — hydration + persistence", () => {
     }
   })
 })
-

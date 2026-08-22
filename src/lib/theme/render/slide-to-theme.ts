@@ -39,6 +39,8 @@ export function slideToTheme(
     resolution: { ...identity.resolution },
     background: structuredClone(slide.background),
     elements: slide.elements.map((el) => structuredClone(el)),
-    transition: slide.transition ? structuredClone(slide.transition) : undefined,
+    transition: slide.transition
+      ? structuredClone(slide.transition)
+      : undefined,
   }
 }

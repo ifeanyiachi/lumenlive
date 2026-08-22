@@ -369,7 +369,10 @@ describe("drawScriptureElement — render-time verse payload (Phase 4b)", () => 
   it("delegates to the verse draw passes when a payload is present", () => {
     const { ctx, fills } = fillTextRecorder()
     const el = createDefaultScriptureElement()
-    drawScriptureElement(ctx, el, 1920, 1080, { verse: VERSE, style: classic() })
+    drawScriptureElement(ctx, el, 1920, 1080, {
+      verse: VERSE,
+      style: classic(),
+    })
     // The verse number is emitted as its own token (token path)…
     expect(fills).toContain("16")
     // …the reference is drawn (contains the ref) without the legacy dash prefix.

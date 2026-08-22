@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest"
 import type { Theme, ThemeType } from "@/types/theme"
-import { REQUIRED_PLACEHOLDERS, validateTheme, isValidTheme } from "./validation"
+import {
+  REQUIRED_PLACEHOLDERS,
+  validateTheme,
+  isValidTheme,
+} from "./validation"
 import {
   ANNOUNCEMENT_BUILTIN,
   COUNTDOWN_BUILTIN,
@@ -54,7 +58,9 @@ describe("validateTheme — required placeholders", () => {
     expect(REQUIRED_PLACEHOLDERS.countdown).toEqual([{ kind: "timer" }])
     const r = validateTheme(EMPTY_BY_TYPE("countdown"))
     expect(r.valid).toBe(false)
-    expect(r.errors).toContain("countdown theme must contain a timer placeholder")
+    expect(r.errors).toContain(
+      "countdown theme must contain a timer placeholder"
+    )
     // Adding a timer element satisfies the requirement.
     const withTimer: Theme = {
       ...EMPTY_BY_TYPE("countdown"),

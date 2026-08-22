@@ -15,13 +15,19 @@ import type { Theme } from "@/types/theme"
  * structure with — or mutates — the source theme; `newId`/`now` are injected for
  * determinism (matching `preview-slide.ts`).
  */
-export function themeToSlide(theme: Theme, newId: () => string, now = 0): Slide {
+export function themeToSlide(
+  theme: Theme,
+  newId: () => string,
+  now = 0
+): Slide {
   return {
     id: newId(),
     name: theme.name,
     background: structuredClone(theme.background),
     elements: theme.elements.map((el) => structuredClone(el)),
-    transition: theme.transition ? structuredClone(theme.transition) : undefined,
+    transition: theme.transition
+      ? structuredClone(theme.transition)
+      : undefined,
     createdAt: now,
     updatedAt: now,
   }

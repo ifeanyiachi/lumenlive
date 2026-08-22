@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { buildHydrationPatch } from "./persistence"
-import type {
-  BroadcastOutput,
-  StageDisplayConfig,
-} from "@/types/broadcast"
+import type { BroadcastOutput, StageDisplayConfig } from "@/types/broadcast"
 
 // A minimal stand-in for the legacy global config; only `enabled` and the
 // spread-through fields matter to the migration.

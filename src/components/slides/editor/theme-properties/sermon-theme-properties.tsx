@@ -62,12 +62,12 @@ export function SermonThemeProperties({
       {title ? (
         <TextRoleSection label="Title" element={title} maxSize={160} />
       ) : (
-        <MissingPlaceholder what='a title placeholder' />
+        <MissingPlaceholder what="a title placeholder" />
       )}
       {points ? (
         <TextRoleSection label="Points" element={points} maxSize={120} />
       ) : (
-        <MissingPlaceholder what='a points placeholder' />
+        <MissingPlaceholder what="a points placeholder" />
       )}
       <SelectElementHint />
     </ThemePanelShell>

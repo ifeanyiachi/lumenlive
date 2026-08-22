@@ -38,9 +38,7 @@ export function findTextRole(
   elements: readonly SlideElement[],
   role: TextPlaceholderRole
 ): SlideTextElement | undefined {
-  return elements.find((el): el is SlideTextElement =>
-    isTextRole(el, role)
-  )
+  return elements.find((el): el is SlideTextElement => isTextRole(el, role))
 }
 
 /** True when at least one text element carries the given `role`. */

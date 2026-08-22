@@ -79,7 +79,12 @@ const scripture: SlideElement = {
 
 describe("role helpers", () => {
   it("exposes the four text placeholder roles", () => {
-    expect(TEXT_PLACEHOLDER_ROLES).toEqual(["lyrics", "title", "points", "body"])
+    expect(TEXT_PLACEHOLDER_ROLES).toEqual([
+      "lyrics",
+      "title",
+      "points",
+      "body",
+    ])
   })
 
   it("isTextRole narrows only matching text elements", () => {

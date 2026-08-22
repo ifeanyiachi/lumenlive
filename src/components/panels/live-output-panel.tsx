@@ -372,7 +372,10 @@ export function LiveOutputPanel() {
           {clearForeground ? (
             // Clear reveals the central base backdrop (no content) — consistent
             // across verse / slide / song, mirroring the audience output (RF3c).
-            <BasePreview themeId={activeThemeId} baseBackground={baseBackground} />
+            <BasePreview
+              themeId={activeThemeId}
+              baseBackground={baseBackground}
+            />
           ) : showWeb ? (
             <LiveWebMonitor
               key={`${liveWeb.videoId ?? liveWeb.url}:${liveWeb.nonce ?? 0}`}
@@ -392,7 +395,10 @@ export function LiveOutputPanel() {
             // Idle with a configured Clear & Idle background: show it here too
             // (image / video / solid / gradient), matching the audience idle
             // backdrop — the feature applies to idle, not just Clear.
-            <BasePreview themeId={activeThemeId} baseBackground={baseBackground} />
+            <BasePreview
+              themeId={activeThemeId}
+              baseBackground={baseBackground}
+            />
           ) : (
             // Live scripture through the slide path (RF3c) — matches the audience output.
             <ScripturePreview

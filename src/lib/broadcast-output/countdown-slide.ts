@@ -84,7 +84,9 @@ export function buildCountdownSlide(
 }
 
 /** Drop cached slides for timers no longer drawn (called by the overlay each draw). */
-export function pruneCountdownSlideCache(activeTimerIds: Iterable<string>): void {
+export function pruneCountdownSlideCache(
+  activeTimerIds: Iterable<string>
+): void {
   const keep = new Set(activeTimerIds)
   for (const id of cache.keys()) if (!keep.has(id)) cache.delete(id)
 }

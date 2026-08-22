@@ -82,8 +82,7 @@ export function buildScriptureContent(
     return contentCached.map
   }
   const el = slide.elements.find((e) => e.type === "scripture") as
-    | SlideScriptureElement
-    | undefined
+    SlideScriptureElement | undefined
   const map = new Map<string, ScriptureRenderPayload>()
   if (el) {
     map.set(el.id, {

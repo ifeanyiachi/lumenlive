@@ -99,9 +99,8 @@ export function resolveBaseTheme(
   if (baseBackground.kind === "theme") {
     const aliased = resolveLegacyThemeId(baseBackground.themeId)
     return (
-      themes.find(
-        (t) => t.id === baseBackground.themeId || t.id === aliased
-      ) ?? outputTheme
+      themes.find((t) => t.id === baseBackground.themeId || t.id === aliased) ??
+      outputTheme
     )
   }
   return {

@@ -208,8 +208,7 @@ export function SlideTimerProperties({
                 value={element.horizontalAlign}
                 onValueChange={(v) =>
                   update({
-                    horizontalAlign:
-                      v as SlideTimerElement["horizontalAlign"],
+                    horizontalAlign: v as SlideTimerElement["horizontalAlign"],
                   })
                 }
               >

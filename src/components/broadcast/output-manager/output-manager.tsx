@@ -39,7 +39,8 @@ export function OutputManager({
   // assigned a scripture-type Theme from the new typed store (themeredo.md, VR4).
   const customThemes = useThemesStore((s) => s.customThemes)
   const themes = useMemo(
-    () => buildThemeRegistry(customThemes).filter((t) => t.type === "scripture"),
+    () =>
+      buildThemeRegistry(customThemes).filter((t) => t.type === "scripture"),
     [customThemes]
   )
   const outputs = useBroadcastStore((s) => s.outputs)
