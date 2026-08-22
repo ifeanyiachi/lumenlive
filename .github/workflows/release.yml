@@ -6,7 +6,7 @@
 #   * the "Run workflow" button (workflow_dispatch)               -> builds and
 #     uploads the installers as run artifacts, without publishing a release.
 #
-# Each run: fetches the ~1 GB runtime assets from the `assets-v1` release (the
+# Each run: fetches the ~1 GB runtime assets from the `assets-v2` release (the
 # models / bible DB / embeddings that are too big for git), extracts them to the
 # repo root, then compiles the Rust workspace and bundles the installer.
 #
@@ -24,7 +24,7 @@ on:
 permissions:
   contents: write
 
-# The pinned release holding the bundled runtime assets (see the assets-v1
+# The pinned release holding the bundled runtime assets (see the assets-v2
 # GitHub Release). Bump this if you ever regenerate the models/DB/embeddings.
 env:
   ASSETS_TAG: assets-v2
