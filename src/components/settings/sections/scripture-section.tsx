@@ -25,7 +25,9 @@ const SCRIPTURE_THEME_OPTIONS = BUILTIN_THEMES.filter(
  */
 export function ScriptureSection() {
   const defaultThemeId = useSettingsStore((s) => s.scriptureDefaultThemeId)
-  const setDefaultThemeId = useSettingsStore((s) => s.setScriptureDefaultThemeId)
+  const setDefaultThemeId = useSettingsStore(
+    (s) => s.setScriptureDefaultThemeId
+  )
   const customThemes = useThemesStore((s) => s.customThemes)
   // Built-in scripture looks plus any user-authored custom scripture themes.
   const scriptureThemeOptions = useMemo(
