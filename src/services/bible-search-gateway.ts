@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { Verse, SemanticSearchResult } from "@/types"
+import { trackFeatureUsed } from "@/services/analytics-gateway"
 
 /**
  * Gateway for the *raw* Bible-search IPC used by the search panel — the variants
@@ -23,5 +24,6 @@ export function runSemanticSearch(
   query: string,
   limit: number
 ): Promise<SemanticSearchResult[]> {
+  trackFeatureUsed("semantic_search")
   return invoke<SemanticSearchResult[]>("semantic_search", { query, limit })
 }

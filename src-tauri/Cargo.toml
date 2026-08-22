@@ -66,6 +66,9 @@ path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
+# Loads .env at build time so the Aptabase analytics key can be baked into the
+# binary (a packaged app has no .env at runtime). See build.rs.
+dotenvy = "0.15"
 
 [dependencies]
 serde_json.workspace = true
@@ -99,6 +102,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 sha2 = "0.10"
 zstd = "0.13"
 futures-util = "0.3"
+tauri-plugin-aptabase = "1.0.0"
 
 [features]
 default = ["sherpa"]

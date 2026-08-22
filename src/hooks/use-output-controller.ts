@@ -18,6 +18,7 @@ import {
   preferredOutputMonitor,
 } from "@/lib/broadcast/monitors"
 import { reportOutputError } from "@/services/output-errors"
+import { trackBroadcastStarted } from "@/services/analytics-gateway"
 import { useBroadcastStore } from "@/stores"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { useCountdownStore } from "@/stores/countdown-store"
@@ -207,6 +208,7 @@ export function useOutputController({
         }
         const session = await startNdi(outputId, request)
         setNdiActive(true)
+        trackBroadcastStarted("ndi")
         useBroadcastStore.getState().syncBroadcastOutputFor(outputId)
         void emitNdiConfig(outputId, {
           active: true,
@@ -254,6 +256,7 @@ export function useOutputController({
         if (next) {
           if (outputType === "display" && monitors.length > 0) {
             await openWindow()
+            trackBroadcastStarted("display")
           }
         } else {
           if (isOpen) {

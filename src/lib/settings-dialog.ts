@@ -11,6 +11,7 @@ type SettingsSection =
   | "media"
   | "songs"
   | "remote"
+  | "privacy"
   | "help"
 
 interface SettingsDialogState {

@@ -12,6 +12,7 @@ import {
   ListOrderedIcon,
   ImageIcon,
   MusicIcon,
+  ShieldIcon,
 } from "lucide-react"
 
 import type { SettingsSection } from "@/lib/settings-dialog"
@@ -26,6 +27,7 @@ import { ScheduleSection } from "./sections/schedule-section"
 import { MediaLibrarySection } from "./sections/media-library-section"
 import { SongsSection } from "./sections/songs-section"
 import { RemoteControlSection } from "./sections/remote-control-section"
+import { PrivacySection } from "./sections/privacy-section"
 import { HelpSection } from "./sections/help-section"
 
 /**
@@ -114,6 +116,13 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     title: "Remote Control",
     icon: <RadioIcon strokeWidth={2} />,
     Component: RemoteControlSection,
+  },
+  {
+    id: "privacy",
+    name: "Privacy",
+    title: "Privacy",
+    icon: <ShieldIcon strokeWidth={2} />,
+    Component: PrivacySection,
   },
   {
     id: "help",

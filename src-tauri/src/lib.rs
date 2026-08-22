@@ -12,7 +12,24 @@ pub fn run() {
     // Load .env file — try src-tauri/.env first, then project root ../.env
     dotenvy::dotenv().ok();
     dotenvy::from_filename("../.env").ok();
-    tauri::Builder::default()
+
+    let mut builder = tauri::Builder::default();
+
+    // Anonymous usage analytics (Aptabase). The App Key is baked into the binary
+    // at compile time by build.rs (from APTABASE_KEY / .env) via a generated
+    // file — a compile-time value, not a runtime read, because a packaged app
+    // has no .env beside it. If it's absent or empty (e.g. a contributor build
+    // with no key), the plugin is never registered and nothing is ever sent. The
+    // runtime opt-out lives in the frontend analytics gateway, which suppresses
+    // events the user has declined.
+    let aptabase_key =
+        include_str!(concat!(env!("OUT_DIR"), "/aptabase_key.txt")).trim();
+    if !aptabase_key.is_empty() {
+        builder = builder
+            .plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build());
+    }
+
+    builder
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)

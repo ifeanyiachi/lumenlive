@@ -4,6 +4,7 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SongSlideOptions } from "@/types/song"
 import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
+import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 
 type SttProvider = "deepgram" | "sherpa"
 type MediaImportMode = "reference" | "copy"
@@ -83,6 +84,14 @@ interface SettingsState {
    */
   scriptureDefaultThemeId: string
 
+  /**
+   * Anonymous usage analytics opt-out. `true` (default) sends fixed event names
+   * and small enum properties to Aptabase — never scripture text, church names,
+   * or any PII (see `services/analytics-gateway.ts`). When `false`, nothing is
+   * sent. Mirrored down to the gateway on hydration and on every change.
+   */
+  telemetryEnabled: boolean
+
   setDeepgramApiKey: (key: string | null) => void
   setGeniusApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
@@ -103,6 +112,7 @@ interface SettingsState {
   setLexiconEnabled: (enabled: boolean) => void
   setSongSlideDefaults: (options: SongSlideOptions) => void
   setScriptureDefaultThemeId: (themeId: string) => void
+  setTelemetryEnabled: (enabled: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -126,6 +136,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   lexiconEnabled: false,
   songSlideDefaults: DEFAULT_SONG_SLIDE_OPTIONS,
   scriptureDefaultThemeId: SCRIPTURE_BUILTIN.id,
+  telemetryEnabled: true,
 
   setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
@@ -149,6 +160,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSongSlideDefaults: (songSlideDefaults) => set({ songSlideDefaults }),
   setScriptureDefaultThemeId: (scriptureDefaultThemeId) =>
     set({ scriptureDefaultThemeId }),
+  setTelemetryEnabled: (telemetryEnabled) => set({ telemetryEnabled }),
 }))
 
 const PERSISTED_KEYS = [
@@ -172,6 +184,7 @@ const PERSISTED_KEYS = [
   "lexiconEnabled",
   "songSlideDefaults",
   "scriptureDefaultThemeId",
+  "telemetryEnabled",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 let tauriStore: Store | null = null
@@ -206,6 +219,9 @@ export function hydrateSettings(): Promise<void> {
       // Sync detection settings to the backend merger on first hydration
       syncDetectionSettings(useSettingsStore.getState())
 
+      // Mirror the analytics opt-out down to the gateway before any event fires.
+      setAnalyticsEnabled(useSettingsStore.getState().telemetryEnabled)
+
       // Attach only after successful hydration so as not to overwrite disk with defaults.
       // Debounce writes, so a dragged slider (e.g. gain) coalesces into a single disk write.
       useSettingsStore.subscribe((state, prevState) => {
@@ -218,6 +234,11 @@ export function hydrateSettings(): Promise<void> {
           state.cooldownMs !== prevState.cooldownMs
         ) {
           syncDetectionSettings(state)
+        }
+
+        // Mirror analytics opt-out toggles down to the gateway immediately.
+        if (state.telemetryEnabled !== prevState.telemetryEnabled) {
+          setAnalyticsEnabled(state.telemetryEnabled)
         }
 
         if (saveTimer) clearTimeout(saveTimer)

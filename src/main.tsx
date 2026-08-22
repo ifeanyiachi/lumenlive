@@ -20,6 +20,7 @@ import { hydrateCountdownTimers } from "@/stores/countdown-store"
 import { hydrateVerseEdits } from "@/stores/verse-edit-store"
 import { hydrateWebBookmarks } from "@/stores/web-store"
 import { initUpdateNotifier } from "@/stores/update-store"
+import { trackAppLaunched } from "@/services/analytics-gateway"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
 // left running from the previous webview session still has
@@ -94,4 +95,8 @@ invoke("stop_transcription")
     // Check for app updates after first paint — fire-and-forget so a slow or
     // offline endpoint never delays the UI. Populates the Store banner + nav dot.
     void initUpdateNotifier()
+    // Anonymous launch heartbeat. Fired after hydration so the opt-out has
+    // already been applied to the analytics gateway; no-ops when opted out or
+    // outside Tauri. This is what makes an install count as an active church.
+    trackAppLaunched()
   })

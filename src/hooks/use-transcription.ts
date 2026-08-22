@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
+import { trackServiceStarted } from "@/services/analytics-gateway"
 import { useTauriEvent } from "./use-tauri-event"
 
 interface TranscriptPartialPayload {
@@ -177,10 +178,14 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     void transcriptionActions.restartIfRunning(onMissingApiKey)
   }, [sttProvider, onMissingApiKey])
 
-  const startTranscription = useCallback(
-    () => transcriptionActions.start(onMissingApiKey),
-    [onMissingApiKey]
-  )
+  // A user-initiated start of the live session. Fired here (not in
+  // `transcriptionActions.start`) so a Cloud↔Local provider switch — which
+  // restarts via `restartIfRunning` → `start()` — doesn't count as a new
+  // service.
+  const startTranscription = useCallback(() => {
+    trackServiceStarted()
+    return transcriptionActions.start(onMissingApiKey)
+  }, [onMissingApiKey])
 
   return {
     segments,

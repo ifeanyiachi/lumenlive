@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
+import { trackFeatureUsed } from "@/services/analytics-gateway"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ScripturePreview } from "@/components/ui/scripture-preview"
 import { Button } from "@/components/ui/button"
@@ -228,6 +229,10 @@ export function PreviewPanel() {
       setInterlinearText(null)
       return
     }
+
+    // Past this point the operator is turning interlinear ON — a deliberate use
+    // of the Greek/Hebrew lexicon feature (deduped once per session).
+    trackFeatureUsed("lexicon")
 
     const cacheKey = `${selectedVerse.book_number}:${selectedVerse.chapter}:${selectedVerse.verse}:${activeTranslationId}`
     const cached = interlinearCache.current.get(cacheKey)

@@ -8,6 +8,7 @@ import {
   generateSlidesFromSong,
   resolveSongSlideOptions,
 } from "@/lib/song/song-to-slides"
+import { trackFeatureUsed } from "@/services/analytics-gateway"
 import type { AddItemOptions } from "./types"
 
 /**
@@ -39,6 +40,9 @@ export function deckForSongItem(item: SongScheduleItem): Presentation | null {
     song.slideOptions
   )
   const options = item.themeId ? { ...base, themeId: item.themeId } : base
+  // A song is being turned into a lyric deck for live/preview — the song-slides
+  // feature in real use (deduped once per session).
+  trackFeatureUsed("song_slides")
   return generateSlidesFromSong(
     song,
     arrangement,

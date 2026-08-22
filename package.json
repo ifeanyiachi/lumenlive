@@ -32,6 +32,7 @@
     "setup:all": "bun run data/prepare-embeddings.ts"
   },
   "dependencies": {
+    "@aptabase/tauri": "^0.4.1",
     "@dnd-kit/react": "^0.3.2",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
