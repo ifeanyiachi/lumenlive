@@ -26,6 +26,7 @@
     "precompute:embeddings-py": "python3 data/precompute-embeddings.py",
     "precompute:embeddings": "cd src-tauri && cargo run -p lumenlive-detection --features precompute-bin --release --bin precompute -- --model ../models/bge-base-en-v1.5-int8/model_quantized.onnx --tokenizer ../models/bge-base-en-v1.5-int8/tokenizer.json --verses ../data/verses-for-embedding.json --output-embeddings ../embeddings/kjv-bge-base-en-v1.5.bin --output-ids ../embeddings/kjv-bge-base-en-v1.5-ids.bin",
     "download:sherpa": "bun run data/download-sherpa-model.ts",
+    "download:zipformer": "bun run data/download-zipformer-model.ts",
     "download:ndi-sdk": "bun run data/download-ndi-sdk.ts",
     "sync:libs": "bun run data/sync-native-libs.ts",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",

@@ -2,7 +2,9 @@
 //!
 //! Provides real-time transcription via multiple providers:
 //! - **Deepgram** (cloud) — WebSocket streaming with keyword boosting
-//! - **Moonshine** (local) — offline streaming inference via sherpa-onnx
+//! - **Moonshine** (local) — offline inference via sherpa-onnx (low footprint)
+//! - **Zipformer transducer** (local) — offline sherpa-onnx with contextual
+//!   hotword biasing toward Bible keyterms (higher scripture accuracy)
 //!
 //! # Key types
 //!
@@ -15,7 +17,8 @@
 //! # Feature flags
 //!
 //! - `rest-fallback` — enables REST API fallback client
-//! - `sherpa` — enables the local Moonshine (sherpa-onnx) STT provider
+//! - `sherpa` — enables the local sherpa-onnx STT providers (Moonshine +
+//!   Zipformer transducer)
 
 pub mod deepgram;
 pub mod error;
@@ -34,4 +37,4 @@ pub use provider::SttProvider;
 pub use types::{SttConfig, TranscriptEvent, Word};
 
 #[cfg(feature = "sherpa")]
-pub use sherpa::SherpaProvider;
+pub use sherpa::{SherpaProvider, TransducerProvider};

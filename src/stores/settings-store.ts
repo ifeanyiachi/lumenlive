@@ -6,8 +6,17 @@ import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 
-type SttProvider = "deepgram" | "sherpa"
+/**
+ * STT backend. `deepgram` is the cloud engine; `sherpa` (Moonshine) and
+ * `zipformer` (transducer with Bible-keyterm hotword biasing) are the two
+ * on-device engines — both run through the same local VAD/endpointing pipeline,
+ * so the Pause Sensitivity and live-partials settings apply to either.
+ */
+export type SttProvider = "deepgram" | "sherpa" | "zipformer"
 type MediaImportMode = "reference" | "copy"
+
+/** True for the on-device engines that share the local VAD pipeline. */
+export const isLocalSttProvider = (p: SttProvider): boolean => p !== "deepgram"
 
 interface SettingsState {
   deepgramApiKey: string | null

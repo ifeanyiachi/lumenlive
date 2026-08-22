@@ -1,6 +1,11 @@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useSettingsStore } from "@/stores"
 import {
+  isLocalSttProvider,
+  type SttProvider,
+} from "@/stores/settings-store"
+import { trackSttProvider } from "@/services/analytics-gateway"
+import {
   formatPauseSeconds,
   PAUSE_SILENCE_MIN_MS,
   PAUSE_SILENCE_MAX_MS,
@@ -36,7 +41,11 @@ export function SpeechSection() {
 
         <RadioGroup
           value={sttProvider}
-          onValueChange={(v) => setSttProvider(v as "deepgram" | "sherpa")}
+          onValueChange={(v) => {
+            const provider = v as SttProvider
+            setSttProvider(provider)
+            trackSttProvider(provider)
+          }}
           className="gap-3"
         >
           {/* Deepgram (cloud) */}
@@ -50,12 +59,12 @@ export function SpeechSection() {
             <RadioGroupItem value="deepgram" className="mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">
-                Cloud (Deepgram)
+                Cloud (Deepgram) — requires internet connectivity
               </span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Uses Deepgram Nova-3 for real-time streaming transcription.
-                Requires an API key and internet connection. Best accuracy with
-                keyword boosting for Bible terms.
+                For real-time streaming transcription. Requires an API key and
+                internet connection. Best accuracy with keyword boosting for
+                Bible terms.
               </p>
             </div>
           </label>
@@ -69,21 +78,40 @@ export function SpeechSection() {
             <RadioGroupItem value="sherpa" className="mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">
-                Local (Fast) — recommended offline
+                Local (Moonshine) — works offline
               </span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Runs Moonshine locally via sherpa-onnx. Fully offline, no API
-                key, and fast even on modest hardware — the best offline option
-                for low-end machines.
+                Fully offline, no API key, and fast even on modest hardware.
+              </p>
+            </div>
+          </label>
+
+          {/* Zipformer transducer (local, accurate) */}
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
+              sttProvider !== "zipformer"
+                ? "hover:border-muted-foreground/25"
+                : ""
+            }`}
+          >
+            <RadioGroupItem value="zipformer" className="mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">
+                Local (Zipformer) — works offline
+              </span>
+              <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+                Scripture-tuned and biased toward Bible book names and reference
+                cues for sharper verse detection. Fully offline and no API key;
+                uses a bit more CPU than Moonshine.
               </p>
             </div>
           </label>
         </RadioGroup>
       </div>
 
-      {/* Pause sensitivity — only affects the local (Moonshine) endpointer.
-          Deepgram does its own server-side endpointing. */}
-      {sttProvider === "sherpa" && (
+      {/* Pause sensitivity — affects the on-device endpointer (Moonshine and
+          Zipformer share it). Deepgram does its own server-side endpointing. */}
+      {isLocalSttProvider(sttProvider) && (
         <SectionSlider
           label="Pause Sensitivity"
           valueLabel={formatPauseSeconds(pauseSilenceMs)}
@@ -101,9 +129,10 @@ export function SpeechSection() {
         </SectionSlider>
       )}
 
-      {/* Live partials — Moonshine-only. Off by default; shows interim words and
-          feeds verse detection before the pause endpoint closes an utterance. */}
-      {sttProvider === "sherpa" && (
+      {/* Live partials — on-device engines only. Off by default; shows interim
+          words and feeds verse detection before the pause endpoint closes an
+          utterance. */}
+      {isLocalSttProvider(sttProvider) && (
         <ToggleCard
           title="Show words as they're spoken"
           description="Display interim text — and surface detected verses — mid-sentence, before the reader pauses, instead of waiting for the full sentence. Uses extra CPU to re-transcribe while speaking; the finalized transcript is unchanged. Takes effect the next time you start transcription."

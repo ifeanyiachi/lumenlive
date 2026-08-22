@@ -1,6 +1,7 @@
 //! Model resolution and STT provider construction: builds the operator-selected
-//! primary provider (Deepgram cloud or on-device Moonshine) plus the optional
-//! on-device fallback used when the cloud link drops mid-service.
+//! primary provider (Deepgram cloud, on-device Moonshine, or on-device Zipformer
+//! transducer) plus the optional on-device fallback used when the cloud link
+//! drops mid-service.
 
 use tauri::{AppHandle, Manager};
 
@@ -8,16 +9,27 @@ use lumenlive_stt::{DeepgramClient, SttConfig, SttProvider};
 
 use super::truncate_safe;
 
-/// Resolve the bundled Moonshine model directory (dev tree first, then packaged
-/// resources). Shared by the sherpa primary path and the Deepgram→Moonshine
-/// offline fallback so both look in exactly the same place.
-///   - Dev:  `{CARGO_MANIFEST_DIR}/../models/sherpa/<model>`
-///   - Prod: `resource_dir()/models/sherpa/<model>`
+/// Is `name` one of the on-device (offline) providers? Those never lose a
+/// network link, so they run without a cloud→on-device fallback.
 #[cfg(feature = "sherpa")]
-fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    let model_subdir = std::path::Path::new("models")
-        .join("sherpa")
-        .join("sherpa-onnx-moonshine-base-en-int8");
+fn is_local_provider(name: &str) -> bool {
+    matches!(name, "sherpa" | "zipformer")
+}
+
+/// Resolve a bundled sherpa model directory (dev tree first, then packaged
+/// resources), verifying its file set with `missing` so a partial install fails
+/// fast with an actionable message rather than surfacing a raw error deeper in
+/// the pipeline (or letting the offline fallback appear available when it isn't).
+///   - Dev:  `{CARGO_MANIFEST_DIR}/../models/sherpa/<subdir>`
+///   - Prod: `resource_dir()/models/sherpa/<subdir>`
+#[cfg(feature = "sherpa")]
+fn resolve_sherpa_model_dir(
+    app: &AppHandle,
+    subdir: &str,
+    download_cmd: &str,
+    missing: impl Fn(&std::path::Path) -> Option<std::path::PathBuf>,
+) -> Result<std::path::PathBuf, String> {
+    let model_subdir = std::path::Path::new("models").join("sherpa").join(subdir);
     let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join(&model_subdir);
@@ -29,19 +41,12 @@ fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, St
             .map(|p| p.join(&model_subdir))
             .ok()
             .filter(|p| p.exists())
-            .ok_or_else(|| {
-                "Moonshine model not found. Run: bun run download:sherpa".to_string()
-            })?
+            .ok_or_else(|| format!("Model not found. Run: {download_cmd}"))?
     };
 
-    // A directory that exists but is missing a model file is NOT ready. Verify
-    // the full file set here — the same definition `SherpaProvider::start` uses —
-    // so the primary path fails fast with an actionable message and the offline
-    // fallback is correctly treated as unavailable, instead of a partial install
-    // slipping through to surface a raw "no on-device fallback" error mid-service.
-    if let Some(missing) = lumenlive_stt::sherpa::missing_moonshine_file(&dir) {
+    if let Some(missing) = missing(&dir) {
         return Err(format!(
-            "Moonshine model incomplete — missing {}. Run: bun run download:sherpa",
+            "Model incomplete — missing {}. Run: {download_cmd}",
             missing.display()
         ));
     }
@@ -49,16 +54,43 @@ fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, St
     Ok(dir)
 }
 
-/// Inference threads for Moonshine — half the logical CPUs, at least one.
+/// Resolve the bundled Moonshine model directory. Shared by the sherpa primary
+/// path and the Deepgram→Moonshine offline fallback.
 #[cfg(feature = "sherpa")]
-fn moonshine_thread_count() -> i32 {
+fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    resolve_sherpa_model_dir(
+        app,
+        "sherpa-onnx-moonshine-base-en-int8",
+        "bun run download:sherpa",
+        lumenlive_stt::sherpa::missing_moonshine_file,
+    )
+}
+
+/// Resolve the bundled Zipformer transducer model directory (primary path only —
+/// the offline fallback stays on Moonshine for its smaller footprint).
+#[cfg(feature = "sherpa")]
+fn resolve_transducer_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    resolve_sherpa_model_dir(
+        app,
+        "sherpa-onnx-zipformer-en-int8",
+        "bun run download:zipformer",
+        lumenlive_stt::sherpa::missing_transducer_file,
+    )
+}
+
+/// Inference threads for the on-device recognizers — half the logical CPUs, at
+/// least one.
+#[cfg(feature = "sherpa")]
+fn local_stt_thread_count() -> i32 {
     let parallelism = std::thread::available_parallelism().map_or(4, usize::from);
     i32::try_from(parallelism / 2).unwrap_or(2).max(1)
 }
 
 /// Build the operator-selected primary STT provider. `provider_name == "sherpa"`
-/// selects on-device Moonshine; anything else selects Deepgram (the default),
-/// resolving the API key from the argument or the `DEEPGRAM_API_KEY` env var.
+/// selects on-device Moonshine; `"zipformer"` selects the on-device Zipformer
+/// transducer (with Bible-keyterm hotword biasing); anything else selects
+/// Deepgram (the default), resolving the API key from the argument or the
+/// `DEEPGRAM_API_KEY` env var.
 pub(super) fn build_provider(
     app: &AppHandle,
     provider_name: &str,
@@ -72,7 +104,7 @@ pub(super) fn build_provider(
         #[cfg(feature = "sherpa")]
         "sherpa" => {
             let model_dir = resolve_moonshine_model_dir(app)?;
-            let n_threads = moonshine_thread_count();
+            let n_threads = local_stt_thread_count();
 
             log::info!(
                 "Starting sherpa (Moonshine) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}, partials={sherpa_partials}",
@@ -86,8 +118,25 @@ pub(super) fn build_provider(
                 sherpa_partials,
             )))
         }
+        #[cfg(feature = "sherpa")]
+        "zipformer" => {
+            let model_dir = resolve_transducer_model_dir(app)?;
+            let n_threads = local_stt_thread_count();
+
+            log::info!(
+                "Starting zipformer (transducer) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}, partials={sherpa_partials}",
+                model_dir.display()
+            );
+
+            Ok(Box::new(lumenlive_stt::TransducerProvider::new(
+                model_dir,
+                n_threads,
+                pause_silence_ms,
+                sherpa_partials,
+            )))
+        }
         #[cfg(not(feature = "sherpa"))]
-        "sherpa" => {
+        "sherpa" | "zipformer" => {
             Err("Sherpa support not compiled. Rebuild with --features sherpa".into())
         }
         _ => {
@@ -126,8 +175,8 @@ pub(super) fn build_provider(
 /// Build the offline failover provider. If the cloud provider loses the network
 /// mid-service, transcription continues on-device with Moonshine instead of
 /// going dark. Built eagerly (cheap — only stores paths; the model loads lazily
-/// when the fallback's `start()` runs). `None` when the primary is already
-/// Moonshine, or when the model isn't available.
+/// when the fallback's `start()` runs). `None` when the primary is already an
+/// on-device engine (Moonshine or Zipformer), or when the model isn't available.
 pub(super) fn build_fallback(
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] app: &AppHandle,
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] provider_name: &str,
@@ -136,13 +185,15 @@ pub(super) fn build_fallback(
 ) -> Option<Box<dyn SttProvider>> {
     #[cfg(feature = "sherpa")]
     {
-        if provider_name == "sherpa" {
+        // On-device primaries (Moonshine or Zipformer) have no cloud link to
+        // lose, so they run without a fallback.
+        if is_local_provider(provider_name) {
             None
         } else {
             match resolve_moonshine_model_dir(app) {
                 Ok(dir) => Some(Box::new(lumenlive_stt::SherpaProvider::new(
                     dir,
-                    moonshine_thread_count(),
+                    local_stt_thread_count(),
                     pause_silence_ms,
                     sherpa_partials,
                 ))),
