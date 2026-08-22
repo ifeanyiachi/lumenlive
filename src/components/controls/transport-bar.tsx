@@ -13,6 +13,7 @@ import {
   MusicIcon,
   PlayIcon,
   StoreIcon,
+  GiftIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SettingsDialog } from "@/components/settings-dialog"
@@ -30,8 +31,11 @@ import {
 import { shouldNotifyUpdate } from "@/lib/updater/version"
 import { AlertTrigger } from "@/components/alerts/alert-trigger"
 import { CountdownTrigger } from "@/components/countdown/countdown-trigger"
+import { openExternalUrl } from "@/services/external-link-gateway"
 import { cn } from "@/lib/utils"
 import type { AppView } from "@/stores/app-store"
+
+const DONATE_URL = "https://lumenlive.xyz/donations"
 
 const VIEW_BUTTONS: { view: AppView; label: string; icon: React.ReactNode }[] =
   [
@@ -84,6 +88,16 @@ export function TransportBar() {
         <Badge variant="outline" className="text-[0.5625rem] uppercase">
           Free
         </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-rose-500"
+          title="Support LumenLive"
+          aria-label="Support LumenLive with a donation"
+          onClick={() => openExternalUrl(DONATE_URL)}
+        >
+          <GiftIcon className="size-3.5" />
+        </Button>
       </div>
 
       {/* Center: View Switcher */}
