@@ -18,8 +18,26 @@ import type {
   ExtractedMedia,
 } from "@/lib/schedule-bundle"
 
-const FILTERS = [
-  { name: "LumenLive schedule", extensions: [SCHEDULE_FILE_EXTENSION, "json"] },
+/** Save dialog: always write the branded extension. */
+const SAVE_FILTERS = [
+  { name: "LumenLive schedule", extensions: [SCHEDULE_FILE_EXTENSION] },
+]
+
+/**
+ * Open dialog: accept the file whatever extension a transfer left it with.
+ * A bundle's bytes are a zip, so email / messaging / cloud services routinely
+ * rename `sunday.lumsched` to `sunday.zip` in transit — and some strip the
+ * extension entirely. The Rust reader detects the real format from the file's
+ * *content* (zip vs JSON), not its name, so the picker must not hide those
+ * renamed files. `.lumsched`/`.zip`/`.json` lead the list; "All files" is the
+ * fallback for anything else a transfer produced.
+ */
+const OPEN_FILTERS = [
+  {
+    name: "LumenLive schedule",
+    extensions: [SCHEDULE_FILE_EXTENSION, "zip", "json"],
+  },
+  { name: "All files", extensions: ["*"] },
 ]
 
 /** Lazy-load the dialog + core plugins; null when unavailable (browser/tests). */
@@ -47,7 +65,7 @@ export async function saveScheduleFile(
   try {
     const { save } = await import("@tauri-apps/plugin-dialog")
     const { writeTextFile } = await import("@tauri-apps/plugin-fs")
-    const path = await save({ defaultPath: defaultName, filters: FILTERS })
+    const path = await save({ defaultPath: defaultName, filters: SAVE_FILTERS })
     if (!path) return null
     await writeTextFile(path, contents)
     return path
@@ -71,7 +89,10 @@ export async function saveScheduleBundle(
 ): Promise<string | null> {
   const t = await tauri()
   if (!t) return null
-  const path = await t.dialog.save({ defaultPath: defaultName, filters: FILTERS })
+  const path = await t.dialog.save({
+    defaultPath: defaultName,
+    filters: SAVE_FILTERS,
+  })
   if (!path) return null
   await t.core.invoke("write_schedule_bundle", {
     destPath: path,
@@ -106,7 +127,7 @@ export async function readScheduleFile(): Promise<ReadScheduleFile | null> {
   const selected = await t.dialog.open({
     multiple: false,
     title: "Import schedule",
-    filters: FILTERS,
+    filters: OPEN_FILTERS,
   })
   if (selected == null || Array.isArray(selected)) return null
   const path = String(selected)
@@ -137,7 +158,7 @@ export async function pickScheduleFile(): Promise<PickedScheduleFile | null> {
     const selected = await open({
       multiple: false,
       title: "Import schedule",
-      filters: FILTERS,
+      filters: OPEN_FILTERS,
     })
     if (selected == null || Array.isArray(selected)) return null
     const path = String(selected)
