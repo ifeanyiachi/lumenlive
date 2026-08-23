@@ -396,6 +396,30 @@ describe("schedule store song slide navigation", () => {
     expect(useBroadcastStore.getState().previewPending).toBe(false)
   })
 
+  it("presentItemSlideLive takes a specific sub-slide of a deck to the audience", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: null,
+      previewPending: false,
+    })
+
+    // Double-tap the 3rd sub-slide (index 2) of the expanded song deck.
+    await store.presentItemSlideLive(0, 2)
+
+    // The item is staged, the requested sub-slide is the live cursor, and it was
+    // committed straight to the audience — not just the deck's default slide 0.
+    expect(useScheduleStore.getState().activeItemIndex).toBe(0)
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(2)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+    const deck = useScheduleStore.getState().activeSongDeck
+    expect(useBroadcastStore.getState().liveSlide?.id).toBe(
+      deck?.deck.slides[2].id
+    )
+  })
+
   it("steps a song's slides even when the deck cache is empty", () => {
     const store = useScheduleStore.getState()
     store.addItem(scheduleId, song({ songId }))

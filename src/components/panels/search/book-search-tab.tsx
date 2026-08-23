@@ -37,9 +37,14 @@ export interface BookSearchTabProps {
   // Multi-select
   multiSelected: Set<number>
   handleVerseClick: (verse: Verse, e: React.MouseEvent) => void
+  handleVerseDoubleClick: (verse: Verse) => void
+  /** Add the selection as one combined block item. */
   onMultiAddToSchedule: () => void
   onMultiEdit: () => void
-  onMultiAddGroupToSchedule: () => void
+  /** Add the selection as a collection item (dropdown deck). */
+  onMultiAddAsGroup: () => void
+  /** Add each verse as its own independent running-order row. */
+  onMultiAddSeparately: () => void
   onMultiPresent: () => void
   onMultiClear: () => void
 }
@@ -68,9 +73,11 @@ export function BookSearchTab({
   onEditVerse,
   multiSelected,
   handleVerseClick,
+  handleVerseDoubleClick,
   onMultiAddToSchedule,
   onMultiEdit,
-  onMultiAddGroupToSchedule,
+  onMultiAddAsGroup,
+  onMultiAddSeparately,
   onMultiPresent,
   onMultiClear,
 }: BookSearchTabProps) {
@@ -158,6 +165,7 @@ export function BookSearchTab({
                 <div
                   className="flex items-center gap-3"
                   onClick={(e) => handleVerseClick(verse, e)}
+                  onDoubleClick={() => handleVerseDoubleClick(verse)}
                 >
                   <span className="w-6 shrink-0 text-right text-sm font-semibold text-primary">
                     {verse.verse}
@@ -257,9 +265,10 @@ export function BookSearchTab({
       {multiSelected.size >= 2 && (
         <MultiSelectBar
           count={multiSelected.size}
-          onAddIndividually={onMultiAddToSchedule}
+          onAddToSchedule={onMultiAddToSchedule}
           onEdit={onMultiEdit}
-          onAddGroupToSchedule={onMultiAddGroupToSchedule}
+          onAddAsGroup={onMultiAddAsGroup}
+          onAddSeparately={onMultiAddSeparately}
           onPresent={onMultiPresent}
           onClear={onMultiClear}
         />

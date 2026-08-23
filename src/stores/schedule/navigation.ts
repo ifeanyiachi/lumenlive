@@ -24,8 +24,51 @@ import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import { verseEditKey } from "@/types/verse-edit"
 import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
+import {
+  isScriptureCollection,
+  scriptureCollectionDeckLength,
+} from "@/lib/search/scripture-collection"
 import { deckForSongItem, setStageNotesForItem } from "./internals"
 import type { ScheduleState } from "./types"
+
+/**
+ * Present a single scripture verse to the Program preview — the shared body of
+ * the plain single-verse item and each individual slide of a scripture
+ * *collection*. Fetches the verse fresh (so live output reflects the current DB
+ * text), applies any saved per-verse edit, and stages it under the "schedule"
+ * source. Mirrors the inline single-verse path so a collection verse renders
+ * byte-for-byte like a standalone scripture item.
+ */
+async function presentSingleScriptureVerse(
+  translationId: number,
+  bookNumber: number,
+  chapter: number,
+  verseNumber: number,
+  abbr: string
+): Promise<void> {
+  const verse = await invoke<Verse | null>("get_verse", {
+    translationId,
+    bookNumber,
+    chapter,
+    verse: verseNumber,
+  })
+  if (!verse) return
+  useBibleStore.getState().selectVerse(verse)
+  if (bookNumber > 0) {
+    // Update the book search to show the verse, but don't grab keyboard focus —
+    // the arrow keys must stay with the schedule list.
+    bibleActions.navigateToVerse(bookNumber, chapter, verseNumber, false)
+  }
+  const editKey = verseEditKey(translationId, bookNumber, chapter, verseNumber)
+  const savedEdit = useVerseEditStore.getState().getEdit(editKey)
+  const renderData = toVerseRenderData(
+    verse,
+    abbr,
+    undefined,
+    savedEdit?.segments
+  )
+  useBroadcastStore.getState().setLiveVerse(renderData, "schedule")
+}
 
 /**
  * Schedule navigation and presentation: staging items into the Program preview
@@ -43,6 +86,7 @@ export type NavigationSlice = Pick<
   | "nextItem"
   | "prevItem"
   | "presentLive"
+  | "presentItemSlideLive"
   | "presentItem"
 >
 
@@ -65,6 +109,9 @@ export const createNavigationSlice: StateCreator<
     let activeSongDeck: ScheduleState["activeSongDeck"] = null
     if (item.type === "slide") {
       activeSlideIndex = item.slideIndex
+    } else if (item.type === "scripture" && isScriptureCollection(item)) {
+      // Start a collection at its combined-block slide (index 0).
+      activeSlideIndex = 0
     } else if (item.type === "song") {
       // Generate once at go-live so verse stepping reuses a stable deck and the
       // lyrics reflect any edits made up to this moment.
@@ -100,6 +147,23 @@ export const createNavigationSlice: StateCreator<
     useBroadcastStore.getState().takeToLive()
   },
 
+  presentItemSlideLive: async (index, slideIndex) => {
+    const schedule = get().getActiveSchedule()
+    if (!schedule || index < 0 || index >= schedule.items.length) return
+    const item = schedule.items[index]
+    if (item.type === "header") return
+    // The sub-item equivalent of `presentLive`, for a double-tap on an expanded
+    // deck row (grouped slides, songs, scripture collections). `goToItem` stages
+    // the parent item and resets `activeSlideIndex` to the deck's default, so we
+    // override to the double-tapped sub-slide and re-stage into the Program
+    // preview *before* taking it to the audience — otherwise the wrong slide
+    // would go live.
+    await get().goToItem(index)
+    set({ activeSlideIndex: slideIndex })
+    await get().presentItem(item)
+    useBroadcastStore.getState().takeToLive()
+  },
+
   nextItem: () => {
     const schedule = get().getActiveSchedule()
     if (!schedule) return
@@ -115,6 +179,15 @@ export const createNavigationSlice: StateCreator<
         if (pres && slideIdx < pres.slides.length - 1) {
           const next = slideIdx + 1
           set({ activeSlideIndex: next })
+          void get().presentItem(item)
+          setStageNotesForItem(item)
+          return
+        }
+      } else if (item?.type === "scripture" && isScriptureCollection(item)) {
+        const len = scriptureCollectionDeckLength(item)
+        const slideIdx = get().activeSlideIndex ?? 0
+        if (slideIdx < len - 1) {
+          set({ activeSlideIndex: slideIdx + 1 })
           void get().presentItem(item)
           setStageNotesForItem(item)
           return
@@ -166,6 +239,14 @@ export const createNavigationSlice: StateCreator<
         setStageNotesForItem(item)
         return
       }
+    } else if (item?.type === "scripture" && isScriptureCollection(item)) {
+      const slideIdx = get().activeSlideIndex ?? 0
+      if (slideIdx > 0) {
+        set({ activeSlideIndex: slideIdx - 1 })
+        void get().presentItem(item)
+        setStageNotesForItem(item)
+        return
+      }
     } else if (item?.type === "song") {
       const slideIdx = get().activeSlideIndex ?? 0
       if (slideIdx > 0) {
@@ -200,6 +281,20 @@ export const createNavigationSlice: StateCreator<
           setStageNotesForItem(prevItem)
           return
         }
+      } else if (
+        prevItem?.type === "scripture" &&
+        isScriptureCollection(prevItem)
+      ) {
+        // Stepping back into a collection lands on its last slide.
+        set({
+          activeItemIndex: prev,
+          activeSlideIndex: scriptureCollectionDeckLength(prevItem) - 1,
+          selectedItemId: prevItem.id,
+          activeSongDeck: null,
+        })
+        void get().presentItem(prevItem)
+        setStageNotesForItem(prevItem)
+        return
       } else if (prevItem?.type === "song") {
         const deck = deckForSongItem(prevItem)
         if (deck && deck.slides.length > 0) {
@@ -232,6 +327,22 @@ export const createNavigationSlice: StateCreator<
           si.cachedReference.match(/\(([^)]+)\)/)?.[1] ??
           "KJV"
         try {
+          if (isScriptureCollection(si)) {
+            // Collection deck: slide 0 is the combined block (falls through to
+            // the range path below), slides 1..N are the individual verses.
+            const idx = get().activeSlideIndex ?? 0
+            if (idx > 0) {
+              const cv = si.collectionVerses![idx - 1]
+              await presentSingleScriptureVerse(
+                cv.translationId,
+                cv.bookNumber,
+                cv.chapter,
+                cv.verse,
+                abbr
+              )
+              break
+            }
+          }
           if (si.verseEnd > si.verseStart) {
             // Grouped range: render the whole block (applying any saved per-verse
             // edits), matching the multi-verse editor's Go Live output. Without
@@ -259,40 +370,13 @@ export const createNavigationSlice: StateCreator<
             }
             break
           }
-          const verse = await invoke<Verse | null>("get_verse", {
-            translationId: si.translationId,
-            bookNumber: si.bookNumber,
-            chapter: si.chapter,
-            verse: si.verseStart,
-          })
-          if (verse) {
-            useBibleStore.getState().selectVerse(verse)
-            if (si.bookNumber > 0) {
-              // Update the book search to show the verse, but don't let it grab
-              // keyboard focus — the operator is navigating the schedule list and
-              // the arrow keys must stay with it (not hijack to verse/chapter).
-              bibleActions.navigateToVerse(
-                si.bookNumber,
-                si.chapter,
-                si.verseStart,
-                false
-              )
-            }
-            const editKey = verseEditKey(
-              si.translationId,
-              si.bookNumber,
-              si.chapter,
-              si.verseStart
-            )
-            const savedEdit = useVerseEditStore.getState().getEdit(editKey)
-            const renderData = toVerseRenderData(
-              verse,
-              abbr,
-              undefined,
-              savedEdit?.segments
-            )
-            useBroadcastStore.getState().setLiveVerse(renderData, "schedule")
-          }
+          await presentSingleScriptureVerse(
+            si.translationId,
+            si.bookNumber,
+            si.chapter,
+            si.verseStart,
+            abbr
+          )
         } catch {
           console.warn("[schedule] Failed to present scripture item")
         }

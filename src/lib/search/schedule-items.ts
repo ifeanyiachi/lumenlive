@@ -1,7 +1,19 @@
 import type { Verse } from "@/types"
-import type { ScriptureScheduleItem } from "@/types/schedule"
+import type {
+  ScriptureScheduleItem,
+  ScriptureCollectionVerse,
+} from "@/types/schedule"
 import { verseReference } from "./verse-keys"
 import { buildMultiVerseReference } from "@/lib/multi-verse"
+
+/** Sort verses into canonical (book → chapter → verse) order without mutating. */
+function sortCanonical(verses: Verse[]): Verse[] {
+  return [...verses].sort((a, b) => {
+    if (a.book_number !== b.book_number) return a.book_number - b.book_number
+    if (a.chapter !== b.chapter) return a.chapter - b.chapter
+    return a.verse - b.verse
+  })
+}
 
 /**
  * Build a single-verse scripture schedule item from a verse + translation
@@ -48,11 +60,7 @@ export function buildGroupedScriptureScheduleItem(
   translation: string,
   order: number
 ): ScriptureScheduleItem {
-  const sorted = [...verses].sort((a, b) => {
-    if (a.book_number !== b.book_number) return a.book_number - b.book_number
-    if (a.chapter !== b.chapter) return a.chapter - b.chapter
-    return a.verse - b.verse
-  })
+  const sorted = sortCanonical(verses)
   const first = sorted[0]
   const last = sorted[sorted.length - 1]
   const reference = buildMultiVerseReference(sorted, translation)
@@ -70,4 +78,33 @@ export function buildGroupedScriptureScheduleItem(
     cachedReference: reference,
     cachedText: sorted.map((v) => v.text).join(" "),
   }
+}
+
+/**
+ * Build a scripture *collection* item: one running-order entry that expands into
+ * a deck of the combined block (slide 0) followed by each verse individually
+ * (mirroring how a song / grouped slide deck expands). The top-level fields
+ * describe the combined block — identical to {@link
+ * buildGroupedScriptureScheduleItem} so the collection's first slide presents
+ * byte-for-byte like a plain grouped add — and each selected verse is cached in
+ * `collectionVerses` so the deck renders offline and survives a reload.
+ */
+export function buildScriptureCollectionScheduleItem(
+  verses: Verse[],
+  translation: string,
+  order: number
+): ScriptureScheduleItem {
+  const base = buildGroupedScriptureScheduleItem(verses, translation, order)
+  const sorted = sortCanonical(verses)
+  const collectionVerses: ScriptureCollectionVerse[] = sorted.map((v) => ({
+    translationId: v.translation_id,
+    bookNumber: v.book_number,
+    bookName: v.book_name,
+    bookAbbreviation: v.book_abbreviation,
+    chapter: v.chapter,
+    verse: v.verse,
+    text: v.text,
+    reference: `${verseReference(v)} (${translation})`,
+  }))
+  return { ...base, groupCollection: true, collectionVerses }
 }

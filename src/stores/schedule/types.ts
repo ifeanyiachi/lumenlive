@@ -85,6 +85,12 @@ export interface ScheduleState {
   prevItem: () => void
   /** Stage an item, then take it to the live audience — the schedule play icon. */
   presentLive: (index: number) => Promise<void>
+  /**
+   * Take a specific sub-slide of a deck-bearing item (grouped slides, songs, or
+   * scripture collections) straight to the live audience — the double-tap on an
+   * expanded group row, mirroring {@link presentLive} for one sub-slide.
+   */
+  presentItemSlideLive: (index: number, slideIndex: number) => Promise<void>
   presentItem: (item: ScheduleItem) => Promise<void>
 
   getActiveSchedule: () => ServiceSchedule | undefined

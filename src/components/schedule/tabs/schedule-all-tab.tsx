@@ -40,12 +40,30 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { SlideStrip } from "@/components/schedule/slide-strip"
 import { ScheduleItemThumbnail } from "@/components/schedule/schedule-item-thumbnail"
 import { handleScheduleDrop } from "@/lib/schedule-drop"
+import { useBroadcastStore } from "@/stores/broadcast-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
+import { buildThemeRegistry } from "@/lib/theme/registry"
+import { resolveScriptureTheme } from "@/lib/theme/resolve"
+import { presentScripture } from "@/lib/theme/present"
+import { toVerseRenderData } from "@/hooks/use-broadcast"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
+import { scriptureCollectionVerses } from "@/lib/search/scripture-collection"
 import type {
   ScheduleItem,
+  ScriptureScheduleItem,
   SlideScheduleItem,
   SongScheduleItem,
 } from "@/types/schedule"
-import type { Presentation } from "@/types/slide"
+import type { Presentation, Slide } from "@/types/slide"
+import type { VerseRenderData } from "@/types/broadcast"
+
+/**
+ * The multi-slide deck a schedule row expands into, normalized across the three
+ * deck-bearing kinds (grouped slide, song, scripture collection). `verses[i]` is
+ * the live scripture payload for `slides[i]` when the deck is a scripture
+ * collection (style-only slides render nothing without it); absent otherwise.
+ */
+type RowDeck = { slides: Slide[]; verses?: (VerseRenderData | undefined)[] }
 
 type ViewMode = "list" | "thumbnail"
 
@@ -66,6 +84,11 @@ export function ScheduleAllTab({
   const customThemes = useThemesStore((s) => s.customThemes)
   const songs = useSongStore((s) => s.songs)
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  // The main output's scripture theme drives the collection preview deck; narrow
+  // to just the theme id so unrelated output changes don't rebuild every deck.
+  const mainThemeId = useBroadcastStore(
+    (s) => findOutput(s.outputs, "main")?.themeId ?? ""
+  )
   const [editingName, setEditingName] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [confirmClear, setConfirmClear] = useState(false)
@@ -138,6 +161,47 @@ export function ScheduleAllTab({
     }
     return m
   }, [activeSchedule?.items, songs, songSlideDefaults, customThemes])
+
+  // A scripture *collection* expands into a deck exactly like a song: the
+  // combined block (slide 0) then each verse individually. Build the preview deck
+  // here so the row shows the same chevron / count badge / slide strip. Scripture
+  // slides are style-only (decision D2), so each slide rides its verse render data
+  // in `verses[i]` for the strip to draw. The takes mirror the go-live present
+  // path in the navigation slice, so the preview matches slide-for-slide.
+  const scriptureDeckByItemId = useMemo(() => {
+    const m = new Map<string, RowDeck>()
+    const items = activeSchedule?.items ?? []
+    const themes = buildThemeRegistry(customThemes)
+    const theme =
+      resolveScriptureTheme(mainThemeId, themes) ??
+      themes.find((t) => t.type === "scripture")
+    if (!theme) return m
+    for (const item of items) {
+      if (item.type !== "scripture") continue
+      const si = item as ScriptureScheduleItem
+      if (!si.groupCollection || !si.collectionVerses?.length) continue
+      const verses = scriptureCollectionVerses(si)
+      const abbr = si.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
+      // Slide 0: the combined block; slides 1..N: each verse.
+      const takes: VerseRenderData[] = [
+        toMultiVerseRenderData(verses, abbr),
+        ...verses.map((v) => toVerseRenderData(v, abbr)),
+      ]
+      const slides: Slide[] = []
+      const payloads: (VerseRenderData | undefined)[] = []
+      takes.forEach((take, i) => {
+        const presented = presentScripture(
+          theme,
+          { type: "scripture", verse: take },
+          () => `scr-${item.id}-${i}`
+        )[0]
+        slides.push(presented.slide)
+        payloads.push(presented.scriptureContent)
+      })
+      m.set(item.id, { slides, verses: payloads })
+    }
+    return m
+  }, [activeSchedule?.items, customThemes, mainThemeId])
 
   const toggleExpanded = useCallback((itemId: string) => {
     setExpandedIds((prev) => {
@@ -465,13 +529,21 @@ export function ScheduleAllTab({
                 const isGroupSlide =
                   isSlide && (item as SlideScheduleItem).groupSlides !== false
                 // The multi-slide deck this row expands into: a grouped slide
-                // presentation, or a song's generated deck. Both step the same
-                // way, so the expand/badge/strip UI below is shared.
-                const deck =
-                  item.type === "song"
-                    ? songDeckByItemId.get(item.id)
-                    : isGroupSlide
-                      ? slidePres
+                // presentation, a song's generated deck, or a scripture
+                // collection's deck. All step the same way, so the expand/badge/
+                // strip UI below is shared.
+                const song = item.type === "song"
+                const deck: RowDeck | undefined = song
+                  ? (() => {
+                      const p = songDeckByItemId.get(item.id)
+                      return p ? { slides: p.slides } : undefined
+                    })()
+                  : isGroupSlide
+                    ? slidePres
+                      ? { slides: slidePres.slides }
+                      : undefined
+                    : item.type === "scripture"
+                      ? scriptureDeckByItemId.get(item.id)
                       : undefined
                 // A slide row's base index is its own slideIndex; a song always
                 // starts at slide 0.
@@ -626,6 +698,7 @@ export function ScheduleAllTab({
                     {isExpanded && hasMultipleSlides && deck && (
                       <SlideStrip
                         slides={deck.slides}
+                        verses={deck.verses}
                         activeIndex={
                           activeItemIndex === index
                             ? (activeSlideIndex ?? baseSlideIndex)
@@ -640,6 +713,9 @@ export function ScheduleAllTab({
                           })
                           void store.presentItem(item)
                         }}
+                        onSlideDoubleClick={(slideIdx) =>
+                          void store.presentItemSlideLive(index, slideIdx)
+                        }
                       />
                     )}
                   </div>

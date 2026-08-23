@@ -11,6 +11,25 @@ interface ScheduleItemBase {
   order: number
 }
 
+/**
+ * One verse cached inside a scripture *collection* item ({@link
+ * ScriptureScheduleItem.collectionVerses}). Mirrors the shape of a
+ * {@link import("./bible").Verse} closely enough to reconstruct a render/preview
+ * offline (no DB hit), plus a pre-built display `reference` (e.g. "John 3:16
+ * (KJV)"). The item's top-level `verseStart…verseEnd`/`cachedText` still describe
+ * the *combined* block; these describe each individual slide in the deck.
+ */
+export interface ScriptureCollectionVerse {
+  translationId: number
+  bookNumber: number
+  bookName: string
+  bookAbbreviation: string
+  chapter: number
+  verse: number
+  text: string
+  reference: string
+}
+
 export interface ScriptureScheduleItem extends ScheduleItemBase {
   type: "scripture"
   translationId: number
@@ -20,6 +39,19 @@ export interface ScriptureScheduleItem extends ScheduleItemBase {
   verseEnd: number
   cachedReference: string
   cachedText: string
+  /**
+   * When true, this item is a *collection* (like a song / grouped slide deck): it
+   * expands into a dropdown whose deck is the combined block (slide 0) followed by
+   * each verse in {@link collectionVerses} individually. When false/absent it is a
+   * plain scripture item — a single verse or one combined range block.
+   */
+  groupCollection?: boolean
+  /**
+   * The individual verses of a {@link groupCollection}, in canonical order. Cached
+   * so the deck (and its previews) render without a DB round-trip and survive a
+   * reload even if the underlying verse is later edited.
+   */
+  collectionVerses?: ScriptureCollectionVerse[]
 }
 
 export interface SlideScheduleItem extends ScheduleItemBase {
@@ -160,9 +192,13 @@ export interface ServiceSchedule {
  */
 export function scheduleItemKey(item: ScheduleItem): string | null {
   switch (item.type) {
-    case "scripture":
+    case "scripture": {
       if (item.bookNumber <= 0) return null
-      return `scripture:${item.translationId}:${item.bookNumber}:${item.chapter}:${item.verseStart}-${item.verseEnd}`
+      // A collection stands for the whole selection expanded into a deck, so it is
+      // a distinct identity from the single combined block over the same range.
+      const kind = item.groupCollection ? "scripture-group" : "scripture"
+      return `${kind}:${item.translationId}:${item.bookNumber}:${item.chapter}:${item.verseStart}-${item.verseEnd}`
+    }
     case "slide":
       if (!item.presentationId) return null
       // A grouped slide item stands for the whole deck, so the slide index is

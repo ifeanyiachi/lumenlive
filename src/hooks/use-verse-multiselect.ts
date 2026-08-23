@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { bibleActions } from "@/hooks/use-bible"
+import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { useBroadcastStore } from "@/stores"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import {
   buildScriptureScheduleItem,
   buildGroupedScriptureScheduleItem,
+  buildScriptureCollectionScheduleItem,
 } from "@/lib/search/schedule-items"
 import { verseReference } from "@/lib/search/verse-keys"
 import { toast } from "sonner"
@@ -107,8 +109,36 @@ export function useVerseMultiselect({
       setSelectedVerseId(verse.id)
       bibleActions.selectVerse(verse)
       quickNavRef.current?.setValue(verseReference(verse))
+      // Stage the picked verse as a pending take: `selectVerse` →
+      // `followManualSelection()` has just dropped any queue/schedule pin AND
+      // `previewPending`, so without this the verse previews (via the Bible-
+      // selection fallback) but the Go Live button stays disabled — the operator
+      // can see it but can't push it to the audience. Staging arms Go Live and
+      // gives `takeToLive` a concrete verse to commit (no null-verse hazard).
+      useBroadcastStore
+        .getState()
+        .setLiveVerse(toVerseRenderData(verse, translationAbbr()))
     },
-    [currentChapter, quickNavRef, setSelectedVerseId]
+    [currentChapter, quickNavRef, setSelectedVerseId, translationAbbr]
+  )
+
+  // Double-click / double-tap is the express path: stage the verse and send it
+  // straight to the audience in one gesture, skipping the preview → Go Live
+  // two-step. Ensures the output is on air first, so the verse actually reaches
+  // the live output even when the operator hadn't gone live yet.
+  const handleVerseDoubleClick = useCallback(
+    (verse: Verse) => {
+      setMultiSelected(new Set())
+      lastClickedIdRef.current = verse.id
+      setSelectedVerseId(verse.id)
+      bibleActions.selectVerse(verse)
+      quickNavRef.current?.setValue(verseReference(verse))
+      const broadcast = useBroadcastStore.getState()
+      broadcast.setLiveVerse(toVerseRenderData(verse, translationAbbr()))
+      if (!broadcast.isLive) broadcast.setLive(true)
+      broadcast.takeToLive()
+    },
+    [quickNavRef, setSelectedVerseId, translationAbbr]
   )
 
   const multiSelectedVerses = useMemo(
@@ -154,6 +184,37 @@ export function useVerseMultiselect({
         ? scheduleStore.activeItemIndex + 1
         : (schedule?.items.length ?? 0)
     const item = buildGroupedScriptureScheduleItem(
+      multiSelectedVerses,
+      translationAbbr(),
+      insertAt
+    )
+    if (scheduleStore.insertItemAt(activeScheduleId, item, insertAt)) {
+      toast.success(
+        `Added group of ${multiSelectedVerses.length} verses to schedule`
+      )
+    } else {
+      toast.info("Already in the schedule")
+    }
+    setMultiSelected(new Set())
+  }, [multiSelectedVerses, translationAbbr])
+
+  // Add the whole selection as a single *collection* item — one running-order
+  // entry that expands into a dropdown deck: the combined block first, then each
+  // verse individually (mirroring how a song / grouped slide deck expands).
+  const handleMultiAddAsGroup = useCallback(() => {
+    if (multiSelectedVerses.length === 0) return
+    const scheduleStore = useScheduleStore.getState()
+    const activeScheduleId = scheduleStore.activeScheduleId
+    if (!activeScheduleId) {
+      toast.error("No active schedule — select or create one first")
+      return
+    }
+    const schedule = scheduleStore.getActiveSchedule()
+    const insertAt =
+      scheduleStore.activeItemIndex !== null
+        ? scheduleStore.activeItemIndex + 1
+        : (schedule?.items.length ?? 0)
+    const item = buildScriptureCollectionScheduleItem(
       multiSelectedVerses,
       translationAbbr(),
       insertAt
@@ -215,8 +276,10 @@ export function useVerseMultiselect({
     setMultiSelected,
     multiSelectedVerses,
     handleVerseClick,
+    handleVerseDoubleClick,
     handleMultiPresent,
     handleMultiAddGroupToSchedule,
+    handleMultiAddAsGroup,
     handleMultiAddToSchedule,
     handleClearMultiSelect,
   }

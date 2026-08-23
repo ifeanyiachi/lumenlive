@@ -3,6 +3,7 @@ import type { Verse } from "@/types"
 import {
   buildScriptureScheduleItem,
   buildGroupedScriptureScheduleItem,
+  buildScriptureCollectionScheduleItem,
 } from "./schedule-items"
 
 const verse = (over: Partial<Verse> = {}): Verse =>
@@ -92,5 +93,46 @@ describe("buildGroupedScriptureScheduleItem", () => {
     expect(item.label).toBe("John 3:16 (KJV)")
     expect(item.verseStart).toBe(16)
     expect(item.verseEnd).toBe(16)
+  })
+})
+
+describe("buildScriptureCollectionScheduleItem", () => {
+  const verses = [
+    verse({ id: 3, verse: 18, text: "c" }),
+    verse({ id: 1, verse: 16, text: "a" }),
+    verse({ id: 2, verse: 17, text: "b" }),
+  ]
+
+  it("shares the combined block's top-level fields with the grouped add", () => {
+    const combined = buildGroupedScriptureScheduleItem(verses, "KJV", 4)
+    const collection = buildScriptureCollectionScheduleItem(verses, "KJV", 4)
+    // Everything the combined block carries (minus the random id) must match, so
+    // the collection's first deck slide presents byte-for-byte like a plain add.
+    const { id: _c, ...combinedRest } = combined
+    const {
+      id: _k,
+      groupCollection,
+      collectionVerses,
+      ...collectionRest
+    } = collection
+    expect(collectionRest).toEqual(combinedRest)
+    expect(groupCollection).toBe(true)
+    expect(collectionVerses).toBeDefined()
+  })
+
+  it("caches one collection verse per selection, in canonical order", () => {
+    const item = buildScriptureCollectionScheduleItem(verses, "KJV", 0)
+    expect(item.collectionVerses?.map((v) => v.verse)).toEqual([16, 17, 18])
+    expect(item.collectionVerses?.map((v) => v.text)).toEqual(["a", "b", "c"])
+    expect(item.collectionVerses?.[0]).toMatchObject({
+      translationId: 7,
+      bookNumber: 43,
+      bookName: "John",
+      bookAbbreviation: "Jn",
+      chapter: 3,
+      verse: 16,
+      text: "a",
+      reference: "John 3:16 (KJV)",
+    })
   })
 })
