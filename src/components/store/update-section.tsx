@@ -51,13 +51,19 @@ export function UpdateSection() {
 
   const checking = status === "checking"
   const downloading = status === "downloading"
+  const installing = status === "installing"
+  // The download/install runs in the background off a cached handle, so it
+  // outlives the "available" status. Keep the action + panel shown throughout so
+  // the operator always sees it's working (and can't fire a second download).
+  const busy = downloading || installing
   const hasUpdate = status === "available" && available !== null
+  const showUpdatePanel = (hasUpdate || busy) && available !== null
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-          {hasUpdate ? (
+          {hasUpdate || busy ? (
             <Download className="size-4 text-primary" />
           ) : (
             <RefreshCw className="size-4 text-muted-foreground" />
@@ -71,13 +77,18 @@ export function UpdateSection() {
           </p>
         </div>
 
-        {hasUpdate ? (
+        {hasUpdate || busy ? (
           <Button
             size="sm"
-            disabled={downloading}
+            disabled={busy}
             onClick={() => void useUpdateStore.getState().install()}
           >
-            {downloading ? "Updating…" : "Update now"}
+            {busy && <Loader2 className="animate-spin" />}
+            {installing
+              ? "Installing…"
+              : downloading
+                ? "Downloading…"
+                : "Update now"}
           </Button>
         ) : (
           <Button
@@ -94,17 +105,19 @@ export function UpdateSection() {
 
       {/* Status line + details, reflecting the current flow state */}
       <div className="mt-3">
-        {hasUpdate ? (
+        {showUpdatePanel ? (
           <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
             <p className="text-sm font-medium text-foreground">
-              LumenLive {available.version} is available
+              {busy
+                ? `Updating to LumenLive ${available.version}`
+                : `LumenLive ${available.version} is available`}
             </p>
-            {available.notes && (
+            {available.notes && !busy && (
               <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
                 {available.notes}
               </p>
             )}
-            {downloading ? (
+            {busy ? (
               <div className="mt-2">
                 <DownloadProgress />
               </div>

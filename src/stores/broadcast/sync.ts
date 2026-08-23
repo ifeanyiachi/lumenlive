@@ -6,7 +6,8 @@ import {
 import { resolveScriptureTheme, resolveBaseTheme } from "@/lib/theme/resolve"
 import type { VerseRenderData } from "@/types/broadcast"
 import { presentScripture } from "@/lib/theme/present"
-import { themeToSlide, stripThemeContent } from "@/lib/theme/render"
+import { stripThemeContent } from "@/lib/theme/render"
+import { idleBlankSlide } from "@/lib/broadcast/idle-slide"
 import { useThemesStore } from "@/stores/themes"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
 import { buildStageUpdatePayload } from "@/lib/stage-layout/stage-payload"
@@ -63,8 +64,8 @@ export const createSyncSlice: StateCreator<
     const themeId = effective.themeId
 
     // The output's theme in the NEW typed store (RF2/RF3): resolved via the legacy-id
-    // alias, falling back to the scripture built-in. Drives the live scripture slide,
-    // the base backdrop, and the idle backdrop.
+    // alias, falling back to the scripture built-in. Drives the live scripture slide
+    // and the base backdrop (revealed on Clear). Idle is blank, not theme-driven.
     const newThemes = useThemesStore.getState().allThemes()
     const outputTheme =
       resolveScriptureTheme(themeId, newThemes) ??
@@ -75,12 +76,12 @@ export const createSyncSlice: StateCreator<
     // D1). Delivered every sync so the window can composite transparent content over
     // it and reveal it on Clear, regardless of which content mode is live.
     //
-    // Content-stripped: this theme is the backdrop shown behind Clear/transparent
-    // content and (below) the idle backdrop — both render with nothing pushed, so the
-    // theme's authoring sample text ("John 3:16", a sermon title, …) must be blanked
-    // or it leaks onto the audience screen the moment an output is enabled. The live
-    // paths never use this theme (they present the pushed content), so stripping is
-    // safe here and fixes the idle *and* Clear backdrops in one place.
+    // Content-stripped: this theme is the backdrop revealed on Clear and composited
+    // behind transparent content — both render with nothing pushed, so the theme's
+    // authoring sample text ("John 3:16", a sermon title, …) must be blanked or it
+    // leaks onto the audience screen. The live paths never use this theme (they
+    // present the pushed content); the idle state no longer uses it either (idle is
+    // blank black — see `emitIdleBackdrop`), so this now serves Clear alone.
     const baseTheme = outputTheme
       ? stripThemeContent(resolveBaseTheme(s.baseBackground, outputTheme, newThemes))
       : undefined
@@ -105,22 +106,16 @@ export const createSyncSlice: StateCreator<
     // active — not just while showing a verse.
     const layerFilter = resolveLayerFilter(effective)
 
-    // The idle backdrop (not live, or live with nothing pushed): the resolved base
-    // theme with no content, rendered through the slide path (VR3) so it matches the
-    // audience scripture render + the operator preview. Using the *base* theme (not the
-    // bare output theme) means a configured Clear & Idle background — solid, gradient,
-    // image, or video — shows on idle too, exactly as it does on Clear, instead of the
-    // output's own scripture backdrop. When no base background is set the base theme IS
-    // the output theme, so idle looks unchanged. A scripture built-in always resolves,
-    // so `baseTheme` is present in practice.
+    // The idle backdrop (not live, or live with nothing pushed): a blank opaque-black
+    // frame. The output holds black until the operator pushes content — nothing of the
+    // output/base theme (background, branding, or sample text) reaches the audience
+    // screen just because an output is open. The base theme is still delivered
+    // separately (above) so the operator's explicit Clear reveals the configured
+    // Clear & Idle backdrop; idle and Clear are now distinct (idle = black, Clear =
+    // backdrop). See `idleBlankSlide` for why the slide is opaque, not transparent.
     const emitIdleBackdrop = () => {
-      const backdrop = baseTheme ?? outputTheme
-      if (!backdrop) return
       emitOutputEvent(outputId, BROADCAST_EVENTS.slideUpdate, {
-        slide: {
-          ...themeToSlide(backdrop, () => "idle-backdrop"),
-          transition: undefined,
-        },
+        slide: idleBlankSlide(() => "idle-blank"),
         verse: null,
         layerFilter,
       })

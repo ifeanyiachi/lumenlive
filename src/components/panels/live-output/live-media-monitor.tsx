@@ -40,6 +40,10 @@ export function LiveMediaMonitor({
   // forwards to the audience output). Nothing auto-plays on going live.
   const [playing, setPlaying] = useState(false)
   const [dragging, setDragging] = useState(false)
+  // Surfaced when the media source fails to load or play. Without this a failed
+  // load is silent: play() rejects, onPlay never fires, and the Play button
+  // looks dead with no clue why (e.g. an unresolvable path in a packaged build).
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const sendTransport = useBroadcastStore((s) => s.sendMediaTransport)
   const setMediaTransport = useBroadcastStore((s) => s.setMediaTransport)
@@ -56,6 +60,20 @@ export function LiveMediaMonitor({
 
   const src = useMemo(() => safeFileSrc(media.filePath), [media.filePath])
 
+  // The media element failed to load its source — the common cause of "the Play
+  // button does nothing" in packaged builds (an unresolvable/unreadable path).
+  // Report the offending path so the failure is diagnosable, not silent.
+  const handleMediaError = useCallback(() => {
+    const el = mediaRef.current
+    const code = el && "error" in el ? el.error?.code : undefined
+    console.error(
+      "[live-media] failed to load media",
+      { filePath: media.filePath, src, code },
+      el && "error" in el ? el.error : undefined
+    )
+    setLoadError(media.filePath)
+  }, [media.filePath, src])
+
   const markers = useMemo(
     () => sortMarkers(media.markers ?? []),
     [media.markers]
@@ -69,6 +87,7 @@ export function LiveMediaMonitor({
   const handleLoaded = useCallback(() => {
     const el = mediaRef.current
     if (!el) return
+    setLoadError(null)
     setDuration(Number.isFinite(el.duration) ? el.duration : 0)
     if (media.trimStart) {
       try {
@@ -110,13 +129,25 @@ export function LiveMediaMonitor({
       }
       setCurrent(start)
       sendTransport("seek", start)
-      void el.play()
       sendTransport("play")
+      // Await play() so a rejected source (unresolvable path, decode failure)
+      // surfaces instead of failing silently — otherwise the button looks dead.
+      // AbortError (a quick pause/seek interrupting play) is benign, so ignore it.
+      el.play()
+        .then(() => setLoadError(null))
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === "AbortError") return
+          console.error("[live-media] play() rejected", {
+            filePath: media.filePath,
+            err,
+          })
+          setLoadError(media.filePath)
+        })
     } else {
       el.pause()
       sendTransport("pause")
     }
-  }, [sendTransport, media.trimStart])
+  }, [sendTransport, media.trimStart, media.filePath])
 
   const seekLocal = useCallback((t: number) => {
     const el = mediaRef.current
@@ -247,6 +278,7 @@ export function LiveMediaMonitor({
               onTimeUpdate={handleTime}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onError={handleMediaError}
             />
           </>
         ) : (
@@ -261,7 +293,19 @@ export function LiveMediaMonitor({
               onTimeUpdate={handleTime}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onError={handleMediaError}
             />
+          </div>
+        )}
+
+        {loadError === media.filePath && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 px-4 text-center">
+            <p className="text-xs font-medium text-destructive">
+              Couldn&apos;t load this media
+            </p>
+            <p className="max-w-full truncate text-[0.625rem] text-white/60">
+              {loadError}
+            </p>
           </div>
         )}
       </div>

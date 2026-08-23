@@ -1,8 +1,7 @@
 import { useMemo } from "react"
 import { useThemesStore } from "@/stores/themes"
 import { buildThemeRegistry } from "@/lib/theme/registry"
-import { resolveScriptureTheme, resolveBaseTheme } from "@/lib/theme/resolve"
-import { themeToSlide } from "@/lib/theme/render"
+import { buildBaseBackdropSlide } from "@/lib/theme/render"
 import { SlideCanvas } from "@/components/slides/slide-canvas"
 import type { BaseBackground } from "@/types/broadcast"
 
@@ -27,15 +26,16 @@ export function BasePreview({
 }: BasePreviewProps) {
   const customThemes = useThemesStore((s) => s.customThemes)
 
-  const slide = useMemo(() => {
-    const themes = buildThemeRegistry(customThemes)
-    const outputTheme =
-      resolveScriptureTheme(themeId, themes) ??
-      themes.find((t) => t.type === "scripture")
-    if (!outputTheme) return null
-    const base = resolveBaseTheme(baseBackground, outputTheme, themes)
-    return themeToSlide(base, () => "preview-base")
-  }, [customThemes, themeId, baseBackground])
+  const slide = useMemo(
+    () =>
+      buildBaseBackdropSlide(
+        themeId,
+        baseBackground,
+        buildThemeRegistry(customThemes),
+        () => "preview-base"
+      ),
+    [customThemes, themeId, baseBackground]
+  )
 
   if (!slide) return null
   return <SlideCanvas slide={slide} className={className} />

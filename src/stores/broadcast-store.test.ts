@@ -86,11 +86,12 @@ describe("broadcast store sync", () => {
     )
   })
 
-  it("idle backdrop shows the configured Clear & Idle image background (not the output theme)", async () => {
+  it("idle emits a blank black slide, not the configured backdrop (blank until pushed)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const outputs = useBroadcastStore.getState().outputs
     outputs.find((o) => o.id === "main")!.themeId = SCRIPTURE_BUILTIN.id
-    // Not live → idle backdrop path. Configure an image base background.
+    // Not live → idle path. Even with a Clear & Idle image background configured,
+    // idle stays blank black; that image is reserved for the operator's Clear.
     useBroadcastStore.setState({ isLive: false, outputs: [...outputs] })
     useBroadcastStore.getState().setBaseBackground({
       kind: "background",
@@ -112,31 +113,42 @@ describe("broadcast store sync", () => {
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutput()
 
-    // The idle backdrop slide now carries the base background's image, so the
-    // audience sees the holding image on idle — not the scripture theme.
+    // Idle output is a plain opaque-black frame with no elements — nothing of the
+    // configured backdrop leaks onto the audience screen.
     expect(emitToMock).toHaveBeenCalledWith(
       "broadcast",
       "broadcast:slide-update",
       expect.objectContaining({
         slide: expect.objectContaining({
-          id: "idle-backdrop",
-          background: expect.objectContaining({
-            type: "image",
-            imageUrl: "asset://localhost/holding.png",
-          }),
+          id: "idle-blank",
+          background: { type: "solid", color: "#000000" },
+          elements: [],
         }),
         verse: null,
       })
     )
+
+    // The configured image still rides the base-theme event so Clear reveals it.
+    const baseCall = emitToMock.mock.calls.find(
+      (c) => c[0] === "broadcast" && c[1] === "broadcast:base-theme"
+    )
+    expect(baseCall).toBeDefined()
+    const baseTheme = (baseCall![2] as { theme: { background: unknown } }).theme
+    expect(baseTheme.background).toEqual(
+      expect.objectContaining({
+        type: "image",
+        imageUrl: "asset://localhost/holding.png",
+      })
+    )
   })
 
-  it("idle backdrop blanks the scripture theme's sample verse (no John 3:16 leak)", async () => {
+  it("no scripture-theme content leaks on idle — neither the idle slide nor the Clear backdrop", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const outputs = useBroadcastStore.getState().outputs
     outputs.find((o) => o.id === "main")!.themeId = SCRIPTURE_BUILTIN.id
-    // Not live, nothing pushed, no custom base background → the idle backdrop
-    // falls back to the output's own scripture theme, whose placeholder ships a
-    // "John 3:16" authoring sample that must never reach the audience screen.
+    // Not live, nothing pushed, no custom base background. The scripture theme's
+    // placeholder ships a "John 3:16" authoring sample that must never reach the
+    // audience screen — not on idle, and not when the operator hits Clear.
     useBroadcastStore.setState({
       isLive: false,
       baseBackground: null,
@@ -146,24 +158,18 @@ describe("broadcast store sync", () => {
     emitToMock.mockClear()
     useBroadcastStore.getState().syncBroadcastOutput()
 
+    // The idle slide itself is a blank black frame with no elements at all.
     const idleCall = emitToMock.mock.calls.find(
       (c) =>
         c[0] === "broadcast" &&
         c[1] === "broadcast:slide-update" &&
-        (c[2] as { slide?: Slide }).slide?.id === "idle-backdrop"
+        (c[2] as { slide?: Slide }).slide?.id === "idle-blank"
     )
     expect(idleCall).toBeDefined()
     const payload = idleCall![2] as { slide: Slide; verse: unknown }
     expect(payload.verse).toBeNull()
-    const scripture = payload.slide.elements.find(
-      (e) => e.type === "scripture"
-    )
-    expect(scripture).toBeDefined()
-    if (scripture?.type === "scripture") {
-      expect(scripture.reference).toBe("")
-      expect(scripture.verseText).toBe("")
-      expect(scripture.translation).toBe("")
-    }
+    expect(payload.slide.elements).toEqual([])
+
     // And the base-theme backdrop (revealed on Clear) is content-free too.
     const baseCall = emitToMock.mock.calls.find(
       (c) => c[0] === "broadcast" && c[1] === "broadcast:base-theme"

@@ -3,6 +3,12 @@ import { relaunch } from "@tauri-apps/plugin-process"
 import { load } from "@tauri-apps/plugin-store"
 import { getVersion } from "@tauri-apps/api/app"
 import type { AvailableUpdate } from "@/lib/updater/version"
+import {
+  initialDownloadProgress,
+  reduceDownloadEvent,
+  type DownloadProgressState,
+  type DownloadProgressUpdate,
+} from "@/lib/updater/download-progress"
 
 /**
  * The Tauri/IPC boundary for app self-updates. Owns every call into the
@@ -47,34 +53,28 @@ export async function getCurrentVersion(): Promise<string> {
   return getVersion()
 }
 
-/** Download-progress callback: `fraction` runs 0 → 1 over the download. */
-export type ProgressHandler = (fraction: number) => void
+/**
+ * Download-progress callback. Receives a phase ("downloading" | "installing"),
+ * a 0..1 `fraction`, and `known` (false when the server didn't advertise a size,
+ * so the UI should show an indeterminate bar rather than a frozen 0%).
+ */
+export type ProgressHandler = (update: DownloadProgressUpdate) => void
 
 /**
  * Download and install the update cached by the last checkForUpdate, reporting
- * progress as a 0..1 fraction, then relaunch into the new version. On success
- * the process is replaced by relaunch(), so code after the await rarely runs.
- * Throws if no update is pending.
+ * progress, then relaunch into the new version. On success the process is
+ * replaced by relaunch(), so code after the await rarely runs. Throws if no
+ * update is pending.
  */
 export async function installUpdate(
   onProgress?: ProgressHandler
 ): Promise<void> {
   if (!pending) throw new Error("No pending update to install")
-  let total = 0
-  let received = 0
+  let progress: DownloadProgressState = initialDownloadProgress
   await pending.downloadAndInstall((event) => {
-    switch (event.event) {
-      case "Started":
-        total = event.data.contentLength ?? 0
-        break
-      case "Progress":
-        received += event.data.chunkLength
-        onProgress?.(total > 0 ? Math.min(received / total, 1) : 0)
-        break
-      case "Finished":
-        onProgress?.(1)
-        break
-    }
+    const result = reduceDownloadEvent(progress, event)
+    progress = result.state
+    onProgress?.(result.update)
   })
   await relaunch()
 }

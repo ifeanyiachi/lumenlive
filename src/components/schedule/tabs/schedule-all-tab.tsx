@@ -65,8 +65,6 @@ import type { VerseRenderData } from "@/types/broadcast"
  */
 type RowDeck = { slides: Slide[]; verses?: (VerseRenderData | undefined)[] }
 
-type ViewMode = "list" | "thumbnail"
-
 export function ScheduleAllTab({
   onEditProperties,
   onStageNewItem,
@@ -84,13 +82,16 @@ export function ScheduleAllTab({
   const customThemes = useThemesStore((s) => s.customThemes)
   const songs = useSongStore((s) => s.songs)
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  // Persisted in settings so the operator's choice survives tab switches (Radix
+  // unmounts the inactive tab) and restarts — it changes only on toggle.
+  const viewMode = useSettingsStore((s) => s.scheduleViewMode)
+  const setViewMode = useSettingsStore((s) => s.setScheduleViewMode)
   // The main output's scripture theme drives the collection preview deck; narrow
   // to just the theme id so unrelated output changes don't rebuild every deck.
   const mainThemeId = useBroadcastStore(
     (s) => findOutput(s.outputs, "main")?.themeId ?? ""
   )
   const [editingName, setEditingName] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [confirmClear, setConfirmClear] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)

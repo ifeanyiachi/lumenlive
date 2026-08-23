@@ -15,6 +15,9 @@ import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 export type SttProvider = "deepgram" | "sherpa" | "zipformer"
 type MediaImportMode = "reference" | "copy"
 
+/** Schedule "All" tab layout: flat list vs. thumbnail grid. */
+export type ScheduleViewMode = "list" | "thumbnail"
+
 /** True for the on-device engines that share the local VAD pipeline. */
 export const isLocalSttProvider = (p: SttProvider): boolean => p !== "deepgram"
 
@@ -110,6 +113,14 @@ interface SettingsState {
    */
   telemetryEnabled: boolean
 
+  /**
+   * The operator's chosen layout for the schedule "All" tab. Persisted so it
+   * survives switching between schedule tabs (Radix unmounts the inactive tab)
+   * and app restarts — it changes only when the operator toggles it, never on
+   * remount.
+   */
+  scheduleViewMode: ScheduleViewMode
+
   setDeepgramApiKey: (key: string | null) => void
   setGeniusApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
@@ -132,6 +143,7 @@ interface SettingsState {
   setSongSlideDefaults: (options: SongSlideOptions) => void
   setScriptureDefaultThemeId: (themeId: string) => void
   setTelemetryEnabled: (enabled: boolean) => void
+  setScheduleViewMode: (mode: ScheduleViewMode) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -157,6 +169,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   songSlideDefaults: DEFAULT_SONG_SLIDE_OPTIONS,
   scriptureDefaultThemeId: SCRIPTURE_BUILTIN.id,
   telemetryEnabled: true,
+  scheduleViewMode: "list",
 
   setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
@@ -183,6 +196,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setScriptureDefaultThemeId: (scriptureDefaultThemeId) =>
     set({ scriptureDefaultThemeId }),
   setTelemetryEnabled: (telemetryEnabled) => set({ telemetryEnabled }),
+  setScheduleViewMode: (scheduleViewMode) => set({ scheduleViewMode }),
 }))
 
 const PERSISTED_KEYS = [
@@ -208,6 +222,7 @@ const PERSISTED_KEYS = [
   "songSlideDefaults",
   "scriptureDefaultThemeId",
   "telemetryEnabled",
+  "scheduleViewMode",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 let tauriStore: Store | null = null

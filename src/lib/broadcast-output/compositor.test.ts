@@ -301,11 +301,44 @@ describe("composeFrame — slide mode", () => {
 })
 
 describe("composeFrame — no live content (fallback)", () => {
-  it("with no slide falls back to Clear (black floor + overlays)", () => {
-    // The live verse path is retired: with nothing live, the else branch paints
-    // the Clear backdrop (black floor + base theme, here none) then overlays.
+  it("with no slide stays blank (black floor + overlays)", () => {
+    // Nothing live → the else branch holds black (floor + media layer) then overlays.
     composeFrame(recCtx(), SW, SH, makeState({ latestSlide: null }))
     expect(ops).toEqual([...FILL_BLACK, "props", "alerts", "countdowns"])
+  })
+
+  it("does NOT paint the base theme (idle is blank, unlike Clear)", () => {
+    // A base theme is set, but with nothing live the fallback must stay blank — the
+    // theme backdrop is reserved for the operator's explicit Clear. Regression guard
+    // for the blank-on-idle behaviour.
+    composeFrame(
+      recCtx(),
+      SW,
+      SH,
+      makeState({ latestSlide: null, baseTheme: baseThemeFixture("base") })
+    )
+    expect(ops).not.toContain("renderSlide(base)")
+    expect(ops).toEqual([...FILL_BLACK, "props", "alerts", "countdowns"])
+  })
+
+  it("still shows the media layer floor when one is present", () => {
+    composeFrame(
+      recCtx(),
+      SW,
+      SH,
+      makeState({
+        latestSlide: null,
+        mediaLayer: imageLayer(),
+        mediaLayerImg: labeled("ml-img"),
+      })
+    )
+    expect(ops).toEqual([
+      ...FILL_BLACK,
+      "drawMediaFitted(ml-img)",
+      "props",
+      "alerts",
+      "countdowns",
+    ])
   })
 })
 

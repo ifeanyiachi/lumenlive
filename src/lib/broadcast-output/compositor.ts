@@ -367,9 +367,13 @@ export function composeFrame(
   } else if (s.activeMode === "slide" && s.latestSlide) {
     renderSlideContent(ctx, sw, sh, s)
   } else {
-    // No live content (initial state, or a slide mode with no slide yet): show the
-    // base backdrop over black, exactly like Clear.
-    renderClear(ctx, sw, sh, s)
+    // No live content (cold start before the first slide arrives, or a slide mode
+    // with no slide yet): stay blank — just the black floor + media layer, NOT the
+    // base theme. The output holds black until something is pushed; the operator's
+    // explicit Clear (above) still reveals the base backdrop. In steady state the
+    // store emits a blank idle slide (see stores/broadcast/sync.ts `emitIdleBackdrop`),
+    // so this branch is the transient fallback that must match it (blank, not Clear).
+    paintProgramBase(ctx, sw, sh, s)
   }
 
   paintOverlays(ctx, sw, sh, s)

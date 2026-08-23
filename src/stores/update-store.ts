@@ -15,6 +15,7 @@ export type UpdateStatus =
   | "checking"
   | "available" // a newer build exists
   | "downloading"
+  | "installing" // download done, verifying + swapping the binary
   | "ready" // installed; relaunch pending (rarely observed)
   | "error"
 
@@ -33,6 +34,12 @@ interface UpdateState {
   dismissedVersion: string | null
   /** Download progress 0..1 while status === "downloading". */
   progress: number
+  /**
+   * Whether `progress` is a real percentage. False when the update server didn't
+   * report a content length, so the UI shows an indeterminate bar instead of a
+   * misleading, frozen 0%.
+   */
+  progressKnown: boolean
   check: () => Promise<void>
   install: () => Promise<void>
   dismiss: () => void
@@ -45,6 +52,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   lastCheckedAt: null,
   dismissedVersion: null,
   progress: 0,
+  progressKnown: false,
 
   check: async () => {
     set({ status: "checking" })
@@ -62,12 +70,22 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   },
 
   install: async () => {
-    if (!get().available) return
-    set({ status: "downloading", progress: 0 })
+    const { available, status } = get()
+    if (!available) return
+    // Guard re-entry: a second click while a download/install is already running
+    // must not kick off a duplicate downloadAndInstall on the same handle.
+    if (status === "downloading" || status === "installing") return
+    set({ status: "downloading", progress: 0, progressKnown: false })
     try {
       // On success the app relaunches, so "ready" is mostly a fallback the UI
       // rarely paints — the process is replaced first.
-      await updater.installUpdate((fraction) => set({ progress: fraction }))
+      await updater.installUpdate((u) =>
+        set({
+          status: u.phase === "installing" ? "installing" : "downloading",
+          progress: u.fraction,
+          progressKnown: u.known,
+        })
+      )
       set({ status: "ready" })
     } catch (err) {
       console.warn("[updater] install failed", err)
