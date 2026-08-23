@@ -6,6 +6,7 @@
  */
 
 import { safeFileSrc } from "@/lib/media/safe-file-src"
+import { nativeLoopEnabled } from "@/lib/media/loop-mode"
 import { toFitConfig } from "@/lib/broadcast-output/frame"
 import {
   listenOutputEvent,
@@ -74,13 +75,16 @@ export function registerMediaListeners(
         }
         const audio = rt.audioRef.current
         audio.muted = rt.broadcastMutedRef.current
-        audio.loop = false
         rt.mediaConfigRef.current = {
           trimStart: event.payload.trimStart ?? 0,
           trimEnd: event.payload.trimEnd,
           loop: event.payload.loop ?? false,
           endAction: event.payload.endAction ?? "hold",
         }
+        // Untrimmed loops use the element's native loop (seamless, and robust
+        // against the asset:// protocol where the `ended`→replay path stalls);
+        // trimmed loops fall back to the manual seek path below.
+        audio.loop = nativeLoopEnabled(rt.mediaConfigRef.current)
         audio.src = src
         audio.onloadedmetadata = () => {
           const startAt = rt.mediaConfigRef.current?.trimStart ?? 0
@@ -138,13 +142,16 @@ export function registerMediaListeners(
         }
         const video = rt.videoRef.current
         video.muted = rt.broadcastMutedRef.current
-        video.loop = false
         rt.mediaConfigRef.current = {
           trimStart: event.payload.trimStart ?? 0,
           trimEnd: event.payload.trimEnd,
           loop: event.payload.loop ?? false,
           endAction: event.payload.endAction ?? "hold",
         }
+        // Untrimmed loops use the element's native loop (seamless, and robust
+        // against the asset:// protocol where the `ended`→replay path stalls);
+        // trimmed loops fall back to the manual seek path in handleMediaVideoEnd.
+        video.loop = nativeLoopEnabled(rt.mediaConfigRef.current)
         video.src = src
         video.onloadedmetadata = () => {
           const startAt = rt.mediaConfigRef.current?.trimStart ?? 0

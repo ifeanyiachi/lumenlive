@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
+import { nativeLoopEnabled } from "@/lib/media/loop-mode"
 import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { useBroadcastStore } from "@/stores"
 import {
@@ -59,6 +60,11 @@ export function LiveMediaMonitor({
     () => sortMarkers(media.markers ?? []),
     [media.markers]
   )
+
+  // Full-length loops use the element's native loop attribute so the operator
+  // monitor loops in lockstep with the audience output. Trimmed loops are still
+  // handled manually in handleTime (return to trimStart at trimEnd).
+  const loopNative = nativeLoopEnabled(media)
 
   const handleLoaded = useCallback(() => {
     const el = mediaRef.current
@@ -233,6 +239,7 @@ export function LiveMediaMonitor({
               ref={setElRef}
               src={src}
               muted
+              loop={loopNative}
               playsInline
               className="relative aspect-video max-h-full max-w-full"
               style={mediaFitStyle(media)}
@@ -249,6 +256,7 @@ export function LiveMediaMonitor({
               ref={setElRef}
               src={src}
               muted
+              loop={loopNative}
               onLoadedMetadata={handleLoaded}
               onTimeUpdate={handleTime}
               onPlay={() => setPlaying(true)}
