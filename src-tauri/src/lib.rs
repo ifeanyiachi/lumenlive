@@ -1,6 +1,8 @@
 mod bible_state;
 mod commands;
+mod display_watch;
 mod events;
+mod keep_awake;
 mod memstats;
 mod setup;
 mod state;
@@ -12,6 +14,15 @@ pub fn run() {
     // Load .env file — try src-tauri/.env first, then project root ../.env
     dotenvy::dotenv().ok();
     dotenvy::from_filename("../.env").ok();
+
+    // tauri-plugin-aptabase's setup hook starts its flush loop with a bare
+    // `tokio::spawn`, which panics ("there is no reactor running") because
+    // Tauri v2 runs plugin setup hooks on the main thread without entering a
+    // Tokio context first. Enter Tauri's own runtime context here and hold the
+    // guard for the whole launch so that spawn finds a reactor. Harmless when
+    // the plugin isn't registered; load-bearing when an Aptabase key is present.
+    let rt_handle = tauri::async_runtime::handle();
+    let _tokio_guard = rt_handle.inner().enter();
 
     let mut builder = tauri::Builder::default();
 
@@ -51,6 +62,14 @@ pub fn run() {
         .manage(Mutex::new(lumenlive_detection::ReadingMode::new()))
         .manage(Mutex::new(commands::remote::OscRuntime::new()))
         .manage(Mutex::new(commands::remote::HttpRuntime::new()))
+        // Wake lock: keeps the display + system awake while any broadcast output
+        // (external display window or NDI) is live. Self-managing (its own
+        // worker thread), so it needs no Mutex. See keep_awake.rs.
+        .manage(keep_awake::WakeLock::new())
+        // Tracks which monitor each live display output opened on, so the
+        // display-watch poller can tear an output down when its screen is
+        // unplugged. See commands/broadcast.rs + display_watch.rs.
+        .manage(commands::broadcast::OutputMonitors::default())
         .invoke_handler(tauri::generate_handler![
             commands::bible::list_translations,
             commands::bible::list_books,
@@ -112,8 +131,15 @@ pub fn run() {
             setup::init_bible_db(app)?;
             // Semantic search is optional — never aborts startup.
             setup::init_semantic(app);
+            // Open the control window maximized (config flag is unreliable on
+            // Windows; re-issue maximize once the window exists).
+            setup::maximize_main_window(app);
             // Ensure closing the main window tears down the projector windows.
             setup::wire_main_window_teardown(app);
+            // Watch for a projector/HDMI display being unplugged mid-service and
+            // tear the stranded output window down instead of leaving it
+            // fullscreen on the operator's screen.
+            display_watch::spawn(app.handle());
 
             Ok(())
         })

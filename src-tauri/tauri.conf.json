@@ -19,6 +19,7 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
+        "maximized": true,
         "center": true,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-direct-composition-video-overlays --autoplay-policy=no-user-gesture-required"
       }

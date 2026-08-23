@@ -117,3 +117,7 @@ workspace = true
 tauri-plugin-global-shortcut = "2"
 # Desktop-only self-updater (checks latest.json, downloads + installs signed builds).
 tauri-plugin-updater = "2"
+# Keep the display + system awake while a broadcast output is live so a service
+# is never interrupted by the machine idling (SetThreadExecutionState on Windows,
+# IOKit on macOS, logind/xdg on Linux). See src/keep_awake.rs.
+keepawake = "0.6"

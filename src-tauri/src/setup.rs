@@ -239,6 +239,22 @@ pub fn init_semantic(app: &tauri::App) {
     }
 }
 
+/// Force the main control window to open maximized (filling the work area).
+///
+/// The window config declares `"maximized": true`, but on Windows that flag is
+/// applied unreliably at creation time — depending on monitor/DPI timing the
+/// window can land at its default 1280×800 size, offset rather than centered.
+/// Re-issuing `maximize()` here, after the window exists, is the reliable path
+/// and makes both `tauri dev` and production builds open filling the screen.
+pub fn maximize_main_window(app: &tauri::App) {
+    let Some(main) = app.get_webview_window("main") else {
+        return;
+    };
+    if let Err(e) = main.maximize() {
+        log::warn!("Failed to maximize main window: {e}");
+    }
+}
+
 /// Tear the whole app down when the operator closes the main control window.
 ///
 /// The broadcast output windows are borderless, non-closable and hidden from the

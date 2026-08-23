@@ -1,11 +1,29 @@
 #![expect(clippy::needless_pass_by_value, reason = "Tauri command extractors require pass-by-value")]
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::State;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use lumenlive_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
+
+use crate::keep_awake::{self, WakeLock};
+
+/// Physical origin (top-left, in physical pixels) of the monitor each live
+/// *display* output window was opened on, keyed by `output_id`.
+///
+/// The display-watch poller (`crate::display_watch`) uses these to notice when a
+/// monitor is unplugged mid-service: if an output's recorded origin no longer
+/// falls inside any connected monitor, its projector was disconnected and the
+/// (borderless, non-closable, taskbar-hidden) window must be torn down rather
+/// than left stranded fullscreen on the operator's own screen.
+///
+/// Only windows opened by [`open_broadcast_window`] (a physical display output)
+/// are tracked; a hidden NDI-only window created by [`ensure_broadcast_window`]
+/// has no monitor to watch and is deliberately absent.
+#[derive(Default)]
+pub struct OutputMonitors(pub Mutex<HashMap<String, (i32, i32)>>);
 
 /// Extra `WebView2` (Windows) browser flags for every window.
 ///
@@ -111,6 +129,8 @@ pub async fn open_broadcast_window(
     monitor_index: usize,
     mode: Option<String>,
     name: Option<String>,
+    wake: State<'_, WakeLock>,
+    monitors_reg: State<'_, OutputMonitors>,
 ) -> Result<(), String> {
     let label = window_label(&output_id);
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
@@ -228,7 +248,58 @@ pub async fn open_broadcast_window(
         let _ = main.set_focus();
     }
 
+    // A physical output is now live on its monitor — keep the display (and the
+    // system) awake so the operator's idle timer can't blank the projector or
+    // sleep the machine mid-service. Released in `close_broadcast_window`.
+    wake.acquire(keep_awake::display_token(&output_id));
+
+    // Record which monitor this output landed on so the display-watch poller can
+    // notice if it later disappears (HDMI unplugged) and tear the output down.
+    // Keyed by the monitor's physical origin, which is scale-independent and
+    // survives re-indexing of the remaining monitors when one is removed.
+    if let Ok(mut map) = monitors_reg.0.lock() {
+        map.insert(output_id.clone(), (pos.x, pos.y));
+    }
+
     Ok(())
+}
+
+/// Tear down a display output window whose monitor has gone away (or on an
+/// explicit close request). Hides the window if NDI is still consuming it,
+/// otherwise closes it; always releases the display wake token and drops the
+/// monitor-registry entry. Returns whether NDI is still active for the output
+/// (so callers can report the projector is gone while the network feed lives on).
+///
+/// Shared by [`close_broadcast_window`] and the display-watch poller so both
+/// paths hide-vs-close and clean up identically.
+pub fn teardown_display_window(app: &tauri::AppHandle, output_id: &str) -> bool {
+    let ndi_active = app
+        .try_state::<Mutex<NdiRuntime>>()
+        .and_then(|rt| rt.lock().ok().map(|r| r.is_active(output_id)))
+        .unwrap_or(false);
+
+    if let Some(window) = app.get_webview_window(&window_label(output_id)) {
+        if ndi_active {
+            let _ = window.hide();
+        } else {
+            let _ = window.close();
+        }
+    }
+
+    // The physical display is no longer showing this output. Drop its display
+    // wake token; if NDI is still live its own token keeps the machine awake.
+    if let Some(wake) = app.try_state::<WakeLock>() {
+        wake.release(keep_awake::display_token(output_id));
+    }
+
+    // The output no longer occupies a physical monitor, so stop watching it.
+    if let Some(reg) = app.try_state::<OutputMonitors>() {
+        if let Ok(mut map) = reg.0.lock() {
+            map.remove(output_id);
+        }
+    }
+
+    ndi_active
 }
 
 /// Bring the broadcast output window back to the front on its monitor.
@@ -263,20 +334,10 @@ pub async fn focus_broadcast_window(
 pub async fn close_broadcast_window(
     app: tauri::AppHandle,
     output_id: String,
-    runtime: State<'_, Mutex<NdiRuntime>>,
 ) -> Result<(), String> {
-    let label = window_label(&output_id);
-    if let Some(window) = app.get_webview_window(&label) {
-        let ndi_active = runtime
-            .lock()
-            .map_err(|e| e.to_string())?
-            .is_active(&output_id);
-        if ndi_active {
-            window.hide().map_err(|e| e.to_string())?;
-        } else {
-            window.close().map_err(|e| e.to_string())?;
-        }
-    }
+    // Hides (if NDI still needs the surface) or closes the window, releases the
+    // display wake token, and drops the monitor-registry entry. See the helper.
+    teardown_display_window(&app, &output_id);
     Ok(())
 }
 
@@ -285,17 +346,28 @@ pub fn start_ndi(
     output_id: String,
     runtime: State<'_, Mutex<NdiRuntime>>,
     request: NdiStartRequest,
+    wake: State<'_, WakeLock>,
 ) -> Result<NdiSessionInfo, String> {
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
-    runtime
-        .start(output_id, request)
-        .map_err(|e| e.to_string())
+    let info = runtime
+        .start(output_id.clone(), request)
+        .map_err(|e| e.to_string())?;
+    // NDI reads the (possibly hidden) output canvas every frame; keep the
+    // system awake so an idle machine can't sleep and freeze the feed. Released
+    // in `stop_ndi`.
+    wake.acquire(keep_awake::ndi_token(&output_id));
+    Ok(info)
 }
 
 #[tauri::command]
-pub fn stop_ndi(output_id: String, runtime: State<'_, Mutex<NdiRuntime>>) -> Result<(), String> {
+pub fn stop_ndi(
+    output_id: String,
+    runtime: State<'_, Mutex<NdiRuntime>>,
+    wake: State<'_, WakeLock>,
+) -> Result<(), String> {
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
     runtime.stop(&output_id);
+    wake.release(keep_awake::ndi_token(&output_id));
     Ok(())
 }
 
