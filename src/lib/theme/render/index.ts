@@ -3,3 +3,4 @@
 
 export { themeToSlide } from "./theme-to-slide"
 export { slideToTheme, type ThemeIdentity } from "./slide-to-theme"
+export { stripPlaceholderContent, stripThemeContent } from "./strip-content"

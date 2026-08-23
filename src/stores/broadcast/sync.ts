@@ -6,7 +6,7 @@ import {
 import { resolveScriptureTheme, resolveBaseTheme } from "@/lib/theme/resolve"
 import type { VerseRenderData } from "@/types/broadcast"
 import { presentScripture } from "@/lib/theme/present"
-import { themeToSlide } from "@/lib/theme/render"
+import { themeToSlide, stripThemeContent } from "@/lib/theme/render"
 import { useThemesStore } from "@/stores/themes"
 import { resolveOutputStageLayout } from "@/lib/stage-layout/resolve"
 import { buildStageUpdatePayload } from "@/lib/stage-layout/stage-payload"
@@ -74,8 +74,15 @@ export const createSyncSlice: StateCreator<
     // theme (Option A). Now a typed Theme painted through the slide renderer (RF3a /
     // D1). Delivered every sync so the window can composite transparent content over
     // it and reveal it on Clear, regardless of which content mode is live.
+    //
+    // Content-stripped: this theme is the backdrop shown behind Clear/transparent
+    // content and (below) the idle backdrop — both render with nothing pushed, so the
+    // theme's authoring sample text ("John 3:16", a sermon title, …) must be blanked
+    // or it leaks onto the audience screen the moment an output is enabled. The live
+    // paths never use this theme (they present the pushed content), so stripping is
+    // safe here and fixes the idle *and* Clear backdrops in one place.
     const baseTheme = outputTheme
-      ? resolveBaseTheme(s.baseBackground, outputTheme, newThemes)
+      ? stripThemeContent(resolveBaseTheme(s.baseBackground, outputTheme, newThemes))
       : undefined
     if (baseTheme) {
       emitOutputEvent(outputId, BROADCAST_EVENTS.baseTheme, {

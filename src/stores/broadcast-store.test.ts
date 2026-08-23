@@ -130,6 +130,53 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("idle backdrop blanks the scripture theme's sample verse (no John 3:16 leak)", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const outputs = useBroadcastStore.getState().outputs
+    outputs.find((o) => o.id === "main")!.themeId = SCRIPTURE_BUILTIN.id
+    // Not live, nothing pushed, no custom base background → the idle backdrop
+    // falls back to the output's own scripture theme, whose placeholder ships a
+    // "John 3:16" authoring sample that must never reach the audience screen.
+    useBroadcastStore.setState({
+      isLive: false,
+      baseBackground: null,
+      outputs: [...outputs],
+    })
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().syncBroadcastOutput()
+
+    const idleCall = emitToMock.mock.calls.find(
+      (c) =>
+        c[0] === "broadcast" &&
+        c[1] === "broadcast:slide-update" &&
+        (c[2] as { slide?: Slide }).slide?.id === "idle-backdrop"
+    )
+    expect(idleCall).toBeDefined()
+    const payload = idleCall![2] as { slide: Slide; verse: unknown }
+    expect(payload.verse).toBeNull()
+    const scripture = payload.slide.elements.find(
+      (e) => e.type === "scripture"
+    )
+    expect(scripture).toBeDefined()
+    if (scripture?.type === "scripture") {
+      expect(scripture.reference).toBe("")
+      expect(scripture.verseText).toBe("")
+      expect(scripture.translation).toBe("")
+    }
+    // And the base-theme backdrop (revealed on Clear) is content-free too.
+    const baseCall = emitToMock.mock.calls.find(
+      (c) => c[0] === "broadcast" && c[1] === "broadcast:base-theme"
+    )
+    expect(baseCall).toBeDefined()
+    const baseTheme = (baseCall![2] as { theme: { elements: Slide["elements"] } })
+      .theme
+    const baseScripture = baseTheme.elements.find((e) => e.type === "scripture")
+    if (baseScripture?.type === "scripture") {
+      expect(baseScripture.verseText).toBe("")
+    }
+  })
+
   it("toggleBlackout flips ephemeral state and emits output-visibility", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const outputs = useBroadcastStore
