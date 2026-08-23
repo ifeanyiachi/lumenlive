@@ -5,6 +5,7 @@ import {
   closeBroadcastWindow,
   requestOutputResync,
   onOutputReady,
+  onOutputDisplayDisconnected,
   isBroadcastWindowOpen,
   type Monitor,
 } from "@/services/broadcast-window-gateway"
@@ -311,6 +312,30 @@ export function useOutputController({
       .getState()
       .updateOutput(outputId, { enabled: isOpen || ndiActive })
   }, [outputId, isOpen, ndiActive])
+
+  // Reflect a mid-session display disconnect (projector/HDMI unplugged) while
+  // this card is on screen: the backend has already torn the output window down
+  // (see display_watch.rs), so drop the local open/enabled state to match —
+  // otherwise the switch stays stuck "on" with no window behind it. NDI is a
+  // network feed and survives an HDMI unplug, so `enabled` follows whether NDI
+  // is still carrying the output.
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+    void onOutputDisplayDisconnected(({ outputId: id, ndiActive: ndi }) => {
+      if (id !== outputId) return
+      setIsOpen(false)
+      setNdiActive(ndi)
+      setEnabled(ndi)
+    }).then((fn) => {
+      if (cancelled) fn()
+      else unlisten = fn
+    })
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [outputId])
 
   // Reflect the real output-window state whenever the dialog opens — an output
   // may already be live from a previous session.

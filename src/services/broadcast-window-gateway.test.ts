@@ -30,6 +30,7 @@ import {
   ensureBroadcastWindow,
   isBroadcastWindowOpen,
   listMonitors,
+  onOutputDisplayDisconnected,
   onOutputReady,
   openBroadcastWindow,
   requestOutputResync,
@@ -98,6 +99,22 @@ describe("broadcast-window-gateway", () => {
     const handler = () => {}
     onOutputReady(handler)
     expect(listenMock).toHaveBeenCalledWith("broadcast:output-ready", handler)
+  })
+
+  it("onOutputDisplayDisconnected unwraps the payload from the event", async () => {
+    let captured: { outputId: string; ndiActive: boolean } | undefined
+    listenMock.mockImplementation((_event, cb) => {
+      cb({ payload: { outputId: "alt", ndiActive: true } })
+      return Promise.resolve(() => {})
+    })
+    await onOutputDisplayDisconnected((p) => {
+      captured = p
+    })
+    expect(listenMock).toHaveBeenCalledWith(
+      "output_display_disconnected",
+      expect.any(Function)
+    )
+    expect(captured).toEqual({ outputId: "alt", ndiActive: true })
   })
 
   it("isBroadcastWindowOpen checks the window list by label", async () => {

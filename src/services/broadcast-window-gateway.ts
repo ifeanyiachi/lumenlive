@@ -66,6 +66,28 @@ export function onOutputReady(handler: () => void): Promise<UnlistenFn> {
   return listen(BROADCAST_EVENTS.outputReady, handler)
 }
 
+/** Payload of {@link onOutputDisplayDisconnected}. */
+export interface OutputDisplayDisconnected {
+  outputId: string
+  /** True when NDI is still sending: the projector is gone but the feed isn't. */
+  ndiActive: boolean
+}
+
+/**
+ * Subscribe to "a broadcast output's physical display was unplugged". The backend
+ * has already torn the (borderless, non-closable) output window down — this lets
+ * the control UI switch the output off and inform the operator, since the window
+ * can't be dismissed by hand.
+ */
+export function onOutputDisplayDisconnected(
+  handler: (payload: OutputDisplayDisconnected) => void
+): Promise<UnlistenFn> {
+  return listen<OutputDisplayDisconnected>(
+    "output_display_disconnected",
+    (e) => handler(e.payload)
+  )
+}
+
 /** Whether the output window for `outputId` is currently open. */
 export async function isBroadcastWindowOpen(
   outputId: string

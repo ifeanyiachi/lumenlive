@@ -1,6 +1,7 @@
 import { Dashboard } from "@/components/layout/dashboard"
 import { useRemoteControl } from "@/hooks/use-remote-control"
 import { useStageSources } from "@/hooks/use-stage-sources"
+import { useOutputDisplayGuard } from "@/hooks/use-output-display-guard"
 import { TutorialOverlay } from "@/components/tutorial/tutorial-overlay"
 import { AlertOverlay } from "@/components/alerts/alert-overlay"
 import { CountdownOverlay } from "@/components/countdown/countdown-overlay"
@@ -11,6 +12,7 @@ import { Toaster } from "sonner"
 export function App() {
   useRemoteControl()
   useStageSources()
+  useOutputDisplayGuard()
   return (
     <>
       {/* Isolate each region so a render error in one can't unmount the
