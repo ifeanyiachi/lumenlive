@@ -44,13 +44,15 @@ const TYPE_META: Record<ThemeType, { label: string; icon: LucideIcon }> = {
   announcement: { label: "Announcement", icon: MegaphoneIcon },
 }
 
-type FilterTab = "all" | "pinned" | "custom"
+type FilterTab = "all" | "pinned"
 
 /**
  * The theme library for the type-first model (themeredo.md, Phase 3). Lists every
- * theme (built-ins + customs from `useThemesStore`); **New** offers the six
- * intrinsic types — each opens the editor on a seeded builder. There is no
- * "category" concept: a theme's type is intrinsic and never re-tagged.
+ * theme from `useThemesStore` as one flat, unsectioned library — there is no
+ * built-in/custom demarcation; a theme is just a theme. The current default
+ * floats to the very top (whether it is a shipped or a user-authored theme).
+ * **New** offers the six intrinsic types — each opens the editor on a seeded
+ * builder. There is no "category" concept: a theme's type is intrinsic.
  */
 export function ThemeLibrary({
   activeThemeId,
@@ -82,7 +84,6 @@ export function ThemeLibrary({
     if (typeFilter !== "all")
       result = result.filter((t) => t.type === typeFilter)
     if (filter === "pinned") result = result.filter((t) => t.pinned)
-    else if (filter === "custom") result = result.filter((t) => !t.builtin)
     return result
   }, [allThemes, search, filter, typeFilter])
 
@@ -97,17 +98,15 @@ export function ThemeLibrary({
     [scriptureDefaultThemeId]
   )
 
-  const builtinThemes = useMemo(() => {
-    // Surface the current default first so it's the first theme in the list
-    // (sort is stable, so the rest keep their registry order).
-    return filtered
-      .filter((t) => t.builtin)
-      .sort(
-        (a, b) =>
-          (a.id === defaultThemeId ? 0 : 1) - (b.id === defaultThemeId ? 0 : 1)
-      )
+  // One flat list. Float the current default to the very top — regardless of
+  // whether it is a shipped or a user-authored theme — then keep every other
+  // theme in registry order (the sort is stable).
+  const orderedThemes = useMemo(() => {
+    return [...filtered].sort(
+      (a, b) =>
+        (a.id === defaultThemeId ? 0 : 1) - (b.id === defaultThemeId ? 0 : 1)
+    )
   }, [filtered, defaultThemeId])
-  const customThemes = filtered.filter((t) => !t.builtin)
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
@@ -162,9 +161,6 @@ export function ThemeLibrary({
           <TabsTrigger value="pinned" className="capitalize">
             pinned
           </TabsTrigger>
-          <TabsTrigger value="custom" className="capitalize">
-            custom
-          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -187,40 +183,17 @@ export function ThemeLibrary({
 
       {/* Theme list */}
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-1 px-2 pb-4">
-          {builtinThemes.length > 0 && (
-            <>
-              <p className="px-1.5 pt-2 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Built-in
-              </p>
-              {builtinThemes.map((theme) => (
-                <ThemeCard
-                  key={theme.id}
-                  theme={theme}
-                  isActive={theme.id === activeThemeId}
-                  onSelect={() => onOpenTheme(theme)}
-                />
-              ))}
-            </>
-          )}
+        <div className="flex flex-col gap-1 px-2 pt-2 pb-4">
+          {orderedThemes.map((theme) => (
+            <ThemeCard
+              key={theme.id}
+              theme={theme}
+              isActive={theme.id === activeThemeId}
+              onSelect={() => onOpenTheme(theme)}
+            />
+          ))}
 
-          {customThemes.length > 0 && (
-            <>
-              <p className="px-1.5 pt-3 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Custom
-              </p>
-              {customThemes.map((theme) => (
-                <ThemeCard
-                  key={theme.id}
-                  theme={theme}
-                  isActive={theme.id === activeThemeId}
-                  onSelect={() => onOpenTheme(theme)}
-                />
-              ))}
-            </>
-          )}
-
-          {filtered.length === 0 && (
+          {orderedThemes.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
               No themes found
             </p>
