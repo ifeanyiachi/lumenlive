@@ -10,6 +10,9 @@ mod state;
 use std::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+// Straight-line builder wiring: plugin registration, managed state, the command
+// handler list, and the setup hook. Long by nature, not by complexity.
+#[allow(clippy::too_many_lines)]
 pub fn run() {
     // Load .env file — try src-tauri/.env first, then project root ../.env
     dotenvy::dotenv().ok();
@@ -113,6 +116,8 @@ pub fn run() {
             commands::media::copy_media_to_library,
             commands::media::save_media_bytes,
             commands::media::generate_thumbnail,
+            commands::schedule_bundle::write_schedule_bundle,
+            commands::schedule_bundle::read_schedule_bundle,
             commands::resource_store::store_fetch_manifest,
             commands::resource_store::store_install_bible,
             commands::resource_store::store_remove_bible,

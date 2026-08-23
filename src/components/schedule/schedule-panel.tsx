@@ -31,16 +31,11 @@ import { ItemPropertiesModal } from "@/components/schedule/item-properties-modal
 import { ScheduleSongsTab } from "@/components/schedule/schedule-songs-tab"
 import { ScheduleAllTab } from "@/components/schedule/tabs/schedule-all-tab"
 import { AIVersesTab } from "@/components/schedule/tabs/ai-verses-tab"
+import { ScheduleParseError } from "@/lib/schedule-io"
 import {
-  parseScheduleFile,
-  scheduleFileName,
-  serializeSchedule,
-  ScheduleParseError,
-} from "@/lib/schedule-io"
-import {
-  saveScheduleFile,
-  pickScheduleFile,
-} from "@/services/schedule-io-gateway"
+  exportScheduleBundle,
+  importScheduleBundle,
+} from "@/lib/schedule-bundle/io"
 import { handleScheduleDrop, addVersesToQueue } from "@/lib/schedule-drop"
 import type { ScheduleItem } from "@/types/schedule"
 
@@ -96,27 +91,27 @@ export function SchedulePanel() {
 
   const handleExportSchedule = async () => {
     if (!activeSchedule) return
-    const text = serializeSchedule(activeSchedule, Date.now())
-    const path = await saveScheduleFile(
-      scheduleFileName(activeSchedule.name),
-      text
-    )
-    if (path) toast.success(`Exported "${activeSchedule.name}"`)
+    try {
+      const { saved, missingMedia } = await exportScheduleBundle(activeSchedule)
+      if (!saved) return
+      if (missingMedia > 0) {
+        toast.warning(
+          `Exported "${activeSchedule.name}" · ${missingMedia} media file${
+            missingMedia > 1 ? "s were" : " was"
+          } missing and couldn't be packaged`
+        )
+      } else {
+        toast.success(`Exported "${activeSchedule.name}"`)
+      }
+    } catch {
+      toast.error("Couldn't export that schedule.")
+    }
   }
 
   const handleImportSchedule = async () => {
-    const picked = await pickScheduleFile()
-    if (!picked) return
     try {
-      const schedule = parseScheduleFile(
-        picked.text,
-        () => crypto.randomUUID(),
-        Date.now()
-      )
-      const store = useScheduleStore.getState()
-      const id = store.importSchedule(schedule)
-      store.setActiveSchedule(id)
-      toast.success(`Imported "${schedule.name}"`)
+      const result = await importScheduleBundle()
+      if (result) toast.success(`Imported "${result.scheduleName}"`)
     } catch (err) {
       toast.error(
         err instanceof ScheduleParseError

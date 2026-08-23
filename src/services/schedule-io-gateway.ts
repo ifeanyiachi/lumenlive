@@ -12,10 +12,28 @@
  */
 
 import { SCHEDULE_FILE_EXTENSION } from "@/lib/schedule-io"
+import type {
+  BundleManifest,
+  BundleMediaFile,
+  ExtractedMedia,
+} from "@/lib/schedule-bundle"
 
 const FILTERS = [
   { name: "LumenLive schedule", extensions: [SCHEDULE_FILE_EXTENSION, "json"] },
 ]
+
+/** Lazy-load the dialog + core plugins; null when unavailable (browser/tests). */
+async function tauri() {
+  try {
+    const [dialog, core] = await Promise.all([
+      import("@tauri-apps/plugin-dialog"),
+      import("@tauri-apps/api/core"),
+    ])
+    return { dialog, core }
+  } catch {
+    return null
+  }
+}
 
 /**
  * Prompt for a save location (pre-filled with `defaultName`) and write
@@ -36,6 +54,68 @@ export async function saveScheduleFile(
   } catch {
     return null
   }
+}
+
+/**
+ * Write a self-contained schedule bundle (a zip kept under the `.lumsched`
+ * extension). Prompts for a save location, then hands the manifest + the list of
+ * media files to embed to the Rust `write_schedule_bundle` command, which
+ * streams the media bytes straight into the archive. Returns the saved path, or
+ * null if the user cancels or the plugins are unavailable. A write failure
+ * (disk full, permission) rejects so the caller can report it.
+ */
+export async function saveScheduleBundle(
+  defaultName: string,
+  manifest: BundleManifest,
+  mediaFiles: BundleMediaFile[]
+): Promise<string | null> {
+  const t = await tauri()
+  if (!t) return null
+  const path = await t.dialog.save({ defaultPath: defaultName, filters: FILTERS })
+  if (!path) return null
+  await t.core.invoke("write_schedule_bundle", {
+    destPath: path,
+    manifestJson: JSON.stringify(manifest),
+    media: mediaFiles,
+  })
+  return path
+}
+
+/** A schedule file read off disk by {@link readScheduleFile}. */
+export interface ReadScheduleFile {
+  /** Basename including extension, e.g. "sunday-morning.lumsched". */
+  name: string
+  /** True when the file was a legacy plain-JSON export (route to the old parser). */
+  legacy: boolean
+  /** The bundle's manifest text, or (legacy) the whole file text. */
+  manifestJson: string
+  /** Media extracted into the managed library (empty for a legacy file). */
+  media: ExtractedMedia[]
+}
+
+/**
+ * Open the picker for a schedule file and read it through the Rust
+ * `read_schedule_bundle` command, which auto-detects a zip bundle vs a legacy
+ * plain-JSON export (unpacking bundle media into the managed library). Returns
+ * null when the user cancels or the plugins are unavailable. Parsing/validation
+ * is the caller's job (see `@/lib/schedule-bundle` / `@/lib/schedule-io`).
+ */
+export async function readScheduleFile(): Promise<ReadScheduleFile | null> {
+  const t = await tauri()
+  if (!t) return null
+  const selected = await t.dialog.open({
+    multiple: false,
+    title: "Import schedule",
+    filters: FILTERS,
+  })
+  if (selected == null || Array.isArray(selected)) return null
+  const path = String(selected)
+  const result = await t.core.invoke<{
+    manifestJson: string
+    media: ExtractedMedia[]
+    legacy: boolean
+  }>("read_schedule_bundle", { bundlePath: path })
+  return { name: path.split(/[\\/]/).pop() ?? "schedule", ...result }
 }
 
 /** A schedule file the user picked, with its raw text ready to parse. */

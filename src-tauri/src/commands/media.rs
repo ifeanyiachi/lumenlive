@@ -7,13 +7,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 /// Folder name (under the app data dir) that holds copied media files.
-const LIBRARY_DIR: &str = "media-library";
+/// `pub(crate)` so the schedule-bundle importer can extract packaged media into
+/// the very same managed library.
+pub(crate) const LIBRARY_DIR: &str = "media-library";
 
 /// Build a collision-free destination path inside `dir` for a file whose
 /// original name is `original_name`. Uses a millisecond timestamp plus the
 /// batch index for uniqueness, then bumps a counter if the (extremely
 /// unlikely) path already exists on disk.
-fn unique_dest(dir: &Path, original_name: &str, index: usize) -> PathBuf {
+pub(crate) fn unique_dest(dir: &Path, original_name: &str, index: usize) -> PathBuf {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis());
