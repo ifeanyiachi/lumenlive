@@ -1,4 +1,5 @@
 import type { Slide } from "./slide"
+import type { StyledVerseSegment } from "./verse-edit"
 
 export type ScheduleItemType =
   "scripture" | "slide" | "media" | "header" | "web" | "song" | "lexicon"
@@ -28,6 +29,13 @@ export interface ScriptureCollectionVerse {
   verse: number
   text: string
   reference: string
+  /**
+   * This verse's item-scoped styled edit (bold/italic/color/highlight), authored
+   * in the schedule item's verse editor. Present only when the operator has
+   * formatted this verse *on this item*; the edit lives here and nowhere else, so
+   * it never affects the same verse in another schedule item or the Bible panel.
+   */
+  segment?: StyledVerseSegment
 }
 
 export interface ScriptureScheduleItem extends ScheduleItemBase {
@@ -52,6 +60,16 @@ export interface ScriptureScheduleItem extends ScheduleItemBase {
    * reload even if the underlying verse is later edited.
    */
   collectionVerses?: ScriptureCollectionVerse[]
+  /**
+   * Item-scoped styled edits for a *plain* (non-collection) scripture item — one
+   * {@link StyledVerseSegment} per edited verse of its `verseStart..verseEnd`
+   * range, keyed by `verseNumber`. Only edited verses appear (unedited verses
+   * render their plain DB text). The edit is owned by this item alone: it is
+   * never written to any global store, so editing here leaves the same verse
+   * untouched everywhere else. Collections store their edits on each
+   * {@link ScriptureCollectionVerse.segment} instead.
+   */
+  segments?: StyledVerseSegment[]
 }
 
 export interface SlideScheduleItem extends ScheduleItemBase {

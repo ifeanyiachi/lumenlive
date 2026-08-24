@@ -83,6 +83,14 @@ export interface ScheduleState {
   goToItem: (index: number) => Promise<void>
   nextItem: () => void
   prevItem: () => void
+  /**
+   * Move the selection to the next (`delta > 0`) or previous (`delta < 0`)
+   * whole schedule item, skipping header rows, and stage it into the Program
+   * preview. Unlike {@link nextItem}/{@link prevItem} this never steps *within* a
+   * deck — it always jumps items. Shared by the schedule list's ↑/↓ keys and the
+   * global N/P shortcuts. No-op past either end.
+   */
+  goToAdjacentItem: (delta: number) => void
   /** Stage an item, then take it to the live audience — the schedule play icon. */
   presentLive: (index: number) => Promise<void>
   /**

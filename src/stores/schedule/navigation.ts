@@ -19,9 +19,8 @@ import {
 import { usePresentationStore } from "@/stores/presentation-store"
 import { useMediaStore } from "@/stores/media-store"
 import { useSongStore } from "@/stores/song-store"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
-import { toMultiVerseRenderData } from "@/lib/multi-verse"
-import { verseEditKey } from "@/types/verse-edit"
+import { rangeRenderDataForItem } from "@/lib/verse-edit/item-segments"
+import type { StyledVerseSegment } from "@/types/verse-edit"
 import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
 import {
@@ -35,16 +34,17 @@ import type { ScheduleState } from "./types"
  * Present a single scripture verse to the Program preview — the shared body of
  * the plain single-verse item and each individual slide of a scripture
  * *collection*. Fetches the verse fresh (so live output reflects the current DB
- * text), applies any saved per-verse edit, and stages it under the "schedule"
- * source. Mirrors the inline single-verse path so a collection verse renders
- * byte-for-byte like a standalone scripture item.
+ * text) and applies the item's *own* styled edit when one is passed (`segment`);
+ * edits are item-scoped, so nothing is read from a global store. Stages under the
+ * "schedule" source.
  */
 async function presentSingleScriptureVerse(
   translationId: number,
   bookNumber: number,
   chapter: number,
   verseNumber: number,
-  abbr: string
+  abbr: string,
+  segment?: StyledVerseSegment
 ): Promise<void> {
   const verse = await invoke<Verse | null>("get_verse", {
     translationId,
@@ -59,13 +59,11 @@ async function presentSingleScriptureVerse(
     // the arrow keys must stay with the schedule list.
     bibleActions.navigateToVerse(bookNumber, chapter, verseNumber, false)
   }
-  const editKey = verseEditKey(translationId, bookNumber, chapter, verseNumber)
-  const savedEdit = useVerseEditStore.getState().getEdit(editKey)
   const renderData = toVerseRenderData(
     verse,
     abbr,
     undefined,
-    savedEdit?.segments
+    segment ? [segment] : undefined
   )
   useBroadcastStore.getState().setLiveVerse(renderData, "schedule")
 }
@@ -85,6 +83,7 @@ export type NavigationSlice = Pick<
   | "goToItem"
   | "nextItem"
   | "prevItem"
+  | "goToAdjacentItem"
   | "presentLive"
   | "presentItemSlideLive"
   | "presentItem"
@@ -110,7 +109,7 @@ export const createNavigationSlice: StateCreator<
     if (item.type === "slide") {
       activeSlideIndex = item.slideIndex
     } else if (item.type === "scripture" && isScriptureCollection(item)) {
-      // Start a collection at its combined-block slide (index 0).
+      // Start a collection at its first verse (index 0).
       activeSlideIndex = 0
     } else if (item.type === "song") {
       // Generate once at go-live so verse stepping reuses a stable deck and the
@@ -136,6 +135,22 @@ export const createNavigationSlice: StateCreator<
     const staged = get().presentItem(item)
     setStageNotesForItem(item)
     return staged
+  },
+
+  goToAdjacentItem: (delta) => {
+    const schedule = get().getActiveSchedule()
+    if (!schedule || delta === 0) return
+    const items = schedule.items
+    const current = get().activeItemIndex
+    const step = delta > 0 ? 1 : -1
+    // With nothing active yet, ↓/next starts at the top and ↑/prev at the
+    // bottom, matching the previous inline arrow-key behaviour.
+    let idx =
+      current === null ? (step > 0 ? 0 : items.length - 1) : current + step
+    while (idx >= 0 && idx < items.length && items[idx].type === "header") {
+      idx += step
+    }
+    if (idx >= 0 && idx < items.length) void get().goToItem(idx)
   },
 
   presentLive: async (index) => {
@@ -328,25 +343,26 @@ export const createNavigationSlice: StateCreator<
           "KJV"
         try {
           if (isScriptureCollection(si)) {
-            // Collection deck: slide 0 is the combined block (falls through to
-            // the range path below), slides 1..N are the individual verses.
+            // Collection deck: one slide per verse (no combined block). Each verse
+            // carries its own item-scoped styled edit on `cv.segment`.
             const idx = get().activeSlideIndex ?? 0
-            if (idx > 0) {
-              const cv = si.collectionVerses![idx - 1]
+            const cv = si.collectionVerses![idx]
+            if (cv) {
               await presentSingleScriptureVerse(
                 cv.translationId,
                 cv.bookNumber,
                 cv.chapter,
                 cv.verse,
-                abbr
+                abbr,
+                cv.segment
               )
-              break
             }
+            break
           }
           if (si.verseEnd > si.verseStart) {
-            // Grouped range: render the whole block (applying any saved per-verse
-            // edits), matching the multi-verse editor's Go Live output. Without
-            // this a range item would only ever show its first verse.
+            // Grouped range: render the whole block, applying the item's own
+            // per-verse edits (item-scoped, never a global store). Without this a
+            // range item would only ever show its first verse.
             const chapter = await invoke<Verse[]>("get_chapter", {
               translationId: si.translationId,
               bookNumber: si.bookNumber,
@@ -365,7 +381,7 @@ export const createNavigationSlice: StateCreator<
                   false
                 )
               }
-              const renderData = toMultiVerseRenderData(range, abbr)
+              const renderData = rangeRenderDataForItem(si, range, abbr)
               useBroadcastStore.getState().setLiveVerse(renderData, "schedule")
             }
             break
@@ -375,7 +391,8 @@ export const createNavigationSlice: StateCreator<
             si.bookNumber,
             si.chapter,
             si.verseStart,
-            abbr
+            abbr,
+            si.segments?.find((s) => s.verseNumber === si.verseStart)
           )
         } catch {
           console.warn("[schedule] Failed to present scripture item")

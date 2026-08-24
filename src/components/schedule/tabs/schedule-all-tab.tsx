@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  Fragment,
+} from "react"
 import {
   TrashIcon,
   PlayIcon,
   SettingsIcon,
+  PencilIcon,
   SkipBackIcon,
   SkipForwardIcon,
   GripVerticalIcon,
@@ -17,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { isScriptureCollection } from "@/lib/search/scripture-collection"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { useThemesStore } from "@/stores/themes"
 import { useSettingsStore, useSongStore } from "@/stores"
@@ -46,8 +55,7 @@ import { buildThemeRegistry } from "@/lib/theme/registry"
 import { resolveScriptureTheme } from "@/lib/theme/resolve"
 import { presentScripture } from "@/lib/theme/present"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
-import { toMultiVerseRenderData } from "@/lib/multi-verse"
-import { scriptureCollectionVerses } from "@/lib/search/scripture-collection"
+import { collectionVerseToVerse } from "@/lib/search/scripture-collection"
 import type {
   ScheduleItem,
   ScriptureScheduleItem,
@@ -67,9 +75,11 @@ type RowDeck = { slides: Slide[]; verses?: (VerseRenderData | undefined)[] }
 
 export function ScheduleAllTab({
   onEditProperties,
+  onEditScripture,
   onStageNewItem,
 }: {
   onEditProperties: (item: ScheduleItem) => void
+  onEditScripture: (item: ScriptureScheduleItem) => void
   onStageNewItem: (item: ScheduleItem) => void
 }) {
   const schedules = useScheduleStore((s) => s.schedules)
@@ -163,8 +173,8 @@ export function ScheduleAllTab({
     return m
   }, [activeSchedule?.items, songs, songSlideDefaults, customThemes])
 
-  // A scripture *collection* expands into a deck exactly like a song: the
-  // combined block (slide 0) then each verse individually. Build the preview deck
+  // A scripture *collection* expands into a deck exactly like a song: one slide
+  // per verse, in canonical order. Build the preview deck
   // here so the row shows the same chevron / count badge / slide strip. Scripture
   // slides are style-only (decision D2), so each slide rides its verse render data
   // in `verses[i]` for the strip to draw. The takes mirror the go-live present
@@ -181,13 +191,17 @@ export function ScheduleAllTab({
       if (item.type !== "scripture") continue
       const si = item as ScriptureScheduleItem
       if (!si.groupCollection || !si.collectionVerses?.length) continue
-      const verses = scriptureCollectionVerses(si)
       const abbr = si.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
-      // Slide 0: the combined block; slides 1..N: each verse.
-      const takes: VerseRenderData[] = [
-        toMultiVerseRenderData(verses, abbr),
-        ...verses.map((v) => toVerseRenderData(v, abbr)),
-      ]
+      // One slide per verse, in canonical order — each applying that verse's own
+      // item-scoped styled edit (cv.segment), never a global store.
+      const takes: VerseRenderData[] = si.collectionVerses.map((cv) =>
+        toVerseRenderData(
+          collectionVerseToVerse(cv),
+          abbr,
+          undefined,
+          cv.segment ? [cv.segment] : undefined
+        )
+      )
       const slides: Slide[] = []
       const payloads: (VerseRenderData | undefined)[] = []
       takes.forEach((take, i) => {
@@ -212,6 +226,40 @@ export function ScheduleAllTab({
       return next
     })
   }, [])
+
+  // Normalize a schedule item to its expandable deck (grouped slide, song, or
+  // scripture collection) and the slide index the item starts at. Shared by both
+  // the list and grid views so each shows the same expand chevron / slide strip.
+  const getRowDeck = useCallback(
+    (
+      item: ScheduleItem
+    ): { deck: RowDeck | undefined; baseSlideIndex: number } => {
+      const isSlide = item.type === "slide"
+      const slidePres = isSlide
+        ? presById.get((item as SlideScheduleItem).presentationId)
+        : undefined
+      const isGroupSlide =
+        isSlide && (item as SlideScheduleItem).groupSlides !== false
+      const deck: RowDeck | undefined =
+        item.type === "song"
+          ? (() => {
+              const p = songDeckByItemId.get(item.id)
+              return p ? { slides: p.slides } : undefined
+            })()
+          : isGroupSlide
+            ? slidePres
+              ? { slides: slidePres.slides }
+              : undefined
+            : item.type === "scripture"
+              ? scriptureDeckByItemId.get(item.id)
+              : undefined
+      const baseSlideIndex = isSlide
+        ? (item as SlideScheduleItem).slideIndex
+        : 0
+      return { deck, baseSlideIndex }
+    },
+    [presById, songDeckByItemId, scriptureDeckByItemId]
+  )
 
   // Auto-expand the active item when it becomes active, if it's a slide.
   // Adjusted during render (rather than in an effect) to avoid cascading renders.
@@ -264,25 +312,24 @@ export function ScheduleAllTab({
         if (document.activeElement?.closest('[data-slot="search-panel"]'))
           return
         e.preventDefault()
-        const items = activeSchedule.items
-        if (e.key === "ArrowDown") {
-          let next = (activeItemIndex ?? -1) + 1
-          while (next < items.length && items[next].type === "header") next++
-          if (next < items.length)
-            void useScheduleStore.getState().goToItem(next)
-        } else {
-          let prev = (activeItemIndex ?? items.length) - 1
-          while (prev >= 0 && items[prev].type === "header") prev--
-          if (prev >= 0) void useScheduleStore.getState().goToItem(prev)
-        }
+        // Step whole items (skipping headers), staging each into the Program
+        // preview. Shared with the global N/P shortcuts via the store action.
+        useScheduleStore
+          .getState()
+          .goToAdjacentItem(e.key === "ArrowDown" ? 1 : -1)
         return
       }
-      // Left/Right step slides within a deck-bearing item (slide groups and
-      // songs), matching the prev/next transport buttons. Leaving other item
-      // types alone avoids clashing with the media panel's own Left/Right.
+      // Left/Right step within a deck-bearing item — grouped slides, songs, and
+      // scripture collections (multi-verse "group verses") — matching the
+      // prev/next transport buttons. Leaving other item types alone avoids
+      // clashing with the media panel's own Left/Right.
       if (activeItemIndex === null) return
       const item = activeSchedule.items[activeItemIndex]
-      if (item?.type !== "slide" && item?.type !== "song") return
+      const isDeckItem =
+        item?.type === "slide" ||
+        item?.type === "song" ||
+        (item?.type === "scripture" && isScriptureCollection(item))
+      if (!isDeckItem) return
       // Read the store lazily in the handler so this effect doesn't depend on
       // (and re-bind the listener for) the store reference.
       if (e.key === "ArrowRight") {
@@ -523,34 +570,11 @@ export function ScheduleAllTab({
               onPointerUp={handlePointerUp}
             >
               {activeSchedule?.items.map((item, index) => {
-                const isSlide = item.type === "slide"
-                const slidePres = isSlide
-                  ? presById.get((item as SlideScheduleItem).presentationId)
-                  : undefined
-                const isGroupSlide =
-                  isSlide && (item as SlideScheduleItem).groupSlides !== false
                 // The multi-slide deck this row expands into: a grouped slide
                 // presentation, a song's generated deck, or a scripture
                 // collection's deck. All step the same way, so the expand/badge/
-                // strip UI below is shared.
-                const song = item.type === "song"
-                const deck: RowDeck | undefined = song
-                  ? (() => {
-                      const p = songDeckByItemId.get(item.id)
-                      return p ? { slides: p.slides } : undefined
-                    })()
-                  : isGroupSlide
-                    ? slidePres
-                      ? { slides: slidePres.slides }
-                      : undefined
-                    : item.type === "scripture"
-                      ? scriptureDeckByItemId.get(item.id)
-                      : undefined
-                // A slide row's base index is its own slideIndex; a song always
-                // starts at slide 0.
-                const baseSlideIndex = isSlide
-                  ? (item as SlideScheduleItem).slideIndex
-                  : 0
+                // strip UI below is shared with the grid view.
+                const { deck, baseSlideIndex } = getRowDeck(item)
                 const hasMultipleSlides = !!deck && deck.slides.length > 1
                 const isExpanded = expandedIds.has(item.id)
 
@@ -680,19 +704,34 @@ export function ScheduleAllTab({
                         >
                           <TrashIcon className="size-3" />
                         </Button>
-                        {item.type !== "header" && (
+                        {item.type === "scripture" ? (
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className="size-6"
                             onClick={(e) => {
                               e.stopPropagation()
-                              onEditProperties(item)
+                              onEditScripture(item as ScriptureScheduleItem)
                             }}
-                            title="Edit properties"
+                            title="Edit verses"
                           >
-                            <SettingsIcon className="size-3" />
+                            <PencilIcon className="size-3" />
                           </Button>
+                        ) : (
+                          item.type !== "header" && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditProperties(item)
+                              }}
+                              title="Edit properties"
+                            >
+                              <SettingsIcon className="size-3" />
+                            </Button>
+                          )
                         )}
                       </div>
                     </div>
@@ -730,103 +769,182 @@ export function ScheduleAllTab({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
             >
-              {activeSchedule?.items.map((item, index) => (
-                <div
-                  key={item.id}
-                  data-schedule-idx={index}
-                  data-schedule-item-id={item.id}
-                  className={cn(
-                    "group flex cursor-pointer flex-col overflow-hidden rounded-lg border transition-colors",
-                    selectedItemId === item.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-primary/50",
-                    activeItemIndex === index && "ring-1 ring-primary/30",
-                    dragOverIndex === index && "border-2 border-primary",
-                    // Quick-add drop indicator: a line before this cell, or
-                    // after the last cell when appending to the end.
-                    externalDropIndex === index &&
-                      "border-t-2 border-t-primary",
-                    externalDropIndex === itemCount &&
-                      index === itemCount - 1 &&
-                      "border-b-2 border-b-primary",
-                    draggingIndex === index && "opacity-40",
-                    item.id === highlightedId &&
-                      "animate-pulse border-amber-500/40 bg-amber-500/15"
-                  )}
-                  onClick={() => {
-                    store.setSelectedItem(item.id)
-                    if (item.type !== "header") void store.goToItem(index)
-                  }}
-                  onDoubleClick={() => {
-                    if (item.type !== "header") void store.presentLive(index)
-                  }}
-                >
-                  <div className="relative">
-                    <span
-                      className="absolute top-1 left-1 z-10 flex touch-none items-center rounded bg-black/40 p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
-                      onPointerDown={(e) => {
-                        e.stopPropagation()
-                        handlePointerDown(e, index)
+              {activeSchedule?.items.map((item, index) => {
+                // Same deck normalization as the list view, so a deck-bearing
+                // cell shows the expand chevron and drops down into a full-width
+                // slide strip.
+                const { deck, baseSlideIndex } = getRowDeck(item)
+                const hasMultipleSlides = !!deck && deck.slides.length > 1
+                const isExpanded = expandedIds.has(item.id)
+                return (
+                  <Fragment key={item.id}>
+                    <div
+                      data-schedule-idx={index}
+                      data-schedule-item-id={item.id}
+                      className={cn(
+                        "group flex cursor-pointer flex-col overflow-hidden rounded-lg border transition-colors",
+                        selectedItemId === item.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50",
+                        activeItemIndex === index && "ring-1 ring-primary/30",
+                        dragOverIndex === index && "border-2 border-primary",
+                        // Quick-add drop indicator: a line before this cell, or
+                        // after the last cell when appending to the end.
+                        externalDropIndex === index &&
+                          "border-t-2 border-t-primary",
+                        externalDropIndex === itemCount &&
+                          index === itemCount - 1 &&
+                          "border-b-2 border-b-primary",
+                        draggingIndex === index && "opacity-40",
+                        item.id === highlightedId &&
+                          "animate-pulse border-amber-500/40 bg-amber-500/15"
+                      )}
+                      onClick={() => {
+                        store.setSelectedItem(item.id)
+                        if (item.type !== "header") void store.goToItem(index)
+                      }}
+                      onDoubleClick={() => {
+                        if (item.type !== "header")
+                          void store.presentLive(index)
                       }}
                     >
-                      <GripVerticalIcon className="size-3 cursor-grab text-white active:cursor-grabbing" />
-                    </span>
-                    <ScheduleItemThumbnail item={item} />
-                    <div className="absolute right-1 bottom-1 z-10 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      {item.type !== "header" && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
-                          onClick={(e) => {
+                      <div className="relative">
+                        <span
+                          className="absolute top-1 left-1 z-10 flex touch-none items-center rounded bg-black/40 p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                          onPointerDown={(e) => {
                             e.stopPropagation()
-                            void store.presentLive(index)
+                            handlePointerDown(e, index)
                           }}
-                          title="Send to live"
                         >
-                          <PlayIcon className="size-3" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!activeScheduleId) return
-                          store.removeItem(activeScheduleId, item.id)
-                          toast("Item removed")
-                        }}
-                        title="Remove"
-                      >
-                        <TrashIcon className="size-3" />
-                      </Button>
-                      {item.type !== "header" && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEditProperties(item)
-                          }}
-                          title="Edit properties"
-                        >
-                          <SettingsIcon className="size-3" />
-                        </Button>
-                      )}
+                          <GripVerticalIcon className="size-3 cursor-grab text-white active:cursor-grabbing" />
+                        </span>
+                        <ScheduleItemThumbnail item={item} />
+                        {hasMultipleSlides && deck && (
+                          <span
+                            className="absolute top-1 right-1 z-10 rounded bg-black/40 px-1 text-[0.5rem] font-medium text-white tabular-nums"
+                            title={`${deck.slides.length} slides`}
+                          >
+                            {deck.slides.length} slides
+                          </span>
+                        )}
+                        <div className="absolute right-1 bottom-1 z-10 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          {item.type !== "header" && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void store.presentLive(index)
+                              }}
+                              title="Send to live"
+                            >
+                              <PlayIcon className="size-3" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!activeScheduleId) return
+                              store.removeItem(activeScheduleId, item.id)
+                              toast("Item removed")
+                            }}
+                            title="Remove"
+                          >
+                            <TrashIcon className="size-3" />
+                          </Button>
+                          {item.type === "scripture" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditScripture(item as ScriptureScheduleItem)
+                              }}
+                              title="Edit verses"
+                            >
+                              <PencilIcon className="size-3" />
+                            </Button>
+                          ) : (
+                            item.type !== "header" && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onEditProperties(item)
+                                }}
+                                title="Edit properties"
+                              >
+                                <SettingsIcon className="size-3" />
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 px-1.5 py-1">
+                        {hasMultipleSlides && (
+                          <button
+                            type="button"
+                            className="flex shrink-0 items-center gap-0.5 text-[0.625rem] text-muted-foreground hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleExpanded(item.id)
+                            }}
+                            title={
+                              isExpanded ? "Collapse slides" : "Expand slides"
+                            }
+                          >
+                            {isExpanded ? "Collapse" : "Expand"}
+                            <ChevronRightIcon
+                              className={cn(
+                                "size-3 transition-transform",
+                                isExpanded && "rotate-90"
+                              )}
+                            />
+                          </button>
+                        )}
+                        <span className="shrink-0 text-muted-foreground">
+                          {TYPE_ICONS[item.type]}
+                        </span>
+                        <span className="min-w-0 truncate text-[0.625rem] text-foreground">
+                          {item.label}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-1">
-                    <span className="shrink-0 text-muted-foreground">
-                      {TYPE_ICONS[item.type]}
-                    </span>
-                    <span className="min-w-0 truncate text-[0.625rem] text-foreground">
-                      {item.label}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                    {isExpanded && hasMultipleSlides && deck && (
+                      <div className="col-span-full">
+                        <SlideStrip
+                          slides={deck.slides}
+                          verses={deck.verses}
+                          activeIndex={
+                            activeItemIndex === index
+                              ? (activeSlideIndex ?? baseSlideIndex)
+                              : -1
+                          }
+                          onSlideClick={(slideIdx) => {
+                            if (activeItemIndex !== index) {
+                              void store.goToItem(index)
+                            }
+                            useScheduleStore.setState({
+                              activeSlideIndex: slideIdx,
+                            })
+                            void store.presentItem(item)
+                          }}
+                          onSlideDoubleClick={(slideIdx) =>
+                            void store.presentItemSlideLive(index, slideIdx)
+                          }
+                        />
+                      </div>
+                    )}
+                  </Fragment>
+                )
+              })}
             </div>
           )}
 

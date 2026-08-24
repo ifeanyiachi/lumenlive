@@ -28,6 +28,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { ItemPropertiesModal } from "@/components/schedule/item-properties-modal"
+import { ScriptureItemEditModal } from "@/components/schedule/scripture-item-edit-modal"
 import { ScheduleSongsTab } from "@/components/schedule/schedule-songs-tab"
 import { ScheduleAllTab } from "@/components/schedule/tabs/schedule-all-tab"
 import { AIVersesTab } from "@/components/schedule/tabs/ai-verses-tab"
@@ -37,10 +38,12 @@ import {
   importScheduleBundle,
 } from "@/lib/schedule-bundle/io"
 import { handleScheduleDrop, addVersesToQueue } from "@/lib/schedule-drop"
-import type { ScheduleItem } from "@/types/schedule"
+import type { ScheduleItem, ScriptureScheduleItem } from "@/types/schedule"
 
 export function SchedulePanel() {
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null)
+  const [editingScripture, setEditingScripture] =
+    useState<ScriptureScheduleItem | null>(null)
   const [stagedNewItem, setStagedNewItem] = useState<ScheduleItem | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
@@ -230,6 +233,7 @@ export function SchedulePanel() {
         <TabsContent value="all" className="flex min-h-0 flex-1 flex-col">
           <ScheduleAllTab
             onEditProperties={(item) => setEditingItem(item)}
+            onEditScripture={(item) => setEditingScripture(item)}
             onStageNewItem={(item) => setStagedNewItem(item)}
           />
         </TabsContent>
@@ -249,6 +253,15 @@ export function SchedulePanel() {
           if (!open) setEditingItem(null)
         }}
         item={editingItem}
+        scheduleId={activeScheduleId ?? ""}
+      />
+
+      <ScriptureItemEditModal
+        open={editingScripture !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingScripture(null)
+        }}
+        item={editingScripture}
         scheduleId={activeScheduleId ?? ""}
       />
 
