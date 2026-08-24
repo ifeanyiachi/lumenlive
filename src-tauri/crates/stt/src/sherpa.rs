@@ -1,21 +1,15 @@
 //! Local STT via sherpa-onnx using the `sherpa-rs` crate.
 //!
 //! Speech is segmented with the app's energy VAD and each closed utterance is
-//! transcribed by an offline recognizer. Two recognizers share the exact same
-//! VAD front-end, partial/finalization logic, and failover wiring — they differ
-//! only in the model that turns audio into text:
+//! transcribed by an offline recognizer:
 //!
 //! - [`SherpaProvider`] — **Moonshine**. Compact, ~10x faster than real time on
-//!   CPU, no fixed 30 s window; the low-footprint default offline engine.
-//! - [`TransducerProvider`] — an offline **Zipformer transducer** with
-//!   contextual **hotword biasing** built from the app's Bible keyterms
-//!   (book names, reference cues, numerals). More accurate on scripture proper
-//!   nouns at a modest cost, still comfortably real time on VAD-segmented
-//!   utterances.
+//!   CPU, no fixed 30 s window; the low-footprint offline engine.
 //!
-//! Both emit the same [`TranscriptEvent`] types, so the detection pipeline and
-//! the cloud↔on-device supervisor treat them identically. The shared engine
-//! lives in [`run_engine`]; each provider only supplies a recognizer factory.
+//! It emits the same [`TranscriptEvent`] types as the cloud provider, so the
+//! detection pipeline and the cloud↔on-device supervisor treat them
+//! identically. The shared engine lives in [`run_engine`]; the provider supplies
+//! a recognizer factory.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -82,24 +76,6 @@ const TOKENS: &str = "tokens.txt";
 pub const MOONSHINE_MODEL_FILES: [&str; 5] =
     [PREPROCESS, ENCODE, UNCACHED_DECODE, CACHED_DECODE, TOKENS];
 
-/// Canonical int8 file names inside a Zipformer transducer model directory. The
-/// `download:zipformer` script renames whatever the source repo ships to exactly
-/// these names so the provider's paths are model-repo-independent.
-const T_ENCODER: &str = "encoder.int8.onnx";
-const T_DECODER: &str = "decoder.int8.onnx";
-const T_JOINER: &str = "joiner.int8.onnx";
-
-/// Byte-pair vocab used to tokenize word-level hotwords into the model's token
-/// space. **Optional** — present in a directory unlocks contextual biasing; its
-/// absence simply decodes without hotwords (the engine still runs).
-const T_BPE_VOCAB: &str = "bpe.vocab";
-
-/// The four files a Zipformer transducer directory must contain for
-/// [`TransducerProvider`] to load (`tokens.txt` is shared with Moonshine).
-/// `bpe.vocab` is intentionally excluded — it's optional (biasing on/off), not
-/// required for the recognizer to run.
-pub const TRANSDUCER_MODEL_FILES: [&str; 4] = [T_ENCODER, T_DECODER, T_JOINER, TOKENS];
-
 /// Path of the first required Moonshine model file missing from `model_dir`, or
 /// `None` when all five are present.
 ///
@@ -116,18 +92,6 @@ pub fn missing_moonshine_file(model_dir: &Path) -> Option<PathBuf> {
         .find(|path| !path.exists())
 }
 
-/// Path of the first required Zipformer transducer file missing from
-/// `model_dir`, or `None` when all required files are present. The transducer
-/// analogue of [`missing_moonshine_file`] — same fail-fast contract, shared by
-/// the provider builder and [`TransducerProvider::start`]. `bpe.vocab` is not
-/// checked here: it's optional (its presence toggles hotword biasing).
-pub fn missing_transducer_file(model_dir: &Path) -> Option<PathBuf> {
-    TRANSDUCER_MODEL_FILES
-        .iter()
-        .map(|name| model_dir.join(name))
-        .find(|path| !path.exists())
-}
-
 /// Convert i16 PCM samples to f32 in [-1.0, 1.0] range.
 fn i16_to_f32(samples: &[i16]) -> Vec<f32> {
     samples.iter().map(|&s| f32::from(s) / 32768.0).collect()
@@ -135,10 +99,9 @@ fn i16_to_f32(samples: &[i16]) -> Vec<f32> {
 
 /// A whole-utterance recognizer: 16 kHz mono f32 in, trimmed transcript out.
 ///
-/// Both Moonshine and the offline Zipformer transducer implement this so the
-/// shared VAD + inference runner ([`run_engine`]) stays recognizer-agnostic —
-/// the only per-engine code is constructing the recognizer and one `transcribe`
-/// call. The returned text is already trimmed.
+/// Keeps the shared VAD + inference runner ([`run_engine`]) recognizer-agnostic
+/// — the only per-engine code is constructing the recognizer and one
+/// `transcribe` call. The returned text is already trimmed.
 trait UtteranceRecognizer: Send {
     fn transcribe(&mut self, sample_rate: u32, samples: &[f32]) -> String;
 }
@@ -149,15 +112,6 @@ struct MoonshineRec(sherpa_rs::moonshine::MoonshineRecognizer);
 impl UtteranceRecognizer for MoonshineRec {
     fn transcribe(&mut self, sample_rate: u32, samples: &[f32]) -> String {
         self.0.transcribe(sample_rate, samples).text.trim().to_string()
-    }
-}
-
-/// Offline Zipformer transducer adapter — sherpa-rs returns the text directly.
-struct TransducerRec(sherpa_rs::transducer::TransducerRecognizer);
-
-impl UtteranceRecognizer for TransducerRec {
-    fn transcribe(&mut self, sample_rate: u32, samples: &[f32]) -> String {
-        self.0.transcribe(sample_rate, samples).trim().to_string()
     }
 }
 
@@ -577,186 +531,9 @@ impl SttProvider for SherpaProvider {
     }
 }
 
-/// Local offline **Zipformer transducer** STT provider, with contextual hotword
-/// biasing toward the app's Bible keyterms.
-///
-/// Shares the entire VAD + inference engine ([`run_engine`]) with
-/// [`SherpaProvider`]; the only difference is the recognizer — an offline
-/// transducer decoded with `modified_beam_search` so the hotwords file (book
-/// names, reference cues, numerals) actually steers the search. Hotword biasing
-/// is auto-enabled when the model directory contains a `bpe.vocab` (needed to
-/// tokenize word-level phrases); without it the recognizer still runs, just
-/// without biasing.
-pub struct TransducerProvider {
-    model_dir: PathBuf,
-    n_threads: i32,
-    /// See [`SherpaProvider`]'s field of the same name.
-    pause_silence_ms: u32,
-    /// See [`SherpaProvider`]'s field of the same name.
-    partials_enabled: bool,
-    cancelled: Arc<AtomicBool>,
-}
-
-impl TransducerProvider {
-    /// Create a new Zipformer transducer provider.
-    ///
-    /// - `model_dir`: directory containing `encoder.int8.onnx`,
-    ///   `decoder.int8.onnx`, `joiner.int8.onnx`, `tokens.txt` and, optionally,
-    ///   `bpe.vocab` (its presence enables hotword biasing).
-    /// - `n_threads`: CPU threads for inference.
-    /// - `pause_silence_ms` / `partials_enabled`: identical semantics to
-    ///   [`SherpaProvider::new`] (shared VAD engine).
-    pub fn new(
-        model_dir: PathBuf,
-        n_threads: i32,
-        pause_silence_ms: Option<u32>,
-        partials_enabled: bool,
-    ) -> Self {
-        Self {
-            model_dir,
-            n_threads: n_threads.max(1),
-            pause_silence_ms: pause_silence_ms
-                .unwrap_or(DEFAULT_PAUSE_SILENCE_MS)
-                .clamp(300, 5_000),
-            partials_enabled,
-            cancelled: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    /// Absolute path of a file inside the model directory, as an owned `String`.
-    fn file(&self, name: &str) -> String {
-        self.model_dir.join(name).to_string_lossy().into_owned()
-    }
-}
-
-impl std::fmt::Debug for TransducerProvider {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TransducerProvider")
-            .field("model_dir", &self.model_dir)
-            .field("n_threads", &self.n_threads)
-            .finish_non_exhaustive()
-    }
-}
-
-#[async_trait::async_trait]
-impl SttProvider for TransducerProvider {
-    async fn start(
-        &self,
-        audio_rx: Receiver<Vec<i16>>,
-        event_tx: mpsc::Sender<TranscriptEvent>,
-    ) -> Result<(), SttError> {
-        self.cancelled.store(false, Ordering::SeqCst);
-
-        // The four core files must be present before we announce Connected.
-        if let Some(missing) = missing_transducer_file(&self.model_dir) {
-            return Err(SttError::ModelNotFound(format!(
-                "Zipformer model file not found: {}",
-                missing.display()
-            )));
-        }
-
-        let encoder = self.file(T_ENCODER);
-        let decoder = self.file(T_DECODER);
-        let joiner = self.file(T_JOINER);
-        let tokens = self.file(TOKENS);
-        let n_threads = self.n_threads;
-
-        // Contextual biasing requires a `bpe.vocab` to tokenize word-level
-        // hotwords into the model's token space. When it's present, build the
-        // hotwords file from the Bible keyterms and turn on beam-search biasing;
-        // otherwise decode plainly (the engine still runs, just unbiased). The
-        // hotwords file is written to the temp dir because the packaged model
-        // dir may be read-only.
-        let bpe_vocab_path = self.model_dir.join(T_BPE_VOCAB);
-        let biasing = if bpe_vocab_path.exists() {
-            match crate::keyterms::write_hotwords_file(&std::env::temp_dir()) {
-                Ok(path) => Some((
-                    path.to_string_lossy().into_owned(),
-                    bpe_vocab_path.to_string_lossy().into_owned(),
-                )),
-                Err(e) => {
-                    log::warn!(
-                        "[Sherpa] could not write hotwords file: {e} — decoding without biasing"
-                    );
-                    None
-                }
-            }
-        } else {
-            log::info!(
-                "[Sherpa] no bpe.vocab in model dir — Zipformer decoding without hotword biasing"
-            );
-            None
-        };
-
-        let build = move || -> Result<Box<dyn UtteranceRecognizer>, String> {
-            // Beam search honors hotwords; greedy search ignores them. Fall back
-            // to greedy (faster) only when there's nothing to bias toward.
-            let (decoding_method, hotwords_file, hotwords_score, modeling_unit, bpe_vocab) =
-                match biasing {
-                    Some((hotwords_file, bpe_vocab)) => (
-                        "modified_beam_search".to_string(),
-                        hotwords_file,
-                        2.0,
-                        "bpe".to_string(),
-                        bpe_vocab,
-                    ),
-                    None => (
-                        "greedy_search".to_string(),
-                        String::new(),
-                        0.0,
-                        String::new(),
-                        String::new(),
-                    ),
-                };
-
-            let config = sherpa_rs::transducer::TransducerConfig {
-                encoder,
-                decoder,
-                joiner,
-                tokens,
-                num_threads: n_threads,
-                sample_rate: 16_000,
-                feature_dim: 80,
-                decoding_method,
-                provider: Some("cpu".into()),
-                hotwords_file,
-                hotwords_score,
-                modeling_unit,
-                bpe_vocab,
-                ..Default::default()
-            };
-            sherpa_rs::transducer::TransducerRecognizer::new(config)
-                .map(|r| Box::new(TransducerRec(r)) as Box<dyn UtteranceRecognizer>)
-                .map_err(|e| format!("Failed to load Zipformer model: {e}"))
-        };
-
-        run_engine(
-            self.pause_silence_ms,
-            self.partials_enabled,
-            self.cancelled.clone(),
-            "Zipformer",
-            audio_rx,
-            event_tx,
-            build,
-        )
-        .await
-    }
-
-    fn stop(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-    }
-
-    fn name(&self) -> &'static str {
-        "zipformer"
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        missing_moonshine_file, missing_transducer_file, MOONSHINE_MODEL_FILES, T_BPE_VOCAB,
-        TRANSDUCER_MODEL_FILES,
-    };
+    use super::{missing_moonshine_file, MOONSHINE_MODEL_FILES};
 
     /// A unique temp dir for this test process, created fresh.
     fn temp_model_dir(tag: &str) -> std::path::PathBuf {
@@ -799,44 +576,6 @@ mod tests {
         }
         let last = MOONSHINE_MODEL_FILES[MOONSHINE_MODEL_FILES.len() - 1];
         let missing = missing_moonshine_file(&dir).expect("partial dir must be incomplete");
-        assert_eq!(missing, dir.join(last));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn transducer_empty_dir_reports_first_missing_file() {
-        let dir = temp_model_dir("t-empty");
-        let missing = missing_transducer_file(&dir).expect("empty dir must be incomplete");
-        assert_eq!(missing, dir.join(TRANSDUCER_MODEL_FILES[0]));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn transducer_core_files_are_enough_bpe_vocab_is_optional() {
-        let dir = temp_model_dir("t-core");
-        // The four core files, but NOT bpe.vocab.
-        for name in TRANSDUCER_MODEL_FILES {
-            std::fs::write(dir.join(name), b"x").unwrap();
-        }
-        assert!(
-            missing_transducer_file(&dir).is_none(),
-            "the four core files must be sufficient — bpe.vocab is optional (biasing on/off)"
-        );
-        assert!(
-            !dir.join(T_BPE_VOCAB).exists(),
-            "sanity: this fixture intentionally omits bpe.vocab"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn transducer_partial_dir_reports_the_absent_file() {
-        let dir = temp_model_dir("t-partial");
-        for name in &TRANSDUCER_MODEL_FILES[..TRANSDUCER_MODEL_FILES.len() - 1] {
-            std::fs::write(dir.join(name), b"x").unwrap();
-        }
-        let last = TRANSDUCER_MODEL_FILES[TRANSDUCER_MODEL_FILES.len() - 1];
-        let missing = missing_transducer_file(&dir).expect("partial dir must be incomplete");
         assert_eq!(missing, dir.join(last));
         let _ = std::fs::remove_dir_all(&dir);
     }

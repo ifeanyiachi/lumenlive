@@ -1,6 +1,6 @@
 //! Phase-A benchmark: measure real-time factor (RTF) and transcript quality for
-//! candidate sherpa-onnx models on THIS machine, without touching the app audio
-//! pipeline. Compares a streaming zipformer transducer against Moonshine.
+//! the Moonshine sherpa-onnx model on THIS machine, without touching the app
+//! audio pipeline.
 //!
 //! RTF = inference wall-clock / audio duration. RTF < 1 means faster than real
 //! time. Each clip is run twice; the second (warm) run is reported so ONNX
@@ -8,8 +8,6 @@
 //!
 //! Run (from src-tauri/):
 //! ```text
-//! cargo run --release -p lumenlive-stt --example sherpa_bench --features sherpa -- \
-//!     zipformer <encoder> <decoder> <joiner> <tokens> <wav>...
 //! cargo run --release -p lumenlive-stt --example sherpa_bench --features sherpa -- \
 //!     moonshine <preprocess> <encode> <uncached_decode> <cached_decode> <tokens> <wav>...
 //! ```
@@ -21,48 +19,14 @@ type BoxErr = Box<dyn std::error::Error>;
 fn main() -> Result<(), BoxErr> {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
-        Some("zipformer") => run_zipformer(&args[2..]),
         Some("moonshine") => run_moonshine(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  sherpa_bench zipformer <encoder> <decoder> <joiner> <tokens> <wav>...\n  sherpa_bench moonshine <preprocess> <encode> <uncached_decode> <cached_decode> <tokens> <wav>..."
+                "usage:\n  sherpa_bench moonshine <preprocess> <encode> <uncached_decode> <cached_decode> <tokens> <wav>..."
             );
             std::process::exit(2);
         }
     }
-}
-
-fn run_zipformer(a: &[String]) -> Result<(), BoxErr> {
-    let [encoder, decoder, joiner, tokens, wavs @ ..] = a else {
-        return Err("zipformer needs: <encoder> <decoder> <joiner> <tokens> <wav>...".into());
-    };
-    // Streaming zipformer must go through the ONLINE transducer recognizer.
-    // (The offline `zipformer::ZipFormer` wrapper aborts on a streaming model:
-    // its chunked, stateful encoder is incompatible with the offline API.)
-    let cfg = sherpa_rs::transducer::TransducerConfig {
-        encoder: encoder.clone(),
-        decoder: decoder.clone(),
-        joiner: joiner.clone(),
-        tokens: tokens.clone(),
-        num_threads: 2,
-        sample_rate: 16000,
-        feature_dim: 80,
-        decoding_method: "greedy_search".into(),
-        provider: Some("cpu".into()),
-        ..Default::default()
-    };
-    let t = Instant::now();
-    let mut rec = sherpa_rs::transducer::TransducerRecognizer::new(cfg)?;
-    println!("== zipformer (online) ==  model loaded in {:?}", t.elapsed());
-    for wav in wavs {
-        let (samples, sr) = sherpa_rs::read_audio_file(wav)?;
-        let dur = samples.len() as f64 / f64::from(sr).max(1.0);
-        let _ = rec.transcribe(sr, &samples); // warm-up
-        let t = Instant::now();
-        let text = rec.transcribe(sr, &samples);
-        report(wav, dur, t.elapsed(), text.trim());
-    }
-    Ok(())
 }
 
 fn run_moonshine(a: &[String]) -> Result<(), BoxErr> {

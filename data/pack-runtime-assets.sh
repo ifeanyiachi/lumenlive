@@ -16,9 +16,10 @@
 # where the argument is the assets version N. Produces:
 #   lumenlive-runtime-assets-v<N>.tar   (+ prints its sha256)
 #
-# Then publish it and repoint the workflow:
+# Then publish it and repoint the workflow. Keep it unlabelled (--latest=false)
+# so it never steals the "Latest" badge from a real app release:
 #   gh release create assets-v<N> lumenlive-runtime-assets-v<N>.tar \
-#     --title "Runtime assets v<N>" --notes "bge + moonshine + zipformer"
+#     --title "Runtime assets" --notes "bge + moonshine" --latest=false
 #   # update ASSETS_TAG / ASSETS_TAR / ASSETS_SHA256 in release.yml
 set -euo pipefail
 

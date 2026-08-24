@@ -1,7 +1,6 @@
 //! Model resolution and STT provider construction: builds the operator-selected
-//! primary provider (Deepgram cloud, on-device Moonshine, or on-device Zipformer
-//! transducer) plus the optional on-device fallback used when the cloud link
-//! drops mid-service.
+//! primary provider (Deepgram cloud or on-device Moonshine) plus the optional
+//! on-device fallback used when the cloud link drops mid-service.
 
 use tauri::{AppHandle, Manager};
 
@@ -13,7 +12,7 @@ use super::truncate_safe;
 /// network link, so they run without a cloud→on-device fallback.
 #[cfg(feature = "sherpa")]
 fn is_local_provider(name: &str) -> bool {
-    matches!(name, "sherpa" | "zipformer")
+    name == "sherpa"
 }
 
 /// Resolve a bundled sherpa model directory (dev tree first, then packaged
@@ -66,18 +65,6 @@ fn resolve_moonshine_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, St
     )
 }
 
-/// Resolve the bundled Zipformer transducer model directory (primary path only —
-/// the offline fallback stays on Moonshine for its smaller footprint).
-#[cfg(feature = "sherpa")]
-fn resolve_transducer_model_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    resolve_sherpa_model_dir(
-        app,
-        "sherpa-onnx-zipformer-en-int8",
-        "bun run download:zipformer",
-        lumenlive_stt::sherpa::missing_transducer_file,
-    )
-}
-
 /// Inference threads for the on-device recognizers — half the logical CPUs, at
 /// least one.
 #[cfg(feature = "sherpa")]
@@ -87,10 +74,8 @@ fn local_stt_thread_count() -> i32 {
 }
 
 /// Build the operator-selected primary STT provider. `provider_name == "sherpa"`
-/// selects on-device Moonshine; `"zipformer"` selects the on-device Zipformer
-/// transducer (with Bible-keyterm hotword biasing); anything else selects
-/// Deepgram (the default), resolving the API key from the argument or the
-/// `DEEPGRAM_API_KEY` env var.
+/// selects on-device Moonshine; anything else selects Deepgram (the default),
+/// resolving the API key from the argument or the `DEEPGRAM_API_KEY` env var.
 pub(super) fn build_provider(
     app: &AppHandle,
     provider_name: &str,
@@ -118,25 +103,8 @@ pub(super) fn build_provider(
                 sherpa_partials,
             )))
         }
-        #[cfg(feature = "sherpa")]
-        "zipformer" => {
-            let model_dir = resolve_transducer_model_dir(app)?;
-            let n_threads = local_stt_thread_count();
-
-            log::info!(
-                "Starting zipformer (transducer) transcription: model_dir={}, threads={n_threads}, device_id={device_id:?}, pause_silence_ms={pause_silence_ms:?}, partials={sherpa_partials}",
-                model_dir.display()
-            );
-
-            Ok(Box::new(lumenlive_stt::TransducerProvider::new(
-                model_dir,
-                n_threads,
-                pause_silence_ms,
-                sherpa_partials,
-            )))
-        }
         #[cfg(not(feature = "sherpa"))]
-        "sherpa" | "zipformer" => {
+        "sherpa" => {
             Err("Sherpa support not compiled. Rebuild with --features sherpa".into())
         }
         _ => {
@@ -175,8 +143,8 @@ pub(super) fn build_provider(
 /// Build the offline failover provider. If the cloud provider loses the network
 /// mid-service, transcription continues on-device with Moonshine instead of
 /// going dark. Built eagerly (cheap — only stores paths; the model loads lazily
-/// when the fallback's `start()` runs). `None` when the primary is already an
-/// on-device engine (Moonshine or Zipformer), or when the model isn't available.
+/// when the fallback's `start()` runs). `None` when the primary is already the
+/// on-device engine (Moonshine), or when the model isn't available.
 pub(super) fn build_fallback(
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] app: &AppHandle,
     #[cfg_attr(not(feature = "sherpa"), allow(unused_variables))] provider_name: &str,
@@ -185,8 +153,8 @@ pub(super) fn build_fallback(
 ) -> Option<Box<dyn SttProvider>> {
     #[cfg(feature = "sherpa")]
     {
-        // On-device primaries (Moonshine or Zipformer) have no cloud link to
-        // lose, so they run without a fallback.
+        // The on-device primary (Moonshine) has no cloud link to lose, so it
+        // runs without a fallback.
         if is_local_provider(provider_name) {
             None
         } else {
