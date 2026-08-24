@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { toast } from "sonner"
 import { useBroadcastStore } from "@/stores"
 import { StagePreviewCanvas } from "./stage-preview-canvas"
 import { Input } from "@/components/ui/input"
@@ -21,9 +22,32 @@ import {
   CopyIcon,
   EditIcon,
   Trash2Icon,
+  DownloadIcon,
+  UploadIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { StageLayout } from "@/types/stage-layout"
+import { exportStageLayout, importThemeBundle } from "@/lib/theme-bundle/io"
+import { ThemeBundleParseError } from "@/lib/theme-bundle"
+
+/** Export one stage layout to a `.lumtheme` bundle, packaging its media, with a toast. */
+async function handleExportLayout(layout: StageLayout) {
+  try {
+    const { saved, missingMedia } = await exportStageLayout(layout)
+    if (!saved) return
+    if (missingMedia > 0) {
+      toast.warning(
+        `Exported "${layout.name}" · ${missingMedia} media file${
+          missingMedia > 1 ? "s were" : " was"
+        } missing and couldn't be packaged`
+      )
+    } else {
+      toast.success(`Exported "${layout.name}"`)
+    }
+  } catch {
+    toast.error("Couldn't export that layout.")
+  }
+}
 
 function LayoutCard({
   layout,
@@ -83,6 +107,15 @@ function LayoutCard({
             >
               <CopyIcon className="mr-2 size-3.5" />
               Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleExportLayout(layout)
+              }}
+            >
+              <DownloadIcon className="mr-2 size-3.5" />
+              Export
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -153,6 +186,24 @@ export function StageLayoutLibrary() {
     }
   }
 
+  const handleImport = async () => {
+    try {
+      const result = await importThemeBundle()
+      if (!result) return
+      toast.success(
+        result.kind === "stage-layout"
+          ? `Imported "${result.name}"`
+          : `Imported theme "${result.name}"`
+      )
+    } catch (err) {
+      toast.error(
+        err instanceof ThemeBundleParseError
+          ? err.message
+          : "Couldn't import that layout file."
+      )
+    }
+  }
+
   const filtered = useMemo(() => {
     if (!search.trim()) return layouts
     const q = search.toLowerCase()
@@ -166,16 +217,27 @@ export function StageLayoutLibrary() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
         <span className="text-lg font-semibold text-foreground">Layouts</span>
-        <Button
-          onClick={() =>
-            guardSwitch(() =>
-              useBroadcastStore.getState().createNewStageLayout()
-            )
-          }
-        >
-          <PlusIcon className="size-4" />
-          New
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            title="Import layout (.lumtheme)"
+            aria-label="Import layout"
+            onClick={handleImport}
+          >
+            <UploadIcon className="size-4" />
+          </Button>
+          <Button
+            onClick={() =>
+              guardSwitch(() =>
+                useBroadcastStore.getState().createNewStageLayout()
+              )
+            }
+          >
+            <PlusIcon className="size-4" />
+            New
+          </Button>
+        </div>
       </div>
 
       <div className="px-3 pt-3 pb-4">

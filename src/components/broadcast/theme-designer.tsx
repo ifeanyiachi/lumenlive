@@ -15,7 +15,7 @@ import {
   PaletteIcon,
   CheckCheckIcon,
 } from "lucide-react"
-import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
+import { currentDefaultThemeId } from "@/lib/theme/defaults"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
 import { PresentationEditor } from "@/components/slides/presentation-editor"
 import { createThemeFromTemplate } from "@/lib/theme/templates"
@@ -46,10 +46,17 @@ export function ThemeDesigner() {
   const scriptureDefaultThemeId = useSettingsStore(
     (s) => s.scriptureDefaultThemeId
   )
-  const isScriptureTheme = session?.identity.type === "scripture"
+  const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  // Scripture and song themes can be marked the app-wide default for their type.
+  const sessionType = session?.identity.type
+  const isDefaultableTheme =
+    sessionType === "scripture" || sessionType === "song"
   const isCurrentDefault =
-    isScriptureTheme &&
-    resolveLegacyThemeId(scriptureDefaultThemeId) === session?.identity.id
+    sessionType != null &&
+    currentDefaultThemeId(sessionType, {
+      scriptureDefaultThemeId,
+      songSlideDefaults,
+    }) === session?.identity.id
 
   const [showGrid, setShowGrid] = useState(false)
   const [pendingSwitch, setPendingSwitch] = useState<(() => void) | null>(null)
@@ -150,17 +157,25 @@ export function ThemeDesigner() {
     return true
   }
 
-  // Save the current scripture theme and make it the app-wide default (the look
-  // new outputs adopt). Saves first so the default points at a persisted theme —
-  // editing a built-in forks it to an unsaved custom id until Save runs.
+  // Save the current theme and make it the app-wide default for its type (the
+  // look new scripture outputs / generated song slides adopt). Saves first so the
+  // default points at a persisted theme — editing a built-in forks it to an
+  // unsaved custom id until Save runs.
   const handleSaveAsDefault = () => {
     if (!handleSave()) return
-    const id = usePresentationStore.getState().typedThemeSession?.identity.id
-    if (!id) return
-    useSettingsStore.getState().setScriptureDefaultThemeId(id)
-    // Apply to the Program output so the new default is live immediately.
-    useBroadcastStore.getState().setActiveTheme(id)
-    toast.success("Set as default scripture theme")
+    const identity = usePresentationStore.getState().typedThemeSession?.identity
+    if (!identity) return
+    const { id, type } = identity
+    if (type === "scripture") {
+      useSettingsStore.getState().setScriptureDefaultThemeId(id)
+      // Apply to the Program output so the new default is live immediately.
+      useBroadcastStore.getState().setActiveTheme(id)
+      toast.success("Set as default scripture theme")
+    } else if (type === "song") {
+      const s = useSettingsStore.getState()
+      s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId: id })
+      toast.success("Set as default song theme")
+    }
   }
 
   const handleDiscard = () => {
@@ -253,15 +268,17 @@ export function ThemeDesigner() {
                   <TrashIcon className="size-4" />
                   Discard
                 </Button>
-                {isScriptureTheme && (
+                {isDefaultableTheme && (
                   <Button
                     variant="outline"
                     onClick={handleSaveAsDefault}
                     disabled={isCurrentDefault}
-                    title="Save and set as the default scripture theme"
+                    title={`Save and set as the default ${sessionType} theme`}
                   >
                     <CheckCheckIcon className="size-4" />
-                    {isCurrentDefault ? "Default" : "Set as Default"}
+                    {isCurrentDefault
+                      ? `Default ${sessionType}`
+                      : "Set as Default"}
                   </Button>
                 )}
                 <Button

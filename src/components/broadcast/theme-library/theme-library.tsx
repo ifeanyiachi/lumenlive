@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { toast } from "sonner"
 import type { LucideIcon } from "lucide-react"
 import {
   PlusIcon,
@@ -12,6 +13,8 @@ import {
   LayersIcon,
   MegaphoneIcon,
   CheckCheckIcon,
+  DownloadIcon,
+  UploadIcon,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -31,8 +34,14 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { THEME_TYPES } from "@/lib/theme/templates"
 import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
+import {
+  isDefaultableThemeType,
+  currentDefaultThemeId,
+} from "@/lib/theme/defaults"
 import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
+import { exportTheme, importThemeBundle } from "@/lib/theme-bundle/io"
+import { ThemeBundleParseError } from "@/lib/theme-bundle"
 
 /** Per-type display metadata for the New menu and card badges. */
 const TYPE_META: Record<ThemeType, { label: string; icon: LucideIcon }> = {
@@ -45,6 +54,25 @@ const TYPE_META: Record<ThemeType, { label: string; icon: LucideIcon }> = {
 }
 
 type FilterTab = "all" | "pinned"
+
+/** Export one theme to a `.lumtheme` bundle, packaging its media, with a toast. */
+async function handleExportTheme(theme: Theme) {
+  try {
+    const { saved, missingMedia } = await exportTheme(theme)
+    if (!saved) return
+    if (missingMedia > 0) {
+      toast.warning(
+        `Exported "${theme.name}" · ${missingMedia} media file${
+          missingMedia > 1 ? "s were" : " was"
+        } missing and couldn't be packaged`
+      )
+    } else {
+      toast.success(`Exported "${theme.name}"`)
+    }
+  } catch {
+    toast.error("Couldn't export that theme.")
+  }
+}
 
 /**
  * The theme library for the type-first model (themeredo.md, Phase 3). Lists every
@@ -108,31 +136,55 @@ export function ThemeLibrary({
     )
   }, [filtered, defaultThemeId])
 
+  const handleImport = async () => {
+    try {
+      const result = await importThemeBundle()
+      if (result) toast.success(`Imported "${result.name}"`)
+    } catch (err) {
+      toast.error(
+        err instanceof ThemeBundleParseError
+          ? err.message
+          : "Couldn't import that theme file."
+      )
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
         <span className="text-lg font-semibold text-foreground">Themes</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <PlusIcon className="size-4" />
-              New
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>New theme</DropdownMenuLabel>
-            {THEME_TYPES.map((type) => {
-              const { label, icon: Icon } = TYPE_META[type]
-              return (
-                <DropdownMenuItem key={type} onClick={() => onNewTheme(type)}>
-                  <Icon className="mr-2 size-3.5" />
-                  {label}
-                </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            title="Import theme (.lumtheme)"
+            aria-label="Import theme"
+            onClick={handleImport}
+          >
+            <UploadIcon className="size-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <PlusIcon className="size-4" />
+                New
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>New theme</DropdownMenuLabel>
+              {THEME_TYPES.map((type) => {
+                const { label, icon: Icon } = TYPE_META[type]
+                return (
+                  <DropdownMenuItem key={type} onClick={() => onNewTheme(type)}>
+                    <Icon className="mr-2 size-3.5" />
+                    {label}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Search */}
@@ -240,19 +292,29 @@ function ThemeCard({
   onSelect: () => void
 }) {
   const { label, icon: Icon } = TYPE_META[theme.type]
-  // Scripture themes can be marked the app-wide default (the look new outputs
-  // adopt); the current default is resolved through the legacy-id alias so a
-  // stored built-in id still matches. Non-scripture themes have no default.
+  // Scripture and song themes can be marked the app-wide default for their type
+  // (the look new scripture outputs / generated song slides adopt). The current
+  // default is resolved through the legacy-id alias so a stored built-in id still
+  // matches. The other intrinsic types have no default.
   const scriptureDefaultThemeId = useSettingsStore(
     (s) => s.scriptureDefaultThemeId
   )
-  const isScripture = theme.type === "scripture"
+  const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  const isDefaultable = isDefaultableThemeType(theme.type)
   const isDefault =
-    isScripture && resolveLegacyThemeId(scriptureDefaultThemeId) === theme.id
+    currentDefaultThemeId(theme.type, {
+      scriptureDefaultThemeId,
+      songSlideDefaults,
+    }) === theme.id
   const setAsDefault = () => {
-    useSettingsStore.getState().setScriptureDefaultThemeId(theme.id)
-    // Apply to the Program output so the new default is live immediately.
-    useBroadcastStore.getState().setActiveTheme(theme.id)
+    if (theme.type === "scripture") {
+      useSettingsStore.getState().setScriptureDefaultThemeId(theme.id)
+      // Apply to the Program output so the new default is live immediately.
+      useBroadcastStore.getState().setActiveTheme(theme.id)
+    } else if (theme.type === "song") {
+      const s = useSettingsStore.getState()
+      s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId: theme.id })
+    }
   }
   return (
     <div
@@ -276,7 +338,7 @@ function ThemeCard({
         <ThemeThumbnail theme={theme} className="border border-border/50" />
         {isDefault && (
           <span className="absolute top-1 left-1 rounded-sm bg-primary px-1.5 py-px text-[0.5625rem] font-semibold tracking-wide text-primary-foreground uppercase shadow-sm">
-            Default
+            Default {theme.type}
           </span>
         )}
       </div>
@@ -288,16 +350,17 @@ function ThemeCard({
         <span className="shrink-0 text-[0.5625rem] tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
-        {/* Hover actions: "Set as default" for any scripture theme (built-ins
-            included), plus pin/delete for custom themes (built-ins are code). */}
-        {(isScripture || !theme.builtin) && (
+        {/* Hover actions: "Set as default" for any scripture or song theme
+            (built-ins included), plus pin/delete for custom themes (built-ins
+            are code). */}
+        {(isDefaultable || !theme.builtin) && (
           <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
-            {isScripture && !isDefault && (
+            {isDefaultable && !isDefault && (
               <Button
                 variant="ghost"
                 size="icon-sm"
                 className="size-6"
-                title="Set as default scripture theme"
+                title={`Set as default ${theme.type} theme`}
                 onClick={(e) => {
                   e.stopPropagation()
                   setAsDefault()
@@ -308,6 +371,18 @@ function ThemeCard({
             )}
             {!theme.builtin && (
               <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-6"
+                  title="Export theme (.lumtheme)"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleExportTheme(theme)
+                  }}
+                >
+                  <DownloadIcon className="size-3" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
