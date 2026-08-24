@@ -20,12 +20,11 @@ import {
   tiptapToStyledSegments,
   styledSegmentsToTiptapContent,
 } from "@/lib/tiptap-conversion"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
+import { buildScriptureScheduleItem } from "@/lib/search/schedule-items"
+import { useSettingsStore } from "@/stores/settings-store"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import { openSettings } from "@/lib/settings-dialog"
-import { verseEditKey } from "@/types/verse-edit"
 import type { StyledVerseSegment } from "@/types/verse-edit"
 import type { Verse } from "@/types/bible"
 import type { VerseRenderData } from "@/types/broadcast"
@@ -39,6 +38,12 @@ interface VerseEditModalProps {
   translationId: number
 }
 
+/**
+ * Format a single verse and add it to the schedule (optionally straight to
+ * live). The styling is **item-scoped**: it rides on the schedule item created
+ * here and is stored nowhere else, so it never affects the same verse elsewhere.
+ * Closing without adding (or going live) discards the edit entirely.
+ */
 export function VerseEditModal({
   open,
   onOpenChange,
@@ -46,32 +51,15 @@ export function VerseEditModal({
   translationAbbreviation,
   translationId,
 }: VerseEditModalProps) {
-  const editKey = verseEditKey(
-    translationId,
-    verse.book_number,
-    verse.chapter,
-    verse.verse
-  )
   const reference = `${verse.book_name} ${verse.chapter}:${verse.verse} (${translationAbbreviation})`
 
-  const existingEdit = useVerseEditStore((s) => s.edits[editKey])
-  const goLiveEnabled = useVerseEditStore((s) => s.goLiveEnabled)
-  const setGoLiveEnabled = useVerseEditStore((s) => s.setGoLiveEnabled)
-  const saveEdit = useVerseEditStore((s) => s.saveEdit)
-  const deleteEdit = useVerseEditStore((s) => s.deleteEdit)
-  const editCount = useVerseEditStore((s) => Object.keys(s.edits).length)
+  const goLiveEnabled = useSettingsStore((s) => s.verseEditGoLive)
+  const setGoLiveEnabled = useSettingsStore((s) => s.setVerseEditGoLive)
 
   const baseSegments = useMemo<StyledVerseSegment[]>(
     () => [{ verseNumber: verse.verse, text: verse.text }],
     [verse]
   )
-
-  const initialContent = useMemo(() => {
-    if (existingEdit) {
-      return styledSegmentsToTiptapContent(existingEdit.segments)
-    }
-    return styledSegmentsToTiptapContent(baseSegments)
-  }, [existingEdit, baseSegments])
 
   const editor = useEditor({
     extensions: [
@@ -91,7 +79,7 @@ export function VerseEditModal({
       Color,
       Highlight.configure({ multicolor: true }),
     ],
-    content: initialContent,
+    content: styledSegmentsToTiptapContent(baseSegments),
     editorProps: {
       attributes: {
         class:
@@ -100,39 +88,26 @@ export function VerseEditModal({
     },
   })
 
-  const [textChanged, setTextChanged] = useState(false)
-
-  // Reset editor content when modal opens with different verse
+  // Reset editor content when modal opens with a different verse.
   useEffect(() => {
     if (open && editor) {
-      const content = existingEdit
-        ? styledSegmentsToTiptapContent(existingEdit.segments)
-        : styledSegmentsToTiptapContent(baseSegments)
-      editor.commands.setContent(content)
-
-      // Detect if verse text changed since last edit was saved
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTextChanged(!!existingEdit && existingEdit.originalText !== verse.text)
-
-      // Focus editor after content loads
+      editor.commands.setContent(styledSegmentsToTiptapContent(baseSegments))
       requestAnimationFrame(() => editor.commands.focus())
     }
   }, [open, verse.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live preview: convert editor state to VerseRenderData on each change
+  // Live preview: convert editor state to VerseRenderData on each change.
   const [previewData, setPreviewData] = useState<VerseRenderData | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const updatePreview = useCallback(() => {
     if (!editor) return
-    const json = editor.getJSON()
-    const segments = tiptapToStyledSegments(json, baseSegments)
-    setPreviewData({ reference, segments })
+    const [segment] = tiptapToStyledSegments(editor.getJSON(), baseSegments)
+    setPreviewData({ reference, segments: [segment] })
   }, [editor, baseSegments, reference])
 
   useEffect(() => {
     if (!editor) return
-    // Seed the preview from current editor content, then subscribe to changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     updatePreview()
     const handler = () => {
@@ -158,53 +133,32 @@ export function VerseEditModal({
     editor.commands.setContent(styledSegmentsToTiptapContent(baseSegments))
   }, [editor, baseSegments])
 
-  const handleDeleteEdit = useCallback(() => {
-    deleteEdit(editKey)
-    if (editor) {
-      editor.commands.setContent(styledSegmentsToTiptapContent(baseSegments))
-    }
-    toast.success("Saved formatting deleted")
-  }, [deleteEdit, editKey, editor, baseSegments])
-
   const handleSchedule = useCallback(() => {
     if (!editor) return
-    const json = editor.getJSON()
-    const segments = tiptapToStyledSegments(json, baseSegments)
-
-    saveEdit({
-      key: editKey,
-      reference,
-      originalText: verse.text,
-      segments,
-      createdAt: existingEdit?.createdAt ?? Date.now(),
-      updatedAt: Date.now(),
-    })
+    const [segment] = tiptapToStyledSegments(editor.getJSON(), baseSegments)
+    // Only attach the edit when the operator actually changed something; an
+    // untouched verse adds as a plain item.
+    const edited =
+      (segment.spans?.length ?? 0) > 0 || segment.text !== verse.text
 
     const scheduleStore = useScheduleStore.getState()
     const activeScheduleId = scheduleStore.activeScheduleId
     if (activeScheduleId) {
-      const ok = scheduleStore.addItem(activeScheduleId, {
-        id: crypto.randomUUID(),
-        type: "scripture",
-        label: reference,
-        order: scheduleStore.getActiveSchedule()?.items.length ?? 0,
-        notes: "",
-        translationId,
-        bookNumber: verse.book_number,
-        chapter: verse.chapter,
-        verseStart: verse.verse,
-        verseEnd: verse.verse,
-        cachedReference: reference,
-        cachedText: verse.text,
-      })
+      const item = buildScriptureScheduleItem(
+        { ...verse, translation_id: translationId },
+        translationAbbreviation,
+        scheduleStore.getActiveSchedule()?.items.length ?? 0,
+        edited ? segment : undefined
+      )
+      const ok = scheduleStore.addItem(activeScheduleId, item)
       if (ok) toast.success("Added to schedule")
-      else toast.info("Verse edit saved · already in the schedule")
+      else toast.info("Already in the schedule")
     } else {
-      toast.info("Verse edit saved (no active schedule)")
+      toast.info("No active schedule — select or create one first")
     }
 
     if (goLiveEnabled) {
-      const renderData: VerseRenderData = { reference, segments }
+      const renderData: VerseRenderData = { reference, segments: [segment] }
       useBroadcastStore.getState().setLiveVerse(renderData, "manual")
     }
 
@@ -212,13 +166,11 @@ export function VerseEditModal({
   }, [
     editor,
     baseSegments,
-    editKey,
     reference,
     verse,
     translationId,
-    existingEdit,
+    translationAbbreviation,
     goLiveEnabled,
-    saveEdit,
     onOpenChange,
   ])
 
@@ -242,22 +194,6 @@ export function VerseEditModal({
           <DialogTitle>Edit Verse — {reference}</DialogTitle>
         </DialogHeader>
 
-        {textChanged && (
-          <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-            <span className="text-xs text-amber-300">
-              The verse text has changed since your last edit.
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-xs"
-              onClick={handleReset}
-            >
-              Reset to current
-            </Button>
-          </div>
-        )}
-
         <div className="flex flex-col gap-4">
           <VerseEditToolbar editor={editor} />
           <EditorContent editor={editor} />
@@ -272,37 +208,12 @@ export function VerseEditModal({
               />
             </div>
           )}
-
-          {editCount > 0 && (
-            <button
-              type="button"
-              className="self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              onClick={() => {
-                onOpenChange(false)
-                openSettings("saved-edits")
-              }}
-            >
-              Manage saved edits ({editCount})
-            </button>
-          )}
         </div>
 
         <DialogFooter className="flex-row items-center justify-between sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleReset}>
-              Reset to Original
-            </Button>
-            {existingEdit && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={handleDeleteEdit}
-              >
-                Delete Saved Edit
-              </Button>
-            )}
-          </div>
+          <Button variant="ghost" size="sm" onClick={handleReset}>
+            Reset to Original
+          </Button>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <label

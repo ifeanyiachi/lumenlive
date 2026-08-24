@@ -1,7 +1,5 @@
 import type { Verse } from "@/types/bible"
 import type { VerseRenderData, VerseSegment } from "@/types/broadcast"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
-import { verseEditKey } from "@/types/verse-edit"
 
 export function buildMultiVerseReference(
   verses: Verse[],
@@ -82,26 +80,13 @@ export function toMultiVerseRenderData(
     return a.verse - b.verse
   })
 
-  const segments: VerseSegment[] = []
-
-  for (const v of sorted) {
-    const editKey = verseEditKey(
-      v.translation_id,
-      v.book_number,
-      v.chapter,
-      v.verse
-    )
-    const savedEdit = useVerseEditStore.getState().getEdit(editKey)
-
-    if (savedEdit && savedEdit.segments.length > 0) {
-      segments.push(...savedEdit.segments)
-    } else {
-      segments.push({
-        verseNumber: v.verse,
-        text: v.text,
-      })
-    }
-  }
+  // Plain block: verse edits are item-scoped, so callers that want styled output
+  // pass their own segments (or build render data from the item) rather than this
+  // helper consulting any global store.
+  const segments: VerseSegment[] = sorted.map((v) => ({
+    verseNumber: v.verse,
+    text: v.text,
+  }))
 
   return {
     reference: buildMultiVerseReference(sorted, translation),

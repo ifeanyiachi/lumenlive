@@ -47,9 +47,7 @@ export type {
   InlineStyle,
   StyledSpan,
   StyledVerseSegment,
-  VerseEdit,
 } from "./verse-edit"
-export { verseEditKey } from "./verse-edit"
 export type {
   NdiAlphaMode,
   NdiConfigEventPayload,

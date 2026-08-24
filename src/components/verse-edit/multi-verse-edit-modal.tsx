@@ -21,16 +21,12 @@ import {
   tiptapToStyledSegments,
   styledSegmentsToTiptapContent,
 } from "@/lib/tiptap-conversion"
-import { buildVerseEditFromSegment } from "@/lib/verse-edit/multi-edit"
-import {
-  buildMultiVerseReference,
-  toMultiVerseRenderData,
-} from "@/lib/multi-verse"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
+import { buildMultiVerseReference } from "@/lib/multi-verse"
+import { buildGroupedScriptureScheduleItem } from "@/lib/search/schedule-items"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { useSettingsStore } from "@/stores/settings-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
-import { verseEditKey } from "@/types/verse-edit"
 import type { StyledVerseSegment } from "@/types/verse-edit"
 import type { Verse } from "@/types/bible"
 import type { VerseRenderData } from "@/types/broadcast"
@@ -41,8 +37,27 @@ interface MultiVerseEditModalProps {
   onOpenChange: (open: boolean) => void
   verses: Verse[]
   translationAbbreviation: string
-  /** Called after edits are saved (e.g. to clear the selection). */
+  /** Called after edits are applied (e.g. to clear the selection). */
   onApplied?: () => void
+  /**
+   * Seed each verse's editor from an existing item-scoped edit (used when editing
+   * a scripture schedule item already in the running order). Returns the stored
+   * segment for a verse, or undefined to start from the plain verse text.
+   */
+  initialSegmentFor?: (verse: Verse) => StyledVerseSegment | undefined
+  /**
+   * Overrides the default "add a new grouped scripture item" action. When set,
+   * the footer button reads "Save" and this fires with the edited block; the
+   * modal adds nothing to the running order itself. `segmentById` maps `verse.id`
+   * → its styled edit for the verses the operator actually formatted (unedited
+   * verses are omitted). Used to edit an existing scripture item in place — the
+   * edits are stored on the item, never a global store.
+   */
+  onSave?: (result: {
+    reference: string
+    renderData: VerseRenderData
+    segmentById: Map<number, StyledVerseSegment>
+  }) => void
 }
 
 // Shared TipTap configuration — mirrors the single-verse editor so both behave
@@ -78,12 +93,25 @@ function segmentFromEditor(editor: Editor, verse: Verse): StyledVerseSegment {
   return seg
 }
 
+/** True when a verse's segment carries styling or its text was changed. */
+function isEdited(seg: StyledVerseSegment, verse: Verse): boolean {
+  return (seg.spans?.length ?? 0) > 0 || seg.text !== verse.text
+}
+
+const sortCanonical = (verses: Verse[]): Verse[] =>
+  [...verses].sort((a, b) => {
+    if (a.book_number !== b.book_number) return a.book_number - b.book_number
+    if (a.chapter !== b.chapter) return a.chapter - b.chapter
+    return a.verse - b.verse
+  })
+
 /**
  * Edit several selected verses together. Each verse gets its own TipTap editor
  * (behaving exactly like the single-verse editor) so the full verse text is
  * present and individually editable; a shared toolbar formats whichever editor
- * has focus, a combined preview shows the block, and Save writes one per-verse
- * VerseEdit.
+ * has focus, and a combined preview shows the block. Edits are **item-scoped**:
+ * they ride on the schedule item created (or updated) here, never a global store,
+ * and are discarded if the block is neither added to a schedule nor sent live.
  */
 export function MultiVerseEditModal({
   open,
@@ -91,10 +119,11 @@ export function MultiVerseEditModal({
   verses,
   translationAbbreviation,
   onApplied,
+  initialSegmentFor,
+  onSave,
 }: MultiVerseEditModalProps) {
-  const saveEdit = useVerseEditStore((s) => s.saveEdit)
-  const goLiveEnabled = useVerseEditStore((s) => s.goLiveEnabled)
-  const setGoLiveEnabled = useVerseEditStore((s) => s.setGoLiveEnabled)
+  const goLiveEnabled = useSettingsStore((s) => s.verseEditGoLive)
+  const setGoLiveEnabled = useSettingsStore((s) => s.setVerseEditGoLive)
 
   // verse.id → its editor instance. Refs (not state) so re-registering an editor
   // doesn't re-render the whole modal on every keystroke.
@@ -155,73 +184,49 @@ export function MultiVerseEditModal({
     schedulePreview()
   }, [verses, schedulePreview])
 
-  // Persist each verse's current editor content as its own saved VerseEdit.
-  const persistEdits = useCallback(() => {
-    const now = Date.now()
-    const store = useVerseEditStore.getState()
-    for (const v of verses) {
+  // Collect each verse's current editor content: the full ordered segments (for
+  // the live block) plus a map of only the verses that were actually formatted
+  // (for the schedule item — unedited verses fall back to plain text).
+  const collect = useCallback(() => {
+    const sorted = sortCanonical(verses)
+    const segmentById = new Map<number, StyledVerseSegment>()
+    const segments: StyledVerseSegment[] = sorted.map((v) => {
       const editor = editorsRef.current.get(v.id)
-      if (!editor) continue
-      const key = verseEditKey(
-        v.translation_id,
-        v.book_number,
-        v.chapter,
-        v.verse
-      )
-      saveEdit(
-        buildVerseEditFromSegment({
-          key,
-          reference: `${v.book_name} ${v.chapter}:${v.verse} (${translationAbbreviation})`,
-          originalText: v.text,
-          segment: segmentFromEditor(editor, v),
-          createdAt: store.getEdit(key)?.createdAt,
-          now,
-        })
-      )
-    }
-  }, [verses, translationAbbreviation, saveEdit])
-
-  // Save every verse's edit, then add the whole block to the running order as one
-  // grouped scripture item (verseStart..verseEnd of the sorted selection). When
-  // Go Live is on, the block is staged into the Program preview and pushed
-  // straight to the audience — bypassing the operator's take-to-live gate.
-  const handleAddToSchedule = useCallback(() => {
-    persistEdits()
-
-    // toMultiVerseRenderData reads the edits we just saved (and sorts), so both
-    // the schedule item's cached text and the live block reflect this formatting.
-    const renderData = toMultiVerseRenderData(verses, translationAbbreviation)
-    const reference = buildMultiVerseReference(verses, translationAbbreviation)
-
-    const sorted = [...verses].sort((a, b) => {
-      if (a.book_number !== b.book_number) return a.book_number - b.book_number
-      if (a.chapter !== b.chapter) return a.chapter - b.chapter
-      return a.verse - b.verse
+      const seg = editor ? segmentFromEditor(editor, v) : baseSegmentFor(v)
+      if (isEdited(seg, v)) segmentById.set(v.id, seg)
+      return seg
     })
-    const first = sorted[0]
-    const last = sorted[sorted.length - 1]
+    const renderData: VerseRenderData = {
+      reference: buildMultiVerseReference(sorted, translationAbbreviation),
+      segments,
+    }
+    return { segmentById, renderData }
+  }, [verses, translationAbbreviation])
 
-    const scheduleStore = useScheduleStore.getState()
-    const activeScheduleId = scheduleStore.activeScheduleId
-    if (activeScheduleId && first) {
-      const ok = scheduleStore.addItem(activeScheduleId, {
-        id: crypto.randomUUID(),
-        type: "scripture",
-        label: reference,
-        order: scheduleStore.getActiveSchedule()?.items.length ?? 0,
-        notes: "",
-        translationId: first.translation_id,
-        bookNumber: first.book_number,
-        chapter: first.chapter,
-        verseStart: first.verse,
-        verseEnd: last.verse,
-        cachedReference: reference,
-        cachedText: renderData.segments.map((s) => s.text).join(" "),
-      })
-      if (ok) toast.success(`Added ${verses.length} verses to schedule`)
-      else toast.info("Edits saved · already in the schedule")
+  // Apply the edits: hand them back to an edit-in-place caller, or add the block
+  // to the running order as one grouped scripture item carrying its edits. When
+  // Go Live is on, the block is also pushed straight to the audience.
+  const handleApply = useCallback(() => {
+    const { segmentById, renderData } = collect()
+
+    if (onSave) {
+      onSave({ reference: renderData.reference, renderData, segmentById })
     } else {
-      toast.info("Edits saved (no active schedule)")
+      const scheduleStore = useScheduleStore.getState()
+      const activeScheduleId = scheduleStore.activeScheduleId
+      if (activeScheduleId) {
+        const item = buildGroupedScriptureScheduleItem(
+          verses,
+          translationAbbreviation,
+          scheduleStore.getActiveSchedule()?.items.length ?? 0,
+          segmentById
+        )
+        const ok = scheduleStore.addItem(activeScheduleId, item)
+        if (ok) toast.success(`Added ${verses.length} verses to schedule`)
+        else toast.info("Already in the schedule")
+      } else {
+        toast.info("No active schedule — select or create one first")
+      }
     }
 
     if (goLiveEnabled) {
@@ -232,19 +237,22 @@ export function MultiVerseEditModal({
     onApplied?.()
     onOpenChange(false)
   }, [
-    persistEdits,
+    collect,
     verses,
     translationAbbreviation,
     goLiveEnabled,
     onApplied,
     onOpenChange,
+    onSave,
   ])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit {verses.length} verses</DialogTitle>
+          <DialogTitle>
+            Edit {verses.length} {verses.length === 1 ? "verse" : "verses"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -256,6 +264,7 @@ export function MultiVerseEditModal({
                 key={verse.id}
                 verse={verse}
                 translationAbbreviation={translationAbbreviation}
+                initialSegment={initialSegmentFor?.(verse)}
                 onRegister={registerEditor}
                 onFocusEditor={setActiveEditor}
                 onUpdate={schedulePreview}
@@ -294,7 +303,9 @@ export function MultiVerseEditModal({
                 onCheckedChange={setGoLiveEnabled}
               />
             </div>
-            <Button onClick={handleAddToSchedule}>Add to Schedule</Button>
+            <Button onClick={handleApply}>
+              {onSave ? "Save" : "Add to Schedule"}
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>
@@ -305,37 +316,30 @@ export function MultiVerseEditModal({
 /**
  * One verse's editor within the multi-verse modal. Owns its own TipTap instance
  * (mirroring the single-verse editor), reports it up on mount so the parent can
- * bind the shared toolbar and collect content on save, and preloads any saved
- * edit for the verse.
+ * bind the shared toolbar and collect content on save, and preloads any
+ * item-scoped edit passed in `initialSegment`.
  */
 function VerseSubEditor({
   verse,
   translationAbbreviation,
+  initialSegment,
   onRegister,
   onFocusEditor,
   onUpdate,
 }: {
   verse: Verse
   translationAbbreviation: string
+  initialSegment?: StyledVerseSegment
   onRegister: (verseId: number, editor: Editor | null) => void
   onFocusEditor: (editor: Editor) => void
   onUpdate: () => void
 }) {
-  const editKey = verseEditKey(
-    verse.translation_id,
-    verse.book_number,
-    verse.chapter,
-    verse.verse
-  )
   const reference = `${verse.book_name} ${verse.chapter}:${verse.verse} (${translationAbbreviation})`
 
-  // Preload the saved edit if one exists, else the plain verse. Computed once on
-  // mount (verse edits are hydrated at app start).
+  // Preload the item's stored edit if one was passed, else the plain verse.
+  // Computed once on mount.
   const initialContent = useMemo(() => {
-    const existing = useVerseEditStore.getState().getEdit(editKey)
-    return styledSegmentsToTiptapContent(
-      existing ? existing.segments : [baseSegmentFor(verse)]
-    )
+    return styledSegmentsToTiptapContent([initialSegment ?? baseSegmentFor(verse)])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
