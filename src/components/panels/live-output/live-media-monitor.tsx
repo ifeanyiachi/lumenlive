@@ -208,15 +208,14 @@ export function LiveMediaMonitor({
     sendTransport("pause")
   }, [onAir, sendTransport])
 
-  // Operator keyboard shortcuts: space = play/pause, ←/→ = jump markers.
+  // Operator keyboard shortcuts: ←/→ = jump markers. Space is intentionally not
+  // bound here — it's the global "go live" alias; the operator pauses media
+  // manually via the transport controls.
   useEffect(() => {
     if (media.mediaType === "image") return
     const onKey = (e: KeyboardEvent) => {
       if (isEditableTarget(e.target)) return
-      if (e.code === "Space") {
-        e.preventDefault()
-        togglePlay()
-      } else if (e.code === "ArrowRight") {
+      if (e.code === "ArrowRight") {
         e.preventDefault()
         jumpRelative(1)
       } else if (e.code === "ArrowLeft") {
@@ -226,7 +225,7 @@ export function LiveMediaMonitor({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [media.mediaType, togglePlay, jumpRelative])
+  }, [media.mediaType, jumpRelative])
 
   const {
     duration: displayDuration,

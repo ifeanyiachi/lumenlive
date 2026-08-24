@@ -1,12 +1,21 @@
+import { useState } from "react"
 import {
   CheckCircle2,
   Download,
+  FileText,
   Loader2,
   RefreshCw,
   TriangleAlert,
 } from "lucide-react"
 import { useUpdateStore } from "@/stores/update-store"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 /**
  * Thin download-progress bar. Isolated leaf so the per-chunk `progress` updates
@@ -48,6 +57,10 @@ export function UpdateSection() {
   const available = useUpdateStore((s) => s.available)
   const currentVersion = useUpdateStore((s) => s.currentVersion)
   const lastCheckedAt = useUpdateStore((s) => s.lastCheckedAt)
+
+  // Local UI state: the release-log modal's open flag. Purely presentational, so
+  // it lives here rather than in the update store.
+  const [releaseLogOpen, setReleaseLogOpen] = useState(false)
 
   const checking = status === "checking"
   const downloading = status === "downloading"
@@ -122,14 +135,27 @@ export function UpdateSection() {
                 <DownloadProgress />
               </div>
             ) : (
-              <Button
-                size="xs"
-                variant="ghost"
-                className="mt-1 -ml-2 h-6 text-muted-foreground"
-                onClick={() => useUpdateStore.getState().dismiss()}
-              >
-                Dismiss notification
-              </Button>
+              <div className="mt-1 -ml-2 flex items-center gap-1">
+                {available.notes && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="h-6 text-muted-foreground"
+                    onClick={() => setReleaseLogOpen(true)}
+                  >
+                    <FileText />
+                    View release log
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="h-6 text-muted-foreground"
+                  onClick={() => useUpdateStore.getState().dismiss()}
+                >
+                  Dismiss notification
+                </Button>
+              </div>
             )}
           </div>
         ) : status === "error" ? (
@@ -151,6 +177,26 @@ export function UpdateSection() {
           </p>
         )}
       </div>
+
+      {available && (
+        <Dialog open={releaseLogOpen} onOpenChange={setReleaseLogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>What&apos;s new in LumenLive {available.version}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto text-sm text-muted-foreground">
+              {available.notes ? (
+                <p className="whitespace-pre-wrap break-words">
+                  {available.notes}
+                </p>
+              ) : (
+                <p>No release notes were provided for this version.</p>
+              )}
+            </div>
+            <DialogFooter showCloseButton />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

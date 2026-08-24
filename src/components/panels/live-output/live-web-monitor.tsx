@@ -198,14 +198,13 @@ export function LiveWebMonitor({
     [markers, jumpToMarker, commitSeek]
   )
 
-  // Operator keyboard shortcuts: space = play/pause, ←/→ = jump markers.
+  // Operator keyboard shortcuts: ←/→ = jump markers. Space is intentionally not
+  // bound here — it's the global "go live" alias; the operator pauses playback
+  // manually via the transport controls.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isEditableTarget(e.target)) return
-      if (e.code === "Space") {
-        e.preventDefault()
-        togglePlay()
-      } else if (e.code === "ArrowRight") {
+      if (e.code === "ArrowRight") {
         e.preventDefault()
         jumpRelative(1)
       } else if (e.code === "ArrowLeft") {
@@ -215,7 +214,7 @@ export function LiveWebMonitor({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [togglePlay, jumpRelative])
+  }, [jumpRelative])
 
   // Cancel any pending DVR probe on unmount.
   useEffect(() => clearDvrCheck, [clearDvrCheck])

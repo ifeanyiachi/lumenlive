@@ -29,6 +29,13 @@ import type { Song, SongSlideOptions } from "@/types/song"
 
 const BUILTIN_SONG_THEMES = BUILTIN_THEMES.filter((t) => t.type === "song")
 
+/**
+ * Sentinel value for the "Default theme" option in the Theme dropdown. Choosing
+ * it clears the per-song theme override so the song follows the app-wide default
+ * song theme (Settings → "Default Lyric Theme"). A real theme id is never this.
+ */
+const DEFAULT_THEME_SENTINEL = "__default__"
+
 /** The animated-background spec of a song theme, or undefined if it isn't animated. */
 function themeAnimatedSpec(
   themeId: string,
@@ -67,6 +74,16 @@ export function SongProjectionOptions({ song }: { song: Song }) {
   )
   const override = song.slideOptions ?? {}
   const resolved = resolveSongSlideOptions(defaults, song.slideOptions)
+
+  // The app-wide default song theme, shown by name on the "Default theme" option
+  // so the operator sees which look it inherits. Resolved through the legacy-id
+  // alias so a stored built-in id still matches a registry theme.
+  const defaultThemeName = useMemo(
+    () =>
+      songThemes.find((t) => t.id === resolveLegacyThemeId(defaults.themeId))
+        ?.name,
+    [songThemes, defaults.themeId]
+  )
 
   const setField = <K extends keyof SongSlideOptions>(
     key: K,
@@ -109,13 +126,23 @@ export function SongProjectionOptions({ song }: { song: Song }) {
         onReset={() => resetField("themeId")}
       >
         <Select
-          value={resolveLegacyThemeId(resolved.themeId)}
-          onValueChange={(v) => setField("themeId", v)}
+          value={
+            isOverridden("themeId")
+              ? resolveLegacyThemeId(resolved.themeId)
+              : DEFAULT_THEME_SENTINEL
+          }
+          onValueChange={(v) => {
+            if (v === DEFAULT_THEME_SENTINEL) resetField("themeId")
+            else setField("themeId", v)
+          }}
         >
           <SelectTrigger className="h-7 w-full text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={DEFAULT_THEME_SENTINEL} className="text-xs">
+              Default theme{defaultThemeName ? ` (${defaultThemeName})` : ""}
+            </SelectItem>
             {songThemes.map((t) => (
               <SelectItem key={t.id} value={t.id} className="text-xs">
                 {t.name}

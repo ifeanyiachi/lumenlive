@@ -78,9 +78,7 @@ export function trackBroadcastStarted(output: "display" | "ndi"): void {
 }
 
 /** Which speech-to-text engine a church settled on (cloud vs on-device). */
-export function trackSttProvider(
-  provider: "deepgram" | "sherpa" | "zipformer"
-): void {
+export function trackSttProvider(provider: "deepgram" | "sherpa"): void {
   void track("stt_provider_selected", { provider })
 }
 

@@ -1,14 +1,8 @@
 import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
+import type { WebBookmark } from "@/types/web"
 
-export interface WebBookmark {
-  id: string
-  url: string
-  label: string
-  isYouTube: boolean
-  videoId?: string
-  createdAt: number
-}
+export type { WebBookmark }
 
 interface WebState {
   bookmarks: WebBookmark[]

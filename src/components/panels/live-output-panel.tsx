@@ -129,11 +129,17 @@ export function LiveOutputPanel() {
   //   Program preview so the operator can see it. This is why Enter used to do
   //   nothing after an auto-detection: the active row was never staged.
   //   2nd Enter — commit the staged preview to the audience.
-  // Space/←/→ are reserved by the media/web monitors. Ignored while typing.
+  // Space is an alias for Enter here (the media/web monitors no longer claim it);
+  // ←/→ are still reserved by those monitors. Ignored while typing.
   useEffect(() => {
     if (!isLive) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Enter" && e.code !== "NumpadEnter") return
+      if (
+        e.code !== "Enter" &&
+        e.code !== "NumpadEnter" &&
+        e.code !== "Space"
+      )
+        return
       if (isEditableTarget(e.target)) return
       if (!useBroadcastStore.getState().previewPending) {
         // Nothing staged yet — fall back to the active queue verse and stage it
