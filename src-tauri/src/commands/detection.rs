@@ -35,6 +35,14 @@ pub struct DetectionResult {
     pub transcript_snippet: String,
     /// True when detected from a chapter-only reference (verse defaults to 1, may be refined).
     pub is_chapter_only: bool,
+    /// True when this is a low-trust NARRATIVE mention: a book name spoken in
+    /// prose (no citation cue) while Reading Mode is actively tracking a
+    /// *different* book — e.g. "Obadiah" named as a character during a reading
+    /// of 1 Kings 18 (aitrans Phase 3). Such hits must NOT auto-display; they
+    /// still surface in the AI Detections panel/queue for a deliberate send.
+    /// Computed by the live direct worker; defaults false everywhere else.
+    #[serde(default)]
+    pub narrative_mention: bool,
 }
 
 fn source_to_string(source: &lumenlive_detection::DetectionSource) -> String {
@@ -60,13 +68,32 @@ fn display_in_active(db: &BibleDb, active_id: i64, matched: Verse) -> Verse {
     }
 }
 
+/// True when a `VerseRef` names a concrete book+chapter+verse — the case the
+/// Bible DB can answer an existence question for. Chapter-only holds and
+/// book-only refs (verse/chapter defaulted to 0) are not concrete and are never
+/// suppressed by [`to_result`].
+fn is_full_reference(vr: &lumenlive_detection::VerseRef) -> bool {
+    vr.book_number > 0 && vr.chapter > 0 && vr.verse_start > 0
+}
+
 /// Resolve a detection to a full verse result using the database.
 ///
 /// Resolution order:
 /// 1. By `verse_id` (semantic detections with DB primary key)
 /// 2. By `book_number/chapter/verse_start` with active translation (direct + FTS5 detections)
 /// 3. Fallback to unresolved `VerseRef` fields (no DB available)
-pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> DetectionResult {
+///
+/// Returns `None` to **suppress** a detection that cites a concrete verse the
+/// loaded Bible has no text for — a misheard or self-corrected reference like
+/// "Revelation 20:22" (Revelation 20 ends at verse 15). Preachers routinely
+/// misspeak a chapter:verse and correct themselves ("20:22 — sorry, 22:20"); the
+/// impossible first reading must never reach the program screen. Before this the
+/// unresolved ref was emitted with empty verse text, projecting a blank verse.
+/// Suppression is gated on a DB actually being loaded — without one we cannot
+/// verify existence, so the unresolved fallback is preserved. A verse absent
+/// only from the *active* translation (a versification gap) is also suppressed:
+/// there is no text to display in that translation regardless of the reason.
+pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> Option<DetectionResult> {
     let vr = &merged.detection.verse_ref;
     let vid = merged.detection.verse_id;
 
@@ -79,13 +106,23 @@ pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> DetectionResul
             }
         }
         // Fall back to book/chapter/verse lookup (direct + FTS5 detections)
-        if vr.book_number > 0 && vr.chapter > 0 && vr.verse_start > 0 {
+        if is_full_reference(vr) {
             if let Ok(Some(v)) = db.get_verse(bible.active_translation_id, vr.book_number, vr.chapter, vr.verse_start) {
                 return Some(v);
             }
         }
         None
     });
+
+    // Suppress an unresolvable concrete citation (nonexistent verse) when a DB
+    // is present to prove it doesn't exist. See the fn doc.
+    if resolved.is_none() && bible.db.is_some() && is_full_reference(vr) {
+        log::info!(
+            "[DET] Suppressed nonexistent verse: {} {}:{}",
+            vr.book_name, vr.chapter, vr.verse_start
+        );
+        return None;
+    }
 
     let (reference, verse_text, book_name, book_number, chapter, verse) = if let Some(v) = resolved {
         let r = format!("{} {}:{}", v.book_name, v.chapter, v.verse);
@@ -95,7 +132,7 @@ pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> DetectionResul
         (r, String::new(), vr.book_name.clone(), vr.book_number, vr.chapter, vr.verse_start)
     };
 
-    DetectionResult {
+    Some(DetectionResult {
         verse_ref: reference,
         verse_text,
         book_name,
@@ -107,7 +144,11 @@ pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> DetectionResul
         auto_queued: merged.auto_queued,
         transcript_snippet: merged.detection.transcript_snippet.clone(),
         is_chapter_only: merged.detection.is_chapter_only,
-    }
+        // Narrative classification needs Reading-Mode context the shared resolver
+        // does not have; the live direct worker stamps it after this call. Every
+        // other path (on-demand `detect_verses`, semantic) leaves it false.
+        narrative_mention: false,
+    })
 }
 
 /// Run the detection pipeline on a piece of transcript text
@@ -126,7 +167,7 @@ pub fn detect_verses(
         pipeline.process(&text, &mut merger)
     };
     let bible = state.lock().map_err(|e| e.to_string())?;
-    let results: Vec<DetectionResult> = merged.iter().map(|m| to_result(&bible, m)).collect();
+    let results: Vec<DetectionResult> = merged.iter().filter_map(|m| to_result(&bible, m)).collect();
     Ok(results)
 }
 
@@ -323,4 +364,37 @@ pub fn update_detection_settings(
         log::info!("[DET] Cooldown set to {ms}ms");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_full_reference;
+    use lumenlive_detection::VerseRef;
+
+    fn vr(book: i32, chapter: i32, verse: i32) -> VerseRef {
+        VerseRef {
+            book_number: book,
+            book_name: "Revelation".to_string(),
+            chapter,
+            verse_start: verse,
+            verse_end: None,
+        }
+    }
+
+    #[test]
+    fn full_reference_is_concrete() {
+        // Revelation 20:22 — a fully-specified citation. Only these are eligible
+        // for existence-suppression; whether it *exists* is the DB's call.
+        assert!(is_full_reference(&vr(66, 20, 22)));
+        assert!(is_full_reference(&vr(43, 3, 16)));
+    }
+
+    #[test]
+    fn partial_references_are_not_concrete() {
+        // Chapter-only holds (verse 0) and book-only refs (chapter 0) must never
+        // be suppressed as "nonexistent" — they are incomplete, not impossible.
+        assert!(!is_full_reference(&vr(66, 20, 0))); // chapter-only
+        assert!(!is_full_reference(&vr(66, 0, 0))); // book-only
+        assert!(!is_full_reference(&vr(0, 20, 22))); // no book resolved
+    }
 }

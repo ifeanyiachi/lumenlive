@@ -70,6 +70,12 @@ pub async fn start_transcription(
         (app_state.stt_active.clone(), app_state.audio_active.clone())
     };
 
+    // ── 1b. Reset detector state for a clean session ────────────────────
+    // The detectors are process-lifetime singletons; without this a new
+    // service inherits the previous run's held refs, sticky context, and
+    // cooldown — the root of detection "degrading over time" (aitrans Phase 1).
+    detection::reset_detection_state(&app);
+
     let provider_name = provider.as_deref().unwrap_or("deepgram");
 
     // ── 2. Build the STT provider (+ offline Moonshine fallback) ─────────

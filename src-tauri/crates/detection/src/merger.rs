@@ -114,6 +114,16 @@ impl DetectionMerger {
         results
     }
 
+    /// Clear the shared auto-display cooldown clock.
+    ///
+    /// Called on transcription start so a mis-fired auto-display from a previous
+    /// session can never suppress the first legitimate detection of a new one.
+    /// Thresholds are configuration (synced from the UI) and are intentionally
+    /// preserved across a reset.
+    pub fn reset(&mut self) {
+        self.last_auto_display = None;
+    }
+
     /// Update the minimum confidence threshold.
     pub fn set_confidence_threshold(&mut self, threshold: f64) {
         self.confidence_threshold = threshold;

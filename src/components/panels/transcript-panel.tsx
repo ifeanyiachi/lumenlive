@@ -25,6 +25,7 @@ import {
   initialInstantDisplayState,
   wasRecentlyDisplayed,
 } from "@/lib/detection/instant-display"
+import { aiMayTakeLive } from "@/lib/detection/manual-live-guard"
 import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
 
 /**
@@ -55,8 +56,14 @@ function presentNavVerse(verse: Verse) {
     bible.translations.find((t) => t.id === verse.translation_id)
       ?.abbreviation ?? "KJV"
   const bs = useBroadcastStore.getState()
-  bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
-  if (useSettingsStore.getState().navAutoLive) {
+  // Stamp source "ai" so the manual-live guard can tell this from operator-placed
+  // content (aitrans Phase 4). A voice command is a deliberate, high-trust call,
+  // so it is allowed to override even operator-placed live (decision D).
+  bs.setLiveVerse(toVerseRenderData(verse, translation), "ai")
+  if (
+    useSettingsStore.getState().navAutoLive &&
+    aiMayTakeLive(bs.broadcastSource, false)
+  ) {
     bs.takeToLive()
   }
 }
@@ -179,8 +186,15 @@ function displayDirectVerse(hit: DetectionResult) {
       .translations.find((t) => t.id === verse.translation_id)?.abbreviation ??
     "KJV"
   const bs = useBroadcastStore.getState()
-  bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
-  bs.takeToLive()
+  // Stamp source "ai" so the manual-live guard distinguishes an AI take from an
+  // operator take (aitrans Phase 4). The finals/instant callers already exclude
+  // narrative mentions upstream, so a hit reaching here is high-trust and takes;
+  // the guard is defence-in-depth so a low-trust hit could never clobber
+  // operator-placed live (decision D).
+  bs.setLiveVerse(toVerseRenderData(verse, translation), "ai")
+  if (aiMayTakeLive(bs.broadcastSource, hit.narrative_mention === true)) {
+    bs.takeToLive()
+  }
 }
 
 /**
@@ -225,7 +239,9 @@ export function TranscriptPanel() {
     }
   )
 
-  // Listen for detection results from the backend (batch replaces previous detections)
+  // Listen for detection results from the backend. The store MERGES each batch
+  // into the panel (dedup by verse_ref, re-rank re-detected verses to the top),
+  // never replacing wholesale; it also buffers while the operator interacts.
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
     useDetectionStore.getState().addDetections(detections)
 
@@ -240,10 +256,22 @@ export function TranscriptPanel() {
     // spoken direct reference follows in the book search and is sent to the
     // audience automatically. When off, the detection only lands in the AI
     // Detections panel and queue (below) for the operator to send deliberately.
+    // PHASE 3: exclude narrative mentions (a book named in prose while Reading
+    // Mode tracks a different book — the Obadiah case) from auto-display. They
+    // still land in the panel/queue below for a deliberate send.
     const directHit = detections.find(
-      (d) => d.source === "direct" && !d.is_chapter_only
+      (d) => d.source === "direct" && !d.is_chapter_only && !d.narrative_mention
     )
-    if (directAutoDisplay && directHit && directHit.book_number > 0) {
+    // PHASE 5: the finals path previously ignored the confidence threshold that
+    // the instant and queue paths already honour. Enforce it here too as a cheap
+    // backstop (note: the Mechanism-A phantoms scored 90% and Obadiah 100%, so
+    // this backstops P2/P3, it does not replace them).
+    if (
+      directAutoDisplay &&
+      directHit &&
+      directHit.book_number > 0 &&
+      directHit.confidence >= confidenceThreshold
+    ) {
       // Reconcile with the instant (partial) path: if that already put this
       // exact verse live from an interim, don't re-take it (would replay the
       // take). A genuinely revised reference (different verse) still displays.
@@ -335,8 +363,15 @@ export function TranscriptPanel() {
 
     const { directAutoDisplay, directInstantDisplay, confidenceThreshold, cooldownMs } =
       useSettingsStore.getState()
+    // PHASE 3: narrative mentions never drive the instant display either (the
+    // Obadiah hit actually fired from a partial). They still populate the panel
+    // via addDetections above.
     const directHit = detections.find(
-      (d) => d.source === "direct" && !d.is_chapter_only && d.book_number > 0
+      (d) =>
+        d.source === "direct" &&
+        !d.is_chapter_only &&
+        d.book_number > 0 &&
+        !d.narrative_mention
     )
     if (!directHit) return
 
@@ -482,13 +517,19 @@ export function TranscriptPanel() {
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
+            title="Stop transcribing (T)"
             onClick={stopTranscription}
           >
             <MicOffIcon className="size-3" />
             Stop transcribing
           </Button>
         ) : (
-          <Button variant="ghost" size="sm" onClick={startTranscription}>
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Start transcribing (T)"
+            onClick={startTranscription}
+          >
             <MicIcon className="size-3" />
             Start transcribing
           </Button>

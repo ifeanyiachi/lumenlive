@@ -387,6 +387,21 @@ impl DirectDetector {
         &self.recent_detections
     }
 
+    /// Clear all accumulating cross-utterance state.
+    ///
+    /// The detector is a process-lifetime managed singleton (see `lib.rs`) that
+    /// is never dropped, so without an explicit reset every start/stop cycle
+    /// inherits the previous run's held reference, 60-second sticky book/chapter
+    /// context, and recent-detection history. That accumulation is the
+    /// structural root of detection "degrading over time"; this is called at the
+    /// top of `start_transcription` to give each service a clean slate. The
+    /// Aho-Corasick matcher is stateless configuration and is left intact.
+    pub fn reset(&mut self) {
+        self.context.reset();
+        self.incomplete = None;
+        self.recent_detections.clear();
+    }
+
     /// Check if the transcript contains a translation switching command.
     /// Returns the translation abbreviation if found (e.g., "KJV", "`SpaRV`").
     ///
@@ -574,53 +589,43 @@ impl DirectDetector {
         }
 
         // Step 0c: Check if there's a pending incomplete reference.
-        // Try to complete it with chapter/verse continuation, or expire on timeout.
+        //
+        // PHASE 2 (aitrans §9) — cross-utterance completions are the false
+        // Esther/Isaiah verses: a book/chapter held from an EARLIER utterance
+        // fused onto a bare number in a LATER one ("…the book of Esther…" then
+        // "…for two reasons…" → Esther 1:2). The rule now: a full reference is
+        // emitted ONLY when the book name is present in the CURRENT utterance's
+        // spoken text (the Step 1-3 `find_books` path below). So:
+        //   - If the current text names a book, the stale hold is superseded —
+        //     clear it and let the book matcher own the (self-contained) ref.
+        //   - Otherwise a bare-number continuation can NOT complete the hold. A
+        //     chapter-only refinement is still allowed (it stays pending, never
+        //     emitted on its own); a chapter+verse or verse-only continuation is
+        //     dropped and nothing is emitted (fails safe — operator restates).
         if let Some(ref incomplete) = self.incomplete.clone() {
             let elapsed = incomplete.timestamp.elapsed().as_millis();
             if elapsed > INCOMPLETE_REF_TIMEOUT_MS {
                 // Timeout: clean up pending state (EDGE-02).
                 self.incomplete = None;
+            } else if !self.matcher.find_books(text).is_empty() {
+                // A book IS named in the current utterance — the hold is
+                // superseded by a real, self-contained reference. Clear it and
+                // fall through to the book matcher below.
+                self.incomplete = None;
             } else if let Some(cont) =
                 parser::try_extract_continuation(text, incomplete.chapter_is_default)
             {
                 match cont {
-                    parser::Continuation::ChapterAndVerse(ch, v) => {
-                        let mut completed = incomplete.verse_ref.clone();
-                        completed.chapter = ch;
-                        completed.verse_start = v;
-                        if is_valid_reference(completed.book_number, completed.chapter) {
-                            detections.push(self.make_direct_detection(
-                                &completed,
-                                compute_confidence(&completed, &completed),
-                                text,
-                                0,
-                                text.len(),
-                            ));
-                            self.push_recent(&completed);
-                            self.context.update(&completed);
-                        }
-                        self.incomplete = None;
-                        return detections;
-                    }
-                    parser::Continuation::VerseOnly(v) => {
-                        let mut completed = incomplete.verse_ref.clone();
-                        completed.verse_start = v;
-                        if is_valid_reference(completed.book_number, completed.chapter) {
-                            detections.push(self.make_direct_detection(
-                                &completed,
-                                compute_confidence(&completed, &completed),
-                                text,
-                                0,
-                                text.len(),
-                            ));
-                            self.push_recent(&completed);
-                            self.context.update(&completed);
-                        }
+                    parser::Continuation::ChapterAndVerse(_, _)
+                    | parser::Continuation::VerseOnly(_) => {
+                        // Cross-utterance fabrication — suppress entirely.
                         self.incomplete = None;
                         return detections;
                     }
                     parser::Continuation::ChapterOnly(ch) => {
-                        // Update chapter, reset timeout, keep waiting for verse.
+                        // Update chapter, reset timeout, keep waiting for a real
+                        // (book-bearing) reference. No book in this text, so
+                        // there is nothing to match below — just keep holding.
                         let mut updated = incomplete.verse_ref.clone();
                         updated.chapter = ch;
                         self.incomplete = Some(IncompleteRef {
@@ -629,7 +634,6 @@ impl DirectDetector {
                             chapter_is_default: false,
                         });
                         self.context.update(&updated);
-                        // Fall through to book matcher (text may also contain a new book)
                     }
                 }
             }
@@ -739,19 +743,6 @@ impl DirectDetector {
         }
     }
 
-    /// Build a Detection from a resolved `VerseRef`.
-    #[expect(clippy::unused_self, reason = "method kept on self for future extensibility")]
-    fn make_direct_detection(
-        &self,
-        verse_ref: &VerseRef,
-        confidence: f64,
-        text: &str,
-        start: usize,
-        end: usize,
-    ) -> Detection {
-        let snippet = extract_snippet(text, start, end.min(text.len()));
-        Detection::direct(verse_ref.clone(), confidence, snippet)
-    }
 }
 
 impl Default for DirectDetector {
@@ -885,22 +876,20 @@ mod tests {
     }
 
     #[test]
-    fn test_incomplete_ref_completed_by_verse() {
-        // Chapter-only held, then refined by verse continuation
+    fn test_incomplete_ref_not_completed_by_bare_verse() {
+        // PHASE 2: a bare "verse N" in a LATER utterance must NOT complete a
+        // book/chapter held from an EARLIER one — that fabricated the false
+        // Esther/Isaiah verses. The hold is dropped and nothing is emitted.
         let mut detector = DirectDetector::new();
         // First: chapter-only — held as incomplete, not emitted
         let results = detector.detect("Genesis 3");
         assert!(results.is_empty());
         assert!(detector.incomplete.is_some());
 
-        // Second: verse continuation — refines the detection
+        // Second: bare verse continuation (no book named) — suppressed.
         let results = detector.detect("verse 15");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].verse_ref.book_name, "Genesis");
-        assert_eq!(results[0].verse_ref.chapter, 3);
-        assert_eq!(results[0].verse_ref.verse_start, 15);
-        assert!(!results[0].is_chapter_only);
-        assert!(detector.incomplete.is_none());
+        assert!(results.is_empty(), "cross-utterance completion must not emit");
+        assert!(detector.incomplete.is_none(), "stale hold is cleared");
     }
 
     #[test]
@@ -1151,84 +1140,141 @@ mod tests {
     // ========== Cross-Segment Detection Tests ==========
 
     #[test]
-    fn test_cross_segment_acts_3_22() {
-        // The exact bug scenario from logs:
-        // "...Acts" → "chapter three..." → "22..."
+    fn test_cross_segment_bare_number_suppressed() {
+        // PHASE 2: the former "cross-segment completion" is now suppressed.
+        // "...Acts" (held) → "chapter three..." (chapter refinement, still held)
+        // → a bare "22" must NOT fabricate Acts 3:22. Only when a book name is
+        // spoken again in the CURRENT utterance may a reference emit.
         let mut detector = DirectDetector::new();
 
         // Segment 1: Book-only "Acts"
         let results = detector.detect("God had put in his mouth. Acts");
         assert!(results.is_empty());
-        assert!(detector.incomplete.is_some());
         let inc = detector.incomplete.as_ref().unwrap();
         assert_eq!(inc.verse_ref.book_name, "Acts");
         assert!(inc.chapter_is_default);
 
-        // Segment 2: Chapter continuation
+        // Segment 2: Chapter continuation (no book) — refines the held chapter.
         let results = detector.detect("chapter three, and I'm reading from verse");
-        assert!(results.is_empty()); // ChapterOnly — still waiting for verse
-        assert!(detector.incomplete.is_some());
+        assert!(results.is_empty());
         let inc = detector.incomplete.as_ref().unwrap();
         assert_eq!(inc.verse_ref.chapter, 3);
         assert!(!inc.chapter_is_default);
 
-        // Segment 3: Verse completion via bare number
+        // Segment 3: a bare number with the book name re-spoken. Because "Acts"
+        // is present, the hold is superseded and the book matcher parses "Acts
+        // three" → chapter-only (held again), NOT a fabricated Acts 3:22.
         let results = detector.detect("22. Acts three, for Moses truly");
-        assert!(!results.is_empty());
-        assert_eq!(results[0].verse_ref.book_name, "Acts");
-        assert_eq!(results[0].verse_ref.chapter, 3);
-        assert_eq!(results[0].verse_ref.verse_start, 22);
+        assert!(results.is_empty(), "bare number must not complete the hold");
     }
 
     #[test]
-    fn test_cross_segment_chapter_and_verse_combined() {
-        // Book-only → "chapter 3 verse 22" in one segment
+    fn test_cross_segment_chapter_and_verse_suppressed() {
+        // PHASE 2: book-only held, then "chapter 3 verse 22" in a later segment
+        // with NO book named — must not emit (cross-utterance fabrication).
         let mut detector = DirectDetector::new();
 
         let results = detector.detect("let's read Acts");
         assert!(results.is_empty());
 
         let results = detector.detect("chapter 3 verse 22");
-        assert!(!results.is_empty());
-        assert_eq!(results[0].verse_ref.book_name, "Acts");
-        assert_eq!(results[0].verse_ref.chapter, 3);
-        assert_eq!(results[0].verse_ref.verse_start, 22);
+        assert!(results.is_empty(), "cross-utterance completion must not emit");
+        assert!(detector.incomplete.is_none());
     }
 
     #[test]
-    fn test_bare_number_as_chapter_after_book_only() {
-        // "Acts" → "3" → "22"
+    fn test_bare_numbers_after_book_only_never_complete() {
+        // PHASE 2: "Acts" → "3" → "22", all in separate segments with no book
+        // re-spoken. The first bare number refines the held chapter; the second
+        // must NOT complete into a verse.
         let mut detector = DirectDetector::new();
 
         let results = detector.detect("turn to Acts");
         assert!(results.is_empty());
         assert!(detector.incomplete.as_ref().unwrap().chapter_is_default);
 
-        // Bare "3" = chapter (because book-only)
+        // Bare "3" = chapter refinement (still held, no book present)
         let results = detector.detect("3");
         assert!(results.is_empty());
         let inc = detector.incomplete.as_ref().unwrap();
         assert_eq!(inc.verse_ref.chapter, 3);
 
-        // Bare "22" = verse (chapter already set)
+        // Bare "22" must NOT complete into Acts 3:22.
         let results = detector.detect("22");
-        assert!(!results.is_empty());
-        assert_eq!(results[0].verse_ref.chapter, 3);
-        assert_eq!(results[0].verse_ref.verse_start, 22);
+        assert!(results.is_empty(), "bare number must not complete the hold");
     }
 
     #[test]
-    fn test_verse_keyword_anywhere_in_text() {
-        // "Genesis 3" → "and I'm reading from verse 15"
+    fn test_verse_keyword_anywhere_suppressed() {
+        // PHASE 2: "Genesis 3" held → "…from verse 15" (no book) must not emit.
         let mut detector = DirectDetector::new();
 
         let results = detector.detect("Genesis 3");
         assert!(results.is_empty());
 
         let results = detector.detect("and I'm reading from verse 15");
-        assert!(!results.is_empty());
-        assert_eq!(results[0].verse_ref.chapter, 3);
-        assert_eq!(results[0].verse_ref.verse_start, 15);
+        assert!(results.is_empty(), "cross-utterance completion must not emit");
+    }
+
+    #[test]
+    fn test_same_utterance_full_ref_still_emits() {
+        // PHASE 2 must not regress genuine same-utterance references: the book
+        // name and chapter:verse in ONE utterance still auto-detect.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("Jesus said in John 3:16 today");
+        let john = results
+            .iter()
+            .find(|d| d.verse_ref.book_name == "John")
+            .expect("John 3:16 should still auto-detect same-utterance");
+        assert_eq!(john.verse_ref.chapter, 3);
+        assert_eq!(john.verse_ref.verse_start, 16);
+    }
+
+    #[test]
+    fn test_field_log_phantom_books_never_emit() {
+        // PHASE 6 regression (aitrans §8, 2026-08-20 service). Mechanism A: a
+        // book left in the detector's memory from earlier fused onto a stray
+        // number in ordinary speech ("…at 1 20", "…verse 3…"). With Phase 2 a
+        // bare number in a LATER utterance (no book named) can never complete the
+        // held reference, so the phantom verse never surfaces.
+        for (held, stray) in [
+            ("Isaiah 1", "he'll do it for you at 1 20"),
+            ("Titus 1", "soft farming in Samaria verse 3 and Ahab"),
+            ("James 3", "behold Elijah is here"),
+        ] {
+            let mut d = DirectDetector::new();
+            let phantom_book = held.split(' ').next().unwrap();
+
+            // Seed: the book was heard earlier as a chapter-only hold.
+            let seed = d.detect(held);
+            assert!(seed.is_empty(), "chapter-only seed should hold, not emit: {held}");
+
+            // The stray utterance must not fabricate the phantom reference.
+            let out = d.detect(stray);
+            assert!(
+                out.iter().all(|r| r.verse_ref.book_name != phantom_book),
+                "phantom {phantom_book} must not auto-emit from stray {stray:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_reset_clears_incomplete_and_context() {
+        // PHASE 1: reset() clears held state so a fresh session cannot inherit a
+        // stale book/chapter that a later bare number could latch onto.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("Genesis 3");
+        assert!(results.is_empty());
+        assert!(detector.incomplete.is_some());
+
+        detector.reset();
+        assert!(detector.incomplete.is_none());
+        assert!(detector.recent_detections().is_empty());
+
+        // A subsequent bare number does not complete anything (nothing is held,
+        // and Phase 2 forbids bare completion regardless).
+        let results = detector.detect("verse 15");
+        assert!(results.is_empty());
     }
 
     #[test]

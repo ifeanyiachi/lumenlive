@@ -68,6 +68,19 @@ impl ReferenceContext {
         resolved
     }
 
+    /// Forget all remembered book/chapter context.
+    ///
+    /// Called on transcription start (via [`crate::DirectDetector::reset`]) so a
+    /// new service never inherits a sticky book/chapter from a previous run —
+    /// the 60-second memory is the wrong thing to carry across sessions and was
+    /// part of the "degrades over time" accumulation.
+    pub fn reset(&mut self) {
+        self.last_book = None;
+        self.last_book_name = None;
+        self.last_chapter = None;
+        self.last_timestamp = None;
+    }
+
     /// Update context with the latest detection.
     pub fn update(&mut self, verse_ref: &VerseRef) {
         if verse_ref.book_number != 0 {

@@ -38,6 +38,79 @@ const DIRECT_DETECTION_CONFIDENCE: f64 = 0.95;
 /// being treated as a low-confidence false positive.
 const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.90;
 
+/// Reset all long-lived detector state at the start of a transcription session.
+///
+/// The detectors (`DirectDetector`, `DetectionMerger`, `ReadingMode`) are
+/// process-lifetime managed singletons (`lib.rs`) that are never dropped, so
+/// without this a new service inherits the previous run's accumulated held
+/// references, 60-second sticky book/chapter context, auto-display cooldown, and
+/// reading-mode passage — the structural cause of detection "degrading over
+/// time" (aitrans §2, Phase 1). Thresholds on the merger are configuration and
+/// are intentionally preserved. Best-effort: a poisoned lock is logged and
+/// skipped rather than aborting the start.
+pub(super) fn reset_detection_state(app: &AppHandle) {
+    use lumenlive_detection::{DetectionMerger, DirectDetector, ReadingMode};
+
+    match app.state::<Mutex<DirectDetector>>().lock() {
+        Ok(mut d) => d.reset(),
+        Err(e) => log::error!("[DET] DirectDetector reset skipped (lock poisoned): {e}"),
+    }
+    match app.state::<Mutex<DetectionMerger>>().lock() {
+        Ok(mut m) => m.reset(),
+        Err(e) => log::error!("[DET] DetectionMerger reset skipped (lock poisoned): {e}"),
+    }
+    match app.state::<Mutex<ReadingMode>>().lock() {
+        Ok(mut rm) => rm.deactivate(),
+        Err(e) => log::error!("[DET] ReadingMode reset skipped (lock poisoned): {e}"),
+    }
+    log::info!("[DET] Detector state reset for new transcription session");
+}
+
+/// Stamp the Phase-3 narrative-mention flag on live DIRECT detections.
+///
+/// A detection is a low-trust *narrative mention* when Reading Mode is actively
+/// tracking a DIFFERENT book and the utterance did not introduce the detected
+/// book with a citation cue ("turn to", "the book of", "look at <Book>"). This
+/// is the Obadiah case (aitrans §8): a book name spoken as a character during a
+/// verse-by-verse reading of 1 Kings 18. Flagged hits are excluded from
+/// auto-display frontend-side (they still queue for a deliberate send), and P4
+/// reuses the flag as its low-trust discriminator.
+///
+/// When Reading Mode is idle nothing is flagged — a cleanly-spoken reference
+/// obeys the auto-display toggle unchanged (operator decision, aitrans §9 P3).
+/// Reads the raw `transcript` (not the cleaned form) so filler-stripped cues
+/// like "the book of" are still visible. Best-effort: a poisoned Reading-Mode
+/// lock leaves every flag false.
+fn stamp_narrative_mentions(
+    app: &AppHandle,
+    transcript: &str,
+    results: &mut [crate::commands::detection::DetectionResult],
+) {
+    use lumenlive_detection::{cue_precedes_book_name, ReadingMode};
+
+    let (rm_active, rm_book) = {
+        let rm_state: State<'_, Mutex<ReadingMode>> = app.state();
+        let Ok(rm) = rm_state.lock() else { return };
+        (rm.is_active(), rm.current_book())
+    };
+    if !rm_active {
+        return;
+    }
+    for r in results.iter_mut() {
+        if r.source == "direct"
+            && r.book_number > 0
+            && r.book_number != rm_book
+            && !cue_precedes_book_name(transcript, &r.book_name)
+        {
+            r.narrative_mention = true;
+            log::info!(
+                "[DET-DIRECT] narrative mention guarded: {} (reading book {rm_book}, no cue)",
+                r.verse_ref
+            );
+        }
+    }
+}
+
 /// Run direct (regex/pattern) detection only. Instant, no ONNX.
 /// Locks its own `Mutex<DirectDetector>` (so it never blocks on the semantic
 /// worker's ONNX under the pipeline lock) but merges through the SHARED
@@ -87,9 +160,9 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
             log::error!("[DET-DIRECT] BibleState lock poisoned (partial)");
             return has_high_confidence;
         };
-        let results: Vec<crate::commands::detection::DetectionResult> = direct_results
+        let mut results: Vec<crate::commands::detection::DetectionResult> = direct_results
             .into_iter()
-            .map(|d| {
+            .filter_map(|d| {
                 crate::commands::detection::to_result(
                     &bible,
                     &MergedDetection { detection: d, auto_queued: false },
@@ -97,6 +170,7 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
             })
             .collect();
         drop(bible);
+        stamp_narrative_mentions(app, transcript, &mut results);
         if !results.is_empty() {
             let _ = app.emit("verse_detections_partial", &results);
             log::debug!(
@@ -139,11 +213,12 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         log::error!("[DET-DIRECT] BibleState lock poisoned");
         return false;
     };
-    let results: Vec<crate::commands::detection::DetectionResult> = merged
+    let mut results: Vec<crate::commands::detection::DetectionResult> = merged
         .iter()
-        .map(|m| crate::commands::detection::to_result(&bible, m))
+        .filter_map(|m| crate::commands::detection::to_result(&bible, m))
         .collect();
     drop(bible);
+    stamp_narrative_mentions(app, transcript, &mut results);
 
     for r in &results {
         log::info!("[DET-DIRECT] Found: {} ({:.0}%)", r.verse_ref, r.confidence * 100.0);
@@ -186,6 +261,13 @@ const SEMANTIC_PREVIEW_MIN_QUOTATION: f64 = 0.5;
 /// How many FTS5 candidates the preview considers. The top keyword hit is the
 /// quoted verse in the common case; the floor ([`FTS_ONLY_FLOOR`]) trims the tail.
 const SEMANTIC_PREVIEW_FTS_K: usize = 5;
+
+/// Hard cap on detections surfaced to the panel per semantic emit. The vector
+/// (top 10) and FTS (top 10) searches fuse into as many as ~20 candidates; the
+/// merger sorts them by confidence descending and drops sub-threshold hits, so
+/// taking the first N keeps only the strongest few and discards the long tail
+/// of weak matches. Mirrors the preview cap ([`SEMANTIC_PREVIEW_FTS_K`]).
+const SEMANTIC_MAX_RESULTS: usize = 5;
 
 /// Optimistic keyword preview for the AI Detections panel. When an utterance
 /// *looks like a scripture quotation* (archaic register or a citation cue), run
@@ -272,10 +354,10 @@ fn emit_semantic_preview(app: &AppHandle, transcript: &str) {
                 detected_at: now,
                 is_chapter_only: false,
             };
-            Some(crate::commands::detection::to_result(
+            crate::commands::detection::to_result(
                 &bible,
                 &MergedDetection { detection: det, auto_queued: false },
-            ))
+            )
         })
         .collect();
     drop(bible);
@@ -493,7 +575,14 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
             log::error!("[DET-SEMANTIC] Failed to lock BibleState for verse resolution");
             return;
         };
-        merged.iter().map(|m| crate::commands::detection::to_result(&bible, m)).collect()
+        // Top-N only: the merger already ranked by confidence descending and
+        // dropped anything below threshold, so the first SEMANTIC_MAX_RESULTS
+        // are the best-scoring verses that passed. The weak tail is discarded.
+        merged
+            .iter()
+            .take(SEMANTIC_MAX_RESULTS)
+            .filter_map(|m| crate::commands::detection::to_result(&bible, m))
+            .collect()
     };
 
     for r in &results {
@@ -580,9 +669,16 @@ fn maybe_start_reading_mode(
         false // Same book+chapter — already tracking this
     } else if rm.current_book() != recent.book_number
         && detection_confidence >= HIGH_CONFIDENCE_THRESHOLD
+        && lumenlive_detection::cue_precedes_book_name(transcript, &recent.book_name)
     {
-        // Different book with high confidence — explicit new reference
-        // (e.g., "John 1:1" after reading Exodus). Restart.
+        // Different book with high confidence AND an explicit citation cue —
+        // the speaker deliberately turned to a new reference (e.g. "turn to
+        // John chapter 1" after reading Exodus). Restart onto it.
+        //
+        // PHASE 3: without the cue this is a narrative mention — a book name
+        // spoken as a proper noun inside the current passage's prose ("…said to
+        // Obadiah…" while reading 1 Kings 18). Do NOT restart Reading Mode onto
+        // it, or the passage tracker retargets onto the false book (aitrans §8).
         true
     } else if rm.current_book() == recent.book_number {
         // Same book, different chapter — natural progression

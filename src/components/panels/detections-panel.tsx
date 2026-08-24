@@ -1,11 +1,18 @@
+import { useEffect, useRef } from "react"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
 import { EyeIcon, PlayIcon, PlusIcon } from "lucide-react"
-import { useDetection, detectionActions } from "@/hooks/use-detection"
-import { useQueueStore, useBibleStore } from "@/stores"
+import { detectionActions } from "@/hooks/use-detection"
+import { useQueueStore, useBibleStore, useDetectionStore } from "@/stores"
 import { presentDetectionLive, previewDetection } from "@/hooks/use-broadcast"
 import type { DetectionResult } from "@/types"
+
+// While the operator interacts with the panel it pauses (buffers) updates so
+// the list doesn't reorder under the cursor. Auto-resume fires only once the
+// cursor has LEFT the panel and this many ms pass with no scroll/hover — any
+// interaction resets the timer.
+const RESUME_IDLE_MS = 5000
 
 const SOURCE_COLORS: Record<
   string,
@@ -105,7 +112,52 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
 }
 
 export function DetectionsPanel() {
-  const { detections } = useDetection()
+  const detections = useDetectionStore((s) => s.detections)
+  const pendingCount = useDetectionStore((s) => s.pendingCount)
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hoveringRef = useRef(false)
+
+  const clearIdle = () => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current)
+      idleTimer.current = null
+    }
+  }
+  // Arm the auto-resume: flush the buffer after RESUME_IDLE_MS of inactivity,
+  // but only if the cursor is still away (guards against a stray timer firing
+  // mid-read if the operator moved back over the panel).
+  const armIdle = () => {
+    clearIdle()
+    idleTimer.current = setTimeout(() => {
+      if (!hoveringRef.current) useDetectionStore.getState().resume()
+    }, RESUME_IDLE_MS)
+  }
+
+  // Clear any pending timer on unmount.
+  useEffect(() => clearIdle, [])
+
+  const handleEnter = () => {
+    hoveringRef.current = true
+    clearIdle()
+    useDetectionStore.getState().pause()
+  }
+  const handleLeave = () => {
+    hoveringRef.current = false
+    armIdle()
+  }
+  const handleScroll = () => {
+    useDetectionStore.getState().pause()
+    // Scroll without hover (e.g. trackpad fling as the cursor exits) still
+    // arms auto-resume; scroll while hovering waits for the cursor to leave.
+    if (!hoveringRef.current) armIdle()
+  }
+  const flushNow = () => {
+    clearIdle()
+    useDetectionStore.getState().resume()
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
 
   return (
     <div
@@ -121,7 +173,22 @@ export function DetectionsPanel() {
         </button>
       </PanelHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+        {pendingCount > 0 && (
+          <button
+            onClick={flushNow}
+            className="sticky top-0 z-10 w-full border-b border-indigo-500/20 bg-indigo-500/15 px-3 py-1.5 text-center text-xs font-medium text-indigo-300 backdrop-blur-sm transition-colors hover:bg-indigo-500/25"
+          >
+            {pendingCount} new {pendingCount === 1 ? "verse" : "verses"} detected
+            — click to update
+          </button>
+        )}
         <div className="flex flex-col gap-0">
           {detections.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
