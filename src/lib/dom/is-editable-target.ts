@@ -1,6 +1,7 @@
 /**
  * True when an event target is a text-entry surface — an `<input>`,
- * `<textarea>`, `<select>`, or any `contentEditable` node.
+ * `<textarea>`, `<select>`, any `contentEditable` node, or an element with
+ * `role="textbox"` (rich-text editors that aren't a native field).
  *
  * Global keyboard handlers use this to avoid hijacking keys (Space, arrows,
  * Enter) while the operator is typing in a field. Accepts a raw `EventTarget`
@@ -14,6 +15,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
     el.tagName === "INPUT" ||
     el.tagName === "TEXTAREA" ||
     el.tagName === "SELECT" ||
-    el.isContentEditable === true
+    el.isContentEditable === true ||
+    el.getAttribute?.("role") === "textbox"
   )
 }
