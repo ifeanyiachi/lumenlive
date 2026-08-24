@@ -14,6 +14,7 @@ import {
   PlayIcon,
   StoreIcon,
   GiftIcon,
+  KeyboardIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SettingsDialog } from "@/components/settings-dialog"
@@ -27,8 +28,10 @@ import {
   useBroadcastStore,
   useAppStore,
   useUpdateStore,
+  useShortcutsStore,
 } from "@/stores"
 import { shouldNotifyUpdate } from "@/lib/updater/version"
+import { ReloadButton } from "@/components/controls/reload-button"
 import { AlertTrigger } from "@/components/alerts/alert-trigger"
 import { CountdownTrigger } from "@/components/countdown/countdown-trigger"
 import { openExternalUrl } from "@/services/external-link-gateway"
@@ -88,6 +91,7 @@ export function TransportBar() {
         <Badge variant="outline" className="text-[0.5625rem] uppercase">
           Free
         </Badge>
+        <ReloadButton />
         <Button
           variant="ghost"
           size="icon"
@@ -175,6 +179,15 @@ export function TransportBar() {
         </Button>
         <StageLayoutDesigner />
         <SettingsDialog />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          onClick={() => useShortcutsStore.getState().setOverlayOpen(true)}
+        >
+          <KeyboardIcon className="size-3.5" />
+        </Button>
       </div>
     </div>
   )
