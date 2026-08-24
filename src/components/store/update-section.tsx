@@ -21,21 +21,41 @@ import {
  * Thin download-progress bar. Isolated leaf so the per-chunk `progress` updates
  * (many per second) re-render only this element, not the whole panel — follows
  * the narrow-selector rule from CLAUDE.md.
+ *
+ * When the update server doesn't advertise a content length (`progressKnown`
+ * false), a real percentage is unknowable, so a determinate bar would sit frozen
+ * at 0% for the whole download — the "it looks stuck" bug the progress reducer
+ * was written to avoid. In that case we render an *indeterminate* bar: a sliver
+ * that sweeps across, signalling motion without claiming a percentage.
  */
 function DownloadProgress() {
   const progress = useUpdateStore((s) => s.progress)
+  const progressKnown = useUpdateStore((s) => s.progressKnown)
+  const pct = Math.round(progress * 100)
   return (
     <div
       className="h-1 w-full overflow-hidden rounded-full bg-muted"
       role="progressbar"
-      aria-valuenow={Math.round(progress * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
+      // Omit aria-valuenow while indeterminate so assistive tech announces the
+      // bar as busy-without-a-value rather than a misleading 0%.
+      aria-valuenow={progressKnown ? pct : undefined}
     >
-      <div
-        className="h-full bg-primary transition-[width] duration-150"
-        style={{ width: `${Math.round(progress * 100)}%` }}
-      />
+      <style>
+        {`@keyframes lumen-update-indeterminate{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}
+      </style>
+      {progressKnown ? (
+        <div
+          className="h-full bg-primary transition-[width] duration-150"
+          style={{ width: `${pct}%` }}
+        />
+      ) : (
+        <div
+          className="h-full w-1/4 rounded-full bg-primary"
+          style={{ animation: "lumen-update-indeterminate 1.2s ease-in-out infinite" }}
+        />
+      )}
     </div>
   )
 }
