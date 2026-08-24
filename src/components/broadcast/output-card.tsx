@@ -233,6 +233,9 @@ export function OutputCard({
           <span className="text-sm font-medium">{title}</span>
         </div>
         <div className="flex items-center gap-2">
+          {c.awaitingDisplay && (
+            <span className="text-xs text-amber-500">Reconnecting…</span>
+          )}
           <span
             className={cn(
               "text-xs",

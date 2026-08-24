@@ -75,9 +75,9 @@ export interface OutputDisplayDisconnected {
 
 /**
  * Subscribe to "a broadcast output's physical display was unplugged". The backend
- * has already torn the (borderless, non-closable) output window down — this lets
- * the control UI switch the output off and inform the operator, since the window
- * can't be dismissed by hand.
+ * keeps the output *enabled* and holds its window hidden (it is not torn down), so
+ * the control UI just informs the operator and shows a "reconnecting" state — the
+ * output resumes automatically on {@link onOutputDisplayConnected}.
  */
 export function onOutputDisplayDisconnected(
   handler: (payload: OutputDisplayDisconnected) => void
@@ -85,6 +85,25 @@ export function onOutputDisplayDisconnected(
   return listen<OutputDisplayDisconnected>(
     "output_display_disconnected",
     (e) => handler(e.payload)
+  )
+}
+
+/** Payload of {@link onOutputDisplayConnected}. */
+export interface OutputDisplayConnected {
+  outputId: string
+}
+
+/**
+ * Subscribe to "a previously-unplugged broadcast display came back". The backend
+ * has already re-shown the output window on the reattached monitor; this lets the
+ * control UI clear its "reconnecting" state and re-push current content so the
+ * projector paints immediately.
+ */
+export function onOutputDisplayConnected(
+  handler: (payload: OutputDisplayConnected) => void
+): Promise<UnlistenFn> {
+  return listen<OutputDisplayConnected>("output_display_connected", (e) =>
+    handler(e.payload)
   )
 }
 
@@ -96,7 +115,21 @@ export async function isBroadcastWindowOpen(
   return windows.some((w) => w.label === outputWindowLabel(outputId))
 }
 
+/**
+ * Whether ANY broadcast output window is currently open. Output windows are
+ * labelled `broadcast` (main) or `broadcast-<id>`, never overlapping the control
+ * window — so this reliably answers "is a broadcast on-screen right now?". Used at
+ * boot to tell a mid-broadcast control-panel reload (windows still open, resume
+ * the live session) from a cold launch (no windows, start clean).
+ */
+export async function anyBroadcastWindowOpen(): Promise<boolean> {
+  const windows = await getAllWindows()
+  return windows.some(
+    (w) => w.label === "broadcast" || w.label.startsWith("broadcast-")
+  )
+}
+
 /** Enumerate the connected monitors. */
-export function listMonitors(): Promise<Monitor[]> {
+export async function listMonitors(): Promise<Monitor[]> {
   return availableMonitors()
 }

@@ -10,20 +10,36 @@ use lumenlive_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
 
 use crate::keep_awake::{self, WakeLock};
 
-/// Physical origin (top-left, in physical pixels) of the monitor each live
-/// *display* output window was opened on, keyed by `output_id`.
+/// The monitor a live *display* output window was opened on, tracked so the
+/// display-watch poller (`crate::display_watch`) can react to that monitor being
+/// unplugged and later plugged back in.
 ///
-/// The display-watch poller (`crate::display_watch`) uses these to notice when a
-/// monitor is unplugged mid-service: if an output's recorded origin no longer
-/// falls inside any connected monitor, its projector was disconnected and the
-/// (borderless, non-closable, taskbar-hidden) window must be torn down rather
-/// than left stranded fullscreen on the operator's own screen.
+/// - `origin` is the monitor's top-left in physical pixels — a still-connected
+///   monitor always covers its own origin, so an origin no longer covered by any
+///   connected monitor means the projector was disconnected.
+/// - `name` is the OS monitor name, a stable identity used to reattach after a
+///   replug that brings the display back at a different origin.
+/// - `awaiting_reconnect` is set while the monitor is gone and the window is held
+///   *hidden* (not closed), so the output resumes instantly when it returns.
+#[derive(Clone)]
+pub struct OutputDisplayTarget {
+    pub origin: (i32, i32),
+    pub name: Option<String>,
+    pub awaiting_reconnect: bool,
+}
+
+/// Live display outputs and their monitor targets, keyed by `output_id`.
+///
+/// When a monitor is unplugged the entry is *kept* (with `awaiting_reconnect`
+/// set) rather than removed, so the poller can notice the same display returning
+/// and re-show the hidden window. The window is only ever left stranded
+/// fullscreen on the operator's own screen for the ~1s until the poller hides it.
 ///
 /// Only windows opened by [`open_broadcast_window`] (a physical display output)
 /// are tracked; a hidden NDI-only window created by [`ensure_broadcast_window`]
 /// has no monitor to watch and is deliberately absent.
 #[derive(Default)]
-pub struct OutputMonitors(pub Mutex<HashMap<String, (i32, i32)>>);
+pub struct OutputMonitors(pub Mutex<HashMap<String, OutputDisplayTarget>>);
 
 /// Extra `WebView2` (Windows) browser flags for every window.
 ///
@@ -254,14 +270,80 @@ pub async fn open_broadcast_window(
     wake.acquire(keep_awake::display_token(&output_id));
 
     // Record which monitor this output landed on so the display-watch poller can
-    // notice if it later disappears (HDMI unplugged) and tear the output down.
-    // Keyed by the monitor's physical origin, which is scale-independent and
-    // survives re-indexing of the remaining monitors when one is removed.
+    // notice if it later disappears (HDMI unplugged) and, when it returns, resume
+    // the output. Keyed by physical origin (scale-independent, survives re-indexing
+    // of the remaining monitors) plus the OS monitor name for reattach-by-identity.
     if let Ok(mut map) = monitors_reg.0.lock() {
-        map.insert(output_id.clone(), (pos.x, pos.y));
+        map.insert(
+            output_id.clone(),
+            OutputDisplayTarget {
+                origin: (pos.x, pos.y),
+                name: monitor.name().cloned(),
+                awaiting_reconnect: false,
+            },
+        );
     }
 
     Ok(())
+}
+
+/// Hide (never close) a display output whose monitor was just unplugged, keeping
+/// the webview alive and current so the output resumes instantly when the display
+/// returns. Releases the display wake token (no physical screen to keep awake; a
+/// live NDI session holds its own token). Returns whether NDI is still carrying
+/// the output. The registry entry is left in place — the poller flips its
+/// `awaiting_reconnect` flag — so [`resume_display_window`] can find it again.
+pub fn pause_display_window(app: &tauri::AppHandle, output_id: &str) -> bool {
+    let ndi_active = app
+        .try_state::<Mutex<NdiRuntime>>()
+        .and_then(|rt| rt.lock().ok().map(|r| r.is_active(output_id)))
+        .unwrap_or(false);
+
+    if let Some(window) = app.get_webview_window(&window_label(output_id)) {
+        // Drop fullscreen before hiding so the window doesn't keep a fullscreen
+        // slot on whatever screen the OS yanked it onto, then hide it outright.
+        let _ = window.set_fullscreen(false);
+        let _ = window.hide();
+    }
+
+    if let Some(wake) = app.try_state::<WakeLock>() {
+        wake.release(keep_awake::display_token(output_id));
+    }
+
+    ndi_active
+}
+
+/// Re-show a paused display output on its (reattached) monitor: reposition to the
+/// monitor's current physical geometry, show, and lock back to fullscreen, then
+/// hand focus to the main control window. Re-acquires the display wake token now
+/// that a physical screen is live again. No-op if the window no longer exists
+/// (e.g. the operator explicitly closed the output while it was unplugged).
+pub fn resume_display_window(
+    app: &tauri::AppHandle,
+    output_id: &str,
+    pos: (i32, i32),
+    size: (u32, u32),
+) {
+    if let Some(window) = app.get_webview_window(&window_label(output_id)) {
+        let _ = window.set_fullscreen(false);
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: pos.0,
+            y: pos.1,
+        }));
+        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: size.0,
+            height: size.1,
+        }));
+        let _ = window.show();
+        let _ = window.set_fullscreen(true);
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.set_focus();
+        }
+    }
+
+    if let Some(wake) = app.try_state::<WakeLock>() {
+        wake.acquire(keep_awake::display_token(output_id));
+    }
 }
 
 /// Tear down a display output window whose monitor has gone away (or on an

@@ -33,7 +33,7 @@ export function shouldStageManualVerse(params: {
   /** Is something currently staged (pending) in the preview? */
   previewPending: boolean
   /** Source that staged the current preview, if any. */
-  previewSource: "schedule" | "queue" | "manual" | null
+  previewSource: "schedule" | "queue" | "manual" | "ai" | null
   /**
    * Segment count of the currently-staged preview verse (a multi-verse block has
    * more than one). Defaults to a single segment when omitted.

@@ -71,7 +71,21 @@ export interface BroadcastOutput {
     frameRate: NdiFrameRate
     alphaMode: NdiAlphaMode
   }
+  /**
+   * The chosen output display as a **list index** into the enumerated monitors.
+   * Fragile across hotplug/reordering — kept only as a last-ditch fallback and
+   * for back-compat with outputs saved before {@link monitorTarget}. Prefer
+   * `monitorTarget` for durable selection.
+   */
   monitor?: number
+  /**
+   * Stable identity of the chosen output display (name + position + size), so the
+   * right physical monitor is reselected across reconnects and list reordering
+   * rather than "whatever is at index N now". Resolved to a live index at
+   * open-time via `resolveOutputMonitorIndex`. Absent on outputs saved before this
+   * field existed (they fall back to {@link monitor}).
+   */
+  monitorTarget?: MonitorFingerprint
   /**
    * Legacy fixed stage-display settings. Retained for back-compat; superseded by
    * `stageLayoutId` when a named Stage Layout preset is assigned.
@@ -80,6 +94,33 @@ export interface BroadcastOutput {
   /** Selected Stage Layout preset for a `mode: "stage"` output. */
   stageLayoutId?: string
   enabled: boolean
+  /**
+   * Runtime "assigned display not connected" state: the output is enabled (the
+   * operator wants it live) but its assigned monitor isn't currently present, so
+   * no window was opened. It holds in this state — never grabbing a different
+   * screen (fail-safe rule 3) — and resumes automatically when the display
+   * returns (see `useAwaitingDisplayResume`) or when the operator picks a monitor
+   * manually. Transient; may be persisted across a relaunch, where the resume
+   * poll re-evaluates it.
+   */
+  awaitingDisplay?: boolean
+}
+
+/**
+ * A durable fingerprint of a physical monitor: its OS name plus geometry. Used to
+ * re-identify the display an output was assigned to across reconnects and list
+ * reordering, where the bare enumeration index is unreliable. A superset of what
+ * every platform exposes through Tauri (name/position/size); no field alone is
+ * guaranteed stable, so matching scores across all three (see
+ * `lib/broadcast/monitors`).
+ */
+export interface MonitorFingerprint {
+  /** OS monitor name (may be a friendly name or a positional slot; may be null). */
+  name: string | null
+  /** Top-left origin on the virtual desktop, in physical pixels. */
+  position: { x: number; y: number }
+  /** Resolution in physical pixels. */
+  size: { width: number; height: number }
 }
 
 export type ContentRouting =

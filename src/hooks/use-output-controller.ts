@@ -6,6 +6,7 @@ import {
   requestOutputResync,
   onOutputReady,
   onOutputDisplayDisconnected,
+  onOutputDisplayConnected,
   isBroadcastWindowOpen,
   type Monitor,
 } from "@/services/broadcast-window-gateway"
@@ -74,6 +75,12 @@ export interface OutputController {
   ndiActive: boolean
   /** True when this output targets the operator's own screen (display blocked). */
   displayOnOperatorScreen: boolean
+  /**
+   * True while this output's external display is unplugged and the backend is
+   * holding its window hidden, waiting for the display to return. The output
+   * stays enabled/live and resumes automatically on replug.
+   */
+  awaitingDisplay: boolean
   toggle: (enabled: boolean) => Promise<void>
   toggleNdi: () => Promise<void>
   /** Push this output's current NDI config to its window (used on output-ready). */
@@ -114,6 +121,7 @@ export function useOutputController({
   const [ndiAlphaMode, setNdiAlphaMode] =
     useState<NdiAlphaMode>("straightAlpha")
   const [ndiActive, setNdiActive] = useState(false)
+  const [awaitingDisplay, setAwaitingDisplay] = useState(false)
 
   // Theme derived straight from the store output so it always reflects external
   // changes (setActiveTheme elsewhere, theme deletion, etc.).
@@ -260,6 +268,8 @@ export function useOutputController({
             trackBroadcastStarted("display")
           }
         } else {
+          // Explicit off cancels any pending display-reconnect wait.
+          setAwaitingDisplay(false)
           if (isOpen) {
             await closeBroadcastWindow(outputId)
             setIsOpen(false)
@@ -313,27 +323,36 @@ export function useOutputController({
       .updateOutput(outputId, { enabled: isOpen || ndiActive })
   }, [outputId, isOpen, ndiActive])
 
-  // Reflect a mid-session display disconnect (projector/HDMI unplugged) while
-  // this card is on screen: the backend has already torn the output window down
-  // (see display_watch.rs), so drop the local open/enabled state to match —
-  // otherwise the switch stays stuck "on" with no window behind it. NDI is a
-  // network feed and survives an HDMI unplug, so `enabled` follows whether NDI
-  // is still carrying the output.
+  // Reflect a mid-session display unplug/replug (projector/HDMI) while this card
+  // is on screen. The backend keeps the output enabled and merely hides its window
+  // (see display_watch.rs), so the output stays live and resumes on replug — we
+  // only mark a transient "reconnecting" state for the card. The window still
+  // exists (hidden), so `isOpen`/`enabled` are deliberately left untouched.
   useEffect(() => {
     let cancelled = false
-    let unlisten: (() => void) | undefined
-    void onOutputDisplayDisconnected(({ outputId: id, ndiActive: ndi }) => {
-      if (id !== outputId) return
-      setIsOpen(false)
-      setNdiActive(ndi)
-      setEnabled(ndi)
-    }).then((fn) => {
-      if (cancelled) fn()
-      else unlisten = fn
-    })
+    const unlisteners: Array<() => void> = []
+    const track = (p: Promise<() => void>) => {
+      void p.then((fn) => {
+        if (cancelled) fn()
+        else unlisteners.push(fn)
+      })
+    }
+    track(
+      onOutputDisplayDisconnected(({ outputId: id, ndiActive: ndi }) => {
+        if (id !== outputId) return
+        setNdiActive(ndi)
+        setAwaitingDisplay(true)
+      })
+    )
+    track(
+      onOutputDisplayConnected(({ outputId: id }) => {
+        if (id !== outputId) return
+        setAwaitingDisplay(false)
+      })
+    )
     return () => {
       cancelled = true
-      unlisten?.()
+      for (const fn of unlisteners) fn()
     }
   }, [outputId])
 
@@ -377,6 +396,7 @@ export function useOutputController({
     setNdiAlphaMode,
     ndiActive,
     displayOnOperatorScreen,
+    awaitingDisplay,
     toggle,
     toggleNdi,
     pushNdiConfig,

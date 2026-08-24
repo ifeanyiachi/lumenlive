@@ -5,7 +5,10 @@
  * verbatim from the output-window effect.
  */
 
-import { preloadImage } from "@/lib/broadcast-output/asset-cache"
+import {
+  preloadImage,
+  ASSET_REVEAL_FALLBACK_MS,
+} from "@/lib/broadcast-output/asset-cache"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   listenOutputEvent,
@@ -170,23 +173,36 @@ export function registerOverlayListeners(
     }
   )
 
+  // The media layer is a backdrop composited *behind* slide content, so slides
+  // animating over it redraw constantly. The old path cleared the outgoing
+  // backdrop (nulled its image/paused its video) the instant an update arrived,
+  // while the incoming asset was still decoding — any redraw in that gap fell
+  // through to the black floor (worse on production, where assets stream over the
+  // asset protocol). Instead, hold the outgoing backdrop until the incoming asset
+  // can paint, then swap atomically. `seq` fences stale async loads (a newer
+  // update wins); `applied` makes each update's swap idempotent across the
+  // onload/onerror/fallback races.
+  let mediaLayerSeq = 0
   const unlistenMediaLayer = listenOutputEvent(
     BROADCAST_EVENTS.mediaLayerUpdate,
     (event) => {
       const { layer } = event.payload
+      const seq = ++mediaLayerSeq
+      let applied = false
       rt.logDebug("Received broadcast:media-layer-update", {
         layer: layer?.name ?? null,
       })
 
-      renderLoop.deactivate("mediaLayer")
-      if (rt.mediaLayerVideoRef.current) {
-        rt.mediaLayerVideoRef.current.pause()
-        rt.mediaLayerVideoRef.current.src = ""
-      }
-      rt.mediaLayerImgRef.current = null
-      rt.mediaLayerRef.current = layer
-
+      // Clearing the layer is instant: drop the backdrop and stop its video.
       if (!layer) {
+        renderLoop.deactivate("mediaLayer")
+        if (rt.mediaLayerVideoRef.current) {
+          rt.mediaLayerVideoRef.current.pause()
+          rt.mediaLayerVideoRef.current.src = ""
+        }
+        rt.mediaLayerVideoRef.current = null
+        rt.mediaLayerImgRef.current = null
+        rt.mediaLayerRef.current = null
         rt.draw()
         rt.pushNdiBurst()
         return
@@ -194,13 +210,64 @@ export function registerOverlayListeners(
 
       const src = safeFileSrc(layer.filePath)
 
+      // Retire the outgoing background video (if any) as we commit the new layer.
+      const retireOldVideo = (keep?: HTMLVideoElement) => {
+        const prev = rt.mediaLayerVideoRef.current
+        if (prev && prev !== keep) {
+          prev.pause()
+          prev.src = ""
+        }
+      }
+
+      const swapImage = (img: HTMLImageElement) => {
+        if (applied || seq !== mediaLayerSeq) return
+        applied = true
+        renderLoop.deactivate("mediaLayer")
+        retireOldVideo()
+        rt.mediaLayerVideoRef.current = null
+        rt.mediaLayerImgRef.current = img
+        rt.mediaLayerRef.current = layer
+        rt.draw()
+        rt.pushNdiBurst()
+      }
+
+      const swapVideo = (video: HTMLVideoElement) => {
+        if (applied || seq !== mediaLayerSeq) return
+        applied = true
+        retireOldVideo(video)
+        rt.mediaLayerImgRef.current = null
+        rt.mediaLayerVideoRef.current = video
+        rt.mediaLayerRef.current = layer
+        void video.play()
+        rt.startMediaLayerVideoLoop()
+        rt.draw()
+        rt.pushNdiBurst()
+      }
+
+      // The asset failed or is too slow — reflect the requested layer anyway
+      // (state must not stay stuck on the previous backdrop) and let the
+      // compositor draw the black floor beneath it.
+      const commitBlank = () => {
+        if (applied || seq !== mediaLayerSeq) return
+        applied = true
+        renderLoop.deactivate("mediaLayer")
+        retireOldVideo()
+        rt.mediaLayerVideoRef.current = null
+        rt.mediaLayerImgRef.current = null
+        rt.mediaLayerRef.current = layer
+        rt.draw()
+        rt.pushNdiBurst()
+      }
+
       if (layer.mediaType === "image") {
         const img = new Image()
         img.crossOrigin = "anonymous"
-        img.onload = () => {
-          rt.mediaLayerImgRef.current = img
-          rt.draw()
-          rt.pushNdiBurst()
+        img.onload = () => swapImage(img)
+        img.onerror = () => {
+          console.warn("[broadcast-output] failed to load media layer image", {
+            src,
+          })
+          commitBlank()
         }
         img.src = src
       } else {
@@ -210,13 +277,18 @@ export function registerOverlayListeners(
         video.loop = true
         video.playsInline = true
         video.src = src
-        video.onloadeddata = () => {
-          rt.mediaLayerVideoRef.current = video
-          void video.play()
-          rt.startMediaLayerVideoLoop()
+        video.onloadeddata = () => swapVideo(video)
+        video.onerror = () => {
+          console.warn("[broadcast-output] failed to load media layer video", {
+            src,
+          })
+          commitBlank()
         }
         video.load()
       }
+
+      // Never hold the outgoing backdrop indefinitely on a stalled asset.
+      setTimeout(commitBlank, ASSET_REVEAL_FALLBACK_MS)
     }
   )
 

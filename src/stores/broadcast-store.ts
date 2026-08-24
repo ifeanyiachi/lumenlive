@@ -21,6 +21,13 @@ import {
   buildHydrationPatch,
   type PersistedThemeData,
 } from "@/lib/broadcast/persistence"
+import {
+  buildLiveSessionPatch,
+  liveSessionChanged,
+  pickLiveSession,
+  type LiveSessionData,
+} from "@/lib/broadcast/live-session"
+import { anyBroadcastWindowOpen } from "@/services/broadcast-window-gateway"
 import type { BroadcastState, BroadcastSource } from "./broadcast/types"
 import { DEFAULT_OUTPUTS } from "./broadcast/internals"
 import { createThemeDesignerSlice } from "./broadcast/theme-designer"
@@ -168,5 +175,73 @@ async function persistBroadcastThemes(state: BroadcastState): Promise<void> {
     await store.save()
   } catch {
     console.warn("[broadcast] Failed to persist themes")
+  }
+}
+
+// ── Live-session persistence via tauri-plugin-store ──
+//
+// The live-transport slice (what's on the audience screen + the on-air flag) is
+// otherwise in-memory only, so a control-panel reload mid-service would drop the
+// show. This mirrors it to disk (debounced) and, at boot, restores it ONLY when a
+// broadcast output window is still open — i.e. a reload during an active broadcast,
+// not a cold launch (see buildLiveSessionPatch). The restore never re-emits: the
+// surviving output windows already hold the content, so this only re-syncs the
+// control panel's own state back to what the audience is seeing.
+
+let sessionStore: Store | null = null
+let sessionHydrationPromise: Promise<void> | null = null
+const SESSION_KEY = "liveSession"
+
+async function getSessionStore(): Promise<Store> {
+  if (!sessionStore) {
+    sessionStore = await load("broadcast-session.json", {
+      autoSave: false,
+      defaults: {},
+    })
+  }
+  return sessionStore
+}
+
+export function hydrateBroadcastSession(): Promise<void> {
+  if (sessionHydrationPromise) return sessionHydrationPromise
+  sessionHydrationPromise = (async () => {
+    try {
+      const store = await getSessionStore()
+      const raw = (await store.get(SESSION_KEY)) as
+        | Partial<LiveSessionData>
+        | undefined
+      const windowsOpen = await anyBroadcastWindowOpen().catch(() => false)
+      const patch = buildLiveSessionPatch(raw, windowsOpen)
+      if (patch) useBroadcastStore.setState(patch)
+
+      // Start mirroring live-session changes to disk (debounced), regardless of
+      // whether we restored — so the next reload has a fresh snapshot to resume.
+      useBroadcastStore.subscribe((state, prevState) => {
+        if (!liveSessionChanged(state, prevState)) return
+        if (sessionSaveTimer) clearTimeout(sessionSaveTimer)
+        sessionSaveTimer = setTimeout(() => {
+          sessionSaveTimer = null
+          pendingSessionSave = pendingSessionSave.then(() =>
+            persistLiveSession(useBroadcastStore.getState())
+          )
+        }, SAVE_DEBOUNCE_MS)
+      })
+    } catch {
+      console.warn("[broadcast] Failed to load persisted live session")
+    }
+  })()
+  return sessionHydrationPromise
+}
+
+let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingSessionSave: Promise<void> = Promise.resolve()
+
+async function persistLiveSession(state: BroadcastState): Promise<void> {
+  try {
+    const store = await getSessionStore()
+    await store.set(SESSION_KEY, pickLiveSession(state))
+    await store.save()
+  } catch {
+    console.warn("[broadcast] Failed to persist live session")
   }
 }

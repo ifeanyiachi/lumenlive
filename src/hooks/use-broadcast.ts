@@ -1,9 +1,7 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useBibleStore, useQueueStore } from "@/stores"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
 import { bibleActions } from "@/hooks/use-bible"
 import { toMultiVerseRenderData } from "@/lib/multi-verse"
-import { verseEditKey } from "@/types/verse-edit"
 import type { VerseRenderData, QueueItem, DetectionResult } from "@/types"
 import type { Verse } from "@/types"
 import type { StyledVerseSegment } from "@/types/verse-edit"
@@ -23,19 +21,8 @@ export function toVerseRenderData(
   interlinearText?: string | null,
   styledSegments?: StyledVerseSegment[]
 ): VerseRenderData {
-  if (!styledSegments) {
-    const editKey = verseEditKey(
-      verse.translation_id,
-      verse.book_number,
-      verse.chapter,
-      verse.verse
-    )
-    const savedEdit = useVerseEditStore.getState().getEdit(editKey)
-    if (savedEdit) {
-      styledSegments = savedEdit.segments
-    }
-  }
-
+  // Styled edits are item-scoped: the caller passes them explicitly (from the
+  // schedule item / editor). There is no global saved-edit store to consult.
   if (styledSegments && styledSegments.length > 0) {
     return {
       reference: `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`,

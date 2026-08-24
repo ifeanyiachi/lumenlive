@@ -115,6 +115,11 @@ export function OutputRow({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {output.enabled && output.awaitingDisplay && (
+            <span className="text-xs text-amber-500">
+              Waiting for display…
+            </span>
+          )}
           <span
             className={cn(
               "text-xs",

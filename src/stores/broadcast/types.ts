@@ -20,7 +20,14 @@ import type {
 import type { StageTimer } from "@/lib/stage-display-renderer"
 import type { Slide } from "@/types/slide"
 
-export type BroadcastSource = "schedule" | "queue" | "manual" | null
+/**
+ * What placed the current live/preview content. The first three are
+ * operator-driven ("schedule"/"queue"/"manual"); `"ai"` marks content pushed by
+ * AI verse detection (direct auto-display or voice navigation). The distinction
+ * powers the manual-live guard (aitrans Phase 4): a low-trust AI detection must
+ * not override operator-placed live, while AI may freely update its own.
+ */
+export type BroadcastSource = "schedule" | "queue" | "manual" | "ai" | null
 export type SelectedElement = string | null
 export type RegionId = "textArea" | "verse" | "reference"
 
@@ -63,15 +70,21 @@ export interface BroadcastState {
   interlinearText: string | null
   broadcastMuted: boolean
   /**
-   * Live-output visibility toggles (Black / Clear). Ephemeral —
-   * deliberately NOT persisted, so the audience screen is never mysteriously
-   * blacked or cleared after a restart. `blackout` cuts the whole output to
-   * black; `clearForeground` hides the scripture/slide text while keeping the
-   * background/media. Black wins when both are on.
+   * Live-output visibility toggles (Black / Clear). `blackout` cuts the whole
+   * output to black; `clearForeground` hides the scripture/slide text while
+   * keeping the background/media. Black wins when both are on.
+   *
+   * Persisted only as part of the live session (see `lib/broadcast/live-session`)
+   * and restored solely on a mid-broadcast reload — when an output window is still
+   * open and holding this state. A cold launch never restores it, so the audience
+   * screen is still never mysteriously blacked/cleared after a full restart.
    */
   blackout: boolean
   clearForeground: boolean
-  /** Show the holding-logo image on the audience output. Ephemeral (not persisted). */
+  /**
+   * Show the holding-logo image on the audience output. Same lifecycle as
+   * `blackout` above — session-persisted, restored only on a mid-broadcast reload.
+   */
   showLogo: boolean
 
   mediaLayer: MediaLayerState | null

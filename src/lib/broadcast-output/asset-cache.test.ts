@@ -3,7 +3,9 @@ import {
   preloadImage,
   preloadVideoBackground,
   preloadSlideAssets,
+  slideBackgroundReady,
 } from "./asset-cache"
+import type { SlideBackground } from "@/types/slide"
 
 // --- Fakes for the DOM asset APIs (absent in the node test env) -------------
 
@@ -138,5 +140,55 @@ describe("preloadSlideAssets (slide-model / RF3a)", () => {
     } as unknown as Parameters<typeof preloadSlideAssets>[0]
     preloadSlideAssets(source, cache)
     expect(cache.size).toBe(0)
+  })
+})
+
+describe("slideBackgroundReady", () => {
+  const bg = (b: Partial<SlideBackground>) =>
+    ({ background: b as SlideBackground })
+  const imgCache = () => new Map<string, HTMLImageElement>()
+  const vidCache = () => new Map<string, HTMLVideoElement>()
+
+  it("synchronous background types are always ready", () => {
+    for (const type of [
+      "solid",
+      "gradient",
+      "animated",
+      "transparent",
+    ] as const) {
+      expect(slideBackgroundReady(bg({ type }), imgCache(), vidCache())).toBe(
+        true
+      )
+    }
+  })
+
+  it("image background is ready only once its bitmap is cached", () => {
+    const cache = imgCache()
+    const slide = bg({ type: "image", imageUrl: "bg.png" })
+    expect(slideBackgroundReady(slide, cache, vidCache())).toBe(false)
+    cache.set("bg.png", {} as HTMLImageElement)
+    expect(slideBackgroundReady(slide, cache, vidCache())).toBe(true)
+  })
+
+  it("an image background with no url is a no-op → ready", () => {
+    expect(
+      slideBackgroundReady(bg({ type: "image" }), imgCache(), vidCache())
+    ).toBe(true)
+  })
+
+  it("video background is ready only when a buffered (readyState>=2) video is cached", () => {
+    const cache = vidCache()
+    const slide = bg({ type: "video", videoUrl: "bg.mp4" })
+    expect(slideBackgroundReady(slide, imgCache(), cache)).toBe(false)
+    cache.set("bg.mp4", { readyState: 1 } as HTMLVideoElement)
+    expect(slideBackgroundReady(slide, imgCache(), cache)).toBe(false)
+    cache.set("bg.mp4", { readyState: 2 } as HTMLVideoElement)
+    expect(slideBackgroundReady(slide, imgCache(), cache)).toBe(true)
+  })
+
+  it("a video background with no url is a no-op → ready", () => {
+    expect(
+      slideBackgroundReady(bg({ type: "video" }), imgCache(), vidCache())
+    ).toBe(true)
   })
 })

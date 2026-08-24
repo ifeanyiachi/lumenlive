@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import {
   closeBroadcastWindow,
   listMonitors,
-  onOutputReady,
-  openBroadcastWindow,
-  requestOutputResync,
   type Monitor,
 } from "@/services/broadcast-window-gateway"
 import {
   operatorScreenIndex,
-  preferredOutputMonitor,
+  monitorFingerprint,
+  resolveOutputMonitorIndex,
 } from "@/lib/broadcast/monitors"
+import { activateExtraOutput } from "@/hooks/use-awaiting-display-resume"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useBroadcastStore, useSettingsStore } from "@/stores"
-import { useCountdownStore } from "@/stores/countdown-store"
 import { useThemesStore } from "@/stores/themes"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import type { BroadcastOutput, ContentRouting } from "@/types/broadcast"
@@ -73,40 +72,18 @@ export function OutputManager({
     if (open) void fetchMonitors()
   }, [open, fetchMonitors])
 
-  // Open an extra output's window on its chosen monitor and push current
-  // content once it announces readiness. Mirrors the proven Alternate Output
-  // flow (broadcast-settings openAltWindow): a one-shot ready listener syncs
-  // the specific output, with a 500ms fallback in case the window was reused
-  // (already mounted) and never re-emitted ready.
-  const openOutputWindow = useCallback(
+  // Activate an extra output, toasting the fail-safe outcomes. Delegates to the
+  // shared activator (also used by the app-root resume poll) so manual and
+  // automatic activation behave identically: resolve the assigned display, then
+  // open it, hold ("assigned display not connected"), or refuse to cover the
+  // operator's own screen.
+  const activateOutput = useCallback(
     async (output: BroadcastOutput) => {
-      const monitorIndex = output.monitor ?? preferredOutputMonitor(monitors)
-      const mode = output.mode === "stage" ? "stage" : undefined
-      let synced = false
-      const syncNow = () => {
-        const bs = useBroadcastStore.getState()
-        bs.syncBroadcastOutputFor(output.id)
-        if (output.mode === "stage") bs.syncStageOutput()
-        // Re-push live countdowns so the just-opened window shows a timer that
-        // started before it mounted (treated as a replace by output windows).
-        useCountdownStore.getState().resyncOutputs()
-      }
-      const unlisten = await onOutputReady(() => {
-        synced = true
-        syncNow()
-        unlisten()
-      })
-      try {
-        await openBroadcastWindow(output.id, monitorIndex, mode)
-        await requestOutputResync(output.id)
-        setTimeout(() => {
-          if (!synced) {
-            syncNow()
-            unlisten()
-          }
-        }, 500)
-      } catch {
-        unlisten()
+      const result = await activateExtraOutput(output.id, monitors)
+      if (result === "absent") {
+        toast.warning(
+          `${output.name}: assigned display not connected — it'll start automatically when reconnected, or pick a monitor above`
+        )
       }
     },
     [monitors]
@@ -148,7 +125,11 @@ export function OutputManager({
   // operator runs from the in-app preview (+ NDI).
   const wouldCoverOperator = (output: BroadcastOutput): boolean => {
     if (!isTauri || monitors.length === 0) return false
-    const monitor = output.monitor ?? preferredOutputMonitor(monitors)
+    const monitor = resolveOutputMonitorIndex(
+      output.monitorTarget,
+      output.monitor,
+      monitors
+    )
     return monitor === operatorScreenIndex(monitors)
   }
 
@@ -161,34 +142,29 @@ export function OutputManager({
       return
     }
     if (!enabled) {
-      updateOutput(output.id, { enabled: false })
+      // Explicit off also cancels any pending "awaiting display" hold.
+      updateOutput(output.id, { enabled: false, awaitingDisplay: false })
       void closeBroadcastWindow(output.id).catch(() => {})
       return
     }
-    // Enabling an extra output: never open over the operator's control screen.
-    // Guard the programmatic path too (the switch is also disabled in this
-    // state), so the output stays off rather than trapping the operator.
-    if (wouldCoverOperator(output)) return
-    // Resolve and persist a concrete monitor so the picker reflects where the
-    // window actually opened.
-    const monitor = output.monitor ?? preferredOutputMonitor(monitors)
-    updateOutput(output.id, { enabled: true, monitor })
-    void openOutputWindow({ ...output, enabled: true, monitor })
+    // Enabling an extra output: resolve + open (or hold / refuse-operator-screen)
+    // via the shared activator, which persists the concrete monitor + fingerprint
+    // so re-enabling later reselects the same physical display.
+    void activateOutput(output)
   }
 
-  // Persist the chosen monitor. If the output's window is already open, move it
-  // to the new monitor — unless that would cover the operator's screen, in which
-  // case turn the output off instead of trapping the operator there.
+  // Persist the operator's explicit monitor pick (index + a durable fingerprint),
+  // clearing any awaiting-display hold. If the output is enabled, (re)open on the
+  // chosen display via the shared activator — which moves an already-open window,
+  // or refuses when the pick is the operator's own control screen.
   const handleMonitorChange = (output: BroadcastOutput, value: string) => {
     const monitor = Number(value)
-    updateOutput(output.id, { monitor })
+    const monitorTarget = monitors[monitor]
+      ? monitorFingerprint(monitors[monitor])
+      : undefined
+    updateOutput(output.id, { monitor, monitorTarget, awaitingDisplay: false })
     if (!output.enabled || isManagedElsewhere(output.id)) return
-    if (wouldCoverOperator({ ...output, monitor })) {
-      updateOutput(output.id, { enabled: false })
-      void closeBroadcastWindow(output.id).catch(() => {})
-      return
-    }
-    void openOutputWindow({ ...output, monitor })
+    void activateOutput({ ...output, monitor, monitorTarget })
   }
 
   const handleModeChange = (outputId: string, mode: "normal" | "stage") => {

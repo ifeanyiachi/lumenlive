@@ -21,6 +21,16 @@ import type {
 type ImageCache = Map<string, HTMLImageElement>
 
 /**
+ * Longest a listener holds the previous backdrop/slide waiting on an image/video
+ * asset before revealing anyway. The reveal gate keeps foreground and background
+ * in sync, but a slow or broken asset must never freeze the output — after this it
+ * reveals and the background draws its black placeholder (the pre-gate behavior
+ * for a failed load). Sized to absorb a normal asset-protocol decode without a
+ * visible hold. Shared by the slide, base-theme, and media-layer listeners.
+ */
+export const ASSET_REVEAL_FALLBACK_MS = 2000
+
+/**
  * Load `url` into `cache` if absent, invoking `onLoaded` once it is cached. No-op
  * on an empty url or a cache hit, so it is safe to call every render/update.
  */
@@ -105,5 +115,42 @@ export function preloadSlideAssets(
         "slide element image"
       )
     }
+  }
+}
+
+/**
+ * Whether a slide's background can be painted from the caches **right now**.
+ *
+ * The compositor draws the verse/slide text synchronously every frame, but an
+ * image/video background paints solid black until its asset is decoded (see
+ * `slide-renderer/background.ts`). On production, assets stream over Tauri's
+ * asset protocol, so that decode lags the text — text appears on black, then the
+ * background pops in. Callers gate the first reveal on this predicate so text and
+ * background surface as a single unit.
+ *
+ * - `image`   — ready once the bitmap is in `imageCache` (an empty url is a no-op
+ *   background, so counts as ready).
+ * - `video`   — ready once a `<video>` with `readyState >= 2` (≥ current-frame
+ *   data) is in `videoCache`, keyed by raw `videoUrl` exactly as the compositor
+ *   reads it (NOT the `video:`-prefixed key {@link preloadVideoBackground} uses).
+ * - `solid` / `gradient` / `animated` / `transparent` — drawn synchronously from
+ *   parameters, so always ready.
+ */
+export function slideBackgroundReady(
+  slide: { background: SlideBackground },
+  imageCache: ImageCache,
+  videoCache: Map<string, HTMLVideoElement>
+): boolean {
+  const bg = slide.background
+  switch (bg.type) {
+    case "image":
+      return !bg.imageUrl || imageCache.has(bg.imageUrl)
+    case "video": {
+      if (!bg.videoUrl) return true
+      const video = videoCache.get(bg.videoUrl)
+      return !!video && video.readyState >= 2
+    }
+    default:
+      return true
   }
 }

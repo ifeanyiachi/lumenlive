@@ -7,6 +7,11 @@
 
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
+  preloadImage,
+  slideBackgroundReady,
+  ASSET_REVEAL_FALLBACK_MS,
+} from "@/lib/broadcast-output/asset-cache"
+import {
   listenOutputEvent,
   BROADCAST_EVENTS,
 } from "@/services/broadcast-content-gateway"
@@ -79,27 +84,59 @@ export function registerVisibilityListeners(
   )
 
   // Central base/master theme — the backdrop for Clear and transparent content.
-  // Preload its images so renderVerse can paint the background immediately.
+  // It's only visible behind Clear / transparent content, but the old path swapped
+  // `baseThemeRef` and drew immediately, so an image/video base background painted
+  // its black placeholder until the asset decoded (a flash on production, where
+  // assets stream over the asset protocol). Instead, hold the OUTGOING base theme
+  // until the incoming background can paint, then swap atomically. `seq` fences
+  // stale async loads (a newer base-theme wins); `applied` keeps the swap
+  // idempotent across the ready/onerror/fallback races.
+  let baseThemeSeq = 0
   const unlistenBaseTheme = listenOutputEvent(
     BROADCAST_EVENTS.baseTheme,
     (event) => {
-      rt.baseThemeRef.current = event.payload.theme
-      rt.preloadBaseThemeImages(event.payload.theme)
-      // A video or procedural animated base background needs a per-frame
-      // redraw (draw-only — it never pushed NDI on its own); static backgrounds
-      // (solid/gradient/image/theme) don't.
-      renderLoop.deactivate("baseVideo")
-      const baseBg = event.payload.theme.background
-      // The base backdrop renders through `renderSlide` now (RF3a), which draws a
-      // video background from the LIVE video cache — not the image cache. So create,
-      // load, and play the base video into that cache (mirroring the slide-listener),
-      // then the `baseVideo` loop samples the current frame every draw.
+      const theme = event.payload.theme
+      const baseBg = theme.background
+      const seq = ++baseThemeSeq
+      let applied = false
+
+      // Warm the theme's image assets. Any redraw these preloads trigger paints
+      // the CURRENT (not-yet-swapped) base theme, so they never flash the new
+      // theme's black background placeholder.
+      rt.preloadBaseThemeImages(theme)
+
+      const apply = () => {
+        if (applied || seq !== baseThemeSeq) return
+        applied = true
+        rt.baseThemeRef.current = theme
+        // A video or procedural animated base background needs a per-frame redraw
+        // (draw-only — it never pushes NDI on its own); static backgrounds
+        // (solid/gradient/image) don't.
+        renderLoop.deactivate("baseVideo")
+        if (
+          (baseBg.type === "video" && baseBg.videoUrl) ||
+          baseBg.type === "animated"
+        ) {
+          renderLoop.activate("baseVideo", { push: false })
+        }
+        rt.logDebug("Received broadcast:base-theme", { themeId: theme.id })
+        rt.drawRef.current()
+        rt.pushNdiBurst()
+      }
+
+      // The base backdrop renders through `renderSlide` (RF3a), which draws a video
+      // background from the LIVE video cache — not the image cache. So create, load,
+      // and play the base video into that cache (mirroring the slide-listener), then
+      // swap once it can paint.
       if (baseBg.type === "video" && baseBg.videoUrl) {
         const url = baseBg.videoUrl
         const cached = rt.videoCacheRef.current.get(url)
         if (cached) {
           cached.currentTime = 0
           void cached.play()
+          if (cached.readyState < 2) {
+            cached.addEventListener("loadeddata", () => apply(), { once: true })
+          }
         } else {
           const video = document.createElement("video")
           video.crossOrigin = "anonymous"
@@ -110,19 +147,40 @@ export function registerVisibilityListeners(
           video.onloadeddata = () => {
             rt.videoCacheRef.current.set(url, video)
             void video.play()
-            rt.drawRef.current()
+            apply()
+          }
+          video.onerror = () => {
+            console.warn("[broadcast-output] failed to load base theme video", {
+              url,
+            })
+            apply()
           }
           video.load()
         }
-        renderLoop.activate("baseVideo", { push: false })
-      } else if (baseBg.type === "animated") {
-        renderLoop.activate("baseVideo", { push: false })
       }
-      rt.logDebug("Received broadcast:base-theme", {
-        themeId: event.payload.theme.id,
-      })
-      rt.drawRef.current()
-      rt.pushNdiBurst()
+
+      // Synchronous background (solid/gradient/animated) or a warm image/video
+      // cache — swap now; else swap once the async asset lands, with a fallback so
+      // a slow/broken asset never freezes the previous backdrop.
+      if (
+        slideBackgroundReady(
+          { background: baseBg },
+          rt.imageCacheRef.current,
+          rt.videoCacheRef.current
+        )
+      ) {
+        apply()
+      } else {
+        if (baseBg.type === "image" && baseBg.imageUrl) {
+          preloadImage(
+            rt.imageCacheRef.current,
+            baseBg.imageUrl,
+            apply,
+            "base theme background image"
+          )
+        }
+        setTimeout(apply, ASSET_REVEAL_FALLBACK_MS)
+      }
     }
   )
 

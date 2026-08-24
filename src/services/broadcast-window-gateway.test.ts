@@ -30,6 +30,7 @@ import {
   ensureBroadcastWindow,
   isBroadcastWindowOpen,
   listMonitors,
+  onOutputDisplayConnected,
   onOutputDisplayDisconnected,
   onOutputReady,
   openBroadcastWindow,
@@ -115,6 +116,22 @@ describe("broadcast-window-gateway", () => {
       expect.any(Function)
     )
     expect(captured).toEqual({ outputId: "alt", ndiActive: true })
+  })
+
+  it("onOutputDisplayConnected unwraps the payload from the event", async () => {
+    let captured: { outputId: string } | undefined
+    listenMock.mockImplementation((_event, cb) => {
+      cb({ payload: { outputId: "alt" } })
+      return Promise.resolve(() => {})
+    })
+    await onOutputDisplayConnected((p) => {
+      captured = p
+    })
+    expect(listenMock).toHaveBeenCalledWith(
+      "output_display_connected",
+      expect.any(Function)
+    )
+    expect(captured).toEqual({ outputId: "alt" })
   })
 
   it("isBroadcastWindowOpen checks the window list by label", async () => {

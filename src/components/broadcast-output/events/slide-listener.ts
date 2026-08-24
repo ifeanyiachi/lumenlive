@@ -14,7 +14,11 @@ import {
   getTextLineCount,
   getTextWordCount,
 } from "@/lib/slide-renderer"
-import { preloadImage } from "@/lib/broadcast-output/asset-cache"
+import {
+  preloadImage,
+  slideBackgroundReady,
+  ASSET_REVEAL_FALLBACK_MS,
+} from "@/lib/broadcast-output/asset-cache"
 import {
   createSlideAnimationTracker,
   updateAnimationTracker,
@@ -77,12 +81,113 @@ export function registerSlideListener(
     })
 
     const slide = event.payload.slide
+
+    // Start the element/text-build animation loop for the revealed slide. Kept in
+    // a closure so it runs at reveal time (below), i.e. the entry stagger begins
+    // when the slide actually appears — not while we're still holding for a slow
+    // background asset.
+    const setupElementAnimationLoop = () => {
+      renderLoop.deactivate("slideAnim")
+      const hasAnimatedElements = slide.elements.some(
+        (el) =>
+          (el.animation?.entry && el.animation.entry.type !== "none") ||
+          (el.type === "text" &&
+            (el as SlideTextElement).textBuild &&
+            (el as SlideTextElement).textBuild!.type !== "none")
+      )
+      const hasScrolling = slideHasScrollingText(slide)
+      const hasAnimatedBg = slideHasAnimatedBackground(slide)
+      const hasTimer = slideHasTimer(slide)
+
+      if (hasAnimatedElements || hasScrolling || hasAnimatedBg || hasTimer) {
+        const tracker = createSlideAnimationTracker()
+        rt.slideAnimTracker.current = tracker
+
+        const measuringCanvas = document.createElement("canvas")
+        // Measure line counts at the live surface width so text-build reveals
+        // match the actual wrapped line count on non-16:9 surfaces.
+        const measureSurface = rt.computeSurface()
+        measuringCanvas.width = measureSurface.width
+        measuringCanvas.height = measureSurface.height
+        const mCtx = measuringCanvas.getContext("2d")!
+
+        const animInfo = {
+          elements: slide.elements.map((el) => ({
+            id: el.id,
+            animation: el.animation,
+            textBuild:
+              el.type === "text"
+                ? (el as SlideTextElement).textBuild
+                : undefined,
+            textLineCount:
+              el.type === "text"
+                ? getTextLineCount(
+                    mCtx,
+                    el as SlideTextElement,
+                    measureSurface.width,
+                    measureSurface.height
+                  )
+                : undefined,
+            textWordCount:
+              el.type === "text"
+                ? getTextWordCount(el as SlideTextElement)
+                : undefined,
+          })),
+        }
+
+        // Advance the tracker each frame (beforeFrame), draw+push (default),
+        // then keep going until the entry animation completes — unless the
+        // slide scrolls or has an animated background, which run indefinitely.
+        // "after" timing preserves the original's draw-then-decide order.
+        renderLoop.activate("slideAnim", {
+          beforeFrame: () =>
+            updateAnimationTracker(tracker, animInfo, performance.now()),
+          keepAlive: () =>
+            !tracker.isComplete || hasScrolling || hasAnimatedBg || hasTimer,
+          keepAliveTiming: "after",
+        })
+      } else {
+        rt.slideAnimTracker.current = null
+      }
+    }
+
+    // The verse/slide text paints synchronously, but an image/video background
+    // paints black until its asset decodes — on production (assets stream over
+    // Tauri's asset protocol) that lag shows text on black, then the background
+    // pops in. Gate the reveal (transition/cut + entry animation) on the
+    // background being paintable so text and background surface as one unit.
+    // `reveal()` runs at most once, and only while this slide is still the active
+    // one — a newer push supersedes a slow asset callback or the fallback timer.
+    let revealed = false
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined
+    const reveal = () => {
+      if (revealed || rt.latestSlide.current !== event.payload) return
+      revealed = true
+      if (fallbackTimer !== undefined) clearTimeout(fallbackTimer)
+
+      if (slideHasVideoBackground(slide)) rt.startSlideVideoLoop()
+
+      if (hasTransition && wasSlide) {
+        const t = event.payload.slide.transition!
+        rt.startTransition(t.type, t.duration)
+      } else {
+        rt.draw()
+        rt.pushNdiBurst()
+      }
+
+      setupElementAnimationLoop()
+    }
+
+    // Decorative image elements load independently; redraw as each arrives — but
+    // only once the slide has been revealed, so a landing element never forces a
+    // paint of text over a not-yet-ready background (the pop this gate removes).
     for (const el of slide.elements) {
       if (el.type === "image") {
         preloadImage(
           rt.imageCacheRef.current,
           el.imageUrl,
           () => {
+            if (!revealed) return
             rt.draw()
             rt.pushNdiBurst()
           },
@@ -91,13 +196,17 @@ export function registerSlideListener(
       }
     }
 
+    // Background lifecycle: kick off the video load/play (or pause stale videos).
     if (slideHasVideoBackground(slide)) {
       const url = slide.background.videoUrl!
       const cached = rt.videoCacheRef.current.get(url)
       if (cached) {
         cached.currentTime = 0
         void cached.play()
-        rt.startSlideVideoLoop()
+        // A cached clip is usually buffered; if not, reveal once it can paint.
+        if (cached.readyState < 2) {
+          cached.addEventListener("loadeddata", () => reveal(), { once: true })
+        }
       } else {
         const video = document.createElement("video")
         video.crossOrigin = "anonymous"
@@ -108,7 +217,7 @@ export function registerSlideListener(
         video.onloadeddata = () => {
           rt.videoCacheRef.current.set(url, video)
           void video.play()
-          rt.startSlideVideoLoop()
+          reveal()
         }
         video.load()
       }
@@ -124,74 +233,28 @@ export function registerSlideListener(
       }
     }
 
-    if (hasTransition && wasSlide) {
-      const t = event.payload.slide.transition!
-      rt.startTransition(t.type, t.duration)
+    // Reveal now when the background can already paint — a synchronous type
+    // (solid/gradient/animated/transparent) or a warm image/video cache — else
+    // arm the async load to reveal once it lands, with a fallback so a slow or
+    // broken asset never freezes the previous slide indefinitely.
+    if (
+      slideBackgroundReady(
+        slide,
+        rt.imageCacheRef.current,
+        rt.videoCacheRef.current
+      )
+    ) {
+      reveal()
     } else {
-      rt.draw()
-      rt.pushNdiBurst()
-    }
-
-    // Start element animation loop if any elements have entry animations or text builds
-    renderLoop.deactivate("slideAnim")
-    const hasAnimatedElements = slide.elements.some(
-      (el) =>
-        (el.animation?.entry && el.animation.entry.type !== "none") ||
-        (el.type === "text" &&
-          (el as SlideTextElement).textBuild &&
-          (el as SlideTextElement).textBuild!.type !== "none")
-    )
-    const hasScrolling = slideHasScrollingText(slide)
-    const hasAnimatedBg = slideHasAnimatedBackground(slide)
-    const hasTimer = slideHasTimer(slide)
-
-    if (hasAnimatedElements || hasScrolling || hasAnimatedBg || hasTimer) {
-      const tracker = createSlideAnimationTracker()
-      rt.slideAnimTracker.current = tracker
-
-      const measuringCanvas = document.createElement("canvas")
-      // Measure line counts at the live surface width so text-build reveals
-      // match the actual wrapped line count on non-16:9 surfaces.
-      const measureSurface = rt.computeSurface()
-      measuringCanvas.width = measureSurface.width
-      measuringCanvas.height = measureSurface.height
-      const mCtx = measuringCanvas.getContext("2d")!
-
-      const animInfo = {
-        elements: slide.elements.map((el) => ({
-          id: el.id,
-          animation: el.animation,
-          textBuild:
-            el.type === "text" ? (el as SlideTextElement).textBuild : undefined,
-          textLineCount:
-            el.type === "text"
-              ? getTextLineCount(
-                  mCtx,
-                  el as SlideTextElement,
-                  measureSurface.width,
-                  measureSurface.height
-                )
-              : undefined,
-          textWordCount:
-            el.type === "text"
-              ? getTextWordCount(el as SlideTextElement)
-              : undefined,
-        })),
+      if (slide.background.type === "image" && slide.background.imageUrl) {
+        preloadImage(
+          rt.imageCacheRef.current,
+          slide.background.imageUrl,
+          reveal,
+          "slide background image"
+        )
       }
-
-      // Advance the tracker each frame (beforeFrame), draw+push (default),
-      // then keep going until the entry animation completes — unless the
-      // slide scrolls or has an animated background, which run indefinitely.
-      // "after" timing preserves the original's draw-then-decide order.
-      renderLoop.activate("slideAnim", {
-        beforeFrame: () =>
-          updateAnimationTracker(tracker, animInfo, performance.now()),
-        keepAlive: () =>
-          !tracker.isComplete || hasScrolling || hasAnimatedBg || hasTimer,
-        keepAliveTiming: "after",
-      })
-    } else {
-      rt.slideAnimTracker.current = null
+      fallbackTimer = setTimeout(reveal, ASSET_REVEAL_FALLBACK_MS)
     }
   })
 
