@@ -56,6 +56,7 @@ export function SettingsDialog() {
           variant="ghost"
           size="icon-sm"
           aria-label="Settings"
+          title="Settings (Ctrl ,)"
           data-tour="settings"
         >
           <SettingsIcon className="size-3.5" />

@@ -54,6 +54,21 @@ describe("settings store", () => {
     expect(state.confidenceThreshold).toBe(0.65)
   })
 
+  it("migrates a persisted retired 'zipformer' provider to Moonshine", async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === "sttProvider") return "zipformer"
+      return null
+    })
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    // The retired on-device engine falls back to Moonshine so the settings
+    // radio still matches a real option and the backend gets a valid name.
+    expect(useSettingsStore.getState().sttProvider).toBe("sherpa")
+  })
+
   it("hydrate with no persisted values falls back to defaults", async () => {
     mockGet.mockResolvedValue(null)
 

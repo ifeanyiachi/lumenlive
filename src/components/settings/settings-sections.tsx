@@ -4,8 +4,6 @@ import {
   MicIcon,
   TvIcon,
   BookOpenIcon,
-  ScrollTextIcon,
-  PencilIcon,
   RadioIcon,
   HelpCircleIcon,
   BrainCircuitIcon,
@@ -13,6 +11,7 @@ import {
   ImageIcon,
   MusicIcon,
   ShieldIcon,
+  ArchiveIcon,
 } from "lucide-react"
 
 import type { SettingsSection } from "@/lib/settings-dialog"
@@ -20,13 +19,12 @@ import type { SettingsSection } from "@/lib/settings-dialog"
 import { AudioSection } from "./sections/audio-section"
 import { SpeechSection } from "./sections/speech-section"
 import { BibleSection } from "./sections/bible-section"
-import { ScriptureSection } from "./sections/scripture-section"
-import { SavedEditsSection } from "./sections/saved-edits-section"
 import { DisplayModeSection } from "./sections/display-mode-section"
 import { ScheduleSection } from "./sections/schedule-section"
 import { MediaLibrarySection } from "./sections/media-library-section"
 import { SongsSection } from "./sections/songs-section"
 import { RemoteControlSection } from "./sections/remote-control-section"
+import { BackupSection } from "./sections/backup-section"
 import { PrivacySection } from "./sections/privacy-section"
 import { HelpSection } from "./sections/help-section"
 
@@ -69,20 +67,6 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     Component: BibleSection,
   },
   {
-    id: "scripture",
-    name: "Scripture",
-    title: "Scripture",
-    icon: <ScrollTextIcon strokeWidth={2} />,
-    Component: ScriptureSection,
-  },
-  {
-    id: "saved-edits",
-    name: "Saved Edits",
-    title: "Saved Verse Edits",
-    icon: <PencilIcon strokeWidth={2} />,
-    Component: SavedEditsSection,
-  },
-  {
     id: "display",
     name: "Display Mode",
     title: "Display Mode",
@@ -116,6 +100,13 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     title: "Remote Control",
     icon: <RadioIcon strokeWidth={2} />,
     Component: RemoteControlSection,
+  },
+  {
+    id: "backup",
+    name: "Backup & Restore",
+    title: "Backup & Restore",
+    icon: <ArchiveIcon strokeWidth={2} />,
+    Component: BackupSection,
   },
   {
     id: "privacy",

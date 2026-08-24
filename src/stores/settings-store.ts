@@ -7,12 +7,11 @@ import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 
 /**
- * STT backend. `deepgram` is the cloud engine; `sherpa` (Moonshine) and
- * `zipformer` (transducer with Bible-keyterm hotword biasing) are the two
- * on-device engines — both run through the same local VAD/endpointing pipeline,
- * so the Pause Sensitivity and live-partials settings apply to either.
+ * STT backend. `deepgram` is the cloud engine; `sherpa` (Moonshine) is the
+ * on-device engine — it runs through the local VAD/endpointing pipeline, so the
+ * Pause Sensitivity and live-partials settings apply to it.
  */
-export type SttProvider = "deepgram" | "sherpa" | "zipformer"
+export type SttProvider = "deepgram" | "sherpa"
 type MediaImportMode = "reference" | "copy"
 
 /** Schedule "All" tab layout: flat list vs. thumbnail grid. */
@@ -121,6 +120,13 @@ interface SettingsState {
    */
   scheduleViewMode: ScheduleViewMode
 
+  /**
+   * When on, saving a verse edit (from the Bible panel's verse editor or the
+   * multi-verse editor) also pushes the edited block straight to the live
+   * output, not just into the schedule. Operator preference; persisted.
+   */
+  verseEditGoLive: boolean
+
   setDeepgramApiKey: (key: string | null) => void
   setGeniusApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
@@ -144,6 +150,7 @@ interface SettingsState {
   setScriptureDefaultThemeId: (themeId: string) => void
   setTelemetryEnabled: (enabled: boolean) => void
   setScheduleViewMode: (mode: ScheduleViewMode) => void
+  setVerseEditGoLive: (enabled: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -170,6 +177,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   scriptureDefaultThemeId: SCRIPTURE_BUILTIN.id,
   telemetryEnabled: true,
   scheduleViewMode: "list",
+  verseEditGoLive: false,
 
   setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
@@ -197,6 +205,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ scriptureDefaultThemeId }),
   setTelemetryEnabled: (telemetryEnabled) => set({ telemetryEnabled }),
   setScheduleViewMode: (scheduleViewMode) => set({ scheduleViewMode }),
+  setVerseEditGoLive: (verseEditGoLive) => set({ verseEditGoLive }),
 }))
 
 const PERSISTED_KEYS = [
@@ -223,6 +232,7 @@ const PERSISTED_KEYS = [
   "scriptureDefaultThemeId",
   "telemetryEnabled",
   "scheduleViewMode",
+  "verseEditGoLive",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 let tauriStore: Store | null = null
@@ -249,6 +259,13 @@ export function hydrateSettings(): Promise<void> {
         if (value !== undefined && value !== null) {
           ;(patch as Record<string, unknown>)[key] = value
         }
+      }
+
+      // Migrate the retired on-device engine: anyone who previously selected
+      // "zipformer" falls back to Moonshine ("sherpa") so the settings radio
+      // still matches a real option and the backend gets a valid provider name.
+      if ((patch.sttProvider as string) === "zipformer") {
+        patch.sttProvider = "sherpa"
       }
       if (Object.keys(patch).length > 0) {
         useSettingsStore.setState(patch)
