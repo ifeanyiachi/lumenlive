@@ -12,11 +12,13 @@
  */
 
 import { SCHEDULE_FILE_EXTENSION } from "@/lib/schedule-io"
-import type {
-  BundleManifest,
-  BundleMediaFile,
-  ExtractedMedia,
-} from "@/lib/schedule-bundle"
+import type { BundleManifest } from "@/lib/schedule-bundle"
+import {
+  saveBundle,
+  readBundle,
+  type BundleMediaFile,
+  type ExtractedMedia,
+} from "@/services/bundle-gateway"
 
 /** Save dialog: always write the branded extension. */
 const SAVE_FILTERS = [
@@ -39,19 +41,6 @@ const OPEN_FILTERS = [
   },
   { name: "All files", extensions: ["*"] },
 ]
-
-/** Lazy-load the dialog + core plugins; null when unavailable (browser/tests). */
-async function tauri() {
-  try {
-    const [dialog, core] = await Promise.all([
-      import("@tauri-apps/plugin-dialog"),
-      import("@tauri-apps/api/core"),
-    ])
-    return { dialog, core }
-  } catch {
-    return null
-  }
-}
 
 /**
  * Prompt for a save location (pre-filled with `defaultName`) and write
@@ -77,7 +66,7 @@ export async function saveScheduleFile(
 /**
  * Write a self-contained schedule bundle (a zip kept under the `.lumsched`
  * extension). Prompts for a save location, then hands the manifest + the list of
- * media files to embed to the Rust `write_schedule_bundle` command, which
+ * media files to embed to the Rust `write_bundle` command, which
  * streams the media bytes straight into the archive. Returns the saved path, or
  * null if the user cancels or the plugins are unavailable. A write failure
  * (disk full, permission) rejects so the caller can report it.
@@ -87,19 +76,12 @@ export async function saveScheduleBundle(
   manifest: BundleManifest,
   mediaFiles: BundleMediaFile[]
 ): Promise<string | null> {
-  const t = await tauri()
-  if (!t) return null
-  const path = await t.dialog.save({
-    defaultPath: defaultName,
-    filters: SAVE_FILTERS,
-  })
-  if (!path) return null
-  await t.core.invoke("write_schedule_bundle", {
-    destPath: path,
-    manifestJson: JSON.stringify(manifest),
-    media: mediaFiles,
-  })
-  return path
+  return saveBundle(
+    defaultName,
+    JSON.stringify(manifest),
+    mediaFiles,
+    SAVE_FILTERS
+  )
 }
 
 /** A schedule file read off disk by {@link readScheduleFile}. */
@@ -122,21 +104,7 @@ export interface ReadScheduleFile {
  * is the caller's job (see `@/lib/schedule-bundle` / `@/lib/schedule-io`).
  */
 export async function readScheduleFile(): Promise<ReadScheduleFile | null> {
-  const t = await tauri()
-  if (!t) return null
-  const selected = await t.dialog.open({
-    multiple: false,
-    title: "Import schedule",
-    filters: OPEN_FILTERS,
-  })
-  if (selected == null || Array.isArray(selected)) return null
-  const path = String(selected)
-  const result = await t.core.invoke<{
-    manifestJson: string
-    media: ExtractedMedia[]
-    legacy: boolean
-  }>("read_schedule_bundle", { bundlePath: path })
-  return { name: path.split(/[\\/]/).pop() ?? "schedule", ...result }
+  return readBundle("Import schedule", OPEN_FILTERS)
 }
 
 /** A schedule file the user picked, with its raw text ready to parse. */

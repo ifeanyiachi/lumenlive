@@ -1,26 +1,31 @@
 #![expect(clippy::needless_pass_by_value)]
 
-//! Self-contained schedule bundles.
+//! Self-contained content bundles.
 //!
-//! A schedule exported for another machine can't just reference media/songs/
-//! presentations by id — those ids resolve only against the *source* machine's
-//! library. So the bundle is a **zip archive** (kept under the familiar
-//! `.lumsched` extension) that packages everything the schedule needs:
+//! Content exported for another machine can't just reference media by id or by
+//! absolute path — those resolve only against the *source* machine's library. So
+//! a bundle is a **zip archive** that packages everything the content needs:
 //!
 //! ```text
-//! service.lumsched            (a zip container)
-//! ├── manifest.json           the schedule document + presentations/songs/themes
+//! export.<ext>                (a zip container)
+//! ├── manifest.json           the exported document(s) + metadata
 //! └── media/<file>            the raw image/video/audio bytes
 //! ```
 //!
-//! [`write_schedule_bundle`] streams the picked media files straight into the
-//! zip (no base64, no whole-file buffering — large videos never hit memory).
-//! [`read_schedule_bundle`] auto-detects the format by the leading bytes: a real
-//! zip is unpacked (media extracted into the managed media-library, so the
-//! extracted files are owned by the app exactly like a normal copy-import), while
-//! a plain-JSON file (the legacy v1 export) is handed back verbatim so old
-//! schedules still open. The JS side (`@/lib/schedule-bundle`) owns all id
-//! remapping; this command only moves bytes.
+//! This is the shared byte-mover for every bundle format in the app — schedule
+//! bundles (`.lumsched`), single theme / stage-layout bundles (`.lumtheme`), and
+//! the full-library backup (`.lumbackup`). All three share exactly this
+//! `manifest.json` + `media/…` shape; only the manifest *contents* differ, and
+//! that's the JS side's concern.
+//!
+//! [`write_bundle`] streams the picked media files straight into the zip (no
+//! base64, no whole-file buffering — large videos never hit memory).
+//! [`read_bundle`] auto-detects the format by the leading bytes: a real zip is
+//! unpacked (media extracted into the managed media-library, so the extracted
+//! files are owned by the app exactly like a normal copy-import), while a
+//! plain-JSON file (a legacy schedule export) is handed back verbatim so old
+//! schedules still open. The JS side owns all id remapping; this command only
+//! moves bytes.
 
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -63,7 +68,7 @@ pub struct BundleReadResult {
     pub legacy: bool,
 }
 
-/// Write a self-contained schedule bundle (zip) to `dest_path`.
+/// Write a self-contained content bundle (zip) to `dest_path`.
 ///
 /// The `manifest_json` is stored deflated; media is stored uncompressed (images
 /// and video are already compressed, so deflating them just burns CPU) and
@@ -71,7 +76,7 @@ pub struct BundleReadResult {
 /// rather than aborting the whole export — the JS side pre-filters and reports
 /// anything missing.
 #[tauri::command]
-pub fn write_schedule_bundle(
+pub fn write_bundle(
     dest_path: String,
     manifest_json: String,
     media: Vec<BundleMediaFile>,
@@ -110,10 +115,10 @@ pub fn write_schedule_bundle(
     Ok(())
 }
 
-/// Read a picked schedule file: unpack a zip bundle (extracting media into the
+/// Read a picked bundle file: unpack a zip bundle (extracting media into the
 /// managed library) or return a legacy plain-JSON export verbatim.
 #[tauri::command]
-pub fn read_schedule_bundle(
+pub fn read_bundle(
     app: tauri::AppHandle,
     bundle_path: String,
 ) -> Result<BundleReadResult, String> {

@@ -6,8 +6,8 @@
  * media/decks/songs/themes are referenced by id and resolve only on the machine
  * that already owns them, so a schedule opened on another PC shows blank media.
  * A bundle instead packages the referenced content itself. On disk it is a zip
- * (kept under the `.lumsched` extension; the Rust `write_schedule_bundle` /
- * `read_schedule_bundle` commands own the archive I/O) containing:
+ * (kept under the `.lumsched` extension; the Rust `write_bundle` /
+ * `read_bundle` commands own the archive I/O) containing:
  *
  *  - `manifest.json` — the schedule plus the referenced presentations, songs and
  *    custom themes, with their **original** ids and URLs intact, and a media
@@ -32,8 +32,17 @@ import type {
 import type { Presentation, Slide } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import type { Song } from "@/types/song"
-import type { MediaAsset, MediaType } from "@/types/media"
+import type { MediaAsset } from "@/types/media"
+import type {
+  BundleMediaEntry,
+  BundleMediaFile,
+  ExtractedMedia,
+} from "@/types/bundle"
 import { ScheduleParseError } from "@/lib/schedule-io"
+
+// Re-exported so existing consumers of `@/lib/schedule-bundle` keep resolving
+// these shared bundle types from the barrel.
+export type { BundleMediaEntry, BundleMediaFile, ExtractedMedia }
 import {
   collectSurfaceRefs,
   rewriteSurface,
@@ -46,28 +55,6 @@ export const BUNDLE_FORMAT = "lumenlive.schedule.bundle"
 
 /** Bundle manifest schema version. Bump on any manifest shape change. */
 export const BUNDLE_VERSION = 2
-
-/** Metadata for one packaged media file, carried in the manifest. */
-export interface BundleMediaEntry {
-  /** Entry name under `media/` in the zip. */
-  zipName: string
-  /** The file's original absolute path on the exporting machine. */
-  srcPath: string
-  /**
-   * The media-library record for this file, when the reference was an asset
-   * (a media schedule item or a `mediaAssetId` background). Absent for a file
-   * referenced only by a baked `imageUrl`/`videoUrl`.
-   */
-  asset?: {
-    id: string
-    name: string
-    type: MediaType
-    width?: number
-    height?: number
-    duration?: number
-    fileSize: number
-  }
-}
 
 /** The document written as `manifest.json` inside the bundle. */
 export interface BundleManifest {
@@ -82,11 +69,8 @@ export interface BundleManifest {
   media: BundleMediaEntry[]
 }
 
-/** A file the Rust writer must copy into the zip (`{ srcPath, zipName }`). */
-export interface BundleMediaFile {
-  srcPath: string
-  zipName: string
-}
+// The Rust wire types (`BundleMediaFile`, `ExtractedMedia`) live in
+// `@/types/bundle` and are re-exported from the top of this module.
 
 /** Library snapshots the builder resolves references against. */
 export interface BundleSources {
@@ -237,12 +221,6 @@ function assetMeta(a: MediaAsset): BundleMediaEntry["asset"] {
 }
 
 // ── Parse ────────────────────────────────────────────────────────────────────
-
-/** One media file extracted from a bundle (from the Rust `read_schedule_bundle`). */
-export interface ExtractedMedia {
-  zipName: string
-  path: string
-}
 
 /** Store-ready records produced by {@link parseScheduleBundle}. */
 export interface ParsedBundle {
