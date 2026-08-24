@@ -8,14 +8,12 @@ import {
 import { cn } from "@/lib/utils"
 import { ArrowLeftIcon, ArrowRightIcon, PencilIcon } from "lucide-react"
 import { useDragSource } from "@/stores/drag-store"
-import { verseEditKey } from "@/types/verse-edit"
 import { verseLocationKey, verseReference } from "@/lib/search/verse-keys"
 import { LexiconToggle } from "./lexicon-toggle"
 import { QueueButton } from "./queue-button"
 import { MultiSelectBar } from "./multi-select-bar"
 import { LexiconBar } from "@/components/panels/LexiconBar"
 import type { Book, Translation, Verse } from "@/types"
-import type { VerseEdit } from "@/types/verse-edit"
 
 type LexiconId = number | string | null
 
@@ -32,7 +30,6 @@ export interface BookSearchTabProps {
   lexiconOpenId: LexiconId
   setLexiconOpenId: (updater: (prev: LexiconId) => LexiconId) => void
   queuedVerseKeys: Set<string>
-  verseEdits: Record<string, VerseEdit>
   onEditVerse: (verse: Verse) => void
   // Multi-select
   multiSelected: Set<number>
@@ -69,7 +66,6 @@ export function BookSearchTab({
   lexiconOpenId,
   setLexiconOpenId,
   queuedVerseKeys,
-  verseEdits,
   onEditVerse,
   multiSelected,
   handleVerseClick,
@@ -185,53 +181,28 @@ export function BookSearchTab({
                       }
                     />
                   )}
-                  {/* Edit verse (book-only) */}
-                  {(() => {
-                    const hasEdit =
-                      verseEditKey(
-                        activeTranslationId,
-                        verse.book_number,
-                        verse.chapter,
-                        verse.verse
-                      ) in verseEdits
-                    return (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              aria-label={
-                                hasEdit
-                                  ? "Edit saved formatting"
-                                  : "Edit verse formatting"
-                              }
-                              className={cn(
-                                "relative shrink-0 transition-opacity",
-                                hasEdit
-                                  ? "text-amber-400"
-                                  : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onEditVerse(verse)
-                              }}
-                            >
-                              <PencilIcon className="size-3" />
-                              {hasEdit && (
-                                <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-amber-400" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">
-                            {hasEdit
-                              ? "Edit saved formatting"
-                              : "Edit verse formatting"}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )
-                  })()}
+                  {/* Edit verse formatting, then add to schedule (book-only) */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Edit verse formatting"
+                          className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEditVerse(verse)
+                          }}
+                        >
+                          <PencilIcon className="size-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        Edit verse formatting
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <QueueButton
                     verse={verse}
                     confidence={1}

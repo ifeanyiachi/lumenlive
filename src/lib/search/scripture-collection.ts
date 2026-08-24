@@ -9,7 +9,7 @@ import type {
  * by the schedule row's preview (schedule-all-tab) and the live presentation /
  * stepping path (schedule navigation slice). Keeping the deck math here (rather
  * than duplicated in a component and a store) means both walk the exact same
- * slide ordering: combined block first, then each verse individually.
+ * slide ordering: one slide per verse, in canonical order.
  *
  * PURE: no React / Zustand / Tauri — plain functions over the cached item data.
  */
@@ -20,15 +20,13 @@ export function isScriptureCollection(item: ScriptureScheduleItem): boolean {
 }
 
 /**
- * Number of slides a collection expands into: the combined block plus one per
- * cached verse. Returns 0 for a non-collection item (nothing to step).
+ * Number of slides a collection expands into: one per cached verse. Returns 0
+ * for a non-collection item (nothing to step).
  */
 export function scriptureCollectionDeckLength(
   item: ScriptureScheduleItem
 ): number {
-  return isScriptureCollection(item)
-    ? 1 + (item.collectionVerses?.length ?? 0)
-    : 0
+  return isScriptureCollection(item) ? (item.collectionVerses?.length ?? 0) : 0
 }
 
 /** Reconstruct a {@link Verse} from a cached collection verse (id is synthetic). */
@@ -50,4 +48,18 @@ export function scriptureCollectionVerses(
   item: ScriptureScheduleItem
 ): Verse[] {
   return (item.collectionVerses ?? []).map(collectionVerseToVerse)
+}
+
+/**
+ * The cached collection verses as {@link Verse}s with **distinct** ids for the
+ * multi-verse editor. {@link collectionVerseToVerse} gives every verse `id: 0`,
+ * but that editor keys its per-verse TipTap instances by `verse.id` — leaving
+ * the duplicate ids would collapse the whole collection onto a single editor
+ * (and collide React keys). The id is display-only here (saved edits key on
+ * translation/book/chapter/verse, not id), so a 1-based index is safe.
+ */
+export function scriptureCollectionEditVerses(
+  item: ScriptureScheduleItem
+): Verse[] {
+  return scriptureCollectionVerses(item).map((v, i) => ({ ...v, id: i + 1 }))
 }

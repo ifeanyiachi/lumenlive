@@ -20,8 +20,8 @@ import {
  * - **Add to Schedule** — the whole selection as one combined block item.
  * - **Edit** — format the selected verses together.
  * - **Add as Group** — a collection item that expands into a dropdown deck
- *   (combined view first, then each verse individually); its caret menu also
- *   offers **Add as separate items** (one independent row per verse).
+ *   (one slide per verse); its caret menu also offers **Add as separate items**
+ *   (one independent row per verse).
  * - **Present** — send the block straight to the audience.
  * - clear.
  */

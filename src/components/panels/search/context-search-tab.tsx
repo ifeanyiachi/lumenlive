@@ -25,6 +25,7 @@ export function ContextSearchTab({
   lexiconOpenId,
   setLexiconOpenId,
   queuedVerseKeys,
+  onVerseDoubleClick,
 }: {
   contextQuery: string
   semanticResults: SemanticSearchResult[]
@@ -34,6 +35,8 @@ export function ContextSearchTab({
   lexiconOpenId: LexiconId
   setLexiconOpenId: (updater: (prev: LexiconId) => LexiconId) => void
   queuedVerseKeys: Set<string>
+  /** Double-click / double-tap a result to stage it and send it straight live. */
+  onVerseDoubleClick: (verse: Verse) => void
 }) {
   const verseDrag = useDragSource()
 
@@ -82,6 +85,7 @@ export function ContextSearchTab({
               onClick={() => {
                 bibleActions.selectVerse(verse)
               }}
+              onDoubleClick={() => onVerseDoubleClick(verse)}
               className="group relative flex cursor-pointer flex-col gap-1 rounded-lg p-3 transition-colors hover:bg-muted/50"
             >
               <div className="flex shrink-0 flex-row items-start gap-2">

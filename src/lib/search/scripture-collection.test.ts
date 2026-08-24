@@ -5,6 +5,7 @@ import {
   scriptureCollectionDeckLength,
   collectionVerseToVerse,
   scriptureCollectionVerses,
+  scriptureCollectionEditVerses,
 } from "./scripture-collection"
 
 const collectionItem = (): ScriptureScheduleItem => ({
@@ -70,8 +71,8 @@ describe("scripture-collection helpers", () => {
     ).toBe(false)
   })
 
-  it("deck length is the combined block plus one slide per verse", () => {
-    expect(scriptureCollectionDeckLength(collectionItem())).toBe(3)
+  it("deck length is one slide per verse", () => {
+    expect(scriptureCollectionDeckLength(collectionItem())).toBe(2)
     expect(scriptureCollectionDeckLength(plainItem())).toBe(0)
   })
 
@@ -93,5 +94,19 @@ describe("scripture-collection helpers", () => {
     const verses = scriptureCollectionVerses(collectionItem())
     expect(verses.map((v) => v.verse)).toEqual([16, 17])
     expect(scriptureCollectionVerses(plainItem())).toEqual([])
+  })
+
+  it("gives edit verses distinct ids (the multi-editor keys by id)", () => {
+    // collectionVerseToVerse yields id 0 for every verse; the editor would
+    // otherwise collapse them onto one instance.
+    expect(scriptureCollectionVerses(collectionItem()).map((v) => v.id)).toEqual(
+      [0, 0]
+    )
+    const editVerses = scriptureCollectionEditVerses(collectionItem())
+    expect(editVerses.map((v) => v.id)).toEqual([1, 2])
+    expect(new Set(editVerses.map((v) => v.id)).size).toBe(editVerses.length)
+    // The verse content is otherwise untouched.
+    expect(editVerses.map((v) => v.verse)).toEqual([16, 17])
+    expect(editVerses.map((v) => v.text)).toEqual(["a", "b"])
   })
 })

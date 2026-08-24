@@ -10,7 +10,6 @@ import {
 } from "lucide-react"
 import { useBible, bibleActions } from "@/hooks/use-bible"
 import { useBibleStore, useQueueStore, useSettingsStore } from "@/stores"
-import { useVerseEditStore } from "@/stores/verse-edit-store"
 import type { Book, Verse } from "@/types"
 import { Input } from "@/components/ui/input"
 import { SearchMediaTab } from "@/components/panels/search-media-tab"
@@ -105,8 +104,6 @@ export function SearchPanel() {
       )
     )
   }, [queueItems])
-
-  const verseEdits = useVerseEditStore((s) => s.edits)
 
   const selectedBookNumber = selectedBook?.book_number
 
@@ -409,7 +406,6 @@ export function SearchPanel() {
           lexiconOpenId={lexiconOpenId}
           setLexiconOpenId={setLexiconOpenId}
           queuedVerseKeys={queuedVerseKeys}
-          verseEdits={verseEdits}
           onEditVerse={setEditingVerse}
           multiSelected={multiSelected}
           handleVerseClick={handleVerseClick}
@@ -434,6 +430,7 @@ export function SearchPanel() {
           lexiconOpenId={lexiconOpenId}
           setLexiconOpenId={setLexiconOpenId}
           queuedVerseKeys={queuedVerseKeys}
+          onVerseDoubleClick={handleVerseDoubleClick}
         />
       )}
 

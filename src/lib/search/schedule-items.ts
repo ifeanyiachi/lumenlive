@@ -3,6 +3,7 @@ import type {
   ScriptureScheduleItem,
   ScriptureCollectionVerse,
 } from "@/types/schedule"
+import type { StyledVerseSegment } from "@/types/verse-edit"
 import { verseReference } from "./verse-keys"
 import { buildMultiVerseReference } from "@/lib/multi-verse"
 
@@ -26,7 +27,9 @@ function sortCanonical(verses: Verse[]): Verse[] {
 export function buildScriptureScheduleItem(
   verse: Verse,
   translation: string,
-  order: number
+  order: number,
+  /** Item-scoped styled edit for this verse (owned by the item, never global). */
+  segment?: StyledVerseSegment
 ): ScriptureScheduleItem {
   const label = `${verseReference(verse)} (${translation})`
   return {
@@ -41,7 +44,8 @@ export function buildScriptureScheduleItem(
     verseStart: verse.verse,
     verseEnd: verse.verse,
     cachedReference: label,
-    cachedText: verse.text,
+    cachedText: segment?.text ?? verse.text,
+    ...(segment ? { segments: [segment] } : {}),
   }
 }
 
@@ -58,12 +62,17 @@ export function buildScriptureScheduleItem(
 export function buildGroupedScriptureScheduleItem(
   verses: Verse[],
   translation: string,
-  order: number
+  order: number,
+  /** verse.id → its item-scoped styled edit; only edited verses need be present. */
+  segmentById?: Map<number, StyledVerseSegment>
 ): ScriptureScheduleItem {
   const sorted = sortCanonical(verses)
   const first = sorted[0]
   const last = sorted[sorted.length - 1]
   const reference = buildMultiVerseReference(sorted, translation)
+  const segments = sorted
+    .map((v) => segmentById?.get(v.id))
+    .filter((s): s is StyledVerseSegment => !!s)
   return {
     id: crypto.randomUUID(),
     type: "scripture",
@@ -76,35 +85,49 @@ export function buildGroupedScriptureScheduleItem(
     verseStart: first.verse,
     verseEnd: last.verse,
     cachedReference: reference,
-    cachedText: sorted.map((v) => v.text).join(" "),
+    cachedText: sorted.map((v) => segmentById?.get(v.id)?.text ?? v.text).join(" "),
+    ...(segments.length > 0 ? { segments } : {}),
   }
 }
 
 /**
  * Build a scripture *collection* item: one running-order entry that expands into
- * a deck of the combined block (slide 0) followed by each verse individually
- * (mirroring how a song / grouped slide deck expands). The top-level fields
- * describe the combined block — identical to {@link
- * buildGroupedScriptureScheduleItem} so the collection's first slide presents
- * byte-for-byte like a plain grouped add — and each selected verse is cached in
- * `collectionVerses` so the deck renders offline and survives a reload.
+ * a deck of one slide per verse (mirroring how a song / grouped slide deck
+ * expands). The top-level fields carry the combined range — reusing {@link
+ * buildGroupedScriptureScheduleItem} for the label / reference / cached text —
+ * and each selected verse is cached in `collectionVerses` so the deck renders
+ * offline and survives a reload.
  */
 export function buildScriptureCollectionScheduleItem(
   verses: Verse[],
   translation: string,
-  order: number
+  order: number,
+  /** verse.id → its item-scoped styled edit; only edited verses need be present. */
+  segmentById?: Map<number, StyledVerseSegment>
 ): ScriptureScheduleItem {
-  const base = buildGroupedScriptureScheduleItem(verses, translation, order)
+  const base = buildGroupedScriptureScheduleItem(
+    verses,
+    translation,
+    order,
+    segmentById
+  )
   const sorted = sortCanonical(verses)
-  const collectionVerses: ScriptureCollectionVerse[] = sorted.map((v) => ({
-    translationId: v.translation_id,
-    bookNumber: v.book_number,
-    bookName: v.book_name,
-    bookAbbreviation: v.book_abbreviation,
-    chapter: v.chapter,
-    verse: v.verse,
-    text: v.text,
-    reference: `${verseReference(v)} (${translation})`,
-  }))
-  return { ...base, groupCollection: true, collectionVerses }
+  const collectionVerses: ScriptureCollectionVerse[] = sorted.map((v) => {
+    const segment = segmentById?.get(v.id)
+    return {
+      translationId: v.translation_id,
+      bookNumber: v.book_number,
+      bookName: v.book_name,
+      bookAbbreviation: v.book_abbreviation,
+      chapter: v.chapter,
+      verse: v.verse,
+      text: segment?.text ?? v.text,
+      reference: `${verseReference(v)} (${translation})`,
+      ...(segment ? { segment } : {}),
+    }
+  })
+  // A collection carries its edits per-verse (on collectionVerses); the top-level
+  // combined `segments` from the grouped base would double-store them.
+  const { segments: _combined, ...rest } = base
+  return { ...rest, groupCollection: true, collectionVerses }
 }

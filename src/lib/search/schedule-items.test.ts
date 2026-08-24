@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import type { Verse } from "@/types"
+import type { StyledVerseSegment } from "@/types/verse-edit"
 import {
   buildScriptureScheduleItem,
   buildGroupedScriptureScheduleItem,
@@ -94,6 +95,32 @@ describe("buildGroupedScriptureScheduleItem", () => {
     expect(item.verseStart).toBe(16)
     expect(item.verseEnd).toBe(16)
   })
+
+  it("attaches item-scoped edits (edited verses only) and uses their text", () => {
+    const verses = [
+      verse({ id: 1, verse: 16, text: "a" }),
+      verse({ id: 2, verse: 17, text: "b" }),
+    ]
+    const seg: StyledVerseSegment = {
+      verseNumber: 16,
+      text: "EDITED",
+      spans: [{ start: 0, end: 6, style: { bold: true } }],
+    }
+    const item = buildGroupedScriptureScheduleItem(
+      verses,
+      "KJV",
+      0,
+      new Map([[1, seg]])
+    )
+    // Only the edited verse is stored; its edited text feeds cachedText.
+    expect(item.segments).toEqual([seg])
+    expect(item.cachedText).toBe("EDITED b")
+  })
+
+  it("omits segments entirely when nothing was edited", () => {
+    const item = buildGroupedScriptureScheduleItem([verse()], "KJV", 0, new Map())
+    expect(item.segments).toBeUndefined()
+  })
 })
 
 describe("buildScriptureCollectionScheduleItem", () => {
@@ -134,5 +161,27 @@ describe("buildScriptureCollectionScheduleItem", () => {
       text: "a",
       reference: "John 3:16 (KJV)",
     })
+  })
+
+  it("stores edits per collection verse, not on a combined top-level field", () => {
+    const seg: StyledVerseSegment = {
+      verseNumber: 17,
+      text: "B!",
+      spans: [{ start: 0, end: 2, style: { italic: true } }],
+    }
+    // verse id 2 is verse 17 ("b").
+    const item = buildScriptureCollectionScheduleItem(
+      verses,
+      "KJV",
+      0,
+      new Map([[2, seg]])
+    )
+    // The combined top-level `segments` is never set on a collection.
+    expect(item.segments).toBeUndefined()
+    const cv17 = item.collectionVerses?.find((v) => v.verse === 17)
+    expect(cv17?.segment).toEqual(seg)
+    expect(cv17?.text).toBe("B!")
+    // Unedited verses carry no segment.
+    expect(item.collectionVerses?.find((v) => v.verse === 16)?.segment).toBeUndefined()
   })
 })
