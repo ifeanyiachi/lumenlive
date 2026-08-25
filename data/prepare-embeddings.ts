@@ -7,7 +7,6 @@
  *   Phase 4 – Export bge-base-en-v1.5 embedding model to INT8 ONNX
  *   Phase 5 – Export KJV verses to JSON
  *   Phase 6 – Pre-compute verse embeddings (via the INT8 ONNX)
- *   Phase 7 – Download Moonshine model (sherpa-onnx) for local STT
  *
  * Every phase is idempotent: if its output artifacts already exist it is
  * skipped. Pass --force to re-run everything regardless.
@@ -30,15 +29,6 @@ const DB_PATH = join(DATA_DIR, "lumenlive.db")
 const VERSES_JSON = join(DATA_DIR, "verses-for-embedding.json")
 const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-bge-base-en-v1.5.bin")
 const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-bge-base-en-v1.5-ids.bin")
-// Moonshine base.en int8 model directory (local STT via sherpa-onnx). The
-// preprocessor ONNX is the sentinel artifact the download script writes last.
-const MOONSHINE_MODEL = join(
-  PROJECT_ROOT,
-  "models",
-  "sherpa",
-  "sherpa-onnx-moonshine-base-en-int8",
-  "preprocess.onnx"
-)
 const MODEL_INT8 = join(MODELS_DIR_INT8, "model_quantized.onnx")
 
 const force = process.argv.includes("--force")
@@ -78,7 +68,7 @@ async function main() {
   if (force) console.log("  (--force: re-running all phases)\n")
 
   // ── Phase 1: Python environment ────────────────────────────────
-  console.log("\n━━━ Phase 1/7: Python environment ━━━")
+  console.log("\n━━━ Phase 1/6: Python environment ━━━")
   await ensurePythonEnv([
     "sentence-transformers",
     "transformers",
@@ -92,19 +82,19 @@ async function main() {
   ])
 
   // ── Phase 2: Bible source data (pre-built zip + cross-refs) ────
-  console.log("\n━━━ Phase 2/7: Download Bible source data ━━━")
+  console.log("\n━━━ Phase 2/6: Download Bible source data ━━━")
   if (!shouldSkip("Bible source data", KJV_SOURCE, CROSS_REFS)) {
     await run(["bun", "run", join(DATA_DIR, "download-sources.ts")])
   }
 
   // ── Phase 3: Build Bible database ──────────────────────────────
-  console.log("\n━━━ Phase 3/7: Build Bible database ━━━")
+  console.log("\n━━━ Phase 3/6: Build Bible database ━━━")
   if (!shouldSkip("Bible database", DB_PATH)) {
     await run(["bun", "run", join(DATA_DIR, "build-bible-db.ts")])
   }
 
   // ── Phase 4: Export bge embedding model to INT8 ONNX ───────────
-  console.log("\n━━━ Phase 4/7: Export bge embedding model (INT8 ONNX) ━━━")
+  console.log("\n━━━ Phase 4/6: Export bge embedding model (INT8 ONNX) ━━━")
   // Gate on the INT8 model alone: it is the only variant the app and the
   // precompute step load. data/export-bge-onnx.py bakes CLS pooling + L2 norm
   // into a `sentence_embedding` output and quantizes to int8.
@@ -123,7 +113,7 @@ async function main() {
   }
 
   // ── Phase 5: Export verses to JSON ─────────────────────────────
-  console.log("\n━━━ Phase 5/7: Export verses to JSON ━━━")
+  console.log("\n━━━ Phase 5/6: Export verses to JSON ━━━")
   if (!shouldSkip("verses JSON", VERSES_JSON)) {
     if (!existsSync(DB_PATH)) {
       console.error(
@@ -135,7 +125,7 @@ async function main() {
   }
 
   // ── Phase 6: Pre-compute embeddings ────────────────────────────
-  console.log("\n━━━ Phase 6/7: Pre-compute verse embeddings ━━━")
+  console.log("\n━━━ Phase 6/6: Pre-compute verse embeddings ━━━")
   if (!shouldSkip("precomputed embeddings", EMB_BIN, IDS_BIN)) {
     const venvPython = getVenvBin(
       process.platform === "win32" ? "python" : "python3"
@@ -147,12 +137,6 @@ async function main() {
       undefined,
       { PYTHONUTF8: "1" }
     )
-  }
-
-  // ── Phase 7: Moonshine (sherpa-onnx) local STT model ──────────
-  console.log("\n━━━ Phase 7/7: Download Moonshine STT model ━━━")
-  if (!shouldSkip("Moonshine model", MOONSHINE_MODEL)) {
-    await run(["bun", "run", join(DATA_DIR, "download-sherpa-model.ts")])
   }
 
   // ── Done ───────────────────────────────────────────────────────

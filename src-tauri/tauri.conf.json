@@ -52,6 +52,20 @@
         "description": "LumenLive Service Schedule",
         "mimeType": "application/json",
         "role": "Editor"
+      },
+      {
+        "ext": ["lumtheme"],
+        "name": "LumenLive Theme",
+        "description": "LumenLive Theme",
+        "mimeType": "application/zip",
+        "role": "Editor"
+      },
+      {
+        "ext": ["lumbackup"],
+        "name": "LumenLive Backup",
+        "description": "LumenLive Backup",
+        "mimeType": "application/zip",
+        "role": "Editor"
       }
     ],
     "icon": [
@@ -63,21 +77,13 @@
     ],
     "resources": {
       "../data/lumenlive.db": "./",
-      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx",
-      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx",
-      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx",
-      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx",
-      "../models/sherpa/sherpa-onnx-moonshine-base-en-int8/tokens.txt": "models/sherpa/sherpa-onnx-moonshine-base-en-int8/tokens.txt",
       "../models/bge-base-en-v1.5-int8/model_quantized.onnx": "models/bge-base-en-v1.5-int8/model_quantized.onnx",
       "../models/bge-base-en-v1.5-int8/tokenizer.json": "models/bge-base-en-v1.5-int8/tokenizer.json",
       "../embeddings/kjv-bge-base-en-v1.5.bin": "embeddings/kjv-bge-base-en-v1.5.bin",
       "../embeddings/kjv-bge-base-en-v1.5-ids.bin": "embeddings/kjv-bge-base-en-v1.5-ids.bin",
       "../sdk/ndi/windows/Processing.NDI.Lib.x64.dll": "sdk/ndi/windows/Processing.NDI.Lib.x64.dll",
       "libs/onnxruntime.dll": "./",
-      "libs/onnxruntime_providers_shared.dll": "./",
-      "libs/sherpa-onnx-c-api.dll": "./",
-      "libs/sherpa-onnx-cxx-api.dll": "./",
-      "libs/cargs.dll": "./"
+      "libs/onnxruntime_providers_shared.dll": "./"
     }
   }
 }

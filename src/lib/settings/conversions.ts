@@ -23,14 +23,3 @@ export function thresholdToPercent(threshold: number): number {
 export function percentToThreshold(percent: number): number {
   return percent / 100
 }
-
-/** Bounds (ms) of the "Pause Sensitivity" slider — the total silence the local
- *  transcriber tolerates before ending an utterance. */
-export const PAUSE_SILENCE_MIN_MS = 500
-export const PAUSE_SILENCE_MAX_MS = 3000
-export const PAUSE_SILENCE_STEP_MS = 100
-
-/** Format a pause window in ms as a short seconds label, e.g. 1400 → "1.4s". */
-export function formatPauseSeconds(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`
-}

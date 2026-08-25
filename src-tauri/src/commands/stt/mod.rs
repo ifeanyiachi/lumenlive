@@ -4,9 +4,9 @@
 //!
 //! `start_transcription` wires the pieces together; the real work lives in
 //! focused submodules:
-//!   - [`model`] — model resolution + STT provider/fallback construction
+//!   - [`model`] — STT provider construction
 //!   - [`audio`] — the `!Send` cpal capture + fan-out thread
-//!   - [`supervisor`] — provider supervision with cloud↔on-device failover
+//!   - [`supervisor`] — provider supervision + disconnect surfacing
 //!   - [`events`] — transcript-event consumer + background detection workers
 //!   - [`detection`] — the live direct/semantic/reading/translation detection
 
@@ -41,25 +41,17 @@ pub(super) fn truncate_safe(s: &str, max_bytes: usize) -> &str {
 ///
 /// 1. Opens the microphone via cpal (on a dedicated thread so the non-Send
 ///    `AudioCapture` never crosses thread boundaries).
-/// 2. Connects to the selected STT provider (Deepgram cloud or Moonshine local).
+/// 2. Connects to the Deepgram STT provider.
 /// 3. Fans audio out to both the level meter (emits `audio_level` events) and STT.
 /// 4. Receives transcripts and emits `transcript_partial` / `transcript_final` events.
 /// 5. On final transcripts, runs the detection pipeline and emits `verse_detected` events.
 #[tauri::command]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Tauri command surface: each argument is a distinct start-transcription \
-              parameter passed from the frontend (device, gain, provider, endpointing, partials)"
-)]
 pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, Mutex<AppState>>,
     api_key: String,
     device_id: Option<String>,
     gain: Option<f32>,
-    provider: Option<String>,
-    pause_silence_ms: Option<u32>,
-    sherpa_partials: Option<bool>,
 ) -> Result<(), String> {
     // ── 1. Guard: already running? ──────────────────────────────────────
     let (stt_active, audio_active) = {
@@ -76,21 +68,8 @@ pub async fn start_transcription(
     // cooldown — the root of detection "degrading over time" (aitrans Phase 1).
     detection::reset_detection_state(&app);
 
-    let provider_name = provider.as_deref().unwrap_or("deepgram");
-
-    // ── 2. Build the STT provider (+ offline Moonshine fallback) ─────────
-    let sherpa_partials = sherpa_partials.unwrap_or(false);
-    let stt_provider = model::build_provider(
-        &app,
-        provider_name,
-        api_key,
-        device_id.as_deref(),
-        gain,
-        pause_silence_ms,
-        sherpa_partials,
-    )?;
-    let stt_fallback =
-        model::build_fallback(&app, provider_name, pause_silence_ms, sherpa_partials);
+    // ── 2. Build the STT provider ───────────────────────────────────────
+    let stt_provider = model::build_provider(api_key)?;
 
     stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);
@@ -99,23 +78,17 @@ pub async fn start_transcription(
     let (audio_send_tx, audio_send_rx) = crossbeam_channel::bounded::<Vec<i16>>(64);
     audio::spawn_audio_fanout(&app, device_id, gain, &stt_active, &audio_active, audio_send_tx)?;
 
-    // ── 4. Spawn the STT supervisor (provider + cloud↔on-device failover) ─
+    // ── 4. Spawn the STT supervisor ─────────────────────────────────────
     let (event_tx, event_rx) = tokio::sync::mpsc::channel::<TranscriptEvent>(64);
 
     let conn_active = stt_active.clone();
     let provider_log_name = stt_provider.name().to_string();
     let supervisor_app = app.clone();
 
-    // Share the primary and the on-device fallback so the supervisor can run each
-    // provider and stop it from a separate task — the connectivity watchdog stops
-    // the primary to force a failover; the failback path stops the fallback.
     let stt_provider: std::sync::Arc<dyn SttProvider> = std::sync::Arc::from(stt_provider);
-    let stt_fallback: Option<std::sync::Arc<dyn SttProvider>> =
-        stt_fallback.map(std::sync::Arc::from);
 
     tauri::async_runtime::spawn(supervisor::run_stt_supervisor(
         stt_provider,
-        stt_fallback,
         audio_send_rx,
         event_tx,
         conn_active,

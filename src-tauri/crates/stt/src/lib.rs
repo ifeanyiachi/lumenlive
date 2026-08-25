@@ -1,8 +1,7 @@
 //! Speech-to-text integration for the `LumenLive` application.
 //!
-//! Provides real-time transcription via multiple providers:
-//! - **Deepgram** (cloud) — WebSocket streaming with keyword boosting
-//! - **Moonshine** (local) — offline inference via sherpa-onnx (low footprint)
+//! Provides real-time transcription via **Deepgram** (cloud) — WebSocket
+//! streaming with keyword boosting.
 //!
 //! # Key types
 //!
@@ -15,7 +14,6 @@
 //! # Feature flags
 //!
 //! - `rest-fallback` — enables REST API fallback client
-//! - `sherpa` — enables the local sherpa-onnx STT provider (Moonshine)
 
 pub mod deepgram;
 pub mod error;
@@ -24,14 +22,8 @@ pub mod provider;
 pub mod rest;
 pub mod types;
 
-#[cfg(feature = "sherpa")]
-pub mod sherpa;
-
 pub use deepgram::DeepgramClient;
 pub use error::SttError;
 pub use keyterms::bible_keyterms;
 pub use provider::SttProvider;
 pub use types::{SttConfig, TranscriptEvent, Word};
-
-#[cfg(feature = "sherpa")]
-pub use sherpa::SherpaProvider;

@@ -15,16 +15,16 @@ use crate::keyterms::bible_keyterms;
 use crate::provider::SttProvider;
 use crate::types::{SttConfig, TranscriptEvent, Word};
 
-/// Kept low so a truly-offline connection gives up fast and the orchestrator can
-/// fail over to the local engine, rather than stalling a live service.
+/// Kept low so a truly-offline connection gives up fast and the supervisor can
+/// surface the error to the operator, rather than stalling a live service.
 const MAX_RECONNECT_ATTEMPTS: u32 = 2;
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 /// Hard ceiling on the WebSocket handshake. `connect_async` has no built-in
 /// timeout, so when the machine is offline the underlying TCP/TLS connect would
 /// otherwise stall on the OS-level SYN timeout (tens of seconds on Windows)
-/// before returning an error — long enough that the failover never appears to
-/// happen. Bounding it here guarantees each attempt gives up quickly so the
-/// caller can switch to the on-device engine within a few seconds.
+/// before returning an error — long enough that a live service silently stalls.
+/// Bounding it here guarantees each attempt gives up quickly so the supervisor
+/// can surface the disconnect within a few seconds.
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(1500);
 /// Batch up to 100ms of audio before sending (at 16kHz, that is 1600 samples).
 /// Kept small so interim results stream promptly — a larger batch adds a fixed
@@ -149,9 +149,9 @@ impl DeepgramClient {
                     let _ = event_tx.send(TranscriptEvent::Disconnected).await;
 
                     if attempts >= MAX_RECONNECT_ATTEMPTS {
-                        // Give up so the caller can fail over to the local engine.
-                        // Deliberately no user-facing Error event here — the
-                        // failover path owns that messaging.
+                        // Give up and return the error. Deliberately no
+                        // user-facing Error event here — the supervisor surfaces
+                        // the returned Err as `stt_error`.
                         log::error!("DeepgramClient: max reconnection attempts reached");
                         return Err(e);
                     }
@@ -341,9 +341,9 @@ impl DeepgramClient {
                     Err(e) => {
                         // Log only — do NOT surface a user-facing error here. A
                         // dropped socket is a recoverable event: the connect loop
-                        // retries and, if the network is truly gone, the caller
-                        // fails over to the on-device engine. Emitting an error
-                        // toast on every drop was noisy and read as a hard failure.
+                        // retries and, only once the retries are exhausted, the
+                        // supervisor surfaces the failure. Emitting an error toast
+                        // on every drop was noisy and read as a hard failure.
                         log::warn!("DeepgramClient receiver: WebSocket error: {e}");
                         recv_err.store(true, Ordering::SeqCst);
                         break;
@@ -478,18 +478,13 @@ impl SttProvider for DeepgramClient {
         audio_rx: Receiver<Vec<i16>>,
         event_tx: mpsc::Sender<TranscriptEvent>,
     ) -> Result<(), SttError> {
-        // Re-arm the cancel flag: the supervisor reuses the same client instance
-        // across failover→failback cycles, and a previous run may have set it.
+        // Re-arm the cancel flag: a fresh session may reuse the same client
+        // instance, and a previous run may have set it.
         self.cancelled.store(false, Ordering::SeqCst);
 
         // Stream over the WebSocket, retrying transient drops. When the network
         // is genuinely down the retries are exhausted and this returns Err — the
-        // caller (start_transcription) then fails over to the bundled on-device
-        // Moonshine engine so a live service keeps transcribing offline.
-        //
-        // The previous behaviour here was an online-only REST fallback, which
-        // could never help when the connection was actually lost; it has been
-        // replaced by that offline failover.
+        // supervisor then surfaces it to the operator as `stt_error`.
         self.connect(audio_rx, event_tx).await
     }
 

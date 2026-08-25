@@ -117,9 +117,9 @@ pub(super) fn spawn_transcript_processing(
         // when Deepgram attaches it, and `UtteranceEnd` (reliable,
         // ~utterance_end_ms) as the fallback for utterances where Deepgram never
         // marks a final `speech_final` — notably the first utterance of a
-        // session, which otherwise never reached the semantic worker. Moonshine/
-        // REST always set `speech_final`, so they take the fast path and the
-        // fallback finds nothing pending.
+        // session, which otherwise never reached the semantic worker. The REST
+        // fallback always sets `speech_final`, so it takes the fast path and the
+        // `UtteranceEnd` fallback finds nothing pending.
         let send_semantic = |text: String| {
             if semantic_tx.try_send(text).is_ok() {
                 let n = semantic_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;

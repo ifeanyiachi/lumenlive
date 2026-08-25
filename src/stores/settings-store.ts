@@ -6,19 +6,10 @@ import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 
-/**
- * STT backend. `deepgram` is the cloud engine; `sherpa` (Moonshine) is the
- * on-device engine — it runs through the local VAD/endpointing pipeline, so the
- * Pause Sensitivity and live-partials settings apply to it.
- */
-export type SttProvider = "deepgram" | "sherpa"
 type MediaImportMode = "reference" | "copy"
 
 /** Schedule "All" tab layout: flat list vs. thumbnail grid. */
 export type ScheduleViewMode = "list" | "thumbnail"
-
-/** True for the on-device engines that share the local VAD pipeline. */
-export const isLocalSttProvider = (p: SttProvider): boolean => p !== "deepgram"
 
 interface SettingsState {
   deepgramApiKey: string | null
@@ -30,25 +21,6 @@ interface SettingsState {
   confidenceThreshold: number
   cooldownMs: number
   onboardingComplete: boolean
-  sttProvider: SttProvider
-  /**
-   * Total silence (ms) the local (Moonshine) transcriber tolerates before it
-   * ends an utterance — the "Pause Sensitivity" slider. Lower = snappier but
-   * chops mid-sentence pauses; higher = waits through long pauses (slower
-   * readers) at the cost of end-of-speech latency. Only affects the local
-   * provider; Deepgram does its own server-side endpointing.
-   */
-  pauseSilenceMs: number
-  /**
-   * Opt-in: emit mid-utterance *partial* transcripts on the local (Moonshine)
-   * engine. Off by default. When on, a slowly-read verse shows interim words
-   * (and feeds the AI Detections panel) before the pause-endpoint closes the
-   * utterance — at the cost of extra CPU re-transcribing the growing buffer.
-   * Display-only: the finalized transcript is always a fresh whole-utterance
-   * pass, so this never changes final accuracy. Only affects the local provider;
-   * Deepgram streams its own partials server-side regardless.
-   */
-  sherpaPartials: boolean
   directAutoDisplay: boolean
   /**
    * When `directAutoDisplay` is on, also auto-display a spoken *direct* verse
@@ -136,9 +108,6 @@ interface SettingsState {
   setConfidenceThreshold: (threshold: number) => void
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
-  setSttProvider: (provider: SttProvider) => void
-  setPauseSilenceMs: (ms: number) => void
-  setSherpaPartials: (enabled: boolean) => void
   setDirectAutoDisplay: (enabled: boolean) => void
   setDirectInstantDisplay: (enabled: boolean) => void
   setSemanticAutoQueue: (enabled: boolean) => void
@@ -163,9 +132,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   confidenceThreshold: 0.65,
   cooldownMs: 2500,
   onboardingComplete: false,
-  sttProvider: "deepgram",
-  pauseSilenceMs: 1400,
-  sherpaPartials: false,
   directAutoDisplay: true,
   directInstantDisplay: true,
   semanticAutoQueue: false,
@@ -188,9 +154,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
-  setSttProvider: (sttProvider) => set({ sttProvider }),
-  setPauseSilenceMs: (pauseSilenceMs) => set({ pauseSilenceMs }),
-  setSherpaPartials: (sherpaPartials) => set({ sherpaPartials }),
   setDirectAutoDisplay: (directAutoDisplay) => set({ directAutoDisplay }),
   setDirectInstantDisplay: (directInstantDisplay) =>
     set({ directInstantDisplay }),
@@ -218,9 +181,6 @@ const PERSISTED_KEYS = [
   "confidenceThreshold",
   "cooldownMs",
   "onboardingComplete",
-  "sttProvider",
-  "pauseSilenceMs",
-  "sherpaPartials",
   "directAutoDisplay",
   "directInstantDisplay",
   "semanticAutoQueue",
@@ -261,12 +221,6 @@ export function hydrateSettings(): Promise<void> {
         }
       }
 
-      // Migrate the retired on-device engine: anyone who previously selected
-      // "zipformer" falls back to Moonshine ("sherpa") so the settings radio
-      // still matches a real option and the backend gets a valid provider name.
-      if ((patch.sttProvider as string) === "zipformer") {
-        patch.sttProvider = "sherpa"
-      }
       if (Object.keys(patch).length > 0) {
         useSettingsStore.setState(patch)
       }

@@ -2,7 +2,7 @@
 //!
 //! ## Why this exists
 //!
-//! The offline STT (Moonshine) is trained on modern vocabulary, so when a
+//! The STT (Deepgram) is trained on modern vocabulary, so when a
 //! pastor reads archaic KJV wording aloud ("thou shalt not… saith the Lord")
 //! the transcript drifts toward modern forms ("you shall not… says the Lord")
 //! — and, worse, drifts *inconsistently* (sometimes "thou", sometimes "you").
@@ -13,7 +13,7 @@
 //!
 //! The fix (path A1) is to canonicalize **both sides** into one lexical space
 //! *before* embedding: the verse text at index-build time and the live
-//! transcript at query time. Whether Moonshine emits "thou" or "you", it
+//! transcript at query time. Whether the STT emits "thou" or "you", it
 //! becomes "you", matching the normalized verse. We canonicalize toward the
 //! *modern* form because it is the many-archaic-to-one-modern direction (the
 //! reverse would be ambiguous).

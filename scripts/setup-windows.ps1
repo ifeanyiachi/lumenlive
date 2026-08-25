@@ -3,10 +3,9 @@
   One-shot Windows build prerequisites installer for LumenLive.
 
 .DESCRIPTION
-  Installs LLVM (provides libclang.dll required by bindgen when building the
-  sherpa-rs native bindings) via winget, and persists LIBCLANG_PATH to the
-  user environment. sherpa-onnx + ONNX Runtime themselves ship as prebuilt
-  binaries (the `download-binaries` feature), so no C++/CMake build is needed.
+  Verifies the MSVC C++ toolchain (required for linking) is available. ONNX
+  Runtime ships as prebuilt binaries (the `ort` crate's `download-binaries`
+  feature), so no C++/CMake build or libclang is needed.
 
   Safe to re-run - each step checks for existing installs and exits early.
 #>
@@ -15,29 +14,11 @@ $ErrorActionPreference = 'Stop'
 
 function Write-Step   { param($m) Write-Host "==> $m" -ForegroundColor Cyan }
 function Write-Ok     { param($m) Write-Host "    $m" -ForegroundColor Green }
-function Write-Info   { param($m) Write-Host "    $m" -ForegroundColor Gray }
 function Write-Warn2  { param($m) Write-Host "!!  $m" -ForegroundColor Yellow }
 
 function Test-Command {
     param([string]$Name)
     $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
-}
-
-function Find-LibclangDir {
-    $candidates = @()
-    if ($env:ProgramFiles) {
-        $candidates += (Join-Path $env:ProgramFiles 'LLVM\bin')
-    }
-    if (Test-Command clang) {
-        $clang = (Get-Command clang).Source
-        $candidates += (Split-Path -Parent $clang)
-    }
-    foreach ($dir in $candidates) {
-        if ($dir -and (Test-Path (Join-Path $dir 'libclang.dll'))) {
-            return $dir
-        }
-    }
-    return $null
 }
 
 Write-Step 'Preflight: checking winget'
@@ -47,33 +28,6 @@ if (-not (Test-Command winget)) {
     exit 1
 }
 Write-Ok 'winget available'
-
-Write-Step 'LLVM (provides libclang.dll for bindgen)'
-$libclangDir = Find-LibclangDir
-if ($libclangDir) {
-    Write-Ok "LLVM already installed - libclang.dll at $libclangDir"
-} else {
-    Write-Info 'Installing LLVM.LLVM via winget...'
-    winget install --id LLVM.LLVM -e --accept-source-agreements --accept-package-agreements
-    $libclangDir = Find-LibclangDir
-    if (-not $libclangDir) {
-        Write-Warn2 'LLVM install completed but libclang.dll not found. Check the install manually.'
-        exit 1
-    }
-    Write-Ok "LLVM installed - libclang.dll at $libclangDir"
-}
-
-Write-Step 'Persisting LIBCLANG_PATH to user environment'
-$currentUserLibclang = [Environment]::GetEnvironmentVariable('LIBCLANG_PATH', 'User')
-$needsSet = $true
-if ($currentUserLibclang -and (Test-Path (Join-Path $currentUserLibclang 'libclang.dll'))) {
-    Write-Ok "LIBCLANG_PATH already set to $currentUserLibclang"
-    $needsSet = $false
-}
-if ($needsSet) {
-    [Environment]::SetEnvironmentVariable('LIBCLANG_PATH', $libclangDir, 'User')
-    Write-Ok "LIBCLANG_PATH set to $libclangDir (user scope)"
-}
 
 Write-Step 'MSVC toolchain (required for linking)'
 if (Test-Command cl) {
@@ -97,7 +51,3 @@ if (Test-Command cl) {
 
 Write-Host ''
 Write-Host 'Setup complete.' -ForegroundColor Green
-Write-Host ''
-Write-Host 'IMPORTANT: close this terminal and open a new one before running ' -NoNewline
-Write-Host '`bun run tauri dev`' -ForegroundColor Yellow -NoNewline
-Write-Host ' - setx only affects new shells.'

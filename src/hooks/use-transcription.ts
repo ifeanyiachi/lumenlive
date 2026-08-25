@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
@@ -15,9 +15,9 @@ interface TranscriptPartialPayload {
 
 interface UseTranscriptionOptions {
   /**
-   * Called when `start_transcription` fails because the user picked the
-   * Deepgram provider but hasn't set an API key. Panels typically react by
-   * opening a key-prompt dialog instead of showing the default toast.
+   * Called when `start_transcription` fails because the Deepgram API key hasn't
+   * been set. Panels typically react by opening a key-prompt dialog instead of
+   * showing the default toast.
    */
   onMissingApiKey?: () => void
 }
@@ -29,20 +29,13 @@ export const transcriptionActions = {
   async start(onMissingApiKey?: () => void): Promise<void> {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("connecting")
-    transcript.setOnDeviceFallback(false)
 
     const settings = useSettingsStore.getState()
     try {
       await invoke("start_transcription", {
-        apiKey:
-          settings.sttProvider === "deepgram"
-            ? (settings.deepgramApiKey ?? "")
-            : "",
+        apiKey: settings.deepgramApiKey ?? "",
         deviceId: settings.audioDeviceId,
         gain: settings.gain,
-        provider: settings.sttProvider,
-        pauseSilenceMs: settings.pauseSilenceMs,
-        sherpaPartials: settings.sherpaPartials,
       })
       transcript.setTranscribing(true)
     } catch (e) {
@@ -54,19 +47,6 @@ export const transcriptionActions = {
         toast.error("Could not start transcription", { description: msg })
       }
     }
-  },
-
-  /**
-   * Restart a running session so a settings change (e.g. switching the STT
-   * provider between Cloud and Local) takes effect immediately. No-op when no
-   * session is running — the new setting is picked up at the next manual start.
-   * `start()` reads the provider fresh from the settings store, so a plain
-   * stop→start is all that's needed.
-   */
-  async restartIfRunning(onMissingApiKey?: () => void): Promise<void> {
-    if (!useTranscriptStore.getState().isTranscribing) return
-    await transcriptionActions.stop()
-    await transcriptionActions.start(onMissingApiKey)
   },
 
   async stop(): Promise<void> {
@@ -81,7 +61,6 @@ export const transcriptionActions = {
     transcript.setTranscribing(false)
     transcript.setPartial("")
     transcript.setConnectionStatus("disconnected")
-    transcript.setOnDeviceFallback(false)
   },
 }
 
@@ -98,36 +77,8 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     useTranscriptStore.getState().setConnectionStatus("disconnected")
   })
   useTauriEvent<string>("stt_error", (msg) => {
-    const transcript = useTranscriptStore.getState()
-    transcript.setConnectionStatus("error")
-    // An stt_error means the live engine is broken — including the on-device
-    // engine failing to start during a failover. Drop the "on-device" badge so
-    // it can't linger over a dead session (it's already false during the cloud
-    // phase, so clearing here only affects the failed-failover case).
-    transcript.setOnDeviceFallback(false)
+    useTranscriptStore.getState().setConnectionStatus("error")
     toast.error("Transcription error", { description: msg })
-  })
-
-  // Offline failover: the cloud provider lost the network and the pipeline
-  // switched to the bundled on-device engine. Transcription keeps running (the
-  // local engine re-emits `stt_connected`), so this is an informational notice,
-  // not an error. The flag drives a persistent "offline" indicator.
-  useTauriEvent<string>("stt_failover", (msg) => {
-    useTranscriptStore.getState().setOnDeviceFallback(true)
-    toast.warning("Now transcribing on-device", {
-      description: msg,
-      id: "stt-engine", // shared id so failover/failback replace, not stack
-    })
-  })
-
-  // Failback: connectivity returned and the pipeline switched back to the cloud
-  // provider (higher accuracy). Clear the offline indicator.
-  useTauriEvent<string>("stt_failback", (msg) => {
-    useTranscriptStore.getState().setOnDeviceFallback(false)
-    toast.success("Back online — cloud transcription", {
-      description: msg,
-      id: "stt-engine",
-    })
   })
 
   // Audio source lifecycle: when the OS device disappears (mic unplugged,
@@ -165,23 +116,7 @@ export function useTranscription(options?: UseTranscriptionOptions) {
 
   const onMissingApiKey = options?.onMissingApiKey
 
-  // Live provider switch: when the operator changes the STT provider (Cloud ↔
-  // Local) while a session is running, restart the pipeline so the new engine
-  // takes effect immediately instead of only at the next manual start. The
-  // provider is read fresh inside `start()` (via `getState()`), so a plain
-  // stop→start picks up the new choice. No-op when idle or on the first render.
-  const sttProvider = useSettingsStore((s) => s.sttProvider)
-  const prevProvider = useRef(sttProvider)
-  useEffect(() => {
-    if (prevProvider.current === sttProvider) return
-    prevProvider.current = sttProvider
-    void transcriptionActions.restartIfRunning(onMissingApiKey)
-  }, [sttProvider, onMissingApiKey])
-
-  // A user-initiated start of the live session. Fired here (not in
-  // `transcriptionActions.start`) so a Cloud↔Local provider switch — which
-  // restarts via `restartIfRunning` → `start()` — doesn't count as a new
-  // service.
+  // A user-initiated start of the live session.
   const startTranscription = useCallback(() => {
     trackServiceStarted()
     return transcriptionActions.start(onMissingApiKey)

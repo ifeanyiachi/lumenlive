@@ -35,7 +35,6 @@ describe("settings store", () => {
   it("hydrate merges persisted values over defaults", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "gain") return 2.5
-      if (key === "sttProvider") return "sherpa"
       if (key === "deepgramApiKey") return "dg-key"
       return null
     })
@@ -46,27 +45,11 @@ describe("settings store", () => {
 
     const state = useSettingsStore.getState()
     expect(state.gain).toBe(2.5)
-    expect(state.sttProvider).toBe("sherpa")
     expect(state.deepgramApiKey).toBe("dg-key")
     // Defaults remain for keys with null. The default confidence threshold is
     // 0.65 to match the backend merger's DEFAULT_AUTO_QUEUE_THRESHOLD (the
     // frontend value is forwarded straight to set_auto_queue_threshold).
     expect(state.confidenceThreshold).toBe(0.65)
-  })
-
-  it("migrates a persisted retired 'zipformer' provider to Moonshine", async () => {
-    mockGet.mockImplementation(async (key: string) => {
-      if (key === "sttProvider") return "zipformer"
-      return null
-    })
-
-    const { hydrateSettings, useSettingsStore } =
-      await import("./settings-store")
-    await hydrateSettings()
-
-    // The retired on-device engine falls back to Moonshine so the settings
-    // radio still matches a real option and the backend gets a valid name.
-    expect(useSettingsStore.getState().sttProvider).toBe("sherpa")
   })
 
   it("hydrate with no persisted values falls back to defaults", async () => {
@@ -79,7 +62,6 @@ describe("settings store", () => {
     const after = useSettingsStore.getState()
 
     expect(after.gain).toBe(before.gain)
-    expect(after.sttProvider).toBe(before.sttProvider)
     expect(after.directAutoDisplay).toBe(before.directAutoDisplay)
   })
 

@@ -107,12 +107,6 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 futures-util = "0.3"
 tauri-plugin-aptabase = "1.0.0"
 
-[features]
-default = ["sherpa"]
-# Streaming local/offline STT via sherpa-onnx / Moonshine. Pulls prebuilt
-# native libs at build time (no C++ build).
-sherpa = ["lumenlive-stt/sherpa"]
-
 [lints]
 workspace = true
 

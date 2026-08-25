@@ -77,11 +77,6 @@ export function trackBroadcastStarted(output: "display" | "ndi"): void {
   void track("broadcast_started", { output })
 }
 
-/** Which speech-to-text engine a church settled on (cloud vs on-device). */
-export function trackSttProvider(provider: "deepgram" | "sherpa"): void {
-  void track("stt_provider_selected", { provider })
-}
-
 /**
  * A feature was exercised at least once this session. Deduped per session so a
  * per-utterance event (verse detection) contributes a single data point.

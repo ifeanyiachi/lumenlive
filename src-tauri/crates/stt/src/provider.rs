@@ -1,7 +1,8 @@
 //! STT provider trait abstraction.
 //!
-//! Allows swapping between Deepgram (cloud) and Moonshine (local) backends
-//! while keeping the same `TranscriptEvent` interface for the detection pipeline.
+//! Keeps the STT backend behind a trait so the command layer depends on the
+//! `TranscriptEvent` interface rather than a concrete provider. Deepgram is the
+//! only backend today.
 
 use crossbeam_channel::Receiver;
 use tokio::sync::mpsc;
@@ -11,9 +12,8 @@ use crate::types::TranscriptEvent;
 
 /// A speech-to-text provider that consumes audio and emits transcript events.
 ///
-/// Both Deepgram (cloud) and Moonshine (local) implement this trait so the
-/// command layer can select a provider at runtime without changing the
-/// downstream detection pipeline.
+/// Implemented by the Deepgram client so the command layer stays decoupled from
+/// the concrete provider and the downstream detection pipeline is unchanged.
 #[async_trait::async_trait]
 pub trait SttProvider: Send + Sync {
     /// Start the provider, consuming raw 16 kHz mono i16 audio from `audio_rx`

@@ -42,38 +42,31 @@ describe("use-transcription", () => {
   })
 
   describe("transcriptionActions.start", () => {
-    it("invokes start_transcription with settings-derived params for a local provider", async () => {
+    it("invokes start_transcription with the Deepgram key and audio settings", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "sherpa",
-        deepgramApiKey: "ignored-for-local",
+        deepgramApiKey: "dg-live-123",
         audioDeviceId: "dev-42",
         gain: 1.5,
-        pauseSilenceMs: 2000,
-        sherpaPartials: true,
       })
 
       await transcriptionActions.start()
 
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
-        apiKey: "", // local path never forwards the key
+        apiKey: "dg-live-123",
         deviceId: "dev-42",
         gain: 1.5,
-        provider: "sherpa",
-        pauseSilenceMs: 2000, // the user's Pause Sensitivity flows through
-        sherpaPartials: true, // the opt-in local-partials toggle flows through
       })
     })
 
-    it("forwards the Deepgram key when provider is deepgram", async () => {
+    it("forwards an empty key when none is configured", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "deepgram",
-        deepgramApiKey: "dg-live-123",
+        deepgramApiKey: null,
         audioDeviceId: null,
         gain: 1.0,
       })
@@ -83,8 +76,7 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith(
         "start_transcription",
         expect.objectContaining({
-          apiKey: "dg-live-123",
-          provider: "deepgram",
+          apiKey: "",
           deviceId: null,
           gain: 1.0,
         })
@@ -141,7 +133,7 @@ describe("use-transcription", () => {
     })
 
     it("surfaces any other start error as a toast", async () => {
-      mockInvoke.mockRejectedValue("Moonshine model not found")
+      mockInvoke.mockRejectedValue("WebSocket handshake failed")
       const { useTranscriptStore, transcriptionActions } = await loadModules()
       const onMissingApiKey = vi.fn()
 
@@ -150,7 +142,7 @@ describe("use-transcription", () => {
       expect(onMissingApiKey).not.toHaveBeenCalled()
       expect(mockToastError).toHaveBeenCalledWith(
         "Could not start transcription",
-        { description: "Moonshine model not found" }
+        { description: "WebSocket handshake failed" }
       )
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })
@@ -211,39 +203,6 @@ describe("use-transcription", () => {
     })
   })
 
-  describe("transcriptionActions.restartIfRunning", () => {
-    it("stops then restarts a running session so a provider switch takes effect", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useTranscriptStore, useSettingsStore, transcriptionActions } =
-        await loadModules()
-
-      useTranscriptStore.setState({ isTranscribing: true })
-      // Operator has switched to Local; restart should pick it up via start().
-      useSettingsStore.setState({ sttProvider: "sherpa" })
-
-      await transcriptionActions.restartIfRunning()
-
-      const calls = mockInvoke.mock.calls.map((c) => c[0])
-      expect(calls).toEqual(["stop_transcription", "start_transcription"])
-      // The restart's start() forwards the newly-selected provider.
-      const startArgs = mockInvoke.mock.calls.find(
-        (c) => c[0] === "start_transcription"
-      )?.[1] as { provider: string }
-      expect(startArgs.provider).toBe("sherpa")
-    })
-
-    it("is a no-op when no session is running", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useTranscriptStore, transcriptionActions } = await loadModules()
-
-      useTranscriptStore.setState({ isTranscribing: false })
-
-      await transcriptionActions.restartIfRunning()
-
-      expect(mockInvoke).not.toHaveBeenCalled()
-    })
-  })
-
   describe("stt_error integration contract", () => {
     it("surfaces stt errors via toast and sets connection status to error", async () => {
       const { useTranscriptStore } = await loadModules()
@@ -258,66 +217,6 @@ describe("use-transcription", () => {
       expect(mockToastError).toHaveBeenCalledWith("Transcription error", {
         description: "WebSocket closed unexpectedly",
       })
-    })
-
-    it("clears the on-device badge when an error follows a failover", async () => {
-      const { useTranscriptStore } = await loadModules()
-
-      // Failover flipped the badge on; the on-device engine then failed to start
-      // and emitted stt_error. The handler must drop the badge so it can't
-      // linger over a dead session.
-      useTranscriptStore.getState().setOnDeviceFallback(true)
-
-      const transcript = useTranscriptStore.getState()
-      transcript.setConnectionStatus("error")
-      transcript.setOnDeviceFallback(false)
-
-      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
-      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
-    })
-  })
-
-  describe("stt engine failover/failback contract", () => {
-    it("failover flags on-device mode and warns (not errors)", async () => {
-      const { useTranscriptStore } = await loadModules()
-
-      // What the stt_failover handler does: flag on-device mode and surface an
-      // informational warning — never an error (transcription keeps running).
-      useTranscriptStore.getState().setOnDeviceFallback(true)
-      mockToastWarning("Now transcribing on-device", {
-        description: "Network lost — switched to on-device transcription",
-        id: "stt-engine",
-      })
-
-      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(true)
-      expect(mockToastWarning).toHaveBeenCalled()
-      expect(mockToastError).not.toHaveBeenCalled()
-    })
-
-    it("failback clears on-device mode and reports back online", async () => {
-      const { useTranscriptStore } = await loadModules()
-      useTranscriptStore.getState().setOnDeviceFallback(true)
-
-      // What the stt_failback handler does: clear the flag, report recovery.
-      useTranscriptStore.getState().setOnDeviceFallback(false)
-      mockToastSuccess("Back online — cloud transcription", {
-        description: "Network restored — switched back to cloud transcription",
-        id: "stt-engine",
-      })
-
-      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
-      expect(mockToastSuccess).toHaveBeenCalled()
-    })
-
-    it("start() clears any stale on-device fallback flag from a prior session", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useTranscriptStore, transcriptionActions } = await loadModules()
-
-      useTranscriptStore.setState({ isOnDeviceFallback: true })
-
-      await transcriptionActions.start()
-
-      expect(useTranscriptStore.getState().isOnDeviceFallback).toBe(false)
     })
   })
 })

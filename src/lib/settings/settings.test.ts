@@ -4,7 +4,6 @@ import {
   percentToGain,
   thresholdToPercent,
   percentToThreshold,
-  formatPauseSeconds,
 } from "./conversions"
 import { groupTranslations, type TranslationInfo } from "./translations"
 import {
@@ -33,12 +32,6 @@ describe("conversions", () => {
     expect(thresholdToPercent(0.35)).toBe(35)
     expect(thresholdToPercent(1)).toBe(100)
     expect(percentToThreshold(80)).toBeCloseTo(0.8)
-  })
-
-  it("formats a pause window in ms as a one-decimal seconds label", () => {
-    expect(formatPauseSeconds(1400)).toBe("1.4s")
-    expect(formatPauseSeconds(500)).toBe("0.5s")
-    expect(formatPauseSeconds(3000)).toBe("3.0s")
   })
 })
 

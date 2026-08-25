@@ -19,7 +19,7 @@
 # Then publish it and repoint the workflow. Keep it unlabelled (--latest=false)
 # so it never steals the "Latest" badge from a real app release:
 #   gh release create assets-v<N> lumenlive-runtime-assets-v<N>.tar \
-#     --title "Runtime assets" --notes "bge + moonshine" --latest=false
+#     --title "Runtime assets" --notes "bge embeddings + bible db" --latest=false
 #   # update ASSETS_TAG / ASSETS_TAR / ASSETS_SHA256 in release.yml
 set -euo pipefail
 

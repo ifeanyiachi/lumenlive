@@ -4,7 +4,7 @@
 //!
 //! # Why this exists
 //!
-//! Speech-to-text (Moonshine / Deepgram) only produces words; it cannot label
+//! Speech-to-text (Deepgram) only produces words; it cannot label
 //! discourse. The semantic detector then matches those words against the verse
 //! index by meaning — and we *want* both cases to surface: a preacher who
 //! *quotes* John 3:16 and one who *preaches about* it (paraphrasing, expounding)
