@@ -12,7 +12,6 @@ import { useBible, bibleActions } from "@/hooks/use-bible"
 import { useBibleStore, useSettingsStore } from "@/stores"
 import { useScheduleStore } from "@/stores/schedule-store"
 import type { Book, Verse } from "@/types"
-import { Input } from "@/components/ui/input"
 import { SearchMediaTab } from "@/components/panels/search-media-tab"
 import { SearchSlideTab } from "@/components/panels/search-slide-tab"
 import { SearchSongTab } from "@/components/panels/search-song-tab"
@@ -26,6 +25,7 @@ import { useVerseMultiselect } from "@/hooks/use-verse-multiselect"
 import { useVerseListKeyboard } from "@/hooks/use-verse-list-keyboard"
 import { BookSearchTab } from "@/components/panels/search/book-search-tab"
 import { ContextSearchTab } from "@/components/panels/search/context-search-tab"
+import { ContextSearchInput } from "@/components/panels/search/context-search-input"
 import {
   QuickNavInput,
   type QuickNavHandle,
@@ -87,7 +87,7 @@ export function SearchPanel() {
 
   // Context (meaning-based) search — debounce + hybrid/Fuse fallback + staleness
   // all live in the hook; the panel just supplies the query and renders results.
-  const { contextQuery, setContextQuery, handleContextSearch } =
+  const { committedQuery, handleContextSearch, resetContextSearch } =
     useContextSearch({
       activeTab,
       activeTranslationId,
@@ -349,7 +349,7 @@ export function SearchPanel() {
               data-tour="context-search"
               onClick={() => {
                 setActiveTab("context")
-                setContextQuery("")
+                resetContextSearch()
               }}
               className={cn(
                 "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
@@ -379,12 +379,7 @@ export function SearchPanel() {
             />
           ) : (
             <div className="flex flex-1 items-center gap-2 pr-3">
-              <Input
-                placeholder="Search verse text..."
-                value={contextQuery}
-                onChange={(e) => handleContextSearch(e.target.value)}
-                className="h-7 flex-1 text-xs"
-              />
+              <ContextSearchInput onSearch={handleContextSearch} />
               <TranslationSelect
                 translations={translations}
                 activeTranslationId={activeTranslationId}
@@ -435,9 +430,8 @@ export function SearchPanel() {
       {/* Context search tab — semantic AI search */}
       {contentTab === "verse" && activeTab === "context" && (
         <ContextSearchTab
-          contextQuery={contextQuery}
+          highlightQuery={committedQuery}
           semanticResults={semanticResults}
-          translations={translations}
           activeTranslationId={activeTranslationId}
           lexiconEnabled={lexiconEnabled}
           lexiconOpenId={lexiconOpenId}
