@@ -247,7 +247,19 @@ export function LexiconEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        // This modal is opened from inside a verse row that spreads
+        // `useDragSource()` pointer handlers (the interlinear LexiconBar is a
+        // React-tree descendant of that row). React synthetic events bubble
+        // through the React tree even across the dialog's portal, so a
+        // pointer-drag to select text in the field editors would reach the
+        // row's drag handler, trip its 6px threshold, and `setPointerCapture` —
+        // killing the selection after ~1-2 chars. Stop pointer-downs at the
+        // modal boundary so text selection (and any other pointer gesture
+        // inside the modal) never starts an ancestor drag.
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Lexical Summary — {card.reference}</DialogTitle>
         </DialogHeader>

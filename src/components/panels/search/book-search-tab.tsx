@@ -225,7 +225,16 @@ export function BookSearchTab({
                 </div>
                 {/* Lexicon strip */}
                 {lexiconEnabled && lexiconOpenId === verse.id && (
-                  <div className="pl-9" onClick={(e) => e.stopPropagation()}>
+                  // The row spreads `verseDrag` pointer handlers; the lexicon
+                  // strip (and its popovers/modal, all React-tree descendants)
+                  // must not leak pointer/click events up to them — otherwise a
+                  // drag-to-select in a popover trips the drag threshold and a
+                  // chip click would arm a verse-drag.
+                  <div
+                    className="pl-9"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
                     <LexiconBar verse={verse} />
                   </div>
                 )}
