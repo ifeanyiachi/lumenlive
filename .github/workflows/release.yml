@@ -6,7 +6,7 @@
 #   * the "Run workflow" button (workflow_dispatch)               -> builds and
 #     uploads the installers as run artifacts, without publishing a release.
 #
-# Each run: fetches the ~1 GB runtime assets from the `assets-v3` release (the
+# Each run: fetches the ~250 MB runtime assets from the `assets-v4` release (the
 # models / bible DB / embeddings that are too big for git), extracts them to the
 # repo root, then compiles the Rust workspace and bundles the installer.
 #
@@ -24,12 +24,12 @@ on:
 permissions:
   contents: write
 
-# The pinned release holding the bundled runtime assets (see the assets-v3
+# The pinned release holding the bundled runtime assets (see the assets-v4
 # GitHub Release). Bump this if you ever regenerate the models/DB/embeddings.
 env:
-  ASSETS_TAG: assets-v3
-  ASSETS_TAR: lumenlive-runtime-assets-v3.tar
-  ASSETS_SHA256: a24d8188ba3e7deed1a5869e4fdf32e6bc55d240ee9b9df7184cc9d1e9071890
+  ASSETS_TAG: assets-v4
+  ASSETS_TAR: lumenlive-runtime-assets-v4.tar
+  ASSETS_SHA256: 041f2f7319bf9aa2d7af769bb32c422ace2f947339ec18a7a2799d48b9fdb7ff
 
 jobs:
   build:
