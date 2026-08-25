@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { MonitorPlayIcon, ListPlusIcon } from "lucide-react"
+import { MonitorPlayIcon, ListPlusIcon, PencilIcon } from "lucide-react"
 import { toast } from "sonner"
 import type { Verse, OriginalWord, LexiconEntry } from "@/types"
 import {
@@ -15,7 +15,9 @@ import { useScheduleStore } from "@/stores/schedule-store"
 import {
   buildLexiconSlide,
   buildLexiconScheduleItem,
+  toLexiconCardData,
 } from "@/lib/lexicon-slide"
+import { LexiconEditModal } from "@/components/verse-edit/lexicon-edit-modal"
 import { decodePartOfSpeech } from "@/lib/morph"
 import { chipEnglishWord } from "@/lib/lexicon-gloss"
 
@@ -124,7 +126,17 @@ interface WordChipProps {
 function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
   const [entry, setEntry] = useState<LexiconEntry | null | undefined>(undefined)
   const [open, setOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
+
+  // Stable card data for the editor so a parent re-render can't reset its live
+  // preview mid-edit. Built only once the entry has loaded (the modal mounts
+  // only in that branch).
+  const editCard = useMemo(
+    () =>
+      entry ? toLexiconCardData(word, entry, reference, isHebrew) : null,
+    [entry, word, reference, isHebrew]
+  )
 
   async function handleOpenChange(next: boolean) {
     setOpen(next)
@@ -134,15 +146,20 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
     }
   }
 
-  function handleGoLive() {
+  function handlePreview() {
     useBroadcastStore
       .getState()
       .setLiveSlide(
         buildLexiconSlide(word, entry ?? null, reference, isHebrew),
         "manual"
       )
-    toast.success(`Projecting ${word.word}`)
+    toast.success(`Previewing ${word.word}`)
     setOpen(false)
+  }
+
+  function handleEdit() {
+    setOpen(false)
+    setEditOpen(true)
   }
 
   function handleAddToSchedule() {
@@ -172,6 +189,7 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
   const englishWord = chipEnglishWord(word, isHebrew)
 
   return (
+    <>
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
@@ -269,19 +287,31 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
                 </p>
               </div>
             )}
-            <div className="mt-1 flex gap-1.5 border-t border-border pt-2">
-              <Button
-                size="sm"
-                className="h-7 flex-1 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                onClick={handleGoLive}
-              >
-                <MonitorPlayIcon className="size-3" />
-                Go Live
-              </Button>
+            <div className="mt-1 flex flex-col gap-1.5 border-t border-border pt-2">
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  className="h-7 flex-1 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                  onClick={handlePreview}
+                >
+                  <MonitorPlayIcon className="size-3" />
+                  Preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 flex-1 gap-1.5 text-xs"
+                  onClick={handleEdit}
+                  title="Format the Lexical Summary before presenting"
+                >
+                  <PencilIcon className="size-3" />
+                  Edit
+                </Button>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 flex-1 gap-1.5 text-xs"
+                className="h-7 w-full gap-1.5 text-xs"
                 onClick={handleAddToSchedule}
                 disabled={!activeScheduleId}
                 title={
@@ -298,5 +328,14 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
         )}
       </PopoverContent>
     </Popover>
+    {editOpen && editCard && (
+      <LexiconEditModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        card={editCard}
+        mode="create"
+      />
+    )}
+    </>
   )
 }

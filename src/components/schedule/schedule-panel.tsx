@@ -29,6 +29,11 @@ import {
 } from "@/components/ui/dialog"
 import { ItemPropertiesModal } from "@/components/schedule/item-properties-modal"
 import { ScriptureItemEditModal } from "@/components/schedule/scripture-item-edit-modal"
+import { LexiconEditModal } from "@/components/verse-edit/lexicon-edit-modal"
+import {
+  buildLexiconSlideFromData,
+  lexiconCardDataLabel,
+} from "@/lib/lexicon-slide"
 import { ScheduleSongsTab } from "@/components/schedule/schedule-songs-tab"
 import { ScheduleAllTab } from "@/components/schedule/tabs/schedule-all-tab"
 import { AIVersesTab } from "@/components/schedule/tabs/ai-verses-tab"
@@ -38,12 +43,18 @@ import {
   importScheduleBundle,
 } from "@/lib/schedule-bundle/io"
 import { handleScheduleDrop, addVersesToQueue } from "@/lib/schedule-drop"
-import type { ScheduleItem, ScriptureScheduleItem } from "@/types/schedule"
+import type {
+  ScheduleItem,
+  ScriptureScheduleItem,
+  LexiconScheduleItem,
+} from "@/types/schedule"
 
 export function SchedulePanel() {
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null)
   const [editingScripture, setEditingScripture] =
     useState<ScriptureScheduleItem | null>(null)
+  const [editingLexicon, setEditingLexicon] =
+    useState<LexiconScheduleItem | null>(null)
   const [stagedNewItem, setStagedNewItem] = useState<ScheduleItem | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
@@ -234,6 +245,7 @@ export function SchedulePanel() {
           <ScheduleAllTab
             onEditProperties={(item) => setEditingItem(item)}
             onEditScripture={(item) => setEditingScripture(item)}
+            onEditLexicon={(item) => setEditingLexicon(item)}
             onStageNewItem={(item) => setStagedNewItem(item)}
           />
         </TabsContent>
@@ -264,6 +276,29 @@ export function SchedulePanel() {
         item={editingScripture}
         scheduleId={activeScheduleId ?? ""}
       />
+
+      {editingLexicon?.cardData && activeScheduleId && (
+        <LexiconEditModal
+          open={editingLexicon !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditingLexicon(null)
+          }}
+          card={editingLexicon.cardData}
+          mode="edit"
+          onSaved={(cardData) => {
+            useScheduleStore.getState().updateItem(
+              activeScheduleId,
+              editingLexicon.id,
+              {
+                cardData,
+                slide: buildLexiconSlideFromData(cardData),
+                label: lexiconCardDataLabel(cardData),
+              }
+            )
+            toast.success("Lexical Summary updated")
+          }}
+        />
+      )}
 
       <ItemPropertiesModal
         open={stagedNewItem !== null}

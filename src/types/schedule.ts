@@ -1,5 +1,6 @@
 import type { Slide } from "./slide"
 import type { StyledVerseSegment } from "./verse-edit"
+import type { LexiconCardData } from "./lexicon"
 
 export type ScheduleItemType =
   "scripture" | "slide" | "media" | "header" | "web" | "song" | "lexicon"
@@ -163,6 +164,13 @@ export interface LexiconScheduleItem extends ScheduleItemBase {
   slide: Slide
   reference: string
   strong?: string
+  /**
+   * The resolved card data (incl. any per-field inline `styles`) this item's
+   * `slide` was rendered from. Present on items created after inline formatting
+   * shipped; the source of truth for re-rendering the slide and re-opening the
+   * card in the Lexicon editor. Older items carry only `slide` (Edit disabled).
+   */
+  cardData?: LexiconCardData
 }
 
 export interface WebScheduleItem extends ScheduleItemBase {

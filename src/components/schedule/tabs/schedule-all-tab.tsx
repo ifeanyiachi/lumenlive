@@ -62,6 +62,7 @@ import type {
   ScriptureScheduleItem,
   SlideScheduleItem,
   SongScheduleItem,
+  LexiconScheduleItem,
 } from "@/types/schedule"
 import type { Presentation, Slide } from "@/types/slide"
 import type { VerseRenderData } from "@/types/broadcast"
@@ -77,10 +78,12 @@ type RowDeck = { slides: Slide[]; verses?: (VerseRenderData | undefined)[] }
 export function ScheduleAllTab({
   onEditProperties,
   onEditScripture,
+  onEditLexicon,
   onStageNewItem,
 }: {
   onEditProperties: (item: ScheduleItem) => void
   onEditScripture: (item: ScriptureScheduleItem) => void
+  onEditLexicon: (item: LexiconScheduleItem) => void
   onStageNewItem: (item: ScheduleItem) => void
 }) {
   const schedules = useScheduleStore((s) => s.schedules)
@@ -718,6 +721,24 @@ export function ScheduleAllTab({
                           >
                             <PencilIcon className="size-3" />
                           </Button>
+                        ) : item.type === "lexicon" ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="size-6"
+                            disabled={!(item as LexiconScheduleItem).cardData}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEditLexicon(item as LexiconScheduleItem)
+                            }}
+                            title={
+                              (item as LexiconScheduleItem).cardData
+                                ? "Format the Lexical Summary"
+                                : "This card predates inline formatting"
+                            }
+                          >
+                            <PencilIcon className="size-3" />
+                          </Button>
                         ) : (
                           item.type !== "header" && (
                             <Button
@@ -868,6 +889,24 @@ export function ScheduleAllTab({
                                 onEditScripture(item as ScriptureScheduleItem)
                               }}
                               title="Edit verses"
+                            >
+                              <PencilIcon className="size-3" />
+                            </Button>
+                          ) : item.type === "lexicon" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 rounded bg-black/40 text-white hover:bg-black/60"
+                              disabled={!(item as LexiconScheduleItem).cardData}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditLexicon(item as LexiconScheduleItem)
+                              }}
+                              title={
+                                (item as LexiconScheduleItem).cardData
+                                  ? "Format the Lexical Summary"
+                                  : "This card predates inline formatting"
+                              }
                             >
                               <PencilIcon className="size-3" />
                             </Button>

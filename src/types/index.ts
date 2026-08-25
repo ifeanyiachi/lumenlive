@@ -13,6 +13,7 @@ export type {
   LexiconEntry,
 } from "./bible"
 export type { QueueItem } from "./queue"
+export type { LexiconCardData, LexiconField } from "./lexicon"
 export type {
   DetectionResult,
   DetectionStatus,

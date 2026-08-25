@@ -8,6 +8,12 @@ import {
 } from "@/lib/lexicon-card-renderer"
 import { preloadSlideImage } from "@/lib/slide-image-cache"
 
+/** A short, human-readable label from resolved card data (schedule/queue label). */
+export function lexiconCardDataLabel(data: LexiconCardData): string {
+  const strong = data.strong ? ` · ${data.strong}` : ""
+  return `${data.lemma}${strong} — ${data.reference}`
+}
+
 /** A short, human-readable label for a word-study card (e.g. "Kai · G2532"). */
 export function lexiconCardLabel(
   word: OriginalWord,
@@ -74,18 +80,14 @@ export function toLexiconCardData(
 }
 
 /**
- * Builds a projectable "Lexical Summary" slide from an original-language word
- * and its Strong's entry. The card is rasterized to a data URL and embedded as
- * a full-bleed image element, so it presents via the existing slide pipeline
- * (`setLiveSlide`) — Go Live, Queue, preview, and NDI all work unchanged.
+ * Builds a projectable "Lexical Summary" slide from resolved {@link
+ * LexiconCardData} (which may carry per-field inline `styles`). The card is
+ * rasterized to a data URL and embedded as a full-bleed image element, so it
+ * presents via the existing slide pipeline (`setLiveSlide`) — Preview, Queue,
+ * and NDI all work unchanged. This is the data-first core; {@link
+ * buildLexiconSlide} is the word/entry convenience wrapper.
  */
-export function buildLexiconSlide(
-  word: OriginalWord,
-  entry: LexiconEntry | null,
-  reference: string,
-  isHebrew: boolean
-): Slide {
-  const data = toLexiconCardData(word, entry, reference, isHebrew)
+export function buildLexiconSlideFromData(data: LexiconCardData): Slide {
   const imageUrl = renderLexiconCardToDataUrl(data)
 
   // Warm the operator-side slide cache so the preview paints immediately (the
@@ -107,12 +109,28 @@ export function buildLexiconSlide(
 
   return {
     id: crypto.randomUUID(),
-    name: lexiconCardLabel(word, reference),
+    name: lexiconCardDataLabel(data),
     background: { type: "solid", color: "#f8fafc" },
     elements: [image],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
+}
+
+/**
+ * Builds a projectable "Lexical Summary" slide from an original-language word
+ * and its Strong's entry (the unstyled path used when presenting straight from
+ * the Lexicon bar without opening the editor).
+ */
+export function buildLexiconSlide(
+  word: OriginalWord,
+  entry: LexiconEntry | null,
+  reference: string,
+  isHebrew: boolean
+): Slide {
+  return buildLexiconSlideFromData(
+    toLexiconCardData(word, entry, reference, isHebrew)
+  )
 }
 
 /**
@@ -128,14 +146,31 @@ export function buildLexiconScheduleItem(
   isHebrew: boolean,
   order: number
 ): LexiconScheduleItem {
+  return buildLexiconScheduleItemFromData(
+    toLexiconCardData(word, entry, reference, isHebrew),
+    order
+  )
+}
+
+/**
+ * Builds a schedule item from resolved {@link LexiconCardData} (carrying any
+ * inline `styles`). The `cardData` is stored on the item so its `slide` can be
+ * re-rendered and the card re-opened in the Lexicon editor later. `order` is
+ * assigned by the caller/store.
+ */
+export function buildLexiconScheduleItemFromData(
+  data: LexiconCardData,
+  order: number
+): LexiconScheduleItem {
   return {
     id: crypto.randomUUID(),
     type: "lexicon",
-    label: lexiconCardLabel(word, reference),
+    label: lexiconCardDataLabel(data),
     order,
     notes: "",
-    reference,
-    strong: word.strong_number ?? undefined,
-    slide: buildLexiconSlide(word, entry, reference, isHebrew),
+    reference: data.reference,
+    strong: data.strong,
+    cardData: data,
+    slide: buildLexiconSlideFromData(data),
   }
 }
