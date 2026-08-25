@@ -10,7 +10,7 @@ import { ArrowLeftIcon, ArrowRightIcon, PencilIcon } from "lucide-react"
 import { useDragSource } from "@/stores/drag-store"
 import { verseLocationKey, verseReference } from "@/lib/search/verse-keys"
 import { LexiconToggle } from "./lexicon-toggle"
-import { QueueButton } from "./queue-button"
+import { ScheduleButton } from "./schedule-button"
 import { MultiSelectBar } from "./multi-select-bar"
 import { LexiconBar } from "@/components/panels/LexiconBar"
 import type { Book, Translation, Verse } from "@/types"
@@ -29,7 +29,9 @@ export interface BookSearchTabProps {
   lexiconEnabled: boolean
   lexiconOpenId: LexiconId
   setLexiconOpenId: (updater: (prev: LexiconId) => LexiconId) => void
-  queuedVerseKeys: Set<string>
+  scheduledVerseKeys: Set<string>
+  /** Active translation abbreviation, cached on each schedule item's label. */
+  translation: string
   onEditVerse: (verse: Verse) => void
   // Multi-select
   multiSelected: Set<number>
@@ -49,9 +51,9 @@ export interface BookSearchTabProps {
 /**
  * The book (reference) search list: a chapter header with prev/next navigation
  * and the verses of the current chapter. Book-only affordances live here — the
- * per-verse Edit button, the selected / multi-selected highlight, multi-verse
- * drag, and the floating {@link MultiSelectBar}. Shared per-row controls (lexicon
- * toggle, add-to-queue) come from the same leaves the context list uses.
+ * selected / multi-selected highlight, multi-verse drag, and the floating
+ * {@link MultiSelectBar}. Shared per-row controls (lexicon toggle, per-verse Edit
+ * button, add-to-schedule) come from the same leaves the context list uses.
  */
 export function BookSearchTab({
   selectedBook,
@@ -65,7 +67,8 @@ export function BookSearchTab({
   lexiconEnabled,
   lexiconOpenId,
   setLexiconOpenId,
-  queuedVerseKeys,
+  scheduledVerseKeys,
+  translation,
   onEditVerse,
   multiSelected,
   handleVerseClick,
@@ -181,7 +184,7 @@ export function BookSearchTab({
                       }
                     />
                   )}
-                  {/* Edit verse formatting, then add to schedule (book-only) */}
+                  {/* Edit verse formatting, then add to schedule */}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -203,10 +206,10 @@ export function BookSearchTab({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  <QueueButton
+                  <ScheduleButton
                     verse={verse}
-                    confidence={1}
-                    queued={queuedVerseKeys.has(
+                    translation={translation}
+                    scheduled={scheduledVerseKeys.has(
                       verseLocationKey(
                         verse.book_number,
                         verse.chapter,

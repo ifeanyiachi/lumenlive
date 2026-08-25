@@ -9,7 +9,8 @@ import {
   MusicIcon,
 } from "lucide-react"
 import { useBible, bibleActions } from "@/hooks/use-bible"
-import { useBibleStore, useQueueStore, useSettingsStore } from "@/stores"
+import { useBibleStore, useSettingsStore } from "@/stores"
+import { useScheduleStore } from "@/stores/schedule-store"
 import type { Book, Verse } from "@/types"
 import { Input } from "@/components/ui/input"
 import { SearchMediaTab } from "@/components/panels/search-media-tab"
@@ -92,18 +93,29 @@ export function SearchPanel() {
       activeTranslationId,
     })
 
-  const queueItems = useQueueStore((s) => s.items)
-  const queuedVerseKeys = useMemo(() => {
-    return new Set(
-      queueItems.map((item) =>
-        verseLocationKey(
-          item.verse.book_number,
-          item.verse.chapter,
-          item.verse.verse
+  // Verses already in the running order (the schedule's All tab) — used to flip
+  // each row's add-to-schedule control into its "already added" state. Only exact
+  // single-verse scripture items count (a verse inside a larger range is not a
+  // duplicate the store would dedupe), and the key is location-based to mirror
+  // the row lookup below.
+  const activeSchedule = useScheduleStore((s) =>
+    s.schedules.find((sc) => sc.id === s.activeScheduleId)
+  )
+  const scheduledVerseKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const item of activeSchedule?.items ?? []) {
+      if (
+        item.type === "scripture" &&
+        !item.groupCollection &&
+        item.verseStart === item.verseEnd
+      ) {
+        keys.add(
+          verseLocationKey(item.bookNumber, item.chapter, item.verseStart)
         )
-      )
-    )
-  }, [queueItems])
+      }
+    }
+    return keys
+  }, [activeSchedule])
 
   const selectedBookNumber = selectedBook?.book_number
 
@@ -405,7 +417,8 @@ export function SearchPanel() {
           lexiconEnabled={lexiconEnabled}
           lexiconOpenId={lexiconOpenId}
           setLexiconOpenId={setLexiconOpenId}
-          queuedVerseKeys={queuedVerseKeys}
+          scheduledVerseKeys={scheduledVerseKeys}
+          translation={activeTranslationAbbr}
           onEditVerse={setEditingVerse}
           multiSelected={multiSelected}
           handleVerseClick={handleVerseClick}
@@ -429,7 +442,9 @@ export function SearchPanel() {
           lexiconEnabled={lexiconEnabled}
           lexiconOpenId={lexiconOpenId}
           setLexiconOpenId={setLexiconOpenId}
-          queuedVerseKeys={queuedVerseKeys}
+          scheduledVerseKeys={scheduledVerseKeys}
+          translation={activeTranslationAbbr}
+          onEditVerse={setEditingVerse}
           onVerseDoubleClick={handleVerseDoubleClick}
         />
       )}

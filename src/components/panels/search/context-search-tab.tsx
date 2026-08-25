@@ -3,18 +3,26 @@ import { useDragSource } from "@/stores/drag-store"
 import { verseLocationKey, verseReference } from "@/lib/search/verse-keys"
 import { HighlightedText } from "./highlighted-text"
 import { LexiconToggle } from "./lexicon-toggle"
-import { QueueButton } from "./queue-button"
+import { ScheduleButton } from "./schedule-button"
 import { LexiconBar } from "@/components/panels/LexiconBar"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { PencilIcon } from "lucide-react"
 import type { SemanticSearchResult, Translation, Verse } from "@/types"
 
 type LexiconId = number | string | null
 
 /**
  * The context (semantic / meaning-based) search results list. A flat,
- * similarity-ranked list — no chapter structure, selection highlight, edit
- * button, or multiselect (those are book-search only). Each result is synthesized
- * into a {@link Verse} (real row id is 0) for drag, selection, and the lexicon
- * strip; the lexicon key is location-based since every id is 0.
+ * similarity-ranked list — no chapter structure, selection highlight, or
+ * multiselect (those are book-search only). Each result is synthesized into a
+ * {@link Verse} (real row id is 0) for drag, selection, and the lexicon strip;
+ * the lexicon key is location-based since every id is 0.
  */
 export function ContextSearchTab({
   contextQuery,
@@ -24,7 +32,9 @@ export function ContextSearchTab({
   lexiconEnabled,
   lexiconOpenId,
   setLexiconOpenId,
-  queuedVerseKeys,
+  scheduledVerseKeys,
+  translation,
+  onEditVerse,
   onVerseDoubleClick,
 }: {
   contextQuery: string
@@ -34,7 +44,11 @@ export function ContextSearchTab({
   lexiconEnabled: boolean
   lexiconOpenId: LexiconId
   setLexiconOpenId: (updater: (prev: LexiconId) => LexiconId) => void
-  queuedVerseKeys: Set<string>
+  scheduledVerseKeys: Set<string>
+  /** Active translation abbreviation, cached on each schedule item's label. */
+  translation: string
+  /** Open the verse-formatting editor for a result. */
+  onEditVerse: (verse: Verse) => void
   /** Double-click / double-tap a result to stage it and send it straight live. */
   onVerseDoubleClick: (verse: Verse) => void
 }) {
@@ -86,28 +100,65 @@ export function ContextSearchTab({
                 bibleActions.selectVerse(verse)
               }}
               onDoubleClick={() => onVerseDoubleClick(verse)}
-              className="group relative flex cursor-pointer flex-col gap-1 rounded-lg p-3 transition-colors hover:bg-muted/50"
+              className="group flex cursor-pointer flex-col gap-1 rounded-lg p-3 transition-colors hover:bg-muted/50"
             >
-              <div className="flex shrink-0 flex-row items-start gap-2">
+              <div className="flex shrink-0 flex-row items-center gap-2">
                 <span className="text-xs font-semibold">
                   {result.book_name} {result.chapter}:{result.verse}
                 </span>
-                <span className="mt-0.5 text-[0.5rem] text-muted-foreground">
+                <span className="text-[0.5rem] text-muted-foreground">
                   {Math.round(result.similarity * 100)}%
                 </span>
-                {/* Lexicon toggle (He / Gr) — only when the lexicon is enabled */}
-                {lexiconEnabled && (
-                  <LexiconToggle
-                    bookNumber={verse.book_number}
-                    open={lexiconOpenId === lexKey}
-                    onToggle={() =>
-                      setLexiconOpenId((prev) =>
-                        prev === lexKey ? null : lexKey
+                {/* Right-aligned per-row controls — lexicon toggle, Edit, add to
+                    schedule — mirroring the book-search row's inline alignment,
+                    gap-3 spacing, and hover reveal. */}
+                <div className="ml-auto flex items-center gap-3">
+                  {/* Lexicon toggle (He / Gr) — only when the lexicon is enabled */}
+                  {lexiconEnabled && (
+                    <LexiconToggle
+                      bookNumber={verse.book_number}
+                      open={lexiconOpenId === lexKey}
+                      onToggle={() =>
+                        setLexiconOpenId((prev) =>
+                          prev === lexKey ? null : lexKey
+                        )
+                      }
+                    />
+                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Edit verse formatting"
+                          className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEditVerse(verse)
+                          }}
+                        >
+                          <PencilIcon className="size-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        Edit verse formatting
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <ScheduleButton
+                    verse={verse}
+                    translation={translation}
+                    scheduled={scheduledVerseKeys.has(
+                      verseLocationKey(
+                        result.book_number,
+                        result.chapter,
+                        result.verse
                       )
-                    }
-                    className="mr-5 ml-auto"
+                    )}
+                    addClassName="bg-primary/40! text-primary-foreground hover:bg-primary!"
                   />
-                )}
+                </div>
               </div>
               <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
                 <HighlightedText
@@ -115,19 +166,6 @@ export function ContextSearchTab({
                   query={contextQuery}
                 />
               </p>
-              <QueueButton
-                verse={verse}
-                confidence={result.similarity}
-                queued={queuedVerseKeys.has(
-                  verseLocationKey(
-                    result.book_number,
-                    result.chapter,
-                    result.verse
-                  )
-                )}
-                positionClassName="absolute top-1/2 right-2 -translate-y-1/2"
-                addClassName="bg-primary text-primary-foreground hover:bg-primary/80"
-              />
               {/* Lexicon strip */}
               {lexiconEnabled && lexiconOpenId === lexKey && (
                 <div className="pl-9" onClick={(e) => e.stopPropagation()}>
