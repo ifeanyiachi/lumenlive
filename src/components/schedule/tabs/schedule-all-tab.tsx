@@ -19,6 +19,7 @@ import {
   LayoutGridIcon,
   ImageIcon as LucideImageIcon,
   LocateIcon,
+  LayersIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -821,10 +822,11 @@ export function ScheduleAllTab({
                         <ScheduleItemThumbnail item={item} />
                         {hasMultipleSlides && deck && (
                           <span
-                            className="absolute top-1 right-1 z-10 rounded bg-black/40 px-1 text-[0.5rem] font-medium text-white tabular-nums"
+                            className="absolute top-1 right-1 z-10 flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[0.65rem] font-semibold text-primary-foreground tabular-nums shadow-md ring-1 ring-black/10"
                             title={`${deck.slides.length} slides`}
                           >
-                            {deck.slides.length} slides
+                            <LayersIcon className="size-3" />
+                            {deck.slides.length}
                           </span>
                         )}
                         <div className="absolute right-1 bottom-1 z-10 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
