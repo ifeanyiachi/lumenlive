@@ -1,17 +1,13 @@
 # Vendored native runtime DLLs (Windows)
 
-These five DLLs are bundled into the Windows installer via `bundle.resources` in
+These DLLs are bundled into the Windows installer via `bundle.resources` in
 `../tauri.conf.json` (mapped to `./`, i.e. next to the app `.exe`). At runtime
-the Windows loader and `MoonshineRecognizer`/ONNX Runtime find them beside the
-executable.
+the Windows loader and ONNX Runtime find them beside the executable.
 
 | DLL | Comes from | Provides |
 | --- | --- | --- |
 | `onnxruntime.dll` | `ort` crate | ONNX Runtime core |
 | `onnxruntime_providers_shared.dll` | `ort` crate | ORT provider shim |
-| `sherpa-onnx-c-api.dll` | `sherpa-rs` crate | sherpa-onnx C API |
-| `sherpa-onnx-cxx-api.dll` | `sherpa-rs` crate | sherpa-onnx C++ API |
-| `cargs.dll` | `sherpa-rs` crate | sherpa-onnx CLI arg dep |
 
 > `ort` also drops `DirectML.dll` (~18 MB) into `target/release`, but the app
 > uses only the CPU execution provider, so it is deliberately **not** vendored or
@@ -31,9 +27,9 @@ happen. (Release builds were never affected — Tauri skips a same-path copy.)
 
 ## Keeping them in sync
 
-These are a **snapshot** and must match the pinned `ort` / `sherpa-rs` versions
-in `../Cargo.toml`. A mismatched `onnxruntime.dll` crashes STT at runtime. After
-bumping either crate:
+These are a **snapshot** and must match the pinned `ort` version in
+`../Cargo.toml`. A mismatched `onnxruntime.dll` crashes ONNX at runtime. After
+bumping the crate:
 
 1. Do a release build so the new DLLs land in `target/release/`.
 2. `npm run sync:libs`
