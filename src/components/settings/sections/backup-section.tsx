@@ -3,13 +3,29 @@ import { toast } from "sonner"
 import { DownloadIcon, UploadIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   exportBackup,
   restoreBackup,
+  fullSelection,
+  BACKUP_KINDS,
   type BackupCounts,
+  type BackupKind,
 } from "@/lib/backup/io"
 import { BackupParseError } from "@/lib/backup"
+
+/** Human labels for each selectable content kind, in display order. */
+const KIND_LABELS: Record<BackupKind, string> = {
+  themes: "Themes",
+  stageLayouts: "Stage layouts",
+  presentations: "Presentations",
+  songs: "Songs",
+  schedules: "Schedules",
+  mediaAssets: "Media library",
+  countdownTimers: "Timers",
+  alertTemplates: "Alerts",
+}
 
 /** Build a "3 themes, 12 songs, 40 media files" style summary from counts. */
 function summarize(c: BackupCounts): string {
@@ -32,11 +48,29 @@ function summarize(c: BackupCounts): string {
 export function BackupSection() {
   const [busy, setBusy] = useState<"export" | "restore" | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // What to include in an export — everything by default.
+  const [selection, setSelection] = useState<Set<BackupKind>>(fullSelection)
+
+  const allSelected = selection.size === BACKUP_KINDS.length
+  const noneSelected = selection.size === 0
+
+  const toggleKind = (kind: BackupKind, on: boolean) => {
+    setSelection((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(kind)
+      else next.delete(kind)
+      return next
+    })
+  }
+
+  const toggleAll = (on: boolean) => {
+    setSelection(on ? fullSelection() : new Set())
+  }
 
   const handleExport = async () => {
     setBusy("export")
     try {
-      const { saved, missingMedia, counts } = await exportBackup()
+      const { saved, missingMedia, counts } = await exportBackup(selection)
       if (!saved) return
       const summary = summarize(counts)
       if (missingMedia > 0) {
@@ -84,22 +118,41 @@ export function BackupSection() {
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-foreground">
-              Move everything to a new PC
+              Move your content to a new PC
             </span>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Save your whole content library — custom themes, stage layouts,
-              presentations, songs, schedules, the media library (images and
-              videos included), countdown timers, alerts and bookmarks — into a
-              single backup file, then restore it on another computer.
+              Save your content — custom themes, stage layouts, presentations,
+              songs, schedules, timers, alerts and the media library (images and
+              videos included) — into a single backup file, then restore it on
+              another computer. Pick everything, or just the kinds you need.
+              Restore accepts any backup and merges in whatever it holds.
             </p>
           </div>
+          {/* What to include — pick everything, or just the kinds you need. */}
+          <div className="flex flex-col gap-px overflow-hidden rounded-md border">
+            <SelectRow
+              label="All content"
+              emphasized
+              checked={allSelected}
+              onCheckedChange={toggleAll}
+            />
+            {BACKUP_KINDS.map((kind) => (
+              <SelectRow
+                key={kind}
+                label={KIND_LABELS[kind]}
+                checked={selection.has(kind)}
+                onCheckedChange={(on) => toggleKind(kind, on)}
+              />
+            ))}
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={handleExport}
-              disabled={busy !== null}
+              disabled={busy !== null || noneSelected}
             >
-              <DownloadIcon className="size-4" />
+              <UploadIcon className="size-4" />
               {busy === "export" ? "Saving…" : "Export backup"}
             </Button>
             <Button
@@ -107,7 +160,7 @@ export function BackupSection() {
               onClick={() => setConfirmOpen(true)}
               disabled={busy !== null}
             >
-              <UploadIcon className="size-4" />
+              <DownloadIcon className="size-4" />
               {busy === "restore" ? "Restoring…" : "Restore backup"}
             </Button>
           </div>
@@ -142,5 +195,33 @@ export function BackupSection() {
         onConfirm={handleRestore}
       />
     </div>
+  )
+}
+
+/** One selectable content-kind row in the export picker. */
+function SelectRow({
+  label,
+  checked,
+  onCheckedChange,
+  emphasized = false,
+}: {
+  label: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  emphasized?: boolean
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 bg-card px-3 py-2 hover:bg-muted/50">
+      <span
+        className={
+          emphasized
+            ? "text-xs font-medium text-foreground"
+            : "text-xs text-muted-foreground"
+        }
+      >
+        {label}
+      </span>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </label>
   )
 }

@@ -14,12 +14,14 @@ import {
   GridIcon,
   PaletteIcon,
   CheckCheckIcon,
+  Share2Icon,
 } from "lucide-react"
 import { currentDefaultThemeId } from "@/lib/theme/defaults"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
 import { PresentationEditor } from "@/components/slides/presentation-editor"
 import { createThemeFromTemplate } from "@/lib/theme/templates"
 import { slideToTheme } from "@/lib/theme/render"
+import { exportTheme } from "@/lib/theme-bundle/io"
 import type { Slide } from "@/types/slide"
 import type { Theme, ThemeType } from "@/types/theme"
 import { toast } from "sonner"
@@ -51,15 +53,25 @@ export function ThemeDesigner() {
   const sessionType = session?.identity.type
   const isDefaultableTheme =
     sessionType === "scripture" || sessionType === "song"
-  const isCurrentDefault =
-    sessionType != null &&
-    currentDefaultThemeId(sessionType, {
-      scriptureDefaultThemeId,
-      songSlideDefaults,
-    }) === session?.identity.id
 
   const [showGrid, setShowGrid] = useState(false)
   const [pendingSwitch, setPendingSwitch] = useState<(() => void) | null>(null)
+  // The original id of the built-in the current draft was forked from, or null
+  // when editing a custom theme or a blank new one. A pristine built-in can be
+  // made the default by its own id — without persisting a duplicate custom copy.
+  const [sourceBuiltinId, setSourceBuiltinId] = useState<string | null>(null)
+
+  const currentDefault =
+    sessionType != null
+      ? currentDefaultThemeId(sessionType, {
+          scriptureDefaultThemeId,
+          songSlideDefaults,
+        })
+      : null
+  const isCurrentDefault =
+    currentDefault != null &&
+    (currentDefault === session?.identity.id ||
+      currentDefault === sourceBuiltinId)
   // Snapshot of the draft slide as it was last opened/saved — the dirty signal
   // that gates switching away (the presentation store's undo stack isn't
   // reactive state, so we compare the slide directly).
@@ -96,6 +108,9 @@ export function ThemeDesigner() {
           }
         : theme
       usePresentationStore.getState().startEditingTheme(editable, theme.builtin)
+      // Remember the source built-in so "Set as Default" can point at its own id
+      // instead of persisting the forked copy (see handleSaveAsDefault).
+      setSourceBuiltinId(theme.builtin ? theme.id : null)
       markClean()
     })
   }
@@ -104,6 +119,7 @@ export function ThemeDesigner() {
     guardSwitch(() => {
       const theme = createThemeFromTemplate(type, uuid, Date.now())
       usePresentationStore.getState().startEditingTheme(theme, true)
+      setSourceBuiltinId(null)
       markClean()
     })
   }
@@ -157,24 +173,63 @@ export function ThemeDesigner() {
     return true
   }
 
-  // Save the current theme and make it the app-wide default for its type (the
-  // look new scripture outputs / generated song slides adopt). Saves first so the
-  // default points at a persisted theme — editing a built-in forks it to an
-  // unsaved custom id until Save runs.
-  const handleSaveAsDefault = () => {
-    if (!handleSave()) return
-    const identity = usePresentationStore.getState().typedThemeSession?.identity
-    if (!identity) return
-    const { id, type } = identity
+  // Point the app-wide default for `type` at `themeId`.
+  const applyDefault = (type: ThemeType, themeId: string) => {
     if (type === "scripture") {
-      useSettingsStore.getState().setScriptureDefaultThemeId(id)
+      useSettingsStore.getState().setScriptureDefaultThemeId(themeId)
       // Apply to the Program output so the new default is live immediately.
-      useBroadcastStore.getState().setActiveTheme(id)
+      useBroadcastStore.getState().setActiveTheme(themeId)
       toast.success("Set as default scripture theme")
     } else if (type === "song") {
       const s = useSettingsStore.getState()
-      s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId: id })
+      s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId })
       toast.success("Set as default song theme")
+    }
+  }
+
+  // Make the current theme the app-wide default for its type (the look new
+  // scripture outputs / generated song slides adopt).
+  //
+  // A pristine, unedited built-in is set as default by its *own* id — opening a
+  // built-in forks it to an unsaved custom copy, so saving here would persist a
+  // duplicate custom theme for no reason. Only once the fork is actually edited
+  // do we save it and point the default at the new custom id.
+  const handleSaveAsDefault = () => {
+    const sess = usePresentationStore.getState().typedThemeSession
+    if (!sess) return
+    if (sourceBuiltinId && !isDirty()) {
+      applyDefault(sess.identity.type, sourceBuiltinId)
+      return
+    }
+    if (!handleSave()) return
+    const identity = usePresentationStore.getState().typedThemeSession?.identity
+    if (!identity) return
+    applyDefault(identity.type, identity.id)
+  }
+
+  // Export the theme currently open in the editor to a `.lumtheme` bundle,
+  // packaging its media. Builds the bundle from the live draft so unsaved tweaks
+  // travel too.
+  const handleExport = async () => {
+    const s = usePresentationStore.getState()
+    const sess = s.typedThemeSession
+    const slide = s.draftPresentation?.slides[0]
+    if (!sess || !slide) return
+    const theme = slideToTheme(slide, sess.identity, Date.now())
+    try {
+      const { saved, missingMedia } = await exportTheme(theme)
+      if (!saved) return
+      if (missingMedia > 0) {
+        toast.warning(
+          `Exported "${theme.name}" · ${missingMedia} media file${
+            missingMedia > 1 ? "s were" : " was"
+          } missing and couldn't be packaged`
+        )
+      } else {
+        toast.success(`Exported "${theme.name}"`)
+      }
+    } catch {
+      toast.error("Couldn't export that theme.")
     }
   }
 
@@ -281,6 +336,14 @@ export function ThemeDesigner() {
                       : "Set as Default"}
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  title="Export this theme to a shareable .lumtheme file"
+                >
+                  <Share2Icon className="size-4" />
+                  Export
+                </Button>
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"
                   onClick={handleSave}

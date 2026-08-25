@@ -12,8 +12,6 @@ import {
   PresentationIcon,
   LayersIcon,
   MegaphoneIcon,
-  CheckCheckIcon,
-  DownloadIcon,
   UploadIcon,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -30,17 +28,13 @@ import {
 import { cn } from "@/lib/utils"
 import { useThemesStore } from "@/stores/themes"
 import { useSettingsStore } from "@/stores"
-import { useBroadcastStore } from "@/stores/broadcast-store"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { THEME_TYPES } from "@/lib/theme/templates"
 import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
-import {
-  isDefaultableThemeType,
-  currentDefaultThemeId,
-} from "@/lib/theme/defaults"
+import { currentDefaultThemeId } from "@/lib/theme/defaults"
 import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
-import { exportTheme, importThemeBundle } from "@/lib/theme-bundle/io"
+import { importThemeBundle } from "@/lib/theme-bundle/io"
 import { ThemeBundleParseError } from "@/lib/theme-bundle"
 
 /** Per-type display metadata for the New menu and card badges. */
@@ -54,25 +48,6 @@ const TYPE_META: Record<ThemeType, { label: string; icon: LucideIcon }> = {
 }
 
 type FilterTab = "all" | "pinned"
-
-/** Export one theme to a `.lumtheme` bundle, packaging its media, with a toast. */
-async function handleExportTheme(theme: Theme) {
-  try {
-    const { saved, missingMedia } = await exportTheme(theme)
-    if (!saved) return
-    if (missingMedia > 0) {
-      toast.warning(
-        `Exported "${theme.name}" · ${missingMedia} media file${
-          missingMedia > 1 ? "s were" : " was"
-        } missing and couldn't be packaged`
-      )
-    } else {
-      toast.success(`Exported "${theme.name}"`)
-    }
-  } catch {
-    toast.error("Couldn't export that theme.")
-  }
-}
 
 /**
  * The theme library for the type-first model (themeredo.md, Phase 3). Lists every
@@ -292,30 +267,19 @@ function ThemeCard({
   onSelect: () => void
 }) {
   const { label, icon: Icon } = TYPE_META[theme.type]
-  // Scripture and song themes can be marked the app-wide default for their type
-  // (the look new scripture outputs / generated song slides adopt). The current
-  // default is resolved through the legacy-id alias so a stored built-in id still
-  // matches. The other intrinsic types have no default.
+  // Scripture and song themes carry an app-wide default; the current default is
+  // badged here. Setting the default now lives in the Theme Designer's top bar
+  // (not a per-card action). The default id is resolved through the legacy-id
+  // alias so a stored built-in id still matches. Other types have no default.
   const scriptureDefaultThemeId = useSettingsStore(
     (s) => s.scriptureDefaultThemeId
   )
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
-  const isDefaultable = isDefaultableThemeType(theme.type)
   const isDefault =
     currentDefaultThemeId(theme.type, {
       scriptureDefaultThemeId,
       songSlideDefaults,
     }) === theme.id
-  const setAsDefault = () => {
-    if (theme.type === "scripture") {
-      useSettingsStore.getState().setScriptureDefaultThemeId(theme.id)
-      // Apply to the Program output so the new default is live immediately.
-      useBroadcastStore.getState().setActiveTheme(theme.id)
-    } else if (theme.type === "song") {
-      const s = useSettingsStore.getState()
-      s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId: theme.id })
-    }
-  }
   return (
     <div
       role="button"
@@ -350,72 +314,39 @@ function ThemeCard({
         <span className="shrink-0 text-[0.5625rem] tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
-        {/* Hover actions: "Set as default" for any scripture or song theme
-            (built-ins included), plus pin/delete for custom themes (built-ins
-            are code). */}
-        {(isDefaultable || !theme.builtin) && (
+        {/* Hover actions: pin/delete for custom themes (built-ins are code).
+            "Set as default" lives in the Theme Designer's top bar. */}
+        {!theme.builtin && (
           <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
-            {isDefaultable && !isDefault && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="size-6"
-                title={`Set as default ${theme.type} theme`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setAsDefault()
-                }}
-              >
-                <CheckCheckIcon className="size-3" />
-              </Button>
-            )}
-            {!theme.builtin && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-6"
-                  title="Export theme (.lumtheme)"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void handleExportTheme(theme)
-                  }}
-                >
-                  <DownloadIcon className="size-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-6"
-                  title={theme.pinned ? "Unpin" : "Pin"}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    useThemesStore
-                      .getState()
-                      .setThemePinned(theme.id, !theme.pinned)
-                  }}
-                >
-                  <StarIcon
-                    className={cn(
-                      "size-3",
-                      theme.pinned && "fill-current text-amber-400"
-                    )}
-                  />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-6 text-muted-foreground hover:text-destructive"
-                  title="Delete"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    useThemesStore.getState().deleteTheme(theme.id)
-                  }}
-                >
-                  <Trash2Icon className="size-3" />
-                </Button>
-              </>
-            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-6"
+              title={theme.pinned ? "Unpin" : "Pin"}
+              onClick={(e) => {
+                e.stopPropagation()
+                useThemesStore.getState().setThemePinned(theme.id, !theme.pinned)
+              }}
+            >
+              <StarIcon
+                className={cn(
+                  "size-3",
+                  theme.pinned && "fill-current text-amber-400"
+                )}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-6 text-muted-foreground hover:text-destructive"
+              title="Delete"
+              onClick={(e) => {
+                e.stopPropagation()
+                useThemesStore.getState().deleteTheme(theme.id)
+              }}
+            >
+              <Trash2Icon className="size-3" />
+            </Button>
           </div>
         )}
         {theme.pinned && !isDefault && (

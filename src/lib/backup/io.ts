@@ -40,20 +40,60 @@ const OPEN_FILTERS = [
   { name: "All files", extensions: ["*"] },
 ]
 
-/** Read every content store into one snapshot for the backup builder. */
-function gatherContent(): BackupContent {
+/**
+ * The content kinds a user can pick to include in an export, in display order.
+ * Web bookmarks aren't individually selectable — they ride along only in a full
+ * backup (see {@link gatherContent}).
+ */
+export const BACKUP_KINDS = [
+  "themes",
+  "stageLayouts",
+  "presentations",
+  "songs",
+  "schedules",
+  "mediaAssets",
+  "countdownTimers",
+  "alertTemplates",
+] as const
+
+/** One selectable content kind. */
+export type BackupKind = (typeof BACKUP_KINDS)[number]
+
+/** The set of content kinds an export should include. */
+export type BackupSelection = ReadonlySet<BackupKind>
+
+/** Every selectable kind — the default "export all content" selection. */
+export function fullSelection(): Set<BackupKind> {
+  return new Set(BACKUP_KINDS)
+}
+
+/**
+ * Read the chosen content stores into one snapshot for the backup builder. Only
+ * the selected kinds are gathered; unselected ones come back empty. Auxiliary
+ * content (timers, alerts, bookmarks) travels only when every kind is selected,
+ * i.e. a complete backup.
+ */
+function gatherContent(selection: BackupSelection): BackupContent {
+  const has = (k: BackupKind) => selection.has(k)
+  const full = BACKUP_KINDS.every((k) => selection.has(k))
   return {
-    themes: useThemesStore.getState().customThemes,
-    stageLayouts: useBroadcastStore
-      .getState()
-      .stageLayouts.filter((l) => !l.builtin),
-    presentations: usePresentationStore.getState().presentations,
-    songs: useSongStore.getState().songs,
-    schedules: useScheduleStore.getState().schedules,
-    mediaAssets: useMediaStore.getState().assets,
-    countdownTimers: useCountdownStore.getState().timers,
-    alertTemplates: useAlertStore.getState().templates,
-    webBookmarks: useWebStore.getState().bookmarks,
+    themes: has("themes") ? useThemesStore.getState().customThemes : [],
+    stageLayouts: has("stageLayouts")
+      ? useBroadcastStore.getState().stageLayouts.filter((l) => !l.builtin)
+      : [],
+    presentations: has("presentations")
+      ? usePresentationStore.getState().presentations
+      : [],
+    songs: has("songs") ? useSongStore.getState().songs : [],
+    schedules: has("schedules") ? useScheduleStore.getState().schedules : [],
+    mediaAssets: has("mediaAssets") ? useMediaStore.getState().assets : [],
+    countdownTimers: has("countdownTimers")
+      ? useCountdownStore.getState().timers
+      : [],
+    alertTemplates: has("alertTemplates")
+      ? useAlertStore.getState().templates
+      : [],
+    webBookmarks: full ? useWebStore.getState().bookmarks : [],
   }
 }
 
@@ -91,9 +131,14 @@ export interface ExportBackupResult {
   counts: BackupCounts
 }
 
-/** Package the whole content library into a `.lumbackup` and prompt to save it. */
-export async function exportBackup(): Promise<ExportBackupResult> {
-  const content = gatherContent()
+/**
+ * Package the chosen content kinds into a `.lumbackup` and prompt to save it.
+ * Pass the set of kinds to include; defaults to a complete backup.
+ */
+export async function exportBackup(
+  selection: BackupSelection = fullSelection()
+): Promise<ExportBackupResult> {
+  const content = gatherContent(selection)
   const { manifest, mediaFiles, missingMedia } = buildBackup(content, Date.now())
   const path = await saveBundle(
     `lumenlive-backup.${BACKUP_EXTENSION}`,
