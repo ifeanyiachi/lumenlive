@@ -1,7 +1,7 @@
 {
   "name": "lumenlive",
   "private": true,
-  "version": "0.3.4",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "predev": "powershell -ExecutionPolicy Bypass -File scripts/free-dev-port.ps1",
