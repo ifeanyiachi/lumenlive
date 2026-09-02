@@ -8,6 +8,7 @@ members = [
     "crates/broadcast",
     "crates/api",
     "crates/lyrics",
+    "crates/licensing",
 ]
 resolver = "2"
 
@@ -85,6 +86,10 @@ lumenlive-broadcast = { path = "crates/broadcast" }
 lumenlive-detection = { path = "crates/detection", features = ["onnx", "vector-search"] }
 lumenlive-api = { path = "crates/api" }
 lumenlive-lyrics = { path = "crates/lyrics" }
+lumenlive-licensing = { path = "crates/licensing" }
+# Stable per-machine id for node-locked licenses (registry MachineGuid on
+# Windows, /etc/machine-id on Linux, IOPlatformUUID on macOS).
+machine-uid = "0.5"
 crossbeam-channel = "0.5"
 dotenvy = "0.15"
 base64 = "0.22"

@@ -26,6 +26,7 @@ import {
   type UnmatchedFont,
 } from "@/components/slides/pptx-font-reconcile-dialog"
 import { ImportRenameDialog } from "@/components/slides/import-rename-dialog"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import {
   isPresentationNameTaken,
   makeUniquePresentationName,
@@ -162,7 +163,10 @@ export function PresentationGrid() {
           size="sm"
           className="h-7 gap-1 px-2 text-xs"
           disabled={importing}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (requireFeature("pptx_import", "PowerPoint import"))
+              fileInputRef.current?.click()
+          }}
           title="Import a PowerPoint (.pptx) file"
         >
           <UploadIcon className="size-3" />

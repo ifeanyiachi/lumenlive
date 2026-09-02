@@ -411,7 +411,7 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     }
 
     let t0 = std::time::Instant::now();
-    log::info!("[DET-SEMANTIC] Running on: {:?}", truncate_safe(transcript, 80));
+    log::info!("[DET-SEMANTIC] Running on: {transcript:?}");
 
     // 0. Optimistic keyword preview: if this utterance looks like a quotation,
     //    surface the top FTS candidate(s) in the panel NOW, before the ONNX embed
@@ -566,6 +566,33 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     if merged.is_empty() {
         log::info!("[DET-SEMANTIC] No detections above threshold");
         return;
+    }
+
+    // Full ranked candidate list (winners AND runner-ups) with scores. A
+    // said-vs-displayed mismatch usually means the right verse placed #2 or lost
+    // by a few points — the resolved `Found:` lines below only show the winners,
+    // so this line is what reveals why the wrong verse won.
+    if log::log_enabled!(log::Level::Info) {
+        let candidates = merged
+            .iter()
+            .map(|c| {
+                let d = &c.detection;
+                let src = match d.source {
+                    DetectionSource::Semantic { .. } => "sem",
+                    DetectionSource::DirectReference => "dir",
+                };
+                let q = if c.auto_queued { " AQ" } else { "" };
+                format!(
+                    "{} {}:{}={:.0}%[{src}{q}]",
+                    d.verse_ref.book_name,
+                    d.verse_ref.chapter,
+                    d.verse_ref.verse_start,
+                    d.confidence * 100.0
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        log::info!("[DET-SEMANTIC] Candidates ({}): {candidates}", merged.len());
     }
 
     // 4. Resolve each merged detection to a full verse result in the active translation.

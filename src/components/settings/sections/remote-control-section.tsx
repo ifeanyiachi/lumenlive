@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { requireFeature } from "@/components/entitlements/require-feature"
 
 import { useRemoteControl } from "../hooks/use-remote-control"
 
@@ -57,7 +58,10 @@ export function RemoteControlSection() {
           <Button
             size="sm"
             variant={oscStatus.running ? "destructive" : "default"}
-            onClick={handleOscToggle}
+            onClick={() => {
+              if (oscStatus.running || requireFeature("remote_control", "Remote control"))
+                handleOscToggle()
+            }}
             className="text-xs"
           >
             {oscStatus.running ? "Stop" : "Start"}
@@ -96,7 +100,10 @@ export function RemoteControlSection() {
           <Button
             size="sm"
             variant={httpStatus.running ? "destructive" : "default"}
-            onClick={handleHttpToggle}
+            onClick={() => {
+              if (httpStatus.running || requireFeature("remote_control", "Remote control"))
+                handleHttpToggle()
+            }}
             className="text-xs"
           >
             {httpStatus.running ? "Stop" : "Start"}

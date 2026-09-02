@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
-use lumenlive_stt::{SttProvider, TranscriptEvent};
+use lumenlive_stt::{SttError, SttProvider, TranscriptEvent};
+
+use crate::events::EVENT_STT_UNAUTHORIZED;
 
 /// Supervise the STT engine for one transcription session.
 ///
@@ -31,6 +33,13 @@ pub(super) async fn run_stt_supervisor(
             Ok(()) => {
                 log::warn!("[STT-{primary_name}] provider disconnected");
                 let _ = app.emit("stt_error", "Transcription connection lost.");
+            }
+            Err(SttError::Unauthorized) => {
+                // The key was rejected. Emit a distinct event so the frontend can
+                // flag a BYO key as invalid (and tell the backend) rather than
+                // showing a generic "connection lost" toast.
+                log::error!("[STT-{primary_name}] API key rejected (401)");
+                let _ = app.emit(EVENT_STT_UNAUTHORIZED, ());
             }
             Err(e) => {
                 log::error!("[STT-{primary_name}] provider failed: {e:?}");

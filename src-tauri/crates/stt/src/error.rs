@@ -12,6 +12,9 @@ pub enum SttError {
     #[error("API key is missing")]
     ApiKeyMissing,
 
+    #[error("unauthorized: the STT service rejected the API key")]
+    Unauthorized,
+
     #[error("send error: {0}")]
     SendError(String),
 

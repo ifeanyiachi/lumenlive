@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { CastIcon } from "lucide-react"
 import type { NdiAlphaMode, NdiFrameRate, NdiResolution } from "@/types"
 import type { OutputController } from "@/hooks/use-output-controller"
@@ -135,7 +136,10 @@ export function NdiSettings({
           ndiActive &&
             "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400"
         )}
-        onClick={toggleNdi}
+        onClick={() => {
+          // Allow stopping regardless; gate only the start (ndi_output is Pro).
+          if (ndiActive || requireFeature("ndi_output", "NDI output")) toggleNdi()
+        }}
       >
         <CastIcon className="size-3.5" />
         {ndiActive ? "Stop NDI" : "Start NDI"}

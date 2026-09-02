@@ -21,6 +21,7 @@ import { SettingsDialog } from "@/components/settings-dialog"
 import { ThemeDesigner } from "@/components/broadcast/theme-designer"
 import { PresentationEditorHost } from "@/components/slides/presentation-editor-host"
 import { StageLayoutDesigner } from "@/components/broadcast/stage-layout/stage-layout-designer"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { BroadcastSettings } from "@/components/broadcast/broadcast-settings"
 import {
   useAudioStore,
@@ -161,7 +162,10 @@ export function TransportBar() {
           size="icon-sm"
           title="Theme Designer"
           data-tour="theme"
-          onClick={() => useBroadcastStore.getState().setDesignerOpen(true)}
+          onClick={() => {
+            if (requireFeature("theme_designer", "Theme Designer"))
+              useBroadcastStore.getState().setDesignerOpen(true)
+          }}
         >
           <PaletteIcon className="size-3.5" />
         </Button>
@@ -171,9 +175,10 @@ export function TransportBar() {
           variant="ghost"
           size="icon-sm"
           title="Stage Layout Designer"
-          onClick={() =>
-            useBroadcastStore.getState().setStageDesignerOpen(true)
-          }
+          onClick={() => {
+            if (requireFeature("stage_display", "Stage display"))
+              useBroadcastStore.getState().setStageDesignerOpen(true)
+          }}
         >
           <MonitorIcon className="size-3.5" />
         </Button>

@@ -12,8 +12,16 @@ use tauri::{AppHandle, Emitter};
 use lumenlive_audio::{AudioConfig, AudioFrame};
 
 use crate::events::{
-    AudioLevelPayload, EVENT_AUDIO_LEVEL, EVENT_AUDIO_SOURCE_LOST, EVENT_AUDIO_SOURCE_RECOVERED,
+    AudioLevelPayload, TranscriptionUsagePayload, EVENT_AUDIO_LEVEL, EVENT_AUDIO_SOURCE_LOST,
+    EVENT_AUDIO_SOURCE_RECOVERED, EVENT_TRANSCRIPTION_USAGE,
 };
+
+/// Sample rate the STT pipeline runs at (see `AudioConfig` below); usage seconds
+/// = samples streamed / this. Kept in sync with the `sample_rate: 16_000` config.
+const STT_SAMPLE_RATE: f64 = 16_000.0;
+/// How often to emit a usage delta while a session streams. One minute keeps the
+/// metering endpoint quiet while still catching an allowance running out promptly.
+const USAGE_EMIT_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Spawn the audio-capture + fan-out thread. It:
 ///   a) starts the cpal capture (rebuilding it across device loss/recovery)
@@ -51,6 +59,16 @@ pub(super) fn spawn_audio_fanout(
             let device_lost = Arc::new(AtomicBool::new(false));
             let mut frame_count: u64 = 0;
             let mut announced_lost = false;
+
+            // Usage metering (portalplan D2-06). Count audio samples actually
+            // handed to the STT provider this session — not wall-clock — so the
+            // platform can meter free/trial minutes accurately. Declared outside
+            // the rebuild loop so the running total survives device loss/recovery
+            // and provider reconnects. `reported_samples` tracks what's already
+            // been emitted so each `transcription_usage` carries a delta.
+            let mut usage_samples: u64 = 0;
+            let mut reported_samples: u64 = 0;
+            let mut last_usage_emit = Instant::now();
 
             // Outer loop: rebuild `AudioCapture` whenever the device is lost
             // and reappears. Exits only when `fan_active` is cleared by
@@ -151,8 +169,30 @@ pub(super) fn spawn_audio_fanout(
                                 );
                             }
 
-                            // (b) Forward all audio to STT provider
-                            let _ = audio_send_tx.try_send(frame.samples);
+                            // (b) Forward all audio to STT provider. Count only
+                            //     samples the provider actually accepts — audio
+                            //     dropped while it reconnects isn't submitted to
+                            //     the STT service, so it isn't metered.
+                            let sample_count = frame.samples.len() as u64;
+                            if audio_send_tx.try_send(frame.samples).is_ok() {
+                                usage_samples += sample_count;
+                            }
+
+                            // (c) Emit a usage delta on the interval. Runs on the
+                            //     frame path so it only fires while audio flows.
+                            if last_usage_emit.elapsed() >= USAGE_EMIT_INTERVAL {
+                                let delta = usage_samples - reported_samples;
+                                if delta > 0 {
+                                    let _ = fan_app.emit(
+                                        EVENT_TRANSCRIPTION_USAGE,
+                                        TranscriptionUsagePayload {
+                                            seconds: delta as f64 / STT_SAMPLE_RATE,
+                                        },
+                                    );
+                                    reported_samples = usage_samples;
+                                }
+                                last_usage_emit = Instant::now();
+                            }
                         }
                         Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                         Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
@@ -164,6 +204,19 @@ pub(super) fn spawn_audio_fanout(
 
                 // Dropping `capture` stops the cpal stream.
                 capture.stop();
+            }
+
+            // Final usage flush — report any audio streamed since the last emit
+            // so the tail of a session (and short sessions under the interval)
+            // is still metered.
+            let delta = usage_samples - reported_samples;
+            if delta > 0 {
+                let _ = fan_app.emit(
+                    EVENT_TRANSCRIPTION_USAGE,
+                    TranscriptionUsagePayload {
+                        seconds: delta as f64 / STT_SAMPLE_RATE,
+                    },
+                );
             }
 
             log::info!("Audio capture stopped on fanout thread");

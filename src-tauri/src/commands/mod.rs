@@ -4,6 +4,7 @@ pub mod bible_import;
 pub mod broadcast;
 pub mod bundle;
 pub mod detection;
+pub mod licensing;
 pub mod media;
 pub mod remote;
 pub mod resource_store;

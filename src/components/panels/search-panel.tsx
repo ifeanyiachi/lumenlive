@@ -11,6 +11,7 @@ import {
 import { useBible, bibleActions } from "@/hooks/use-bible"
 import { useBibleStore, useSettingsStore } from "@/stores"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { useCan } from "@/stores/entitlements-store"
 import type { Book, Verse } from "@/types"
 import { SearchMediaTab } from "@/components/panels/search-media-tab"
 import { SearchSlideTab } from "@/components/panels/search-slide-tab"
@@ -55,7 +56,10 @@ export function SearchPanel() {
 
   // Greek/Hebrew interlinear is installed-but-disabled by default; the whole
   // affordance (toggle + strip) stays hidden until enabled in Bible settings.
-  const lexiconEnabled = useSettingsStore((s) => s.lexiconEnabled)
+  // Lexicon/word-study is a Pro feature, so it also requires the entitlement.
+  const lexiconSetting = useSettingsStore((s) => s.lexiconEnabled)
+  const hasLexicon = useCan("lexicon")
+  const lexiconEnabled = lexiconSetting && hasLexicon
   // Book-search rows key by real `verse.id` (number); context-search results
   // are synthesized with `id: 0`, so they key by a "book:chapter:verse" string.
   const [lexiconOpenId, setLexiconOpenId] = useState<number | string | null>(

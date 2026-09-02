@@ -47,6 +47,10 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)
+                // ONNX Runtime logs its per-tensor memory-arena bookkeeping at
+                // INFO, which floods the file and buries the detection trail.
+                // Keep only its warnings/errors so [DET-*] lines stay readable.
+                .level_for("ort", tauri_plugin_log::log::LevelFilter::Warn)
                 .build(),
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -93,6 +97,7 @@ pub fn run() {
             commands::detection::reading_mode_status,
             commands::detection::stop_reading_mode,
             commands::detection::update_detection_settings,
+            commands::detection::set_embedding_model,
             commands::audio::get_audio_devices,
             commands::stt::start_transcription,
             commands::stt::stop_transcription,
@@ -127,6 +132,10 @@ pub fn run() {
             commands::song_search::song_search_online,
             commands::song_search::song_fetch_lyrics,
             commands::song_pack::song_fetch_pack,
+            commands::licensing::get_machine_id,
+            commands::licensing::os_info,
+            commands::licensing::verify_license,
+            commands::licensing::licensing_request,
         ])
         .setup(|app| {
             memstats::spawn();

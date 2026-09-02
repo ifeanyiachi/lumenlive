@@ -12,11 +12,18 @@ interface TranscriptState {
   currentPartial: string
   isTranscribing: boolean
   connectionStatus: ConnectionStatus
+  /**
+   * Free/trial transcription minutes left on the signed-in account, or `null`
+   * when unmetered (unlimited/paid) or unknown (signed out / not yet pulled).
+   * Updated infrequently — on session start and each usage report (~1/min).
+   */
+  remainingMinutes: number | null
 
   addSegment: (segment: TranscriptSegment) => void
   setPartial: (text: string) => void
   setTranscribing: (transcribing: boolean) => void
   setConnectionStatus: (status: ConnectionStatus) => void
+  setRemainingMinutes: (minutes: number | null) => void
   clearTranscript: () => void
 }
 
@@ -25,6 +32,7 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   currentPartial: "",
   isTranscribing: false,
   connectionStatus: "disconnected",
+  remainingMinutes: null,
 
   addSegment: (segment) =>
     set((state) => {
@@ -38,5 +46,6 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   setPartial: (currentPartial) => set({ currentPartial }),
   setTranscribing: (isTranscribing) => set({ isTranscribing }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
+  setRemainingMinutes: (remainingMinutes) => set({ remainingMinutes }),
   clearTranscript: () => set({ segments: [], currentPartial: "" }),
 }))

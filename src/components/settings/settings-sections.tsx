@@ -12,10 +12,12 @@ import {
   MusicIcon,
   ShieldIcon,
   ArchiveIcon,
+  UserCircleIcon,
 } from "lucide-react"
 
 import type { SettingsSection } from "@/lib/settings-dialog"
 
+import { AccountSection } from "./sections/account-section"
 import { AudioSection } from "./sections/audio-section"
 import { SpeechSection } from "./sections/speech-section"
 import { BibleSection } from "./sections/bible-section"
@@ -45,6 +47,13 @@ export interface SettingsSectionDef {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
+  {
+    id: "account",
+    name: "Account",
+    title: "Account & License",
+    icon: <UserCircleIcon strokeWidth={2} />,
+    Component: AccountSection,
+  },
   {
     id: "audio",
     name: "Audio",

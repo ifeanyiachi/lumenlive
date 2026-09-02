@@ -141,6 +141,14 @@ impl DeepgramClient {
                     break;
                 }
                 Err(e) => {
+                    // A rejected key will never succeed on retry — fail fast so
+                    // the supervisor surfaces it as an auth error, not a drop.
+                    if matches!(e, SttError::Unauthorized) {
+                        log::error!("DeepgramClient: API key rejected (401)");
+                        let _ = event_tx.send(TranscriptEvent::Disconnected).await;
+                        return Err(e);
+                    }
+
                     attempts += 1;
                     log::warn!(
                         "DeepgramClient: connection error (attempt {attempts}/{MAX_RECONNECT_ATTEMPTS}): {e}",
@@ -191,7 +199,17 @@ impl DeepgramClient {
                 .await
             {
                 Ok(Ok(pair)) => pair,
-                Ok(Err(e)) => return Err(SttError::ConnectionFailed(e.to_string())),
+                Ok(Err(e)) => {
+                    // A 401 during the handshake means the API key was rejected.
+                    // Surface it distinctly so the app can flag a BYO key as bad
+                    // instead of treating it as a transient connection drop.
+                    if let tokio_tungstenite::tungstenite::Error::Http(ref resp) = e {
+                        if resp.status().as_u16() == 401 {
+                            return Err(SttError::Unauthorized);
+                        }
+                    }
+                    return Err(SttError::ConnectionFailed(e.to_string()));
+                }
                 Err(_elapsed) => {
                     return Err(SttError::ConnectionFailed(
                         "connect timed out (network unreachable)".into(),

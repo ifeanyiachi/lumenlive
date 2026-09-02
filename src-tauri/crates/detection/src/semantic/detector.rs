@@ -72,6 +72,16 @@ impl SemanticDetector {
         !self.index.is_empty()
     }
 
+    /// Embedding dimensionality of the active model (768 for bge, 1024 for qwen).
+    pub fn dimension(&self) -> usize {
+        self.embedder.dimension()
+    }
+
+    /// Number of verse vectors in the loaded index.
+    pub fn index_len(&self) -> usize {
+        self.index.len()
+    }
+
     /// Detect Bible verses in `text` using semantic similarity.
     ///
     /// The text is split into overlapping sentence windows, each window

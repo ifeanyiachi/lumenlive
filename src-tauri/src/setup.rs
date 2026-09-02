@@ -135,108 +135,202 @@ pub fn init_bible_db(app: &tauri::App) -> SetupResult {
     Ok(())
 }
 
-/// Load the ONNX embedding model and pre-computed verse index into the managed
-/// `DetectionPipeline`. Every failure here degrades (semantic search disabled) —
-/// it is an optional enhancement, so this never aborts startup.
 /// bge-base-en-v1.5's retrieval instruction, prepended to runtime query text
 /// (the query side of the asymmetric prefix contract; verses get no prefix).
 const BGE_QUERY_PREFIX: &str = "Represent this sentence for searching relevant passages: ";
 
-pub fn init_semantic(app: &tauri::App) {
+/// Which on-device embedding model backs semantic search. Both are INT8 ONNX
+/// models paired with a pre-computed KJV verse index built by the matching
+/// precompute script; a query and its index must come from the **same** model or
+/// similarities are computed across mismatched subspaces.
+///
+/// This is a runtime A/B switch (see the `set_embedding_model` command): the
+/// operator flips between the two to compare detection quality on real speech,
+/// then the losing model is removed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EmbeddingModel {
+    /// BAAI/bge-base-en-v1.5, 768-dim, **asymmetric** (queries carry
+    /// [`BGE_QUERY_PREFIX`], verses none). The wired startup default.
+    Bge,
+    /// Qwen3-Embedding-0.6B, 1024-dim, **symmetric** (no prefix on either side).
+    Qwen,
+}
+
+/// Static asset layout + prefix contract for one [`EmbeddingModel`].
+struct ModelAssets {
+    /// INT8 ONNX model file, relative to the resource/dev base.
+    model_rel: &'static str,
+    /// `HuggingFace` tokenizer.json, relative to the base.
+    tokenizer_rel: &'static str,
+    /// Pre-computed flat-f32 verse embeddings, relative to the base.
+    embeddings_rel: &'static str,
+    /// Matching i64 verse-id sidecar, relative to the base.
+    ids_rel: &'static str,
+    /// Prepended to every runtime query (empty = symmetric). Verses are always
+    /// embedded prefix-free by the precompute script.
+    query_prefix: &'static str,
+}
+
+impl EmbeddingModel {
+    /// Parse the frontend's model id (`"bge"` / `"qwen"`); `None` if unknown.
+    pub(crate) fn parse(s: &str) -> Option<Self> {
+        match s {
+            "bge" => Some(Self::Bge),
+            "qwen" => Some(Self::Qwen),
+            _ => None,
+        }
+    }
+
+    /// The stable string id shared with the frontend settings store.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Bge => "bge",
+            Self::Qwen => "qwen",
+        }
+    }
+
+    fn assets(self) -> ModelAssets {
+        match self {
+            Self::Bge => ModelAssets {
+                model_rel: "models/bge-base-en-v1.5-int8/model_quantized.onnx",
+                tokenizer_rel: "models/bge-base-en-v1.5-int8/tokenizer.json",
+                embeddings_rel: "embeddings/kjv-bge-base-en-v1.5.bin",
+                ids_rel: "embeddings/kjv-bge-base-en-v1.5-ids.bin",
+                query_prefix: BGE_QUERY_PREFIX,
+            },
+            // The Qwen downloader (data/download-model.ts) keeps the tokenizer
+            // inside the self-contained int8 dir, so both model and tokenizer
+            // resolve there. Qwen is symmetric — no query prefix.
+            Self::Qwen => ModelAssets {
+                model_rel: "models/qwen3-embedding-0.6b-int8/model_quantized.onnx",
+                tokenizer_rel: "models/qwen3-embedding-0.6b-int8/tokenizer.json",
+                embeddings_rel: "embeddings/kjv-qwen3-0.6b.bin",
+                ids_rel: "embeddings/kjv-qwen3-0.6b-ids.bin",
+                query_prefix: "",
+            },
+        }
+    }
+}
+
+/// Resolve a bundled asset: prefer the packaged resource dir (production), fall
+/// back to the source-tree path (dev). `CARGO_MANIFEST_DIR` is a build-machine
+/// compile-time path, so an installed app must find assets under `res_base`.
+fn resolve_asset(res_base: Option<&std::path::Path>, rel: &str) -> std::path::PathBuf {
+    if let Some(rb) = res_base {
+        let p = rb.join(rel);
+        if p.exists() {
+            return p;
+        }
+    }
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(rel)
+}
+
+/// Build a [`SemanticDetector`](lumenlive_detection::SemanticDetector) for
+/// `model`: load its INT8 embedder (with the correct query prefix) and its
+/// pre-computed verse index. Shared by startup ([`init_semantic`]) and the
+/// runtime `set_embedding_model` switch.
+///
+/// Returns `Err` with an operator-facing message when the model or its index is
+/// missing/unloadable — the caller surfaces it (startup logs it and degrades;
+/// the command forwards it to the UI so the user knows to generate the assets).
+pub(crate) fn build_semantic_detector(
+    res_base: Option<&std::path::Path>,
+    model: EmbeddingModel,
+) -> Result<lumenlive_detection::SemanticDetector, String> {
     // Traits for `embedder.dimension()` / `index.len()`; declared before any
     // statement per clippy::items_after_statements.
     use lumenlive_detection::semantic::embedder::TextEmbedder;
     use lumenlive_detection::semantic::index::VectorIndex;
 
-    // Resolve each asset from the bundled resource dir (production) first,
-    // falling back to the source-tree path (dev). CARGO_MANIFEST_DIR is a
-    // compile-time path that only exists on the build machine, so an installed
-    // app must find these under resource_dir().
-    let dev_base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let res_base = app.path().resource_dir().ok();
-    let resolve = |rel: &str| -> std::path::PathBuf {
-        if let Some(rb) = &res_base {
-            let p = rb.join(rel);
-            if p.exists() {
-                return p;
-            }
-        }
-        dev_base.join(rel)
-    };
-    // The app uses the INT8 bge-base-en-v1.5 embedding model exclusively: it is
-    // the only variant bundled into the installer (tauri.conf.json) and the
-    // pre-computed verse index is embedded with the same model (see
-    // data/export-bge-onnx.py + precompute-embeddings-onnx.py), so query and
-    // index share one subspace. A missing model is handled by the exists() guard
-    // below (semantic search is disabled).
-    let model_path = resolve("models/bge-base-en-v1.5-int8/model_quantized.onnx");
-    let tokenizer_path = resolve("models/bge-base-en-v1.5-int8/tokenizer.json");
-    let embeddings_path = resolve("embeddings/kjv-bge-base-en-v1.5.bin");
-    let ids_path = resolve("embeddings/kjv-bge-base-en-v1.5-ids.bin");
+    let assets = model.assets();
+    let model_path = resolve_asset(res_base, assets.model_rel);
+    let tokenizer_path = resolve_asset(res_base, assets.tokenizer_rel);
+    let embeddings_path = resolve_asset(res_base, assets.embeddings_rel);
+    let ids_path = resolve_asset(res_base, assets.ids_rel);
 
     if !(model_path.exists() && tokenizer_path.exists()) {
-        log::info!("ONNX model not found. Semantic search disabled. Run 'bun run download:model' to download.");
-        return;
+        return Err(format!(
+            "{} model files not found (expected {} + tokenizer). Generate them first, then retry.",
+            model.as_str(),
+            assets.model_rel,
+        ));
     }
 
-    // bge is asymmetric: passages (verses) are embedded with no prefix, runtime
-    // QUERIES carry BGE_QUERY_PREFIX. The pre-computed index was built
-    // prefix-free, so the query side must add exactly this — see the prefix
-    // contract on `OnnxEmbedder`.
-    let embedder = match lumenlive_detection::OnnxEmbedder::load_with_prefix(
+    // Both models are loaded via the query-side constructor: bge gets its
+    // retrieval instruction; qwen gets an empty prefix (symmetric). The
+    // pre-computed index is prefix-free either way — see the prefix contract on
+    // `OnnxEmbedder`.
+    let embedder = lumenlive_detection::OnnxEmbedder::load_with_prefix(
         &model_path,
         &tokenizer_path,
-        BGE_QUERY_PREFIX,
-    ) {
-        Ok(embedder) => {
-            log::info!("ONNX embedding model loaded");
-            embedder
-        }
+        assets.query_prefix,
+    )
+    .map_err(|e| format!("failed to load {} model: {e}", model.as_str()))?;
+
+    // Warm-up inference: pay the ORT cold-start cost (arena allocation +
+    // thread-pool spin-up) here rather than on the operator's first spoken
+    // phrase. Non-fatal — a real query would resurface any genuine error.
+    let warm_start = std::time::Instant::now();
+    match embedder.embed("for god so loved the world") {
+        Ok(_) => log::info!(
+            "[{}] ONNX warm-up embed complete in {:?}",
+            model.as_str(),
+            warm_start.elapsed()
+        ),
+        Err(e) => log::warn!(
+            "[{}] ONNX warm-up embed failed (non-fatal): {e}",
+            model.as_str()
+        ),
+    }
+
+    if !(embeddings_path.exists() && ids_path.exists()) {
+        return Err(format!(
+            "{} verse index not found (expected {}). Run the precompute step for this model.",
+            model.as_str(),
+            assets.embeddings_rel,
+        ));
+    }
+
+    let dim = embedder.dimension();
+    let index =
+        lumenlive_detection::HnswVectorIndex::load(&embeddings_path, &ids_path, dim)
+            .map_err(|e| format!("failed to load {} verse index: {e}", model.as_str()))?;
+    log::info!(
+        "[{}] semantic detector ready: {} vectors x {dim} dims",
+        model.as_str(),
+        index.len(),
+    );
+
+    Ok(lumenlive_detection::SemanticDetector::new(
+        Box::new(embedder),
+        Box::new(index),
+    ))
+}
+
+/// Load the **default** embedding model and its verse index into the managed
+/// `DetectionPipeline` at startup. Every failure here degrades (semantic search
+/// disabled) — it is an optional enhancement, so this never aborts startup. The
+/// operator can switch models at runtime via the `set_embedding_model` command,
+/// which the frontend re-applies from its persisted choice shortly after boot.
+pub fn init_semantic(app: &tauri::App) {
+    let res_base = app.path().resource_dir().ok();
+    let detector = match build_semantic_detector(res_base.as_deref(), EmbeddingModel::Bge) {
+        Ok(detector) => detector,
         Err(e) => {
-            log::warn!("Failed to load ONNX model: {e}");
+            log::info!("Semantic search disabled: {e}");
             return;
         }
     };
+    log::info!("Semantic search ready ({} vectors)", detector.index_len());
 
-    // Warm-up inference: the first `embed()` after load pays the ORT cold-start
-    // cost (arena allocation + thread-pool spin-up), which would otherwise land
-    // on the operator's first spoken phrase. Pay it here at startup instead. The
-    // result is discarded; a failure is non-fatal (the real query would surface
-    // the same error) and never disables semantic search.
-    let warm_start = std::time::Instant::now();
-    match embedder.embed("for god so loved the world") {
-        Ok(_) => log::info!("ONNX warm-up embed complete in {:?}", warm_start.elapsed()),
-        Err(e) => log::warn!("ONNX warm-up embed failed (non-fatal): {e}"),
-    }
-
-    // bge is asymmetric: verse embeddings are pre-computed with no prefix, while
-    // live query text carries the retrieval instruction (applied by the embedder,
-    // constructed with BGE_QUERY_PREFIX above). Both sides must match or queries
-    // land in a different subspace than the verses.
     let managed_pipeline = app.state::<Mutex<lumenlive_detection::DetectionPipeline>>();
     let Ok(mut pipeline) = managed_pipeline.lock() else {
         log::warn!("DetectionPipeline lock poisoned during startup — semantic search disabled");
         return;
     };
-
-    // If pre-computed embeddings exist, load the vector index
-    if embeddings_path.exists() && ids_path.exists() {
-        let dim = embedder.dimension();
-        match lumenlive_detection::HnswVectorIndex::load(&embeddings_path, &ids_path, dim) {
-            Ok(index) => {
-                log::info!("Verse embeddings loaded ({} vectors)", index.len());
-                pipeline.set_semantic(lumenlive_detection::SemanticDetector::new(
-                    Box::new(embedder),
-                    Box::new(index),
-                ));
-            }
-            Err(e) => {
-                log::warn!("Failed to load verse embeddings: {e}");
-            }
-        }
-    } else {
-        log::info!("No pre-computed verse embeddings found. Run 'bun run export:verses' then the precompute binary.");
-    }
+    pipeline.set_semantic(detector);
 }
 
 /// Force the main control window to open maximized (filling the work area).

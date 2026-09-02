@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use lumenlive_bible::{BibleDb, Verse};
 use lumenlive_detection::{DetectionPipeline, MergedDetection, ReadingMode};
@@ -203,6 +203,55 @@ pub struct DetectionStatusResult {
     pub paraphrase_enabled: bool,
 }
 
+/// Result of switching the semantic embedding model at runtime.
+#[derive(Serialize)]
+pub struct SetEmbeddingModelResult {
+    /// Stable model id now active ("bge" | "qwen").
+    pub model: String,
+    /// Embedding dimensionality of the loaded model (768 bge, 1024 qwen).
+    pub dim: usize,
+    /// Number of verse vectors in the loaded index.
+    pub vectors: usize,
+}
+
+/// Switch the on-device embedding model backing semantic search (bge ⇆ qwen).
+///
+/// Reloads the chosen ONNX model + its pre-computed verse index and swaps it
+/// into the live pipeline. This is heavier than a plain toggle — it loads
+/// hundreds of MB and warms the model up — so it runs on Tauri's command thread.
+/// The new detector is built *before* the pipeline lock is taken, so a missing
+/// model/index returns a clear error (surfaced in the UI) without disturbing the
+/// currently-loaded detector.
+#[tauri::command]
+pub fn set_embedding_model(
+    app: AppHandle,
+    pipeline_state: State<'_, Mutex<DetectionPipeline>>,
+    model: String,
+) -> Result<SetEmbeddingModelResult, String> {
+    let choice = crate::setup::EmbeddingModel::parse(&model)
+        .ok_or_else(|| format!("unknown embedding model '{model}'"))?;
+
+    // Build first (slow, fallible). On failure the live detector is untouched.
+    let res_base = app.path().resource_dir().ok();
+    let detector =
+        crate::setup::build_semantic_detector(res_base.as_deref(), choice)?;
+    let dim = detector.dimension();
+    let vectors = detector.index_len();
+
+    let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
+    pipeline.set_semantic(detector);
+    log::info!(
+        "[DET] Embedding model switched to '{}' ({vectors} vectors x {dim} dims)",
+        choice.as_str()
+    );
+
+    Ok(SetEmbeddingModelResult {
+        model: choice.as_str().to_string(),
+        dim,
+        vectors,
+    })
+}
+
 #[derive(Serialize)]
 pub struct SemanticSearchResult {
     pub verse_ref: String,
@@ -356,8 +405,12 @@ pub fn update_detection_settings(
 ) -> Result<(), String> {
     let mut merger = merger_state.lock().map_err(|e| e.to_string())?;
     if let Some(t) = confidence_threshold {
-        merger.set_auto_queue_threshold(t);
-        log::info!("[DET] Auto-queue threshold set to {t:.2}");
+        // The emit/confidence floor — detections below this are dropped before
+        // reaching the frontend. (The app now filters the AI Detections panel on
+        // the frontend, so this arrives only from non-UI callers, but when it
+        // does it must move the floor its name promises, not the auto-queue gate.)
+        merger.set_confidence_threshold(t);
+        log::info!("[DET] Confidence floor set to {t:.2}");
     }
     if let Some(ms) = cooldown_ms {
         merger.set_cooldown_ms(ms);

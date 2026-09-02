@@ -17,8 +17,6 @@ export function DisplayModeSection() {
     setDirectAutoDisplay,
     directInstantDisplay,
     setDirectInstantDisplay,
-    semanticAutoQueue,
-    setSemanticAutoQueue,
     navAutoLive,
     setNavAutoLive,
   } = useSettingsStore()
@@ -53,13 +51,6 @@ export function DisplayModeSection() {
           )}
 
           <ToggleCard
-            title="Semantic verse auto-queue"
-            description='When a verse is detected from spoken content (e.g. "And God so loved the world"), automatically add it to the queue. When off, semantic detections only appear in the AI Detections panel.'
-            checked={semanticAutoQueue}
-            onCheckedChange={setSemanticAutoQueue}
-          />
-
-          <ToggleCard
             title="Voice navigation goes live"
             description='When you say "turn to the next verse" or "go back one verse", push the target straight to the audience. When off (default), it is staged to Program preview for you to take.'
             checked={navAutoLive}
@@ -77,7 +68,7 @@ export function DisplayModeSection() {
         step={1}
         value={thresholdPercent}
         onValueChange={(v) => setConfidenceThreshold(percentToThreshold(v))}
-        description="Minimum confidence required for auto-display and auto-queue. Applies to both direct and semantic detections. Higher values reduce false positives."
+        description="Minimum confidence for a semantic (meaning-based) match to appear in the AI Detections panel. Direct references like 'John 3:16' always appear. Higher values hide weaker guesses. Semantic matches are suggestions only — they never display to the audience or queue automatically."
       />
 
       {/* Cooldown */}

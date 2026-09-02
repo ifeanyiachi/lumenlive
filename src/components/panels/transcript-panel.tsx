@@ -3,6 +3,8 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { Button } from "@/components/ui/button"
 import { ApiKeyPrompt } from "@/components/ui/api-key-prompt"
+import { TranscriptionBlockedPrompt } from "@/components/ui/transcription-blocked-prompt"
+import type { BlockedCopy } from "@/lib/transcription/access"
 import { MicIcon, MicOffIcon } from "lucide-react"
 import {
   useAudioStore,
@@ -26,6 +28,12 @@ import {
   wasRecentlyDisplayed,
 } from "@/lib/detection/instant-display"
 import { aiMayTakeLive } from "@/lib/detection/manual-live-guard"
+import {
+  MIN_DIRECT_LIVE_CONFIDENCE,
+  panelDetections,
+  shouldAutoDisplayLive,
+  shouldAutoQueue,
+} from "@/lib/detection/detection-routing"
 import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
 
 /**
@@ -210,13 +218,15 @@ const INSTANT_STABILITY_PARTIALS = 1
 export function TranscriptPanel() {
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
   const onMissingApiKey = useCallback(() => setShowKeyPrompt(true), [])
+  const [blockedCopy, setBlockedCopy] = useState<BlockedCopy | null>(null)
+  const onBlocked = useCallback((copy: BlockedCopy) => setBlockedCopy(copy), [])
   const {
     segments,
     isTranscribing,
     connectionStatus,
     startTranscription,
     stopTranscription,
-  } = useTranscription({ onMissingApiKey })
+  } = useTranscription({ onMissingApiKey, onBlocked })
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const scrollRef = useRef<HTMLDivElement>(null)
   // Stability + cooldown bookkeeping for the instant (partial) direct-display
@@ -242,35 +252,29 @@ export function TranscriptPanel() {
   // into the panel (dedup by verse_ref, re-rank re-detected verses to the top),
   // never replacing wholesale; it also buffers while the operator interacts.
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
-    useDetectionStore.getState().addDetections(detections)
+    const { directAutoDisplay, confidenceThreshold, cooldownMs } =
+      useSettingsStore.getState()
+
+    // The AI Detections panel shows every DIRECT reference, plus SEMANTIC
+    // guesses at or above the operator's confidence floor (the Confidence
+    // Threshold slider). This is where sub-floor semantic nearest-neighbour
+    // noise is dropped so it never clutters the panel — the slider's only job.
+    useDetectionStore
+      .getState()
+      .addDetections(panelDetections(detections, confidenceThreshold))
 
     // Record that AI verse detection produced a result at least once this
     // session (deduped in the gateway, so this per-utterance path is cheap).
     if (detections.length > 0) trackFeatureUsed("verse_detection")
 
-    const { directAutoDisplay, semanticAutoQueue, confidenceThreshold, cooldownMs } =
-      useSettingsStore.getState()
-
-    // "Direct verse auto-display" (Detection Behavior) is the gate: when on, a
-    // spoken direct reference follows in the book search and is sent to the
-    // audience automatically. When off, the detection only lands in the AI
-    // Detections panel and queue (below) for the operator to send deliberately.
-    // PHASE 3: exclude narrative mentions (a book named in prose while Reading
-    // Mode tracks a different book — the Obadiah case) from auto-display. They
-    // still land in the panel/queue below for a deliberate send.
-    const directHit = detections.find(
-      (d) => d.source === "direct" && !d.is_chapter_only && !d.narrative_mention
-    )
-    // PHASE 5: the finals path previously ignored the confidence threshold that
-    // the instant and queue paths already honour. Enforce it here too as a cheap
-    // backstop (note: the Mechanism-A phantoms scored 90% and Obadiah 100%, so
-    // this backstops P2/P3, it does not replace them).
-    if (
-      directAutoDisplay &&
-      directHit &&
-      directHit.book_number > 0 &&
-      directHit.confidence >= confidenceThreshold
-    ) {
+    // "Direct verse auto-display" gates whether a spoken reference is pushed to
+    // the audience automatically. Only DIRECT references qualify — semantic
+    // meaning-matches are panel-only and must never take the screen on their own
+    // (`shouldAutoDisplayLive` also excludes chapter-only stubs and narrative
+    // mentions). Its live-confidence guard is fixed and independent of the panel
+    // slider, so surfacing more low-confidence suggestions can never weaken it.
+    const directHit = detections.find((d) => shouldAutoDisplayLive(d))
+    if (directAutoDisplay && directHit) {
       // Reconcile with the instant (partial) path: if that already put this
       // exact verse live from an interim, don't re-take it (would replay the
       // take). A genuinely revised reference (different verse) still displays.
@@ -302,18 +306,12 @@ export function TranscriptPanel() {
         continue
       }
 
-      // Decide whether to queue this detection:
-      // - Direct: always auto-queue (subject to the merger's auto_queued flag +
-      //   threshold) so the verse is available to send even when auto-display is
-      //   off. "Direct verse auto-display" only controls whether it ALSO goes to
-      //   the audience automatically (handled above), never whether it queues.
-      // - Semantic: queue only when the auto-queue setting is enabled.
-      const shouldQueue =
-        d.source === "direct"
-          ? d.auto_queued && d.confidence >= confidenceThreshold
-          : semanticAutoQueue && d.confidence >= confidenceThreshold
-
-      if (shouldQueue) {
+      // Auto-queue DIRECT references the backend marked auto-queueable (their
+      // confidence cleared the auto-queue threshold) so they are staged and
+      // ready to send even when auto-display is off. SEMANTIC hits are
+      // panel-only suggestions — they never auto-queue; the operator sends them
+      // deliberately from the panel.
+      if (shouldAutoQueue(d)) {
         const queue = useQueueStore.getState()
         const dupIdx = d.is_chapter_only
           ? queue.items.findIndex(
@@ -358,10 +356,11 @@ export function TranscriptPanel() {
   // detections are excluded (genuine guesses that need the full sentence); auto-
   // queue also stays finals-only.
   useTauriEvent<DetectionResult[]>("verse_detections_partial", (detections) => {
-    useDetectionStore.getState().addDetections(detections)
-
     const { directAutoDisplay, directInstantDisplay, confidenceThreshold, cooldownMs } =
       useSettingsStore.getState()
+    useDetectionStore
+      .getState()
+      .addDetections(panelDetections(detections, confidenceThreshold))
     // PHASE 3: narrative mentions never drive the instant display either (the
     // Obadiah hit actually fired from a partial). They still populate the panel
     // via addDetections above.
@@ -380,7 +379,10 @@ export function TranscriptPanel() {
       directHit.confidence,
       {
         enabled: directAutoDisplay && directInstantDisplay,
-        confidenceThreshold,
+        // Fixed live-output guard, not the panel slider: a spoken reference
+        // only goes live when the parse is genuinely confident, regardless of
+        // how low the operator sets the panel's suggestion floor.
+        confidenceThreshold: MIN_DIRECT_LIVE_CONFIDENCE,
         cooldownMs,
         stabilityCount: INSTANT_STABILITY_PARTIALS,
         now: Date.now(),
@@ -532,6 +534,15 @@ export function TranscriptPanel() {
         onOpenChange={setShowKeyPrompt}
         service="Deepgram"
         description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
+      />
+
+      <TranscriptionBlockedPrompt
+        open={blockedCopy !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedCopy(null)
+        }}
+        title={blockedCopy?.title ?? ""}
+        message={blockedCopy?.message ?? ""}
       />
     </div>
   )

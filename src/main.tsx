@@ -22,6 +22,10 @@ import { hydrateAlertTemplates } from "@/stores/alert-store"
 import { hydrateCountdownTimers } from "@/stores/countdown-store"
 import { hydrateWebBookmarks } from "@/stores/web-store"
 import { initUpdateNotifier } from "@/stores/update-store"
+import {
+  bootstrapLicensing,
+  startRevalidationLoop,
+} from "@/stores/licensing-actions"
 import { trackAppLaunched } from "@/services/analytics-gateway"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
@@ -82,6 +86,9 @@ invoke("stop_transcription")
       hydrateAlertTemplates(),
       hydrateCountdownTimers(),
       hydrateWebBookmarks(),
+      // Restore the account session + license offline, then background-revalidate
+      // if due. Never blocks boot — the app defaults to Free on any failure.
+      bootstrapLicensing(),
     ])
   )
   .then(() => initBiblePersistence())
@@ -97,6 +104,9 @@ invoke("stop_transcription")
     // Check for app updates after first paint — fire-and-forget so a slow or
     // offline endpoint never delays the UI. Populates the Store banner + nav dot.
     void initUpdateNotifier()
+    // Weekly background license re-validation for the app's lifetime. A full
+    // webview reload recreates this module, so the interval never stacks.
+    startRevalidationLoop()
     // Anonymous launch heartbeat. Fired after hydration so the opt-out has
     // already been applied to the analytics gateway; no-ops when opted out or
     // outside Tauri. This is what makes an install count as an active church.

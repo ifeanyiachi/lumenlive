@@ -237,11 +237,12 @@ export function hydrateSettings(): Promise<void> {
         const changed = PERSISTED_KEYS.some((k) => state[k] !== prevState[k])
         if (!changed) return
 
-        // Sync detection-related settings to backend immediately
-        if (
-          state.confidenceThreshold !== prevState.confidenceThreshold ||
-          state.cooldownMs !== prevState.cooldownMs
-        ) {
+        // Sync detection-related settings to backend immediately. Only the
+        // cooldown crosses to Rust: the confidence threshold is a frontend
+        // panel filter (it gates which SEMANTIC suggestions appear in the AI
+        // Detections panel) and must NOT raise the backend emit floor, or it
+        // would also drop legitimate direct references before they arrive.
+        if (state.cooldownMs !== prevState.cooldownMs) {
           syncDetectionSettings(state)
         }
 
@@ -271,7 +272,6 @@ const SAVE_DEBOUNCE_MS = 250
 
 function syncDetectionSettings(state: SettingsState) {
   invoke("update_detection_settings", {
-    confidenceThreshold: state.confidenceThreshold,
     cooldownMs: state.cooldownMs,
   }).catch(() => {
     // Backend may not be ready yet during early hydration

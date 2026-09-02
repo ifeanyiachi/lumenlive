@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { useBibleStore, useBroadcastStore, useSettingsStore } from "@/stores"
 import { findOutput } from "@/lib/broadcast/output-selectors"
 import type { LiveMedia } from "@/stores/broadcast-store"
+import { useCan } from "@/stores/entitlements-store"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { SlideCanvas } from "@/components/slides/slide-canvas"
@@ -146,7 +147,10 @@ export function PreviewPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
   // The Greek/Hebrew interlinear toggle is part of the lexicon feature — hidden
   // everywhere when the feature is off in Bible settings.
-  const lexiconEnabled = useSettingsStore((s) => s.lexiconEnabled)
+  // Lexicon/word-study is a Pro feature; gate the interlinear behind it too.
+  const lexiconSetting = useSettingsStore((s) => s.lexiconEnabled)
+  const hasLexicon = useCan("lexicon")
+  const lexiconEnabled = lexiconSetting && hasLexicon
 
   const [interlinearOn, setInterlinearOn] = useState(false)
   const [interlinearText, setInterlinearText] = useState<string | null>(null)

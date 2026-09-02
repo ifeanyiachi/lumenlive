@@ -204,6 +204,14 @@ pub(super) fn spawn_transcript_processing(
                     ..
                 } => {
                     if !transcript.is_empty() {
+                        // Verbatim record of every final segment, independent of
+                        // detection. This is the ground truth of "what was said";
+                        // pair it with the [DET-*] lines to diagnose a spoken
+                        // phrase resolving to the wrong verse.
+                        log::info!(
+                            "[TRANSCRIPT] final (conf {:.0}%, speech_final={speech_final}): {transcript:?}",
+                            confidence * 100.0
+                        );
                         if !first_final_logged {
                             first_final_logged = true;
                             let after_connect = connected_at.map_or_else(
