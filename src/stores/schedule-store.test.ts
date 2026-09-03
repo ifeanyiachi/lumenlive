@@ -20,7 +20,22 @@ import { useScheduleStore } from "./schedule-store"
 import { useSettingsStore } from "./settings-store"
 import { useSongStore } from "./song-store"
 import { useBroadcastStore } from "./broadcast-store"
+import { useEntitlementsStore } from "./entitlements-store"
 import { createDefaultSong } from "@/types/song"
+
+// takeToLive gates non-scripture content (songs render as slides) behind
+// entitlements; grant the output features so the "present live" paths exercise
+// the commit rather than the Free scripture-only block.
+function grantScheduleOutputFeatures() {
+  useEntitlementsStore.setState({
+    entitlement: {
+      tier: "pro",
+      features: ["full_slides", "media_images", "media_video_audio"],
+      limits: { maxDevices: -1, maxTranslations: -1, maxTranscriptionMinutes: -1 },
+      trialEnd: null,
+    },
+  })
+}
 
 function scripture(
   overrides: Partial<Extract<ScheduleItem, { type: "scripture" }>> = {}
@@ -324,6 +339,7 @@ describe("schedule store song slide navigation", () => {
   }
 
   beforeEach(() => {
+    grantScheduleOutputFeatures()
     useSettingsStore.setState({ preventDuplicateScheduleItems: false })
     useScheduleStore.setState({
       schedules: [],

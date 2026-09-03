@@ -7,7 +7,9 @@ import {
   BROADCAST_EVENTS,
 } from "@/services/broadcast-content-gateway"
 import { clearedLiveFields } from "@/lib/broadcast/live-reset"
+import { requiredLiveFeature } from "@/lib/broadcast/live-gate"
 import { resolveVersePages } from "@/lib/broadcast/pagination-commit"
+import { can } from "@/stores/entitlements-store"
 import { useThemesStore } from "@/stores/themes"
 import { toWebContentPayload } from "@/lib/broadcast/web-payload"
 import type { BroadcastState, BroadcastSource } from "./types"
@@ -186,12 +188,20 @@ export const createLiveTransportSlice: StateCreator<
     },
     takeToLive: () => {
       const s = get()
-      if (!s.previewPending) return
+      if (!s.previewPending) return null
+      // Scripture-first gating: Free may stage and preview any content but send
+      // only a verse to the audience. Enforced here — the single live-push choke
+      // point — so no entry path (Take button, Enter, schedule auto-advance,
+      // remote control) can bypass it. On a blocked take we commit nothing and
+      // leave the item staged, returning the feature the caller should prompt for.
+      const feature = requiredLiveFeature(s)
+      if (feature && !can(feature)) return feature
       set({ previewPending: false })
       if (s.previewWeb) commitWebLive(s.previewWeb, s.previewSource)
       else if (s.previewMedia) commitMediaLive(s.previewMedia, s.previewSource)
       else if (s.previewSlide) commitSlideLive(s.previewSlide, s.previewSource)
       else commitVerseLive(s.previewVerse, s.previewSource)
+      return null
     },
     setLiveVerse: (verse, source) => {
       // Always stage into the preview (clearing the other preview kinds) so the

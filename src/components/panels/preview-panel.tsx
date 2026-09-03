@@ -11,7 +11,7 @@ import { findOutput } from "@/lib/broadcast/output-selectors"
 import type { LiveMedia } from "@/stores/broadcast-store"
 import { useCan } from "@/stores/entitlements-store"
 import { bibleActions } from "@/hooks/use-bible"
-import { toVerseRenderData } from "@/hooks/use-broadcast"
+import { toVerseRenderData, takeToLiveOrPrompt } from "@/hooks/use-broadcast"
 import { SlideCanvas } from "@/components/slides/slide-canvas"
 import { mediaFitStyle } from "@/lib/media-fit"
 import { MediaFitBackdrop } from "@/components/media/media-fit-backdrop"
@@ -326,7 +326,7 @@ export function PreviewPanel() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => useBroadcastStore.getState().takeToLive()}
+              onClick={() => takeToLiveOrPrompt()}
               disabled={!previewPending}
               title="Send the previewed item to the audience (Enter)"
               className="h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider text-emerald-400 uppercase hover:text-emerald-300 disabled:text-muted-foreground"

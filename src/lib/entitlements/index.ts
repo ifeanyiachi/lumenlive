@@ -32,8 +32,12 @@ export interface Entitlement {
 
 /**
  * The Free feature set — everyone gets these, licensed or not. Transcription
- * (`cloud_stt`) and all detection are free with a BYO Deepgram key; without a
- * key the 60-minute one-time allowance in `maxTranscriptionMinutes` applies.
+ * (`cloud_stt`) and direct verse detection are free with a BYO Deepgram key;
+ * without a key the 60-minute one-time allowance in `maxTranscriptionMinutes`
+ * applies. Free keeps only `direct_detection`; the meaning-based detection
+ * channels, acting on detections (`detection_actions`), Context search
+ * (`context_search`), and media are Starter. Free stages/previews any content
+ * but can send only scripture to live output (the `takeToLive` gate).
  * Keep in lockstep with `lumenbo/src/lib/entitlements.ts` FREE_FEATURES.
  */
 export const FREE_FEATURES = [
@@ -42,15 +46,10 @@ export const FREE_FEATURES = [
   "single_output",
   "cloud_stt",
   "direct_detection",
-  "semantic_detection",
-  "quotation_detection",
-  "paraphrase_detection",
   "reading_mode",
   "verse_queue",
   "multi_translation",
   "schedule",
-  "media_images",
-  "media_video_audio",
 ] as const
 
 /** Free-tier limits (see `featurebase.md`). */

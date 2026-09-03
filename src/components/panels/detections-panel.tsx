@@ -6,6 +6,8 @@ import { EyeIcon, PlayIcon, PlusIcon } from "lucide-react"
 import { detectionActions } from "@/hooks/use-detection"
 import { useQueueStore, useBibleStore, useDetectionStore } from "@/stores"
 import { presentDetectionLive, previewDetection } from "@/hooks/use-broadcast"
+import { useCan } from "@/stores/entitlements-store"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import type { DetectionResult } from "@/types"
 
 // While the operator interacts with the panel it pauses (buffers) updates so
@@ -42,6 +44,11 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 function DetectionCard({ detection }: { detection: DetectionResult }) {
+  // Acting on a detection (Present / Preview / Queue) is a paid capability: Free
+  // still SEES the detections stream but can't push them anywhere. The buttons
+  // render disabled and a click anywhere on the row's action group raises the
+  // upgrade prompt instead (disabled buttons pass the click to the wrapper).
+  const canActions = useCan("detection_actions")
   // Present goes straight to the audience for AI detections (the one exception
   // to the stage-then-take flow); it also mirrors the verse into selection/search.
   const handlePresent = () => presentDetectionLive(detection)
@@ -64,8 +71,20 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
         </p>
       )}
 
-      <div className="mt-2 flex gap-2">
-        <Button size="sm" className="gap-1" onClick={handlePresent}>
+      <div
+        className="mt-2 flex gap-2"
+        onClick={
+          canActions
+            ? undefined
+            : () => requireFeature("detection_actions", "AI detection actions")
+        }
+      >
+        <Button
+          size="sm"
+          className="gap-1"
+          onClick={handlePresent}
+          disabled={!canActions}
+        >
           <PlayIcon className="size-3" />
           Present
         </Button>
@@ -74,6 +93,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           size="sm"
           className="gap-1"
           onClick={handlePreview}
+          disabled={!canActions}
         >
           <EyeIcon className="size-3" />
           Preview
@@ -82,6 +102,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           variant="outline"
           size="sm"
           className="gap-1"
+          disabled={!canActions}
           onClick={() => {
             useQueueStore.getState().addItem({
               id: crypto.randomUUID(),

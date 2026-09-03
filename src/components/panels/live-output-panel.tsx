@@ -22,7 +22,11 @@ import {
   type WebProgressPayload,
 } from "@/services/broadcast-content-gateway"
 import { OverlayCanvas } from "@/components/broadcast/overlay-canvas"
-import { toVerseRenderData, presentQueueVerse } from "@/hooks/use-broadcast"
+import {
+  toVerseRenderData,
+  presentQueueVerse,
+  takeToLiveOrPrompt,
+} from "@/hooks/use-broadcast"
 import { focusBroadcastWindow } from "@/services/broadcast-window-gateway"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
@@ -152,7 +156,7 @@ export function LiveOutputPanel() {
         return
       }
       e.preventDefault()
-      useBroadcastStore.getState().takeToLive()
+      takeToLiveOrPrompt()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)

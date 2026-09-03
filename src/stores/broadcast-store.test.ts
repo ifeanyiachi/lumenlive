@@ -463,6 +463,32 @@ describe("broadcast store — staging (locked by default)", () => {
     name: filePath,
   })
 
+  // takeToLive now gates non-scripture content behind entitlements (Free may take
+  // only a verse). Slide/media/web take tests grant the needed features so they
+  // exercise the commit path; the freshly reset entitlements module defaults to
+  // Free otherwise. Must run after the store import so both resolve to the same
+  // post-resetModules module instance.
+  async function grantOutputFeatures() {
+    const { useEntitlementsStore } = await import("./entitlements-store")
+    useEntitlementsStore.setState({
+      entitlement: {
+        tier: "pro",
+        features: [
+          "full_slides",
+          "media_images",
+          "media_video_audio",
+          "youtube_integration",
+        ],
+        limits: {
+          maxDevices: -1,
+          maxTranslations: -1,
+          maxTranscriptionMinutes: -1,
+        },
+        trialEnd: null,
+      },
+    })
+  }
+
   beforeEach(async () => {
     emitToMock.mockReset()
     emitToMock.mockResolvedValue(undefined)
@@ -504,6 +530,7 @@ describe("broadcast store — staging (locked by default)", () => {
 
   it("takeToLive: commits the staged item to the audience and emits", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
+    await grantOutputFeatures()
     const staged = slide("staged")
     useBroadcastStore.setState({
       isLive: true,
@@ -540,6 +567,7 @@ describe("broadcast store — staging (locked by default)", () => {
 
   it("takeToLive commits the staged media by reference (no restart of a same item)", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
+    await grantOutputFeatures()
     const staged = media("clip.mp4")
     useBroadcastStore.setState({
       isLive: true,
@@ -553,6 +581,56 @@ describe("broadcast store — staging (locked by default)", () => {
 
     expect(useBroadcastStore.getState().liveMedia).toBe(staged)
     expect(emitToMock).toHaveBeenCalled()
+  })
+
+  it("takeToLive: Free may not take a non-scripture item — blocks and keeps it staged", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const { useEntitlementsStore } = await import("./entitlements-store")
+    const { FREE_ENTITLEMENT } = await import("@/lib/entitlements")
+    // Default Free (explicitly, in case a prior test licensed the singleton).
+    useEntitlementsStore.setState({ entitlement: FREE_ENTITLEMENT })
+    const staged = slide("staged")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: staged,
+      previewSource: "manual",
+      previewPending: true,
+    })
+    emitToMock.mockClear()
+
+    const blocked = useBroadcastStore.getState().takeToLive()
+
+    // Nothing committed, the item stays staged, and the required feature is
+    // reported so the caller can prompt for an upgrade.
+    expect(blocked).toBe("full_slides")
+    expect(useBroadcastStore.getState().liveSlide).toBeNull()
+    expect(useBroadcastStore.getState().previewSlide).toBe(staged)
+    expect(useBroadcastStore.getState().previewPending).toBe(true)
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
+
+  it("takeToLive: Free takes a scripture verse freely", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const { useEntitlementsStore } = await import("./entitlements-store")
+    const { FREE_ENTITLEMENT } = await import("@/lib/entitlements")
+    useEntitlementsStore.setState({ entitlement: FREE_ENTITLEMENT })
+    const verse: VerseRenderData = {
+      reference: "John 3:16",
+      segments: [{ text: "For God so loved…", verseNumber: 16 }],
+    }
+    useBroadcastStore.setState({
+      isLive: true,
+      previewVerse: verse,
+      previewSource: "manual",
+      previewPending: true,
+    })
+
+    const blocked = useBroadcastStore.getState().takeToLive()
+
+    expect(blocked).toBeNull()
+    expect(useBroadcastStore.getState().liveVerse?.reference).toBe("John 3:16")
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
   })
 
   it("going off-air clears any pending stage", async () => {

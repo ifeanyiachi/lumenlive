@@ -12,6 +12,7 @@ import { useBible, bibleActions } from "@/hooks/use-bible"
 import { useBibleStore, useSettingsStore } from "@/stores"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useCan } from "@/stores/entitlements-store"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import type { Book, Verse } from "@/types"
 import { SearchMediaTab } from "@/components/panels/search-media-tab"
 import { SearchSlideTab } from "@/components/panels/search-slide-tab"
@@ -60,6 +61,9 @@ export function SearchPanel() {
   const lexiconSetting = useSettingsStore((s) => s.lexiconEnabled)
   const hasLexicon = useCan("lexicon")
   const lexiconEnabled = lexiconSetting && hasLexicon
+  // Context (meaning-based) search is a Starter capability; Free stays on the
+  // Book-search tab. The tab is shown but locked — selecting it prompts to upgrade.
+  const canContextSearch = useCan("context_search")
   // Book-search rows key by real `verse.id` (number); context-search results
   // are synthesized with `id: 0`, so they key by a "book:chapter:verse" string.
   const [lexiconOpenId, setLexiconOpenId] = useState<number | string | null>(
@@ -352,6 +356,10 @@ export function SearchPanel() {
             <button
               data-tour="context-search"
               onClick={() => {
+                if (!canContextSearch) {
+                  requireFeature("context_search", "Context search")
+                  return
+                }
                 setActiveTab("context")
                 resetContextSearch()
               }}
@@ -359,7 +367,8 @@ export function SearchPanel() {
                 "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                 activeTab === "context"
                   ? "border-lime-500/50 bg-lime-500/15"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
+                !canContextSearch && "opacity-60"
               )}
             >
               <SparklesIcon

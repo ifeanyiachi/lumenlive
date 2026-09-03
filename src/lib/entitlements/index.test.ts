@@ -21,12 +21,23 @@ describe("can", () => {
   it("grants a free feature to the Free entitlement", () => {
     expect(can(FREE_ENTITLEMENT, "bible_search")).toBe(true)
     expect(can(FREE_ENTITLEMENT, "cloud_stt")).toBe(true)
+    // Free keeps direct verse detection (explicit spoken references)…
+    expect(can(FREE_ENTITLEMENT, "direct_detection")).toBe(true)
   })
 
   it("denies a paid feature to the Free entitlement", () => {
     expect(can(FREE_ENTITLEMENT, "ndi_output")).toBe(false)
     expect(can(FREE_ENTITLEMENT, "lexicon")).toBe(false)
     expect(can(FREE_ENTITLEMENT, "theme_designer")).toBe(false)
+    // …but the meaning-based detection channels, acting on detections, Context
+    // search, and media all moved to Starter.
+    expect(can(FREE_ENTITLEMENT, "semantic_detection")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "quotation_detection")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "paraphrase_detection")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "detection_actions")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "context_search")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "media_images")).toBe(false)
+    expect(can(FREE_ENTITLEMENT, "media_video_audio")).toBe(false)
   })
 
   it("grants paid features to a Pro entitlement", () => {
@@ -82,8 +93,8 @@ describe("trialRemaining", () => {
 })
 
 describe("FREE_ENTITLEMENT", () => {
-  it("has exactly the 14 free features and Free limits", () => {
-    expect(FREE_ENTITLEMENT.features).toHaveLength(14)
+  it("has exactly the 9 free features and Free limits", () => {
+    expect(FREE_ENTITLEMENT.features).toHaveLength(9)
     expect(FREE_ENTITLEMENT.tier).toBe("free")
     expect(FREE_ENTITLEMENT.trialEnd).toBeNull()
     expect(FREE_ENTITLEMENT.limits.maxTranscriptionMinutes).toBe(60)

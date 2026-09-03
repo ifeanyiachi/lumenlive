@@ -159,8 +159,14 @@ export interface BroadcastState {
   setActiveTheme: (id: string) => void
   setAltActiveTheme: (id: string) => void
   setLive: (live: boolean) => void
-  /** Push the currently-staged preview item to the live output(s). No-op when nothing is pending. */
-  takeToLive: () => void
+  /**
+   * Push the currently-staged preview item to the live output(s). No-op when
+   * nothing is pending. Returns `null` on success (or when nothing was pending);
+   * when the current entitlement may not send the staged content live (Free may
+   * take only scripture), it commits nothing and returns the required feature key
+   * so the caller can raise an upgrade prompt. See {@link requiredLiveFeature}.
+   */
+  takeToLive: () => string | null
   setLiveVerse: (
     verse: VerseRenderData | null,
     source?: BroadcastSource

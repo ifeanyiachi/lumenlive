@@ -14,6 +14,21 @@ import type {
 } from "@/stores/broadcast-store"
 import type { WebScheduleItem } from "@/types/schedule"
 import { buildDisplayUrl, extractVideoId, isYouTubeUrl } from "@/lib/youtube"
+import { liveFeatureLabel } from "@/lib/broadcast/live-gate"
+import { requireFeature } from "@/components/entitlements/require-feature"
+
+/**
+ * Take the staged item live, surfacing an upgrade prompt when the current
+ * entitlement may not send that content to the audience (Free may take only
+ * scripture). The store's {@link BroadcastState.takeToLive} is the authoritative
+ * gate — it commits nothing and returns the required feature key when blocked;
+ * this wrapper turns that into the operator-facing toast. Route the interactive
+ * "Go Live" / Take affordances through here so a blocked take explains itself.
+ */
+export function takeToLiveOrPrompt(): void {
+  const blocked = useBroadcastStore.getState().takeToLive()
+  if (blocked) requireFeature(blocked, liveFeatureLabel(blocked))
+}
 
 export function toVerseRenderData(
   verse: Verse,
