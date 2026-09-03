@@ -35,7 +35,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/ifeanyiachi/lumenlive/releases/latest/download/latest.json"
+        "https://lumenlivedl.94streetstudio.xyz/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGN0RGMjBDRkRERERFRTEKUldUaDN0MzlEUEo5WHhaVE9GNmxINGR5dExQbWc0VnZPWlluQkQwUGtGbE9kTVF3cG9IcklLRGkK"
     }

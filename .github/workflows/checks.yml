@@ -18,6 +18,10 @@ concurrency:
 
 jobs:
   checks:
+    # Cloud Ubuntu (1x minutes). Frontend-only gates, ~2-4 min per run, well
+    # inside the monthly included-minutes allotment — the always-on green/red
+    # signal is worth more than the negligible minutes. The heavy Windows
+    # installer build stays on the self-hosted runner in release.yml.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

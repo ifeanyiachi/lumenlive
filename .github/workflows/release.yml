@@ -1,79 +1,95 @@
-# Installer build — produces the desktop installers in the cloud.
+# Installer build + update publish — builds the signed NSIS installer and
+# publishes it (+ the update manifest) to Cloudflare R2. Every user then
+# auto-updates from R2 (Cloudflare, always on), independent of where it built.
 #
-# TRIGGERS (never on a plain commit):
-#   * pushing a version tag  (git tag v0.1.0 && git push --tags)  -> builds AND
-#     publishes the installers to a GitHub Release for that tag.
-#   * the "Run workflow" button (workflow_dispatch)               -> builds and
-#     uploads the installers as run artifacts, without publishing a release.
+# TWO BUILD MODES, you choose per release:
+#   * self-hosted  — your own Windows PC. Free minutes, fast (persistent
+#                    target/), but the PC must be on. Assets come from a LOCAL
+#                    folder (no download).
+#   * cloud        — GitHub-hosted windows-latest. No PC needed; billed at 2x
+#                    Windows minutes (mostly absorbed by the monthly free
+#                    allotment). Private repo => private logs, no source
+#                    exposure. Assets are fetched from the `assets-v4` release.
+# Both modes sign the build; whether it publishes to R2 depends on the trigger
+# (see PUBLISH below).
 #
-# Each run: fetches the ~250 MB runtime assets from the `assets-v4` release (the
-# models / bible DB / embeddings that are too big for git), extracts them to the
-# repo root, then compiles the Rust workspace and bundles the installer.
+# HOW TO PICK:
+#   * "Run workflow" button (workflow_dispatch) -> a `runner` dropdown picks
+#     self-hosted or cloud, and a `publish` toggle picks whether to push to R2.
+#   * Pushing a version tag (git tag v0.4.1 && git push --tags) -> always
+#     publishes; uses the `DEFAULT_RELEASE_RUNNER` repo variable ("cloud" or
+#     "self-hosted"; defaults to self-hosted if unset).
 #
-# Currently WINDOWS ONLY. To add macOS: uncomment the macos entry in the matrix
-# below, and give tauri.conf.json per-platform `bundle.resources` (the native
-# libs differ: .dll vs .dylib) plus a `dmg`/`app` bundle target.
+# PUBLISH:
+#   * Tag push            -> always publishes to R2 (a tag = a real release).
+#   * Dispatch, publish=on  -> builds AND publishes to R2 (updates all users).
+#   * Dispatch, publish=off -> builds a PRIVATE copy only; nothing is pushed to
+#     users. The installer is still attached to the run as an artifact you can
+#     download (e.g. for personal use / testing).
+#
+# ONE-TIME SETUP
+#   Self-hosted mode:
+#     * Register a self-hosted runner on this PRIVATE repo, labels
+#       `self-hosted, windows`. Never attach one to a public repo.
+#     * A local folder mirroring the repo root holds the ~250 MB runtime assets;
+#       set repo variable ASSETS_DIR to its absolute path. Expected layout:
+#         data/lumenlive.db
+#         models/bge-base-en-v1.5-int8/{model_quantized.onnx,tokenizer.json}
+#         embeddings/kjv-bge-base-en-v1.5.bin
+#         embeddings/kjv-bge-base-en-v1.5-ids.bin
+#         sdk/ndi/windows/Processing.NDI.Lib.x64.dll
+#         src-tauri/libs/{onnxruntime.dll,onnxruntime_providers_shared.dll}
+#   Cloud mode:
+#     * Nothing extra — it fetches the assets-v4 release with GITHUB_TOKEN.
+#   Both modes — repo SECRETS:
+#     * TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#     * R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY  (R2 Account API token,
+#       Object Read & Write, scoped to the bucket)
+#     * R2_ACCOUNT_ID  (=> S3 endpoint <id>.r2.cloudflarestorage.com)
+#   Optional repo VARIABLE:
+#     * DEFAULT_RELEASE_RUNNER = cloud | self-hosted  (tag-push default)
+#
+# NOTE ON VERSIONS: when publishing, latest.json (the pointer every client
+# checks) is rebuilt from tauri.conf.json's `version` — so keep that version
+# correct before a publishing run, or you could point users at the wrong build.
+# The verify step enforces tauri.conf.json == package.json first. A publish=off
+# dispatch never touches latest.json, so a personal build can't disturb users.
 name: Release build
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      runner:
+        description: "Build on"
+        type: choice
+        options:
+          - self-hosted
+          - cloud
+        default: self-hosted
+      publish:
+        description: "Publish to R2 (off = build a private copy only, no update pushed to users)"
+        type: boolean
+        default: true
 
-# The release-publish step needs write access to create/upload release assets.
-permissions:
-  contents: write
-
-# The pinned release holding the bundled runtime assets (see the assets-v4
-# GitHub Release). Bump this if you ever regenerate the models/DB/embeddings.
+# Bucket + public download base (must match the updater endpoint in
+# tauri.conf.json), and the pinned runtime-assets release used by cloud builds.
 env:
+  R2_BUCKET: lumenlive-updates
+  DL_BASE: https://lumenlivedl.94streetstudio.xyz
   ASSETS_TAG: assets-v4
   ASSETS_TAR: lumenlive-runtime-assets-v4.tar
   ASSETS_SHA256: 041f2f7319bf9aa2d7af769bb32c422ace2f947339ec18a7a2799d48b9fdb7ff
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            bundles: nsis
-          # --- add macOS here once tauri.conf.json has per-platform resources:
-          # - platform: macos-latest
-          #   bundles: dmg
-          # - platform: ubuntu-22.04
-          #   bundles: appimage
-
-    runs-on: ${{ matrix.platform }}
+    # Pick the runner: dispatch input wins; otherwise the tag-push default var;
+    # otherwise self-hosted. `cloud` -> windows-latest, else the self-hosted
+    # Windows runner.
+    runs-on: ${{ (inputs.runner == 'cloud' || (inputs.runner == '' && vars.DEFAULT_RELEASE_RUNNER == 'cloud')) && 'windows-latest' || fromJSON('["self-hosted","windows"]') }}
     steps:
       - uses: actions/checkout@v4
-
-      # Fail fast (before the ~1 GB asset fetch and Rust compile) if the pushed
-      # tag doesn't match the app version. The tag drives the GitHub Release and
-      # thus the update manifest's URL, while tauri.conf.json's version is what
-      # the running app compares against — a mismatch ships an update that either
-      # never triggers or points users at the wrong build. package.json is kept
-      # in lockstep too so the two version sources never drift. Tag `v0.2.3`
-      # must equal both versions `0.2.3`. Only runs on tag pushes.
-      - name: Verify tag matches app version
-        if: github.ref_type == 'tag'
-        shell: bash
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          pkg=$(node -p "require('./package.json').version")
-          echo "tag=$tag  tauri.conf.json=$conf  package.json=$pkg"
-          fail=0
-          if [ "$tag" != "$conf" ]; then
-            echo "::error::Tag '$tag' != tauri.conf.json version '$conf'"
-            fail=1
-          fi
-          if [ "$tag" != "$pkg" ]; then
-            echo "::error::Tag '$tag' != package.json version '$pkg'"
-            fail=1
-          fi
-          exit $fail
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -83,16 +99,34 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Caches the cargo registry + target dir keyed on the workspace, so only
-      # the first build compiles the whole dependency tree from scratch.
-      #
-      # cache-directories ALSO caches the native ONNX Runtime libraries that the
-      # `ort` build script downloads to AppData. These live outside `target` and
-      # are referenced by absolute LIBPATH at link time. Without them cached, a
-      # warm-cache run that only recompiles Rust source skips that build script
-      # (its fingerprint is unchanged) and the final link fails. prefix-key is
-      # bumped so the first run after this change repopulates a complete cache.
-      - name: Cache Rust build
+      - name: Set up rclone
+        uses: AnimMouse/setup-rclone@v1
+
+      # Both runners are Windows, so `powershell` (5.1, always present) is the
+      # portable shell here — avoids assuming node/jq/pwsh7 on a bare self-hosted
+      # PC. Enforce tauri.conf.json == package.json always; also tag == version
+      # on tag pushes. A mismatch ships an update that never triggers or points
+      # at the wrong build.
+      - name: Verify versions
+        shell: powershell
+        run: |
+          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $pkg  = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          Write-Host "conf=$conf  pkg=$pkg  ref=$env:GITHUB_REF_TYPE/$env:GITHUB_REF_NAME"
+          $fail = $false
+          if ($conf -ne $pkg) { Write-Host "::error::tauri.conf.json ($conf) != package.json ($pkg)"; $fail = $true }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME -replace '^v',''
+            if ($tag -ne $conf) { Write-Host "::error::tag ($tag) != version ($conf)"; $fail = $true }
+          }
+          if ($fail) { exit 1 }
+
+      # Cloud runners are ephemeral (no persistent target/), so cache the cargo
+      # registry + target and the ort-downloaded ONNX Runtime libs (which live
+      # outside target and are linked by absolute path). Self-hosted keeps target/
+      # on disk between runs, so it skips this.
+      - name: Cache Rust build (cloud only)
+        if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
@@ -103,53 +137,120 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      # Pull the bundled runtime assets and extract them at the repo root so the
-      # paths line up with tauri.conf.json -> bundle.resources. Verify the SHA
-      # so a corrupted/replaced asset fails loudly instead of shipping.
-      - name: Fetch runtime assets
+      # SELF-HOSTED: stage runtime assets from the local folder. Pure cp, no
+      # network; `cp -r "$ASSETS_DIR/." .` merges data/ models/ embeddings/ sdk/
+      # and src-tauri/libs/ into the workspace (GNU cp merges existing dirs).
+      - name: Stage runtime assets from local folder (self-hosted)
+        if: runner.environment == 'self-hosted'
+        shell: bash
+        env:
+          ASSETS_DIR: ${{ vars.ASSETS_DIR }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASSETS_DIR:-}" ]; then
+            echo "::error::Repo variable ASSETS_DIR is not set (path to the local runtime-assets folder)."
+            exit 1
+          fi
+          if [ ! -d "$ASSETS_DIR" ]; then
+            echo "::error::ASSETS_DIR '$ASSETS_DIR' does not exist on this runner."
+            exit 1
+          fi
+          echo "Staging runtime assets from: $ASSETS_DIR"
+          cp -r "$ASSETS_DIR/." .
+          test -f data/lumenlive.db || { echo "::error::data/lumenlive.db missing after staging"; exit 1; }
+          test -f src-tauri/libs/onnxruntime.dll || { echo "::error::src-tauri/libs/onnxruntime.dll missing after staging"; exit 1; }
+
+      # CLOUD: fetch the bundled runtime assets from the assets-v4 release (works
+      # on a private repo with GITHUB_TOKEN), verify the SHA, extract at the repo
+      # root so paths line up with tauri.conf.json -> bundle.resources.
+      - name: Fetch runtime assets (cloud)
+        if: runner.environment == 'github-hosted'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           gh release download "$ASSETS_TAG" --pattern "$ASSETS_TAR" --clobber
           echo "${ASSETS_SHA256}  ${ASSETS_TAR}" | sha256sum -c -
           tar -xf "$ASSETS_TAR"
           rm -f "$ASSETS_TAR"
 
-      # Builds the frontend (beforeBuildCommand: bun run build) and bundles the
-      # installer. On a tag push, tauri-action also creates/updates the GitHub
-      # Release for that tag and uploads the installer to it; on manual dispatch
-      # (no tag) it just builds, and the artifact step below captures the output.
-      #
-      # SIGNED UPDATES: because tauri.conf.json sets bundle.createUpdaterArtifacts
-      # = true, the presence of the TAURI_SIGNING_* env vars makes tauri-action
-      # sign each installer and emit `latest.json` (the update manifest the app
-      # fetches). It uploads latest.json + the .sig alongside the installer on a
-      # tag push. Without these secrets the build still succeeds but produces no
-      # update manifest, so the in-app updater would find nothing.
-      - name: Build installer
-        uses: tauri-apps/tauri-action@v0
+      # Build the frontend (beforeBuildCommand: bun run build) and bundle the
+      # signed NSIS installer. createUpdaterArtifacts=true + the TAURI_SIGNING_*
+      # env vars make the bundler emit `<installer>.sig` next to the .exe — the
+      # signature embedded in latest.json below.
+      - name: Build signed installer
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tauriScript: bun run tauri
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('LumenLive {0}', github.ref_name) || '' }}
-          releaseDraft: true
-          args: --bundles ${{ matrix.bundles }}
+        run: bun run tauri build --bundles nsis
 
-      # Always keep the installer downloadable from the run itself — useful for
-      # manual (untagged) test builds.
+      # Assemble the Tauri v2 update manifest ourselves (tauri-action only emits
+      # it when publishing a GitHub Release, which we don't). Read version from
+      # tauri.conf.json, locate installer + .sig, point the URL at R2. Written as
+      # UTF-8 without BOM via .NET so serde_json parses it on both PowerShell 5.1
+      # and 7. Nothing here echoes a secret.
+      - name: Build update manifest (latest.json)
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        shell: powershell
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter *-setup.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::No NSIS *-setup.exe found in bundle/nsis"; exit 1 }
+          $sigPath = "$($exe.FullName).sig"
+          if (-not (Test-Path $sigPath)) { Write-Host "::error::No .sig next to installer ($sigPath) - are TAURI_SIGNING_* secrets set?"; exit 1 }
+          $sig = (Get-Content $sigPath -Raw).Trim()
+          $fileName = $exe.Name
+          $url = "$env:DL_BASE/v$version/$fileName"
+
+          $manifest = [ordered]@{
+            version   = $version
+            notes     = "Update to version $version."
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{ signature = $sig; url = $url }
+            }
+          }
+          $json = $manifest | ConvertTo-Json -Depth 6
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'latest.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
+
+          Add-Content -Path $env:GITHUB_ENV -Value "INSTALLER_PATH=$($exe.FullName)" -Encoding ascii
+          Add-Content -Path $env:GITHUB_ENV -Value "INSTALLER_NAME=$fileName" -Encoding ascii
+          Add-Content -Path $env:GITHUB_ENV -Value "APP_VERSION=$version" -Encoding ascii
+          Write-Host "Generated latest.json:"; Get-Content latest.json
+
+      # Publish to R2 (S3-compatible) via rclone configured from env. Installer +
+      # .sig land under a versioned, immutable prefix (cache forever); latest.json
+      # sits at the bucket root with no-cache so the updater sees new releases at
+      # once. Skipped entirely on a publish=off dispatch.
+      - name: Publish to R2
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        shell: bash
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+        run: |
+          set -euo pipefail
+          dst="r2:${R2_BUCKET}/v${APP_VERSION}"
+          rclone copyto "$INSTALLER_PATH" "${dst}/${INSTALLER_NAME}" \
+            --header-upload "Cache-Control: public, max-age=31536000, immutable"
+          rclone copyto "${INSTALLER_PATH}.sig" "${dst}/${INSTALLER_NAME}.sig" \
+            --header-upload "Cache-Control: public, max-age=31536000, immutable"
+          rclone copyto latest.json "r2:${R2_BUCKET}/latest.json" \
+            --header-upload "Cache-Control: no-cache, no-store, must-revalidate"
+          echo "Published v${APP_VERSION} -> ${DL_BASE}/v${APP_VERSION}/${INSTALLER_NAME}"
+
+      # A downloadable copy of the installer on the run itself, regardless of mode.
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: installer-${{ matrix.platform }}
+          name: installer
           path: |
-            src-tauri/target/release/bundle/**/*-setup.exe
-            src-tauri/target/release/bundle/**/*-setup.exe.sig
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.AppImage
-            src-tauri/target/release/bundle/**/latest.json
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           if-no-files-found: warn
