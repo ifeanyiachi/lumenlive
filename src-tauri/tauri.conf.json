@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LumenLive",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "identifier": "xyz.lumenlive.app",
   "build": {
     "frontendDist": "../build",
