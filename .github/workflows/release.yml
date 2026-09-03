@@ -76,7 +76,7 @@ on:
 # Bucket + public download base (must match the updater endpoint in
 # tauri.conf.json), and the pinned runtime-assets release used by cloud builds.
 env:
-  R2_BUCKET: lumenlive-updates
+  R2_BUCKET: lumenlive-downloads
   DL_BASE: https://lumenlivedl.94streetstudio.xyz
   ASSETS_TAG: assets-v4
   ASSETS_TAR: lumenlive-runtime-assets-v4.tar
