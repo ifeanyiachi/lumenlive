@@ -249,7 +249,10 @@ jobs:
           # Short TTL so a new release propagates in minutes while downloads
           # still edge-cache. The website links to these and never needs a
           # per-release edit.
-          sha=$(sha256sum "$INSTALLER_PATH" | cut -d' ' -f1)
+          # Extract just the 64-hex digest. Don't `cut` the first field: when the
+          # path contains backslashes (Windows), GNU sha256sum escapes the line
+          # with a leading "\", which would prepend a stray backslash.
+          sha=$(sha256sum "$INSTALLER_PATH" | grep -oiE '[0-9a-f]{64}' | head -1)
           printf '%s  LumenLive-x64-setup.exe\n' "$sha" > LumenLive-x64-setup.exe.sha256
           rclone copyto "$INSTALLER_PATH" "r2:${R2_BUCKET}/download/LumenLive-x64-setup.exe" \
             --header-upload "Cache-Control: public, max-age=300, must-revalidate"
