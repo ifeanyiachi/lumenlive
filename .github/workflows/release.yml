@@ -259,9 +259,24 @@ jobs:
           rclone copyto LumenLive-x64-setup.exe.sha256 "r2:${R2_BUCKET}/download/LumenLive-x64-setup.exe.sha256" \
             --header-upload "Cache-Control: public, max-age=300, must-revalidate"
 
+          # Website release manifest: the marketing site's download page reads
+          # this to show the real shipped version (getLatestVersion in
+          # lumenweb/src/lib/site-data.ts), so the label tracks the build the
+          # stable URL above serves — no per-release edit on the site. The `v`
+          # prefix matches the site's version convention. sha256/published are
+          # unused for now but leave room to drive the checksum text / a release
+          # date from the same source. Same short TTL as the other download/
+          # files; the site also caches it for an hour via next.revalidate. It's
+          # fetched server-side by the site, so no CORS header is needed here.
+          printf '{"version":"v%s","sha256":"%s","published":"%s"}\n' \
+            "$APP_VERSION" "$sha" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > download-latest.json
+          rclone copyto download-latest.json "r2:${R2_BUCKET}/download/latest.json" \
+            --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+
           echo "Published v${APP_VERSION}"
           echo "  versioned: ${DL_BASE}/v${APP_VERSION}/${INSTALLER_NAME}"
           echo "  latest:    ${DL_BASE}/download/LumenLive-x64-setup.exe  (sha256 $sha)"
+          echo "  manifest:  ${DL_BASE}/download/latest.json  (version v${APP_VERSION})"
 
       # A downloadable copy of the installer on the run itself, regardless of mode.
       - name: Upload installer artifact
