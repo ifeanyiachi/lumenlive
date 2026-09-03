@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { VerseEditModal } from "@/components/verse-edit/verse-edit-modal"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { queueItemToScheduleItem } from "@/components/schedule/schedule-utils"
 import { addVersesToQueue } from "@/lib/schedule-drop"
 import type { QueueItem } from "@/types/queue"
@@ -162,7 +163,9 @@ export function AIVersesTab() {
                       size="icon-xs"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setEditVerse(item)
+                        // Verse formatting is a Starter capability (verse_editing).
+                        if (requireFeature("verse_editing", "Verse editing"))
+                          setEditVerse(item)
                       }}
                       title="Edit verse formatting"
                     >

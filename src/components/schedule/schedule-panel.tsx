@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog"
 import { ItemPropertiesModal } from "@/components/schedule/item-properties-modal"
 import { ScriptureItemEditModal } from "@/components/schedule/scripture-item-edit-modal"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { LexiconEditModal } from "@/components/verse-edit/lexicon-edit-modal"
 import {
   buildLexiconSlideFromData,
@@ -244,7 +245,11 @@ export function SchedulePanel() {
         <TabsContent value="all" className="flex min-h-0 flex-1 flex-col">
           <ScheduleAllTab
             onEditProperties={(item) => setEditingItem(item)}
-            onEditScripture={(item) => setEditingScripture(item)}
+            onEditScripture={(item) => {
+              // Editing scripture text is a Starter capability (verse_editing).
+              if (requireFeature("verse_editing", "Verse editing"))
+                setEditingScripture(item)
+            }}
             onEditLexicon={(item) => setEditingLexicon(item)}
             onStageNewItem={(item) => setStagedNewItem(item)}
           />

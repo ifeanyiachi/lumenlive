@@ -12,6 +12,7 @@ import { useBroadcastStore } from "@/stores"
 import { AlertTemplatesManager } from "@/components/alerts/alert-templates-manager"
 import { StageMonitorControls } from "@/components/broadcast/stage-monitor-controls"
 import { StageMonitorGroupsDialog } from "@/components/broadcast/stage-monitor-groups-dialog"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { cn } from "@/lib/utils"
 
 export function AlertTrigger() {
@@ -28,12 +29,22 @@ export function AlertTrigger() {
   const [message, setMessage] = useState("")
   const [managerOpen, setManagerOpen] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
+  const [popoverOpen, setPopoverOpen] = useState(false)
 
   const hasActive = activeAlerts.length > 0
 
   return (
     <>
-      <Popover>
+      <Popover
+        open={popoverOpen}
+        onOpenChange={(open) => {
+          // On-screen alerts are a Starter capability; gate the whole panel so a
+          // Free operator can't send an alert (the stage-monitor controls inside
+          // are separately Pro-gated by whether stage output exists).
+          if (open && !requireFeature("alerts", "On-screen alerts")) return
+          setPopoverOpen(open)
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="ghost"

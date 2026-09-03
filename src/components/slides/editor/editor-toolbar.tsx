@@ -25,6 +25,7 @@ import {
   exportCurrentSlideAsPdf,
 } from "@/lib/slide-pdf-export"
 import { downloadJson, pickJsonFile } from "@/lib/slides/slide-io"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import type { Presentation } from "@/types/slide"
 
 /**
@@ -122,6 +123,8 @@ export function EditorToolbar({
                 <DropdownMenuItem
                   onClick={async () => {
                     if (!draft) return
+                    // PDF export is a Starter capability.
+                    if (!requireFeature("pdf_export", "PDF export")) return
                     await exportCurrentSlideAsPdf(draft, activeSlideIndex)
                     toast.success("Slide exported as PDF")
                   }}
@@ -131,6 +134,7 @@ export function EditorToolbar({
                 <DropdownMenuItem
                   onClick={async () => {
                     if (!draft) return
+                    if (!requireFeature("pdf_export", "PDF export")) return
                     await exportAllSlidesAsPdf(draft)
                     toast.success("All slides exported as PDF")
                   }}

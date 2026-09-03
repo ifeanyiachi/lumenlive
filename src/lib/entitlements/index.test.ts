@@ -5,6 +5,7 @@ import {
   isUnlimited,
   withinLimit,
   trialRemaining,
+  planLabel,
   FREE_ENTITLEMENT,
   FREE_FEATURES,
   type Entitlement,
@@ -69,6 +70,30 @@ describe("limit / unlimited", () => {
     expect(withinLimit(2, 2)).toBe(true)
     expect(withinLimit(2, 3)).toBe(false)
     expect(withinLimit(-1, 9999)).toBe(true) // unlimited
+  })
+})
+
+describe("planLabel", () => {
+  const mk = (tier: Entitlement["tier"], trialEnd: number | null): Entitlement => ({
+    tier,
+    features: [],
+    limits: { maxDevices: 1, maxTranslations: 1, maxTranscriptionMinutes: 60 },
+    trialEnd,
+  })
+
+  it("labels Free as Free (never a trial)", () => {
+    expect(planLabel(FREE_ENTITLEMENT)).toBe("Free")
+    expect(planLabel(mk("free", 123))).toBe("Free")
+  })
+
+  it("labels a paid tier with a trial deadline as Free trial", () => {
+    expect(planLabel(mk("pro", 1_800_000_000))).toBe("Free trial")
+    expect(planLabel(mk("starter", 1_800_000_000))).toBe("Free trial")
+  })
+
+  it("labels a perpetual paid subscription by its tier", () => {
+    expect(planLabel(mk("starter", null))).toBe("Starter")
+    expect(planLabel(mk("pro", null))).toBe("Pro")
   })
 })
 

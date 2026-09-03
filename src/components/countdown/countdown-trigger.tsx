@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useCountdownStore } from "@/stores/countdown-store"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import type { CountdownTimer } from "@/types/alert"
 import { cn } from "@/lib/utils"
 import { formatTimerDuration } from "@/lib/countdown/timer"
@@ -31,13 +32,23 @@ export function CountdownTrigger() {
   const timers = useCountdownStore((s) => s.timers)
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
   const [editorOpen, setEditorOpen] = useState(false)
+  // Countdown timers are a Starter capability. Gate at the popover: a Free
+  // operator gets the upgrade prompt instead of the panel, so no inner action
+  // (start / create / adjust) can reach the audience.
+  const [popoverOpen, setPopoverOpen] = useState(false)
   const [editingTimer, setEditingTimer] = useState<CountdownTimer | null>(null)
 
   const hasActive = activeCountdowns.length > 0
 
   return (
     <>
-      <Popover>
+      <Popover
+        open={popoverOpen}
+        onOpenChange={(open) => {
+          if (open && !requireFeature("countdown", "Countdown timers")) return
+          setPopoverOpen(open)
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="ghost"

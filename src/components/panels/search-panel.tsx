@@ -64,6 +64,16 @@ export function SearchPanel() {
   // Context (meaning-based) search is a Starter capability; Free stays on the
   // Book-search tab. The tab is shown but locked — selecting it prompts to upgrade.
   const canContextSearch = useCan("context_search")
+
+  // Editing verse/scripture formatting is a Starter capability. Gate the two
+  // editor-open paths (single-verse formatting + multi-verse edit) so a Free
+  // operator is prompted instead of the editor opening.
+  const openVerseEditor = (verse: Verse) => {
+    if (requireFeature("verse_editing", "Verse editing")) setEditingVerse(verse)
+  }
+  const openMultiVerseEditor = () => {
+    if (requireFeature("verse_editing", "Verse editing")) setMultiEditOpen(true)
+  }
   // Book-search rows key by real `verse.id` (number); context-search results
   // are synthesized with `id: 0`, so they key by a "book:chapter:verse" string.
   const [lexiconOpenId, setLexiconOpenId] = useState<number | string | null>(
@@ -427,12 +437,12 @@ export function SearchPanel() {
           setLexiconOpenId={setLexiconOpenId}
           scheduledVerseKeys={scheduledVerseKeys}
           translation={activeTranslationAbbr}
-          onEditVerse={setEditingVerse}
+          onEditVerse={openVerseEditor}
           multiSelected={multiSelected}
           handleVerseClick={handleVerseClick}
           handleVerseDoubleClick={handleVerseDoubleClick}
           onMultiAddToSchedule={handleMultiAddGroupToSchedule}
-          onMultiEdit={() => setMultiEditOpen(true)}
+          onMultiEdit={openMultiVerseEditor}
           onMultiAddAsGroup={handleMultiAddAsGroup}
           onMultiAddSeparately={handleMultiAddToSchedule}
           onMultiPresent={handleMultiPresent}
@@ -451,7 +461,7 @@ export function SearchPanel() {
           setLexiconOpenId={setLexiconOpenId}
           scheduledVerseKeys={scheduledVerseKeys}
           translation={activeTranslationAbbr}
-          onEditVerse={setEditingVerse}
+          onEditVerse={openVerseEditor}
           onVerseDoubleClick={handleVerseDoubleClick}
         />
       )}

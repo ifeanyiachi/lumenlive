@@ -13,7 +13,6 @@ import {
   MusicIcon,
   PlayIcon,
   StoreIcon,
-  GiftIcon,
   KeyboardIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -35,11 +34,10 @@ import { shouldNotifyUpdate } from "@/lib/updater/version"
 import { ReloadButton } from "@/components/controls/reload-button"
 import { AlertTrigger } from "@/components/alerts/alert-trigger"
 import { CountdownTrigger } from "@/components/countdown/countdown-trigger"
-import { openExternalUrl } from "@/services/external-link-gateway"
+import { useEntitlementsStore } from "@/stores/entitlements-store"
+import { planLabel } from "@/lib/entitlements"
 import { cn } from "@/lib/utils"
 import type { AppView } from "@/stores/app-store"
-
-const DONATE_URL = "https://lumenlive.xyz/donations"
 
 const VIEW_BUTTONS: { view: AppView; label: string; icon: React.ReactNode }[] =
   [
@@ -78,6 +76,9 @@ export function TransportBar() {
   const updateAvailable = useUpdateStore((s) =>
     shouldNotifyUpdate(s.available, s.dismissedVersion)
   )
+  // Current plan label — "Free" | "Free trial" | "Starter" | "Pro". Selecting
+  // the derived string keeps this a narrow (primitive) subscription.
+  const plan = useEntitlementsStore((s) => planLabel(s.entitlement))
 
   return (
     <div
@@ -89,20 +90,13 @@ export function TransportBar() {
         <span className="text-sm font-semibold tracking-tight text-foreground">
           LumenLive
         </span>
-        <Badge variant="outline" className="text-[0.5625rem] uppercase">
-          Free
+        <Badge
+          variant={plan === "Free" ? "outline" : "default"}
+          className="text-[0.5625rem] uppercase"
+        >
+          {plan}
         </Badge>
         <ReloadButton />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground hover:text-rose-500"
-          title="Support LumenLive"
-          aria-label="Support LumenLive with a donation"
-          onClick={() => openExternalUrl(DONATE_URL)}
-        >
-          <GiftIcon className="size-3.5" />
-        </Button>
       </div>
 
       {/* Center: View Switcher */}

@@ -45,6 +45,7 @@ import {
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 import { PropsManager } from "@/components/props/props-manager"
+import { requireFeature } from "@/components/entitlements/require-feature"
 import { applyMuteParam } from "@/lib/live-output/presentation"
 import { LiveMediaMonitor } from "@/components/panels/live-output/live-media-monitor"
 import { LiveWebMonitor } from "@/components/panels/live-output/live-web-monitor"
@@ -221,7 +222,11 @@ export function LiveOutputPanel() {
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => setPropsOpen(true)}
+            onClick={() => {
+              // Lower-thirds / props are a Starter capability.
+              if (requireFeature("props", "Lower-thirds & props"))
+                setPropsOpen(true)
+            }}
             title="Props / Overlays"
           >
             <LayersIcon className="size-3.5" />

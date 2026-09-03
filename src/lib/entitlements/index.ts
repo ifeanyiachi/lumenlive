@@ -72,6 +72,22 @@ export function can(entitlement: Entitlement, key: string): boolean {
   return entitlement.features.includes(key)
 }
 
+/**
+ * The user-facing plan label for the current entitlement: `"Free"`,
+ * `"Free trial"`, `"Starter"`, or `"Pro"`.
+ *
+ * A non-null `trialEnd` marks a *time-limited* grant of a paid tier (a gifted
+ * trial), shown as "Free trial"; a perpetual paid subscription has `trialEnd`
+ * null and shows its tier name. Free is always "Free". Pure over the snapshot —
+ * expiry is the store's job (it drops the entitlement back to Free once the
+ * deadline passes), so this needs no clock.
+ */
+export function planLabel(entitlement: Entitlement): string {
+  if (entitlement.tier === "free") return "Free"
+  if (entitlement.trialEnd != null) return "Free trial"
+  return entitlement.tier === "pro" ? "Pro" : "Starter"
+}
+
 /** The numeric cap for `key`. `-1` means unlimited (see {@link isUnlimited}). */
 export function limit(entitlement: Entitlement, key: keyof Limits): number {
   return entitlement.limits[key]
