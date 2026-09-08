@@ -7,7 +7,11 @@ import {
   validate,
   type LicenseResult,
 } from "@/services/licensing-gateway"
-import { LicensingError } from "@/services/lumenbo-client"
+import {
+  LicensingError,
+  type LicensingErrorCode,
+} from "@/services/lumenbo-client"
+import type { PlanTier } from "@/lib/entitlements"
 import { useAuthStore } from "./auth-store"
 import { useEntitlementsStore } from "./entitlements-store"
 
@@ -52,7 +56,7 @@ async function deviceMeta() {
  */
 export async function signInAndActivate(
   email: string,
-  password: string,
+  password: string
 ): Promise<{ license: LicenseResult }> {
   const { token, user } = await signIn(email, password)
 
@@ -61,7 +65,7 @@ export async function signInAndActivate(
     throw new LicensingError(
       "UNAUTHORIZED",
       "Please verify your email address before signing in. Check your inbox for the verification link.",
-      403,
+      403
     )
   }
 
@@ -94,26 +98,54 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Re-validate the current device online and apply the refreshed token. This is
- * where a lapsed subscription downgrades (the server re-issues a Free token).
- * Silent and best-effort: offline or an expired auth session leaves the
- * offline-verified entitlement in place until the next successful pass.
+ * The outcome of a {@link revalidate} pass. `ok` carries the tier the device
+ * ended up on (already verified offline via `applyToken`) plus the verify
+ * `reason`; a failure carries the backend error `code`/`message` so the UI can
+ * tell the user *why* nothing changed (auth expired, no seat, offline, …)
+ * instead of falsely reporting success.
  */
-export async function revalidate(): Promise<void> {
+export type RevalidateResult =
+  | { ok: true; tier: PlanTier; reason: string }
+  | { ok: false; code: LicensingErrorCode; message: string }
+
+/**
+ * Re-validate the current device online and apply the refreshed token. This is
+ * where a lapsed subscription downgrades (the server re-issues a Free token) or
+ * a freshly-granted one upgrades. Never throws — it returns a
+ * {@link RevalidateResult} instead. On any failure the offline-verified
+ * entitlement is left in place (the server never lowered us), so background
+ * callers can `void` the result and let the next pass retry; the Account screen
+ * inspects it to surface the real error.
+ */
+export async function revalidate(): Promise<RevalidateResult> {
   const { token: authToken } = useAuthStore.getState()
-  if (!authToken) return
+  if (!authToken) {
+    return {
+      ok: false,
+      code: "UNAUTHORIZED",
+      message:
+        "You're signed out on this device. Sign in again to refresh your plan.",
+    }
+  }
 
   try {
     const machineId = await useEntitlementsStore.getState().ensureMachineId()
     const license = await validate(authToken, machineId)
-    await useEntitlementsStore.getState().applyToken(license.token, true)
-  } catch (e) {
-    if (e instanceof LicensingError && e.code === "UNAUTHORIZED") {
-      // The auth session expired. Keep the offline entitlement (still governed
-      // by the token's trialEnd/grace); the user re-logs in when convenient.
-      return
+    const reason = await useEntitlementsStore
+      .getState()
+      .applyToken(license.token, true)
+    return {
+      ok: true,
+      tier: useEntitlementsStore.getState().entitlement.tier,
+      reason,
     }
-    // NETWORK / transient — try again on the next scheduled pass.
+  } catch (e) {
+    // A failed pass keeps the offline entitlement in place (governed by the
+    // token's own trialEnd/grace); we just report why so the caller can act.
+    if (e instanceof LicensingError) {
+      return { ok: false, code: e.code, message: e.message }
+    }
+    return { ok: false, code: "UNKNOWN", message: String(e) }
   }
 }
 

@@ -10,6 +10,7 @@ import {
   revalidate,
   signInAndActivate,
   signOut,
+  type RevalidateResult,
 } from "@/stores/licensing-actions"
 import { LicensingError } from "@/services/lumenbo-client"
 import { openExternalUrl } from "@/services/external-link-gateway"
@@ -27,10 +28,14 @@ const TIER_LABEL: Record<PlanTier, string> = {
 }
 
 const REASON_NOTE: Record<string, string> = {
-  trial_ended: "Your trial has ended. Sign in again or renew to restore access.",
-  expired: "Your license needs re-validation. Connect to the internet and re-validate.",
-  machine_mismatch: "This license belongs to a different device.",
-  signature: "The stored license is invalid and was ignored.",
+  trial_ended:
+    "Your free trial has ended. Subscribe to a plan to restore full access.",
+  expired:
+    "We haven't been able to confirm your plan lately. Connect to the internet, then re-validate below.",
+  machine_mismatch:
+    "This plan is active on another device. Sign in here to move it to this one.",
+  signature:
+    "Your plan needs a quick refresh on this device. Re-validate below to update it.",
 }
 
 export function AccountSection() {
@@ -63,9 +68,10 @@ function SignedOut() {
       if (err instanceof LicensingError) {
         setError(err.message)
         if (err.code === "DEVICE_LIMIT_REACHED") {
-          const detail = err.details as { devices?: { machineName?: string }[] } | undefined
+          const detail = err.details as
+            { devices?: { machineName?: string }[] } | undefined
           setDevices(
-            detail?.devices?.map((d) => d.machineName ?? "Unknown device") ?? [],
+            detail?.devices?.map((d) => d.machineName ?? "Unknown device") ?? []
           )
         }
       } else {
@@ -83,8 +89,8 @@ function SignedOut() {
           Sign in to LumenLive
         </h3>
         <p className="text-[0.6875rem] text-muted-foreground">
-          LumenLive runs free without an account. Sign in to unlock a gifted
-          trial or your subscription on this device.
+          LumenLive is free to use — no account needed. Sign in to activate your
+          subscription on this device.
         </p>
       </div>
 
@@ -143,7 +149,7 @@ function SignedOut() {
 
       <div className="flex items-center justify-between border-t border-border pt-4">
         <p className="text-[0.6875rem] text-muted-foreground">
-          Don&apos;t have an account?
+          New to LumenLive?
         </p>
         <Button
           variant="outline"
@@ -166,13 +172,12 @@ function SignedIn() {
   const reason = useEntitlementsStore((s) => s.reason)
   const machineId = useEntitlementsStore((s) => s.machineId)
   const [busy, setBusy] = useState(false)
-  const [revalidatedAt, setRevalidatedAt] = useState<number | null>(null)
+  const [result, setResult] = useState<RevalidateResult | null>(null)
 
   async function handleRevalidate() {
     setBusy(true)
     try {
-      await revalidate()
-      setRevalidatedAt(Date.now())
+      setResult(await revalidate())
     } finally {
       setBusy(false)
     }
@@ -196,12 +201,35 @@ function SignedIn() {
         </Badge>
       </div>
 
-      {entitlement.trialEnd != null && <TrialCountdown trialEnd={entitlement.trialEnd} />}
+      {entitlement.trialEnd != null && (
+        <TrialCountdown trialEnd={entitlement.trialEnd} />
+      )}
 
       {note && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5">
           <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400">
             {note}
+          </p>
+        </div>
+      )}
+
+      {result && !result.ok && (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-2.5">
+          <p className="text-[0.6875rem] text-red-500">
+            We couldn&apos;t refresh your plan right now: {result.message}
+          </p>
+          <p className="mt-0.5 font-mono text-[0.625rem] text-muted-foreground">
+            {result.code}
+          </p>
+        </div>
+      )}
+
+      {result?.ok && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+          <p className="text-[0.6875rem] text-emerald-600 dark:text-emerald-400">
+            {result.reason === "ok"
+              ? `You're all set — your plan is now ${TIER_LABEL[result.tier]}.`
+              : `Checked with the server — you're still on ${TIER_LABEL[result.tier]}, all good.`}
           </p>
         </div>
       )}
@@ -215,8 +243,10 @@ function SignedIn() {
         </code>
         <p className="text-[0.625rem] text-muted-foreground">
           {entitlement.limits.maxDevices < 0
-            ? "Unlimited devices on your plan."
-            : `Up to ${entitlement.limits.maxDevices} device(s) on your plan.`}
+            ? "Your plan includes unlimited devices."
+            : `Your plan covers up to ${entitlement.limits.maxDevices} device${
+                entitlement.limits.maxDevices === 1 ? "" : "s"
+              }.`}
         </p>
       </div>
 
@@ -228,7 +258,11 @@ function SignedIn() {
           disabled={busy}
           onClick={() => void handleRevalidate()}
         >
-          {busy ? "Re-validating…" : revalidatedAt ? "Re-validated" : "Re-validate now"}
+          {busy
+            ? "Re-validating…"
+            : result?.ok
+              ? "Re-validated"
+              : "Re-validate now"}
         </Button>
         <Button
           variant="ghost"
@@ -258,7 +292,7 @@ function TrialCountdown({ trialEnd }: { trialEnd: number }) {
         Access period
       </p>
       {rem.expired ? (
-        <p className="mt-1 text-xs text-red-500">Ended</p>
+        <p className="mt-1 text-xs text-red-500">Access ended</p>
       ) : (
         <p className="mt-1 text-xs text-foreground">
           {rem.days > 0 && `${rem.days} day${rem.days === 1 ? "" : "s"} `}
