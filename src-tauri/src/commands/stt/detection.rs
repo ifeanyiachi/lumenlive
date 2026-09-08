@@ -111,6 +111,33 @@ fn stamp_narrative_mentions(
     }
 }
 
+/// Record every emitted detection into the durable per-session transcript file
+/// (see [`super::TranscriptRecorder`]), tagged with its `source` (`"direct"`,
+/// `"direct-partial"`, `"semantic"`). Best-effort: a poisoned lock is skipped so
+/// recording never disturbs detection. No-op between transcription sessions.
+fn record_detections(
+    app: &AppHandle,
+    source: &str,
+    results: &[crate::commands::detection::DetectionResult],
+) {
+    let rec_state: State<'_, Mutex<super::TranscriptRecorder>> = app.state();
+    let Ok(mut rec) = rec_state.lock() else {
+        return;
+    };
+    for r in results {
+        let flag = if r.narrative_mention { " [narrative]" } else { "" };
+        rec.detection(
+            source,
+            &format!(
+                "{} ({:.0}%) auto_q={}{flag}",
+                r.verse_ref,
+                r.confidence * 100.0,
+                r.auto_queued
+            ),
+        );
+    }
+}
+
 /// Run direct (regex/pattern) detection only. Instant, no ONNX.
 /// Locks its own `Mutex<DirectDetector>` (so it never blocks on the semantic
 /// worker's ONNX under the pipeline lock) but merges through the SHARED
@@ -172,6 +199,7 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         drop(bible);
         stamp_narrative_mentions(app, transcript, &mut results);
         if !results.is_empty() {
+            record_detections(app, "direct-partial", &results);
             let _ = app.emit("verse_detections_partial", &results);
             log::debug!(
                 "[DET-DIRECT] partial emitted {} ({}) in {:?}",
@@ -223,6 +251,7 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
     for r in &results {
         log::info!("[DET-DIRECT] Found: {} ({:.0}%)", r.verse_ref, r.confidence * 100.0);
     }
+    record_detections(app, "direct", &results);
     let _ = app.emit("verse_detections", &results);
     log::info!("[DET-DIRECT] Detection took {:?} for {:?}", t0.elapsed(), truncate_safe(transcript, 50));
     has_high_confidence
@@ -618,6 +647,7 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
             r.verse_ref, r.confidence * 100.0, r.source, r.auto_queued
         );
     }
+    record_detections(app, "semantic", &results);
     let _ = app.emit("verse_detections", &results);
     log::info!("[DET-SEMANTIC] Total: {:?}", t0.elapsed());
 }

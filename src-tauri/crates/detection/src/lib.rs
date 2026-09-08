@@ -22,7 +22,6 @@ pub mod semantic;
 pub mod merger;
 pub mod pipeline;
 pub mod quotation;
-pub mod sentence_buffer;
 pub mod reading_mode;
 
 pub use types::*;
@@ -32,7 +31,6 @@ pub use direct::detector::{DirectDetector, NavDirection, VerseCommand};
 pub use semantic::detector::SemanticDetector;
 pub use merger::{DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;
-pub use sentence_buffer::SentenceBuffer;
 pub use reading_mode::{ReadingMode, ReadingAdvance, ChapterChange};
 
 #[cfg(feature = "onnx")]

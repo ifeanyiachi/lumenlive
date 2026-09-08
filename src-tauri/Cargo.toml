@@ -111,6 +111,9 @@ zstd = "0.13"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 futures-util = "0.3"
 tauri-plugin-aptabase = "1.0.0"
+# UTC timestamps + filenames for per-session transcript recording
+# (commands/stt/transcript_log.rs). Already in the tree via tauri-plugin-log.
+time = "0.3"
 
 [lints]
 workspace = true

@@ -3063,6 +3063,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-store",
  "tauri-plugin-updater",
+ "time",
  "tokio",
  "url",
  "zip",

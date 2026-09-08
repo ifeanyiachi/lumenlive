@@ -51,6 +51,14 @@ pub fn run() {
                 // INFO, which floods the file and buries the detection trail.
                 // Keep only its warnings/errors so [DET-*] lines stay readable.
                 .level_for("ort", tauri_plugin_log::log::LevelFilter::Warn)
+                // Keep a service's full history. The default rotation strategy
+                // (`KeepOne`) deletes all but one rotated file, so a long
+                // service's early logs — and any prior service's — were lost
+                // (why a past service's log was already gone when we needed it).
+                // Keep every rotation, and let each grow large enough that a
+                // whole service usually lands in one file.
+                .max_file_size(50_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
                 .build(),
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -67,6 +75,9 @@ pub fn run() {
         .manage(Mutex::new(lumenlive_detection::DirectDetector::new()))
         .manage(Mutex::new(lumenlive_detection::DetectionMerger::new()))
         .manage(Mutex::new(lumenlive_detection::ReadingMode::new()))
+        // Per-session transcript recorder: writes every partial/final +
+        // detection to its own durable file. See commands::stt::TranscriptRecorder.
+        .manage(Mutex::new(commands::stt::TranscriptRecorder::default()))
         .manage(Mutex::new(commands::remote::OscRuntime::new()))
         .manage(Mutex::new(commands::remote::HttpRuntime::new()))
         // Wake lock: keeps the display + system awake while any broadcast output

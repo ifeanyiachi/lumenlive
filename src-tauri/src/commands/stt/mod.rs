@@ -15,11 +15,14 @@ mod detection;
 mod events;
 mod model;
 mod supervisor;
+mod transcript_log;
+
+pub use transcript_log::TranscriptRecorder;
 
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use lumenlive_stt::{SttProvider, TranscriptEvent};
 
@@ -68,6 +71,21 @@ pub async fn start_transcription(
     // cooldown — the root of detection "degrading over time" (aitrans Phase 1).
     detection::reset_detection_state(&app);
 
+    // ── 1c. Begin a durable per-session transcript recording ────────────
+    // Every partial/final and every detection is written to its own file
+    // under <app_log_dir>/transcripts/ so a whole service's transcript
+    // survives — the main app log rotates by size and is overwritten quickly
+    // (the reason a prior service's log was gone when we went to diagnose a
+    // falsely displayed verse). Best-effort: a missing log dir just skips it.
+    match app.path().app_log_dir() {
+        Ok(log_dir) => {
+            if let Ok(mut rec) = app.state::<Mutex<TranscriptRecorder>>().lock() {
+                rec.begin(&log_dir);
+            }
+        }
+        Err(e) => log::error!("[TRANSCRIPT-REC] app_log_dir unavailable, not recording: {e}"),
+    }
+
     // ── 2. Build the STT provider ───────────────────────────────────────
     let stt_provider = model::build_provider(api_key)?;
 
@@ -104,7 +122,10 @@ pub async fn start_transcription(
 
 /// Stop the transcription pipeline (audio capture + STT provider).
 #[tauri::command]
-pub fn stop_transcription(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn stop_transcription(
+    state: State<'_, Mutex<AppState>>,
+    recorder: State<'_, Mutex<TranscriptRecorder>>,
+) -> Result<(), String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
 
     if !app_state.stt_active.load(Ordering::Relaxed) {
@@ -114,6 +135,11 @@ pub fn stop_transcription(state: State<'_, Mutex<AppState>>) -> Result<(), Strin
     // Setting these flags causes the background threads/tasks to exit.
     app_state.stt_active.store(false, Ordering::SeqCst);
     app_state.audio_active.store(false, Ordering::SeqCst);
+
+    // Flush and close the session transcript file.
+    if let Ok(mut rec) = recorder.lock() {
+        rec.finish();
+    }
 
     log::info!("Transcription stop requested");
     Ok(())

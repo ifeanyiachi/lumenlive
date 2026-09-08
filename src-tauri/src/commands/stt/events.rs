@@ -6,9 +6,12 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
+
+use super::TranscriptRecorder;
 
 use lumenlive_stt::TranscriptEvent;
 
@@ -192,6 +195,15 @@ pub(super) fn spawn_transcript_processing(
                         // silently if the worker is busy — the final re-runs it.
                         if transcript != last_partial_detect {
                             last_partial_detect.clone_from(&transcript);
+                            // Record + log the (changed) partial verbatim: the
+                            // instant-display path fires from partials, so the
+                            // interim stream is needed to diagnose a false verse.
+                            log::info!("[TRANSCRIPT] partial: {transcript:?}");
+                            if let Ok(mut rec) =
+                                event_app.state::<Mutex<TranscriptRecorder>>().lock()
+                            {
+                                rec.partial(&transcript);
+                            }
                             let _ = detect_tx.try_send((transcript.clone(), false));
                         }
                         log::debug!("[EVT] Partial processed in {:?}", t0.elapsed());
@@ -212,6 +224,11 @@ pub(super) fn spawn_transcript_processing(
                             "[TRANSCRIPT] final (conf {:.0}%, speech_final={speech_final}): {transcript:?}",
                             confidence * 100.0
                         );
+                        if let Ok(mut rec) =
+                            event_app.state::<Mutex<TranscriptRecorder>>().lock()
+                        {
+                            rec.final_segment(&transcript, confidence, speech_final);
+                        }
                         if !first_final_logged {
                             first_final_logged = true;
                             let after_connect = connected_at.map_or_else(
