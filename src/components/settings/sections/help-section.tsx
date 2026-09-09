@@ -1,10 +1,7 @@
 import { Button } from "@/components/ui/button"
-import { GraduationCapIcon, KeyIcon, GiftIcon } from "lucide-react"
+import { GraduationCapIcon } from "lucide-react"
 import { useTutorialStore } from "@/stores/tutorial-store"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
-import { openExternalUrl } from "@/services/external-link-gateway"
-
-const DONATE_URL = "https://lumenlive.xyz/donations"
 
 export function HelpSection() {
   const closeSettings = useSettingsDialogStore((s) => s.closeSettings)
@@ -42,42 +39,6 @@ export function HelpSection() {
           >
             <GraduationCapIcon className="mr-1.5 size-3.5" />
             Restart
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <KeyIcon className="size-4 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Keyboard Shortcuts</p>
-              <p className="text-xs text-muted-foreground">
-                Arrow keys navigate the tutorial, Esc to dismiss
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-500/10">
-              <GiftIcon className="size-4 text-rose-500" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Support LumenLive</p>
-              <p className="text-xs text-muted-foreground">
-                LumenLive is free — donations keep it growing
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => openExternalUrl(DONATE_URL)}
-          >
-            <GiftIcon className="mr-1.5 size-3.5" />
-            Donate
           </Button>
         </div>
       </div>

@@ -1,76 +1,13 @@
-import { useMemo } from "react"
-
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { useSettingsStore } from "@/stores"
-import { useThemesStore } from "@/stores/themes"
-import { BUILTIN_THEMES } from "@/lib/theme/builtins"
-import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 
 import { ApiKeyField } from "../ui/api-key-field"
 import { useApiKeyField } from "../hooks/use-api-key-field"
 
-const SONG_THEME_OPTIONS = BUILTIN_THEMES.filter((t) => t.type === "song")
-
 export function SongsSection() {
-  const defaults = useSettingsStore((s) => s.songSlideDefaults)
-  const setDefaults = useSettingsStore((s) => s.setSongSlideDefaults)
-  const customThemes = useThemesStore((s) => s.customThemes)
-  // Built-in song looks plus any user-authored custom song themes.
-  const songThemeOptions = useMemo(
-    () => [
-      ...SONG_THEME_OPTIONS,
-      ...customThemes.filter((t) => t.type === "song"),
-    ],
-    [customThemes]
-  )
   const geniusApiKey = useSettingsStore((s) => s.geniusApiKey)
   const setGeniusApiKey = useSettingsStore((s) => s.setGeniusApiKey)
-  const update = (patch: Partial<typeof defaults>) =>
-    setDefaults({ ...defaults, ...patch })
 
   const geniusKeyField = useApiKeyField(geniusApiKey, setGeniusApiKey)
-
-  const toggles: {
-    key: keyof typeof defaults
-    label: string
-    description: string
-  }[] = [
-    {
-      key: "breakOnBlankLines",
-      label: "Break on blank lines",
-      description:
-        "Start a new slide at stanza breaks, even under the line cap.",
-    },
-    {
-      key: "includeTitleSlide",
-      label: "Title slide",
-      description: "Prepend a slide with the song title and author.",
-    },
-    {
-      key: "includeBlankEndSlide",
-      label: "Blank end slide",
-      description: "Append a blank slide so the last click clears the screen.",
-    },
-    {
-      key: "showSectionLabels",
-      label: "Show section labels",
-      description: 'Overlay a small "Verse 1" / "Chorus" badge on each slide.',
-    },
-    {
-      key: "transparentBackground",
-      label: "Transparent background",
-      description:
-        "Replace the theme background with transparency, for keying lyrics over live video.",
-    },
-  ]
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,71 +44,15 @@ export function SongsSection() {
         </ol>
       </ApiKeyField>
 
-      <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-        Defaults used when a song is turned into slides. Any song can override
-        these in its editor; changing them here only affects songs that haven't
-        been customised.
+      <p className="border-t border-border/60 pt-4 text-[0.625rem] leading-relaxed text-muted-foreground">
+        <span className="font-semibold text-foreground">Disclaimer:</span> By
+        enabling this integration, you agree that you are using your own
+        personal, non-commercial Genius developer key. This software is a
+        neutral utility and is not affiliated with, endorsed, or licensed by
+        Genius. You are entirely responsible for complying with the Genius API
+        Terms of Service, and any commercial exploitation or misuse of their
+        data is strictly at your own risk.
       </p>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Default Lyric Theme
-        </label>
-        <Select
-          value={resolveLegacyThemeId(defaults.themeId)}
-          onValueChange={(v) => update({ themeId: v })}
-        >
-          <SelectTrigger className="w-full text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {songThemeOptions.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Lines Per Slide
-        </label>
-        <Input
-          type="number"
-          min={1}
-          max={12}
-          value={defaults.maxLinesPerSlide}
-          onChange={(e) => {
-            const n = Math.max(
-              1,
-              Math.min(12, Math.round(Number(e.target.value) || 1))
-            )
-            update({ maxLinesPerSlide: n })
-          }}
-          className="w-24 text-sm"
-        />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {toggles.map((t) => (
-          <div key={t.key} className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-medium text-foreground">
-                {t.label}
-              </span>
-              <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                {t.description}
-              </p>
-            </div>
-            <Switch
-              checked={defaults[t.key] as boolean}
-              onCheckedChange={(v) => update({ [t.key]: v })}
-            />
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
