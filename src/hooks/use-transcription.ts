@@ -13,6 +13,7 @@ import {
 } from "@/services/transcription-key-gateway"
 import { decideTranscriptionStart, describeBlock } from "@/lib/transcription/access"
 import type { BlockedCopy } from "@/lib/transcription/access"
+import { resolveKeySource } from "@/lib/transcription/key-source"
 import type { TranscriptionMode } from "@/lib/transcription/types"
 import {
   sanitizeUsageDelta,
@@ -68,12 +69,20 @@ export const transcriptionActions = {
     const settings = useSettingsStore.getState()
     const token = useAuthStore.getState().token
 
-    // Resolve which key to use. Signed-in users pull a platform-metered key;
-    // anonymous users fall back to their own key from Settings (unchanged path).
+    // Resolve which key to use (beta). The operator's Settings choice decides:
+    // `platform` pulls a metered key from the account; `local` uses their own
+    // Settings key directly (no metering). Anonymous sessions and an empty
+    // local key both resolve to `platform`/`local` per `resolveKeySource`.
     let apiKey = settings.deepgramApiKey ?? ""
     sessionMode = null
 
-    if (token) {
+    const keySource = resolveKeySource({
+      source: settings.transcriptionKeySource,
+      hasLocalKey: !!settings.deepgramApiKey,
+      hasToken: !!token,
+    })
+
+    if (keySource === "platform" && token) {
       try {
         const resolution = await pullTranscriptionKey(token)
         transcript.setRemainingMinutes(resolution.remainingMinutes)

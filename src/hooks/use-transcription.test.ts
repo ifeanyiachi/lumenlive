@@ -4,9 +4,23 @@ const mockInvoke = vi.fn()
 const mockToastError = vi.fn()
 const mockToastWarning = vi.fn()
 const mockToastSuccess = vi.fn()
+const mockPullKey = vi.fn()
+const mockReportUsage = vi.fn()
+const mockReportKeyInvalid = vi.fn()
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
+}))
+
+vi.mock("@/services/transcription-key-gateway", () => ({
+  pullTranscriptionKey: (...args: unknown[]) => mockPullKey(...args),
+  reportTranscriptionUsage: (...args: unknown[]) => mockReportUsage(...args),
+  reportKeyInvalid: (...args: unknown[]) => mockReportKeyInvalid(...args),
+}))
+
+vi.mock("@/services/analytics-gateway", () => ({
+  trackServiceStarted: () => {},
+  setAnalyticsEnabled: () => {},
 }))
 
 vi.mock("sonner", () => ({
@@ -25,10 +39,12 @@ async function loadModules() {
   vi.resetModules()
   const transcriptMod = await import("@/stores/transcript-store")
   const settingsMod = await import("@/stores/settings-store")
+  const authMod = await import("@/stores/auth-store")
   const hookMod = await import("./use-transcription")
   return {
     useTranscriptStore: transcriptMod.useTranscriptStore,
     useSettingsStore: settingsMod.useSettingsStore,
+    useAuthStore: authMod.useAuthStore,
     transcriptionActions: hookMod.transcriptionActions,
   }
 }
@@ -39,6 +55,9 @@ describe("use-transcription", () => {
     mockToastError.mockReset()
     mockToastWarning.mockReset()
     mockToastSuccess.mockReset()
+    mockPullKey.mockReset()
+    mockReportUsage.mockReset()
+    mockReportKeyInvalid.mockReset()
   })
 
   describe("transcriptionActions.start", () => {
@@ -81,6 +100,63 @@ describe("use-transcription", () => {
           gain: 1.0,
         })
       )
+    })
+
+    it("uses the local key without pulling from the platform when signed in and source is 'local'", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useSettingsStore, useAuthStore, transcriptionActions } =
+        await loadModules()
+
+      useAuthStore.setState({ token: "session-token", status: "authenticated" })
+      useSettingsStore.setState({
+        deepgramApiKey: "dg-local-key",
+        transcriptionKeySource: "local",
+        audioDeviceId: "dev-1",
+        gain: 1.0,
+      })
+
+      await transcriptionActions.start()
+
+      // Local source bypasses the platform: no key pull, no metering setup.
+      expect(mockPullKey).not.toHaveBeenCalled()
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        apiKey: "dg-local-key",
+        deviceId: "dev-1",
+        gain: 1.0,
+      })
+    })
+
+    it("pulls a platform key when signed in and source is 'platform'", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+        byokPresent: false,
+      })
+      const { useSettingsStore, useAuthStore, transcriptionActions } =
+        await loadModules()
+
+      useAuthStore.setState({ token: "session-token", status: "authenticated" })
+      useSettingsStore.setState({
+        deepgramApiKey: "dg-local-key",
+        transcriptionKeySource: "platform",
+        audioDeviceId: "dev-1",
+        gain: 1.0,
+      })
+
+      await transcriptionActions.start()
+
+      expect(mockPullKey).toHaveBeenCalledWith("session-token")
+      // Platform key wins over the present local key.
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        apiKey: "dg-platform-key",
+        deviceId: "dev-1",
+        gain: 1.0,
+      })
     })
 
     it("sets connectionStatus to 'connecting' before invoke resolves and 'isTranscribing' after", async () => {
