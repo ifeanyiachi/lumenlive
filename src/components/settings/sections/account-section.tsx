@@ -14,18 +14,12 @@ import {
 } from "@/stores/licensing-actions"
 import { LicensingError } from "@/services/lumenbo-client"
 import { openExternalUrl } from "@/services/external-link-gateway"
-import { trialRemaining, type PlanTier } from "@/lib/entitlements"
+import { planLabel, trialRemaining } from "@/lib/entitlements"
 import { appUrl } from "@/lib/app-urls"
 
 // The sign-up page is served by the lumenbo app (app.lumenlive.xyz/signup), not
 // the marketing site.
 const SIGNUP_URL = appUrl("/signup")
-
-const TIER_LABEL: Record<PlanTier, string> = {
-  free: "Free",
-  starter: "Starter",
-  pro: "Pro",
-}
 
 const REASON_NOTE: Record<string, string> = {
   trial_ended:
@@ -197,7 +191,7 @@ function SignedIn() {
           </span>
         </div>
         <Badge variant={entitlement.tier === "free" ? "outline" : "default"}>
-          {TIER_LABEL[entitlement.tier]}
+          {planLabel(entitlement)}
         </Badge>
       </div>
 
@@ -228,8 +222,8 @@ function SignedIn() {
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5">
           <p className="text-[0.6875rem] text-emerald-600 dark:text-emerald-400">
             {result.reason === "ok"
-              ? `You're all set — your plan is now ${TIER_LABEL[result.tier]}.`
-              : `Checked with the server — you're still on ${TIER_LABEL[result.tier]}, all good.`}
+              ? `You're all set — your plan is now ${planLabel(entitlement)}.`
+              : `Checked with the server — you're still on ${planLabel(entitlement)}, all good.`}
           </p>
         </div>
       )}
