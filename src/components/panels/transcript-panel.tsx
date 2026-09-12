@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { Button } from "@/components/ui/button"
-import { ApiKeyPrompt } from "@/components/ui/api-key-prompt"
+import { SignInPrompt } from "@/components/ui/sign-in-prompt"
 import { TranscriptionBlockedPrompt } from "@/components/ui/transcription-blocked-prompt"
 import type { BlockedCopy } from "@/lib/transcription/access"
 import { MicIcon, MicOffIcon } from "lucide-react"
@@ -216,8 +216,8 @@ function displayDirectVerse(hit: DetectionResult) {
 const INSTANT_STABILITY_PARTIALS = 1
 
 export function TranscriptPanel() {
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false)
-  const onMissingApiKey = useCallback(() => setShowKeyPrompt(true), [])
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false)
+  const onSignInRequired = useCallback(() => setShowSignInPrompt(true), [])
   const [blockedCopy, setBlockedCopy] = useState<BlockedCopy | null>(null)
   const onBlocked = useCallback((copy: BlockedCopy) => setBlockedCopy(copy), [])
   const {
@@ -226,7 +226,7 @@ export function TranscriptPanel() {
     connectionStatus,
     startTranscription,
     stopTranscription,
-  } = useTranscription({ onMissingApiKey, onBlocked })
+  } = useTranscription({ onSignInRequired, onBlocked })
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const scrollRef = useRef<HTMLDivElement>(null)
   // Stability + cooldown bookkeeping for the instant (partial) direct-display
@@ -529,11 +529,9 @@ export function TranscriptPanel() {
         )}
       </div>
 
-      <ApiKeyPrompt
-        open={showKeyPrompt}
-        onOpenChange={setShowKeyPrompt}
-        service="Deepgram"
-        description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
+      <SignInPrompt
+        open={showSignInPrompt}
+        onOpenChange={setShowSignInPrompt}
       />
 
       <TranscriptionBlockedPrompt

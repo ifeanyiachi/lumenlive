@@ -60,73 +60,15 @@ describe("use-transcription", () => {
     mockReportKeyInvalid.mockReset()
   })
 
+  /** A ready-to-use signed-in session for the platform-key path. */
+  function signIn(useAuthStore: {
+    setState: (partial: Record<string, unknown>) => void
+  }) {
+    useAuthStore.setState({ token: "session-token", status: "authenticated" })
+  }
+
   describe("transcriptionActions.start", () => {
-    it("invokes start_transcription with the Deepgram key and audio settings", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useSettingsStore, transcriptionActions } = await loadModules()
-
-      useSettingsStore.setState({
-        deepgramApiKey: "dg-live-123",
-        audioDeviceId: "dev-42",
-        gain: 1.5,
-      })
-
-      await transcriptionActions.start()
-
-      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
-        apiKey: "dg-live-123",
-        deviceId: "dev-42",
-        gain: 1.5,
-      })
-    })
-
-    it("forwards an empty key when none is configured", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useSettingsStore, transcriptionActions } = await loadModules()
-
-      useSettingsStore.setState({
-        deepgramApiKey: null,
-        audioDeviceId: null,
-        gain: 1.0,
-      })
-
-      await transcriptionActions.start()
-
-      expect(mockInvoke).toHaveBeenCalledWith(
-        "start_transcription",
-        expect.objectContaining({
-          apiKey: "",
-          deviceId: null,
-          gain: 1.0,
-        })
-      )
-    })
-
-    it("uses the local key without pulling from the platform when signed in and source is 'local'", async () => {
-      mockInvoke.mockResolvedValue(undefined)
-      const { useSettingsStore, useAuthStore, transcriptionActions } =
-        await loadModules()
-
-      useAuthStore.setState({ token: "session-token", status: "authenticated" })
-      useSettingsStore.setState({
-        deepgramApiKey: "dg-local-key",
-        transcriptionKeySource: "local",
-        audioDeviceId: "dev-1",
-        gain: 1.0,
-      })
-
-      await transcriptionActions.start()
-
-      // Local source bypasses the platform: no key pull, no metering setup.
-      expect(mockPullKey).not.toHaveBeenCalled()
-      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
-        apiKey: "dg-local-key",
-        deviceId: "dev-1",
-        gain: 1.0,
-      })
-    })
-
-    it("pulls a platform key when signed in and source is 'platform'", async () => {
+    it("pulls a platform key and starts with it and the audio settings", async () => {
       mockInvoke.mockResolvedValue(undefined)
       mockPullKey.mockResolvedValue({
         mode: "platform_trial",
@@ -140,26 +82,97 @@ describe("use-transcription", () => {
       const { useSettingsStore, useAuthStore, transcriptionActions } =
         await loadModules()
 
-      useAuthStore.setState({ token: "session-token", status: "authenticated" })
-      useSettingsStore.setState({
-        deepgramApiKey: "dg-local-key",
-        transcriptionKeySource: "platform",
-        audioDeviceId: "dev-1",
-        gain: 1.0,
-      })
+      signIn(useAuthStore)
+      useSettingsStore.setState({ audioDeviceId: "dev-42", gain: 1.5 })
 
       await transcriptionActions.start()
 
       expect(mockPullKey).toHaveBeenCalledWith("session-token")
-      // Platform key wins over the present local key.
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         apiKey: "dg-platform-key",
-        deviceId: "dev-1",
-        gain: 1.0,
+        deviceId: "dev-42",
+        gain: 1.5,
       })
     })
 
+    it("prompts sign-in (no pull, no invoke) when anonymous", async () => {
+      const { useTranscriptStore, transcriptionActions } = await loadModules()
+      const onSignInRequired = vi.fn()
+
+      await transcriptionActions.start(onSignInRequired)
+
+      expect(onSignInRequired).toHaveBeenCalledTimes(1)
+      expect(mockPullKey).not.toHaveBeenCalled()
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(mockToastError).not.toHaveBeenCalled()
+      expect(useTranscriptStore.getState().connectionStatus).toBe(
+        "disconnected"
+      )
+    })
+
+    it("falls back to a toast when anonymous and no sign-in callback is given", async () => {
+      const { transcriptionActions } = await loadModules()
+
+      await transcriptionActions.start()
+
+      expect(mockPullKey).not.toHaveBeenCalled()
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Sign in to transcribe",
+        expect.objectContaining({ description: expect.any(String) })
+      )
+    })
+
+    it("blocks (with copy) when the platform denies the key", async () => {
+      mockPullKey.mockResolvedValue({
+        mode: "blocked",
+        reason: "allowance_exhausted",
+        remainingMinutes: 0,
+        tier: "free",
+        allowanceMinutes: 60,
+        usedMinutes: 60,
+        byokPresent: false,
+      })
+      const { useTranscriptStore, useAuthStore, transcriptionActions } =
+        await loadModules()
+      const onBlocked = vi.fn()
+
+      signIn(useAuthStore)
+      await transcriptionActions.start(undefined, onBlocked)
+
+      expect(onBlocked).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(useTranscriptStore.getState().connectionStatus).toBe(
+        "disconnected"
+      )
+    })
+
+    it("surfaces a toast (no local fallback) when the key pull fails", async () => {
+      mockPullKey.mockRejectedValue(new Error("network down"))
+      const { useTranscriptStore, useAuthStore, transcriptionActions } =
+        await loadModules()
+
+      signIn(useAuthStore)
+      await transcriptionActions.start()
+
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Could not start transcription",
+        expect.objectContaining({ description: expect.any(String) })
+      )
+      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
+    })
+
     it("sets connectionStatus to 'connecting' before invoke resolves and 'isTranscribing' after", async () => {
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+        byokPresent: false,
+      })
       let resolveInvoke: () => void = () => {}
       mockInvoke.mockReturnValue(
         new Promise<void>((resolve) => {
@@ -167,8 +180,10 @@ describe("use-transcription", () => {
         })
       )
 
-      const { useTranscriptStore, transcriptionActions } = await loadModules()
+      const { useTranscriptStore, useAuthStore, transcriptionActions } =
+        await loadModules()
 
+      signIn(useAuthStore)
       const pending = transcriptionActions.start()
 
       expect(useTranscriptStore.getState().connectionStatus).toBe("connecting")
@@ -181,41 +196,23 @@ describe("use-transcription", () => {
       expect(useTranscriptStore.getState().connectionStatus).not.toBe("error")
     })
 
-    it("routes a missing-Deepgram-key error to onMissingApiKey (no toast)", async () => {
-      mockInvoke.mockRejectedValue(
-        "No Deepgram API key provided. Set it in Settings or via DEEPGRAM_API_KEY env var."
-      )
-      const { useTranscriptStore, transcriptionActions } = await loadModules()
-      const onMissingApiKey = vi.fn()
+    it("surfaces a start_transcription error as a toast", async () => {
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+        byokPresent: false,
+      })
+      mockInvoke.mockRejectedValue("WebSocket handshake failed")
+      const { useTranscriptStore, useAuthStore, transcriptionActions } =
+        await loadModules()
 
-      await transcriptionActions.start(onMissingApiKey)
-
-      expect(onMissingApiKey).toHaveBeenCalledTimes(1)
-      expect(mockToastError).not.toHaveBeenCalled()
-      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
-      expect(useTranscriptStore.getState().isTranscribing).toBe(false)
-    })
-
-    it("falls back to toast when missing-key error fires but no callback is provided", async () => {
-      mockInvoke.mockRejectedValue("No Deepgram API key provided")
-      const { transcriptionActions } = await loadModules()
-
+      signIn(useAuthStore)
       await transcriptionActions.start()
 
-      expect(mockToastError).toHaveBeenCalledWith(
-        "Could not start transcription",
-        { description: "No Deepgram API key provided" }
-      )
-    })
-
-    it("surfaces any other start error as a toast", async () => {
-      mockInvoke.mockRejectedValue("WebSocket handshake failed")
-      const { useTranscriptStore, transcriptionActions } = await loadModules()
-      const onMissingApiKey = vi.fn()
-
-      await transcriptionActions.start(onMissingApiKey)
-
-      expect(onMissingApiKey).not.toHaveBeenCalled()
       expect(mockToastError).toHaveBeenCalledWith(
         "Could not start transcription",
         { description: "WebSocket handshake failed" }

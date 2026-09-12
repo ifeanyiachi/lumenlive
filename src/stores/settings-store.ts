@@ -4,7 +4,6 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SongSlideOptions } from "@/types/song"
 import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
-import type { TranscriptionKeySource } from "@/lib/transcription/key-source"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 
 type MediaImportMode = "reference" | "copy"
@@ -13,16 +12,6 @@ type MediaImportMode = "reference" | "copy"
 export type ScheduleViewMode = "list" | "thumbnail"
 
 interface SettingsState {
-  deepgramApiKey: string | null
-  /**
-   * BETA-ONLY: which Deepgram key live transcription uses. `"platform"`
-   * (default) pulls a metered key from the LumenLive account; `"local"` uses
-   * `deepgramApiKey` from this device directly, bypassing the platform (no
-   * metering). Only meaningful when signed in — anonymous sessions always use
-   * the local key. Remove at alpha along with the desktop key field (see
-   * `lib/transcription/key-source`).
-   */
-  transcriptionKeySource: TranscriptionKeySource
   geniusApiKey: string | null
   openaiApiKey: string | null
   claudeApiKey: string | null
@@ -109,8 +98,6 @@ interface SettingsState {
    */
   verseEditGoLive: boolean
 
-  setDeepgramApiKey: (key: string | null) => void
-  setTranscriptionKeySource: (source: TranscriptionKeySource) => void
   setGeniusApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
   setClaudeApiKey: (key: string | null) => void
@@ -134,8 +121,6 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  deepgramApiKey: null,
-  transcriptionKeySource: "platform",
   geniusApiKey: null,
   openaiApiKey: null,
   claudeApiKey: null,
@@ -157,9 +142,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   scheduleViewMode: "list",
   verseEditGoLive: false,
 
-  setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
-  setTranscriptionKeySource: (transcriptionKeySource) =>
-    set({ transcriptionKeySource }),
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
   setOpenaiApiKey: (openaiApiKey) => set({ openaiApiKey }),
   setClaudeApiKey: (claudeApiKey) => set({ claudeApiKey }),
@@ -186,8 +168,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 }))
 
 const PERSISTED_KEYS = [
-  "deepgramApiKey",
-  "transcriptionKeySource",
   "geniusApiKey",
   "openaiApiKey",
   "claudeApiKey",

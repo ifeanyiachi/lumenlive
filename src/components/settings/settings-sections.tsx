@@ -6,7 +6,6 @@ import {
   BookOpenIcon,
   RadioIcon,
   HelpCircleIcon,
-  BrainCircuitIcon,
   ListOrderedIcon,
   ImageIcon,
   MusicIcon,
@@ -19,7 +18,6 @@ import type { SettingsSection } from "@/lib/settings-dialog"
 
 import { AccountSection } from "./sections/account-section"
 import { AudioSection } from "./sections/audio-section"
-import { SpeechSection } from "./sections/speech-section"
 import { BibleSection } from "./sections/bible-section"
 import { DisplayModeSection } from "./sections/display-mode-section"
 import { ScheduleSection } from "./sections/schedule-section"
@@ -60,13 +58,6 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     title: "Audio",
     icon: <MicIcon strokeWidth={2} />,
     Component: AudioSection,
-  },
-  {
-    id: "speech",
-    name: "Speech Recognition",
-    title: "Speech Recognition",
-    icon: <BrainCircuitIcon strokeWidth={2} />,
-    Component: SpeechSection,
   },
   {
     id: "bible",

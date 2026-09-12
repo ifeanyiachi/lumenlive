@@ -13,7 +13,6 @@ import {
 } from "@/services/transcription-key-gateway"
 import { decideTranscriptionStart, describeBlock } from "@/lib/transcription/access"
 import type { BlockedCopy } from "@/lib/transcription/access"
-import { resolveKeySource } from "@/lib/transcription/key-source"
 import type { TranscriptionMode } from "@/lib/transcription/types"
 import {
   sanitizeUsageDelta,
@@ -33,11 +32,12 @@ interface TranscriptionUsagePayload {
 
 interface UseTranscriptionOptions {
   /**
-   * Called when `start_transcription` fails because no Deepgram API key is
-   * available (anonymous users with no key in Settings). Panels typically react
-   * by opening a key-prompt dialog instead of showing the default toast.
+   * Called when transcription can't start because the user isn't signed in.
+   * Transcription runs strictly on platform-managed keys, which require an
+   * account, so anonymous users are prompted to sign in rather than shown a
+   * generic error toast.
    */
-  onMissingApiKey?: () => void
+  onSignInRequired?: () => void
   /**
    * Called when the platform blocks transcription for a signed-in user (allowance
    * spent, BYO key rejected, platform key unset). Panels show the reason + a link
@@ -46,21 +46,20 @@ interface UseTranscriptionOptions {
   onBlocked?: (copy: BlockedCopy) => void
 }
 
-const MISSING_DEEPGRAM_KEY_MARKER = "No Deepgram API key"
 const NOT_RUNNING_ERROR = "Transcription is not running"
 
 /**
- * The key source of the current session, retained at module scope (one live
- * session at a time) so the usage/unauthorized event handlers know how to react:
- *   - `null` — anonymous BYO session (local Settings key); no platform metering.
- *   - a platform/byok mode — signed-in session; usage is metered and a 401 on a
- *     `byok` session means the church's own key is invalid.
+ * The mode of the current session, retained at module scope (one live session at
+ * a time) so the usage/unauthorized event handlers know how to react. Always a
+ * platform-resolved mode while a session is live — usage is metered, and a 401 on
+ * a `byok` session means the church's own (portal-configured) key is invalid.
+ * `null` between sessions.
  */
 let sessionMode: TranscriptionMode | null = null
 
 export const transcriptionActions = {
   async start(
-    onMissingApiKey?: () => void,
+    onSignInRequired?: () => void,
     onBlocked?: (copy: BlockedCopy) => void,
   ): Promise<void> {
     const transcript = useTranscriptStore.getState()
@@ -68,46 +67,44 @@ export const transcriptionActions = {
 
     const settings = useSettingsStore.getState()
     const token = useAuthStore.getState().token
-
-    // Resolve which key to use (beta). The operator's Settings choice decides:
-    // `platform` pulls a metered key from the account; `local` uses their own
-    // Settings key directly (no metering). Anonymous sessions and an empty
-    // local key both resolve to `platform`/`local` per `resolveKeySource`.
-    let apiKey = settings.deepgramApiKey ?? ""
     sessionMode = null
 
-    const keySource = resolveKeySource({
-      source: settings.transcriptionKeySource,
-      hasLocalKey: !!settings.deepgramApiKey,
-      hasToken: !!token,
-    })
+    // Transcription runs strictly on platform-managed keys, which require an
+    // account. Without a token there's no key to pull, so prompt sign-in rather
+    // than attempt to start.
+    if (!token) {
+      transcript.setConnectionStatus("disconnected")
+      if (onSignInRequired) onSignInRequired()
+      else
+        toast.error("Sign in to transcribe", {
+          description:
+            "Transcription is included with your LumenLive account. Sign in to start.",
+        })
+      return
+    }
 
-    if (keySource === "platform" && token) {
-      try {
-        const resolution = await pullTranscriptionKey(token)
-        transcript.setRemainingMinutes(resolution.remainingMinutes)
-        const decision = decideTranscriptionStart(resolution)
-        if (decision.action === "blocked") {
-          transcript.setConnectionStatus("disconnected")
-          if (onBlocked) onBlocked(decision.copy)
-          else toast.error(decision.copy.title, { description: decision.copy.message })
-          return
-        }
-        apiKey = decision.key
-        sessionMode = decision.mode
-      } catch {
-        // Couldn't reach the backend (offline/refused). Fall back to a local key
-        // if the church has one set; otherwise surface the missing-key prompt.
-        if (!apiKey) {
-          transcript.setConnectionStatus("error")
-          if (onMissingApiKey) onMissingApiKey()
-          else
-            toast.error("Could not start transcription", {
-              description: "Couldn't reach your account and no local key is set.",
-            })
-          return
-        }
+    let apiKey: string
+    try {
+      const resolution = await pullTranscriptionKey(token)
+      transcript.setRemainingMinutes(resolution.remainingMinutes)
+      const decision = decideTranscriptionStart(resolution)
+      if (decision.action === "blocked") {
+        transcript.setConnectionStatus("disconnected")
+        if (onBlocked) onBlocked(decision.copy)
+        else toast.error(decision.copy.title, { description: decision.copy.message })
+        return
       }
+      apiKey = decision.key
+      sessionMode = decision.mode
+    } catch {
+      // Couldn't reach the backend (offline/refused). There's no local-key
+      // fallback anymore — transcription is platform-only — so surface it.
+      transcript.setConnectionStatus("error")
+      toast.error("Could not start transcription", {
+        description:
+          "Couldn't reach your LumenLive account. Check your connection and try again.",
+      })
+      return
     }
 
     try {
@@ -121,11 +118,7 @@ export const transcriptionActions = {
       const msg = String(e)
       transcript.setConnectionStatus("error")
       sessionMode = null
-      if (msg.includes(MISSING_DEEPGRAM_KEY_MARKER) && onMissingApiKey) {
-        onMissingApiKey()
-      } else {
-        toast.error("Could not start transcription", { description: msg })
-      }
+      toast.error("Could not start transcription", { description: msg })
     }
   },
 
@@ -234,14 +227,14 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     })
   })
 
-  const onMissingApiKey = options?.onMissingApiKey
+  const onSignInRequired = options?.onSignInRequired
   const onBlocked = options?.onBlocked
 
   // A user-initiated start of the live session.
   const startTranscription = useCallback(() => {
     trackServiceStarted()
-    return transcriptionActions.start(onMissingApiKey, onBlocked)
-  }, [onMissingApiKey, onBlocked])
+    return transcriptionActions.start(onSignInRequired, onBlocked)
+  }, [onSignInRequired, onBlocked])
 
   return {
     segments,

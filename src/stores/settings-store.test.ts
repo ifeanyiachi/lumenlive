@@ -35,7 +35,7 @@ describe("settings store", () => {
   it("hydrate merges persisted values over defaults", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "gain") return 2.5
-      if (key === "deepgramApiKey") return "dg-key"
+      if (key === "geniusApiKey") return "genius-key"
       return null
     })
 
@@ -45,7 +45,7 @@ describe("settings store", () => {
 
     const state = useSettingsStore.getState()
     expect(state.gain).toBe(2.5)
-    expect(state.deepgramApiKey).toBe("dg-key")
+    expect(state.geniusApiKey).toBe("genius-key")
     // Defaults remain for keys with null. The default confidence threshold is
     // 0.65 to match the backend merger's DEFAULT_AUTO_QUEUE_THRESHOLD (the
     // frontend value is forwarded straight to set_auto_queue_threshold).
