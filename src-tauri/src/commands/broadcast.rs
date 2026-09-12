@@ -43,7 +43,7 @@ pub struct OutputMonitors(pub Mutex<HashMap<String, OutputDisplayTarget>>);
 
 /// Extra `WebView2` (Windows) browser flags for every window.
 ///
-/// `--disable-direct-composition-video-overlays` is the load-bearing one: without
+/// Disabling the `DirectComposition` video overlay is the load-bearing one: without
 /// it `WebView2` presents hardware-decoded video through a `DirectComposition`
 /// overlay that the page's own bitmap never sees, so `ctx.drawImage(video)`
 /// captures a black frame. The audience output window paints ALL video to a 2D
@@ -53,6 +53,13 @@ pub struct OutputMonitors(pub Mutex<HashMap<String, OutputDisplayTarget>>);
 /// NDI alike while the DOM `<video>` operator previews kept working. Disabling the
 /// overlay routes the decoded frames back into the page bitmap (hardware decode is
 /// retained), making canvas capture read real pixels.
+///
+/// We disable it two ways, because a single form is not honored across all
+/// Evergreen `WebView2` runtime versions (the runtime auto-updates independently of
+/// the app, so a machine on a newer Chromium can regress to black video even though
+/// the app binary is unchanged): the standalone `--disable-direct-composition-video-overlays`
+/// switch AND the `DirectCompositionVideoOverlays` entry folded into `--disable-features`
+/// (the feature-flag form current Chromium honors). Keep both.
 ///
 /// `--autoplay-policy=no-user-gesture-required` is the second load-bearing flag:
 /// the audience output window plays the live-media `<video>` (and program audio)
@@ -66,7 +73,7 @@ pub struct OutputMonitors(pub Mutex<HashMap<String, OutputDisplayTarget>>);
 /// otherwise replace. `WebView2` shares one browser environment across every window
 /// in the process, so this string is applied identically to the main window (in
 /// `tauri.conf.json`) and to each broadcast window below to avoid a mismatch.
-pub const WEBVIEW_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-direct-composition-video-overlays --autoplay-policy=no-user-gesture-required";
+pub const WEBVIEW_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,DirectCompositionVideoOverlays --disable-direct-composition-video-overlays --autoplay-policy=no-user-gesture-required";
 
 /// Map `output_id` to Tauri window label. Supports N outputs.
 fn window_label(output_id: &str) -> String {
