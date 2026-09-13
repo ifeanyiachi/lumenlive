@@ -3,9 +3,13 @@
  * both the admin console and the church account portal (and the sign-up / login
  * pages), deployed at `app.lumenlive.xyz`.
  *
- * This host is deliberately distinct from:
- *   - the `/v1` **API** host (`VITE_LUMENBO_URL` → `api.lumenlive.xyz`), and
+ * Kept as its own build-time config (`VITE_LUMENLIVE_APP_URL`), separate from:
+ *   - the `/v1` **API** base (`VITE_LUMENBO_URL`), and
  *   - the **marketing** site (`lumenlive.xyz`, e.g. donations).
+ *
+ * As currently deployed the `/v1` API is served by this same host
+ * (`app.lumenlive.xyz`) — `api.lumenlive.xyz` is not deployed — but the two vars
+ * stay independent so the hosts can diverge again without a code change.
  *
  * Override the host at build time with `VITE_LUMENLIVE_APP_URL`.
  */

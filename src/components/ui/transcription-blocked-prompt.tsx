@@ -20,7 +20,7 @@ import {
 
 /**
  * The account portal's transcription page, on the app/dashboard host
- * (`app.lumenlive.xyz`) — distinct from the `/v1` API host. See `lib/app-urls`.
+ * (`app.lumenlive.xyz`), built from `VITE_LUMENLIVE_APP_URL`. See `lib/app-urls`.
  */
 const PORTAL_URL = appUrl("/account/transcription")
 
