@@ -90,6 +90,59 @@ describe("use-transcription", () => {
       expect(mockPullKey).toHaveBeenCalledWith("session-token")
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         apiKey: "dg-platform-key",
+        provider: "deepgram",
+        deviceId: "dev-42",
+        gain: 1.5,
+      })
+    })
+
+    it("defaults provider to deepgram when the resolution omits it", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      // Pre-Phase-4 lumenbo: no `provider` field in the resolution.
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+        byokPresent: false,
+      })
+      const { useAuthStore, transcriptionActions } = await loadModules()
+
+      signIn(useAuthStore)
+      await transcriptionActions.start()
+
+      expect(mockInvoke).toHaveBeenCalledWith(
+        "start_transcription",
+        expect.objectContaining({ provider: "deepgram" })
+      )
+    })
+
+    it("relays the server-chosen soniox provider into the invoke", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "snx-temp-key",
+        provider: "soniox",
+        expiresAt: "2026-09-14T12:00:00Z",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+        byokPresent: false,
+      })
+      const { useSettingsStore, useAuthStore, transcriptionActions } =
+        await loadModules()
+
+      signIn(useAuthStore)
+      useSettingsStore.setState({ audioDeviceId: "dev-42", gain: 1.5 })
+
+      await transcriptionActions.start()
+
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        apiKey: "snx-temp-key",
+        provider: "soniox",
         deviceId: "dev-42",
         gain: 1.5,
       })

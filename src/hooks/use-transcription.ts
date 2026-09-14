@@ -13,7 +13,10 @@ import {
 } from "@/services/transcription-key-gateway"
 import { decideTranscriptionStart, describeBlock } from "@/lib/transcription/access"
 import type { BlockedCopy } from "@/lib/transcription/access"
-import type { TranscriptionMode } from "@/lib/transcription/types"
+import type {
+  SttProviderId,
+  TranscriptionMode,
+} from "@/lib/transcription/types"
 import {
   sanitizeUsageDelta,
   shouldReportUsage,
@@ -84,6 +87,10 @@ export const transcriptionActions = {
     }
 
     let apiKey: string
+    // Provider is server-authoritative: lumenbo names the backend its minted key
+    // targets so Rust builds the matching client. Pre-Phase-4 responses omit it —
+    // default to Deepgram, the current default, so this is safe to ship early.
+    let provider: SttProviderId = "deepgram"
     try {
       const resolution = await pullTranscriptionKey(token)
       transcript.setRemainingMinutes(resolution.remainingMinutes)
@@ -96,6 +103,7 @@ export const transcriptionActions = {
       }
       apiKey = decision.key
       sessionMode = decision.mode
+      provider = resolution.provider ?? "deepgram"
     } catch {
       // Couldn't reach the backend (offline/refused). There's no local-key
       // fallback anymore — transcription is platform-only — so surface it.
@@ -110,6 +118,7 @@ export const transcriptionActions = {
     try {
       await invoke("start_transcription", {
         apiKey,
+        provider,
         deviceId: settings.audioDeviceId,
         gain: settings.gain,
       })

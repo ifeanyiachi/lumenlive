@@ -23,6 +23,14 @@ export type BlockedReason =
   | "byok_invalid"
 
 /**
+ * Which STT backend the resolved key targets. Server-authoritative: lumenbo mints
+ * the key and names the provider so the desktop builds the matching client (a
+ * Soniox client with a Deepgram key would fail auth). Absent on pre-Phase-4
+ * lumenbo responses — callers default to `"deepgram"`.
+ */
+export type SttProviderId = "deepgram" | "soniox"
+
+/**
  * The full resolution from `POST /v1/transcription/key`, including the raw key.
  * The key is present unless `mode === "blocked"` and must not be persisted beyond
  * the current session (re-pull rather than cache — rotation takes effect next pull).
@@ -38,6 +46,17 @@ export interface TranscriptionResolution {
   /** Remaining free/trial minutes; `null` when unlimited or on a paid plan. */
   remainingMinutes: number | null
   byokPresent: boolean
+  /**
+   * The STT backend this key targets, chosen by the church admin in lumenbo.
+   * Absent on pre-Phase-4 responses; callers default to `"deepgram"`.
+   */
+  provider?: SttProviderId
+  /**
+   * ISO-8601 expiry of a temporary key (Soniox temp keys expire; Deepgram keys
+   * don't). Informational — the desktop re-pulls on reconnect rather than
+   * tracking expiry.
+   */
+  expiresAt?: string
 }
 
 /**
