@@ -1,0 +1,235 @@
+NOTE: Entries tagged [DEFERRED-RTL] are OUT OF SCOPE for now — the app has no
+right-to-left layout support yet, so Arabic and Hebrew (2 languages, 6 entries)
+are excluded from the store catalog until RTL rendering lands. Everything else
+below is in scope.
+
+== English core ==
+  [PD] eng_kjv        King James Version
+         why: King James - the bundled baseline
+         api: https://bible.helloao.org/api/eng_kjv/complete.json
+  [PD] ENGWEBP        World English Bible
+         why: modern public-domain English flagship
+         api: https://bible.helloao.org/api/ENGWEBP/complete.json
+  [PD] BSB            Berean Standard Bible
+         why: modern, readable, public domain
+         api: https://bible.helloao.org/api/BSB/complete.json
+  [PD] eng_asv        American Standard Version (1901)
+         why: classic literal (1901)
+         api: https://bible.helloao.org/api/eng_asv/complete.json
+  [PD] eng_ylt        Young's Literal Translation
+         why: literal - study/word work
+         api: https://bible.helloao.org/api/eng_ylt/complete.json
+  [PD] eng_bbe        Bible in Basic English
+         why: simple English / ESL congregations
+         api: https://bible.helloao.org/api/eng_bbe/complete.json
+  [PD] eng_dra        Douay-Rheims 1899
+         why: Catholic (Douay-Rheims)
+         api: https://bible.helloao.org/api/eng_dra/complete.json
+
+== Major language ==
+  [PD] spa_r09        Reina Valera 1909
+         why: Spanish - Reina-Valera 1909 (the standard)
+         api: https://bible.helloao.org/api/spa_r09/complete.json
+  [PD] fra_lsg        French Louis Segond 1910 Bible
+         why: French - Louis Segond 1910 (the standard)
+         api: https://bible.helloao.org/api/fra_lsg/complete.json
+  [OK] por_blj        Portuguese Bíblia Livre <CC BY>
+         why: Portuguese - Biblia Livre (Almeida-based)
+         api: https://bible.helloao.org/api/por_blj/complete.json
+  [PD] deu_l12        German Luther Bible 1912
+         why: German - Luther 1912
+         api: https://bible.helloao.org/api/deu_l12/complete.json
+  [PD] ita_dio        Italian Diodati Bible
+         why: Italian - Diodati
+         api: https://bible.helloao.org/api/ita_dio/complete.json
+  [PD] nld_           Dutch Bible 1917
+         why: Dutch - 1917 Bible
+         api: https://bible.helloao.org/api/nld_/complete.json
+  [PD] rus_syn        Russian Synodal Bible
+         why: Russian - Synodal
+         api: https://bible.helloao.org/api/rus_syn/complete.json
+  [PD] cmn_cuv        Chinese Union Version (traditional)
+         why: Chinese Union Version (Traditional)
+         api: https://bible.helloao.org/api/cmn_cuv/complete.json
+  [PD] cmn_cu1        Chinese Union Version (simplified)
+         why: Chinese Union Version (Simplified)
+         api: https://bible.helloao.org/api/cmn_cu1/complete.json
+  [PD] arb_vdv        Arabic Van Dyck Bible   [DEFERRED-RTL]
+         why: Arabic - Van Dyck (rtl)
+         api: https://bible.helloao.org/api/arb_vdv/complete.json
+  [PD] kor_old        Korean Bible 1910
+         why: Korean - 1910
+         api: https://bible.helloao.org/api/kor_old/complete.json
+  [OK] swh_bib        Kiswahili Contemporary Version <CC BY-SA>
+         why: Swahili - Kiswahili Contemporary
+         api: https://bible.helloao.org/api/swh_bib/complete.json
+  [OK] hin_cvb        Hindi Contemporary Version Bible <CC BY-SA>
+         why: Hindi - Contemporary Version
+         api: https://bible.helloao.org/api/hin_cvb/complete.json
+
+== Original language ==
+  [PD] hbo_wlc        Westminster Leningrad Codex Hebrew OT   [DEFERRED-RTL]
+         why: Hebrew OT - Westminster Leningrad Codex
+         api: https://bible.helloao.org/api/hbo_wlc/complete.json
+  [PD] grc_byz        Byzantine Greek  NT
+         why: Greek NT - Byzantine text
+         api: https://bible.helloao.org/api/grc_byz/complete.json
+
+---------------------------
+
+
+[PD] eng_bre         22971v  Brenton English Septuagint
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_bre/complete.json
+  [PD] eng_lxu         22876v  British English Septuagint 2012
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_lxu/complete.json
+  [PD] eng_dby         31099v  Darby Translation
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_dby/complete.json
+  [OK] eng_lsv         31104v  English LSV  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2020 Covenant Press
+         api: https://bible.helloao.org/api/eng_lsv/complete.json
+  [OK] eng_f35          7953v  Family 35 NT  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2016 Wilbur N. Pickering, ThM, PhD
+         api: https://bible.helloao.org/api/eng_f35/complete.json
+[PD] eng_gnv         31090v  Geneva Bible 1599
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_gnv/complete.json
+  [OK] eng_glw          1012v  God's Living Word  <CC BY-ND>  [attribution; no text changes]
+         copyright: Copyright © 1996 Michael Paul Johnson
+         api: https://bible.helloao.org/api/eng_glw/complete.json
+[PD] eng_msb         31102v  Majority Standard BIble
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_msb/complete.json
+  [PD] eng_noy         18231v  Noyes Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_noy/complete.json
+  [OK] eng_our         14299v  One Unity Resource Bible  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2016,2019 Thomas Robinson
+         api: https://bible.helloao.org/api/eng_our/complete.json
+  [OK] eng_pev          7167v  Plain English Version  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2026 Wycliffe Bible Translators Australia
+         api: https://bible.helloao.org/api/eng_pev/complete.json
+[PD] eng_tnt          7957v  Tyndale NT
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_tnt/complete.json
+[PD] eng_webpb       31103v  World English Bible British Edition
+         copyright: public domain
+         api: https://bible.helloao.org/api/eng_webpb/complete.json
+
+-- Spanish  (5) --
+  [OK] spa_bes         31101v  La Biblia en Español Sencillo  <CC BY>  [attribution]
+         copyright: Copyright © 2018, 2019 AudioBiblia.org /Irma Flores
+         api: https://bible.helloao.org/api/spa_bes/complete.json
+  [OK] spa_pdt         31081v  Spanish Bible (God's Word for You)  <CC BY>  [attribution]
+         copyright: Copyright © 2020 Asociacion Biblica Latinoamericana
+         api: https://bible.helloao.org/api/spa_pdt/complete.json
+  [PD] spa_blm         31103v  Spanish Free Bible for the World
+         copyright: public domain
+         api: https://bible.helloao.org/api/spa_blm/complete.json
+  [OK] spa_vbl         31102v  Spanish Free Bible Version  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2018-2020 Jonathan Gallagher y Shelly Barrios de Avila
+         api: https://bible.helloao.org/api/spa_vbl/complete.json
+  [OK] spa_onbv        29102v  Spanish ONBV  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2008 Biblica, Inc.
+         api: https://bible.helloao.org/api/spa_onbv/complete.json
+-- Hebrew  (4) --   [DEFERRED-RTL — entire section out of scope]
+  [OK] heb_lbm          7727v  Hebrew Living NT (rtl)  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2009 Biblica, Inc.
+         api: https://bible.helloao.org/api/heb_lbm/complete.json
+  [PD] heb_wlc         23213v  Hebrew OT (WLC) (rtl)
+         copyright: public domain
+         api: https://bible.helloao.org/api/heb_wlc/complete.json
+  [PD] heb_mod         31102v  Modern Hebrew Bible (rtl)
+         copyright: public domain
+         api: https://bible.helloao.org/api/heb_mod/complete.json
+  [PD] heb_scg          7957v  Salkinson Hebrew NT (rtl)
+         copyright: public domain
+         api: https://bible.helloao.org/api/heb_scg/complete.json
+
+-- Portuguese  (4) --
+  [OK] por_blt          7959v  Portuguese Free Bible for All  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2022 Free Bible Ministry, Inc.
+         api: https://bible.helloao.org/api/por_blt/complete.json
+  [OK] por_onbv        31105v  Portuguese ONBV  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2007, 2010 Biblica, Inc.
+         api: https://bible.helloao.org/api/por_onbv/complete.json
+  [OK] por_tft          7899v  Portuguese Translation for Translators  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2018 Ellis W. Deibler, Jr.
+         api: https://bible.helloao.org/api/por_tft/complete.json
+  [PD] por_bsl         31103v  World Portuguese Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/por_bsl/complete.json
+
+-- Romanian  (4) --
+  [OK] ron_lud          1141v  Ludari Luke  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2019 Pioneer
+         api: https://bible.helloao.org/api/ron_lud/complete.json
+  [PD] ron_924         31045v  Romanian Bible (Cyrillic)
+         copyright: public domain
+         api: https://bible.helloao.org/api/ron_924/complete.json
+  [PD] ron_btf         31102v  Romanian BTF Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/ron_btf/complete.json
+  [PD] ron_lsb          7958v  Romanian Free Holy Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/ron_lsb/complete.json
+
+-- French  (3) --
+  [OK] fra_ncl         31445v  French néo-Crampon Libre  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2022 Fraternité de Tibériade
+         api: https://bible.helloao.org/api/fra_ncl/complete.json
+  [PD] fra_ost         31107v  French Ostervald Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/fra_ost/complete.json
+  [PD] fra_jnd         31170v  French: Bible J.N. Darby
+         copyright: public domain
+         api: https://bible.helloao.org/api/fra_jnd/complete.json
+-- German  (3) --
+  [OK] deu_sch         31102v  German Schlachter Bible 1951  <CC BY>  [attribution]
+         copyright: Copyright © 1951 Genfer Bibelgeschellschaft (Geneva Bible Society)
+         api: https://bible.helloao.org/api/deu_sch/complete.json
+  [PD] deu_tkw         31157v  German Textbibel
+         copyright: public domain
+         api: https://bible.helloao.org/api/deu_tkw/complete.json
+  [PD] deu_elo         31102v  German Unrevised Elberfelder Bible
+         copyright: public domain
+         api: https://bible.helloao.org/api/deu_elo/complete.json
+-- Dutch  (2) --
+  [PD] nld_1939        30743v  Dutch Bible, Petrus Canisius
+         copyright: public domain
+         api: https://bible.helloao.org/api/nld_1939/complete.json
+  [OK] nld_gbv          7942v  Dutch: Gods Boek  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © Operation Mobilization International
+         api: https://bible.helloao.org/api/nld_gbv/complete.json
+
+-- Hausa  (2) --
+  [OK] hau_bib         31087v  Hausa Contemporary Bible  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2009, 2020 Biblica, Inc.
+         api: https://bible.helloao.org/api/hau_bib/complete.json
+  [OK] hau_ulb          7959v  Hausa NT  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2020 Door43 World Missions Community
+         api: https://bible.helloao.org/api/hau_ulb/complete.json
+
+-- Polish  (2) --
+  [OK] pol_bib          7915v  Polish OPLNT  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 1991, 2005, 2016 Biblica, Inc.
+         api: https://bible.helloao.org/api/pol_bib/complete.json
+  [OK] pol_ubg         31102v  Polish Updated Gdansk Bible  <CC BY-ND>  [attribution; no text changes]
+         copyright: Copyright © 2018 Fundacja Wrota Nadziei
+         api: https://bible.helloao.org/api/pol_ubg/complete.json
+
+-- Latin  (1) --
+  [PD] lat_clv         31434v  Clementine Vulgate 1598
+         copyright: public domain
+         api: https://bible.helloao.org/api/lat_clv/complete.json
+
+-- Yoruba  (1) --
+  [OK] yor_bib         31087v  Yoruba Bible  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2009, 2017 Biblica, Inc.
+         api: https://bible.helloao.org/api/yor_bib/complete.json
+-- Igbo  (1) --
+  [OK] ibo_bib         31103v  Igbo Bible  <CC BY-SA>  [attribution + share-alike]
+         copyright: Copyright © 2020 Biblica, Inc.
+         api: https://bible.helloao.org/api/ibo_bib/complete.json

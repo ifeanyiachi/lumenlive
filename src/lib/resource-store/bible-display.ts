@@ -137,15 +137,36 @@ function fallbackBadge(key: string): string {
   return FALLBACK_BADGES[hash % FALLBACK_BADGES.length]
 }
 
-/** Prettify a language code for display; pass through non-code labels. */
+/**
+ * Human-readable name per language code, covering every in-scope store edition
+ * (both "grc" and "el" map to Greek). Module-level so it isn't rebuilt per call.
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  pt: "Portuguese",
+  de: "German",
+  it: "Italian",
+  nl: "Dutch",
+  ru: "Russian",
+  zh: "Chinese",
+  ko: "Korean",
+  sw: "Swahili",
+  hi: "Hindi",
+  grc: "Greek",
+  el: "Greek",
+  ro: "Romanian",
+  ha: "Hausa",
+  pl: "Polish",
+  la: "Latin",
+  yo: "Yoruba",
+  ig: "Igbo",
+}
+
+/** Prettify a language code for display; pass through unknown/non-code labels. */
 export function languageLabel(language: string): string {
-  const names: Record<string, string> = {
-    en: "English",
-    fr: "French",
-    es: "Spanish",
-    pt: "Portuguese",
-  }
-  return names[language] ?? language
+  return LANGUAGE_NAMES[language.trim().toLowerCase()] ?? language
 }
 
 /** Format a byte count as a compact "X.Y MB" / "N KB" size string. */

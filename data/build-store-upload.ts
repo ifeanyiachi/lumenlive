@@ -11,13 +11,18 @@
  * `src-tauri/src/commands/resource_store.rs`). Everything lives under this one
  * prefix, so future translations just drop into the same folder.
  *
- * Unlike build-store-manifest.ts (which builds only the FREE translations from
- * source JSON), this hosts EVERYTHING present in temp-bible/, including the
- * copyrighted versions — every entry is `bundled-free` distribution so the app
- * downloads and installs it directly. The `copyrighted` flag is still recorded
- * truthfully. (Hosting copyrighted translations for redistribution is a
- * licensing decision made by the operator; this script only packages what's
- * already in temp-bible/.)
+ * This hosts every OPEN-LICENSED translation present in temp-bible/ (public
+ * domain plus CC BY / BY-SA / BY-ND — we redistribute verbatim text, so BY-ND is
+ * satisfied) as `bundled-free`, so the app downloads and installs them in one
+ * click. The single gate is the `copyrighted` flag in temp-bible/'s index.json:
+ * copyrighted editions are skipped entirely — this is a commercial app and we
+ * aren't licensed to redistribute their text from our CDN, so they never get
+ * hosted and never appear in the manifest. Users supply their own licensed copy
+ * through the in-app import flow. Keep that flag accurate.
+ *
+ * License name + attribution come straight from the index entry when present
+ * (the helloao pipeline records them); older entries fall back to LICENSE_NAME
+ * below. Attribution, when set, is carried into the manifest for the UI to show.
  *
  * Run: bun run data/build-store-upload.ts
  * Prereq: bun run data/  (the export that produced temp-bible/) — i.e. temp-bible/
@@ -47,7 +52,12 @@ const MANIFEST_VERSION = 1
 const RESOURCE_SCHEMA_VERSION = 1
 const CDN_BASE = "https://pub-82480c48c8b84f8ca5162b8d42bd99d0.r2.dev"
 
-/** License name per abbreviation (publisher for copyrighted, else public domain). */
+/**
+ * Fallback license name per abbreviation, for older index entries that predate
+ * the per-entry `licenseName` field (KJV, the scrollmapper/XML translations).
+ * Publisher for copyrighted editions, else public domain. New entries carry
+ * their own `licenseName` in index.json and don't need a row here.
+ */
 const LICENSE_NAME: Record<string, string> = {
   KJV: "Public Domain",
   SpaRV: "Public Domain",
@@ -89,6 +99,9 @@ interface IndexEntry {
   dbBytes: number
   zstBytes: number
   sha256: string
+  // Recorded by the helloao pipeline; absent on older (KJV/XML) entries.
+  licenseName?: string
+  attribution?: string
 }
 
 interface ManifestResource {
@@ -101,6 +114,8 @@ interface ManifestResource {
     name: string
     copyrighted: boolean
     distribution: "bundled-free" | "byo-import"
+    // Surfaced in the Store UI to satisfy CC BY attribution; omitted otherwise.
+    attribution?: string
   }
   schemaVersion: number
   url: string
@@ -132,6 +147,15 @@ function main() {
   const resources: ManifestResource[] = []
 
   for (const t of index.translations) {
+    // Host every open-licensed edition; the sole gate is the `copyrighted` flag.
+    // Copyrighted editions are never redistributed by this commercial app — they
+    // are skipped and never listed in the manifest; users bring their own copy
+    // through the in-app import flow.
+    if (t.copyrighted) {
+      console.log(`  🔒 ${t.abbreviation}: copyrighted, not hosted (skipped)`)
+      continue
+    }
+
     const srcZst = join(SRC, `${t.slug}.db.zst`)
     if (!existsSync(srcZst)) {
       console.log(`  ⏭ ${t.abbreviation}: ${t.slug}.db.zst missing, skipping`)
@@ -159,12 +183,16 @@ function main() {
       abbreviation: t.abbreviation,
       language: t.language,
       license: {
+        // Prefer the per-entry license from the index; fall back to the
+        // abbreviation map for older entries, then a copyrighted/PD default.
         name:
+          t.licenseName ??
           LICENSE_NAME[t.abbreviation] ??
           (t.copyrighted ? "Copyrighted" : "Public Domain"),
         copyrighted: t.copyrighted,
         // Hosted for direct download — the app installs it in one click.
         distribution: "bundled-free",
+        ...(t.attribution ? { attribution: t.attribution } : {}),
       },
       schemaVersion: RESOURCE_SCHEMA_VERSION,
       url: `${CDN_BASE}/${R2_PREFIX}/${t.slug}.db.zst`,
@@ -197,10 +225,8 @@ function main() {
     JSON.stringify(manifest, null, 2) + "\n"
   )
 
-  const copyrighted = resources.filter((r) => r.license.copyrighted).length
   console.log(
-    `\n✅ Wrote manifest.json — ${resources.length} resources ` +
-      `(${copyrighted} copyrighted, ${resources.length - copyrighted} free)`
+    `\n✅ Wrote manifest.json — ${resources.length} open-licensed resources hosted`
   )
   console.log(`   📁 ${OUT_DIR}`)
   console.log(

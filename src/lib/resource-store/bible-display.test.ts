@@ -36,10 +36,42 @@ describe("bibleDisplayMeta", () => {
 })
 
 describe("languageLabel", () => {
-  it("maps known codes and passes through others", () => {
-    expect(languageLabel("en")).toBe("English")
-    expect(languageLabel("pt")).toBe("Portuguese")
+  it("maps every in-scope store language code", () => {
+    const expected: Record<string, string> = {
+      en: "English",
+      es: "Spanish",
+      fr: "French",
+      pt: "Portuguese",
+      de: "German",
+      it: "Italian",
+      nl: "Dutch",
+      ru: "Russian",
+      zh: "Chinese",
+      ko: "Korean",
+      sw: "Swahili",
+      hi: "Hindi",
+      grc: "Greek",
+      el: "Greek",
+      ro: "Romanian",
+      ha: "Hausa",
+      pl: "Polish",
+      la: "Latin",
+      yo: "Yoruba",
+      ig: "Igbo",
+    }
+    for (const [code, name] of Object.entries(expected)) {
+      expect(languageLabel(code)).toBe(name)
+    }
+  })
+
+  it("normalizes case and whitespace", () => {
+    expect(languageLabel(" EN ")).toBe("English")
+    expect(languageLabel("GRC")).toBe("Greek")
+  })
+
+  it("passes through an unknown or non-code label", () => {
     expect(languageLabel("Twi")).toBe("Twi")
+    expect(languageLabel("xx")).toBe("xx")
   })
 })
 
