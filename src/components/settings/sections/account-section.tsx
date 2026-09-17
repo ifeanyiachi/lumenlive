@@ -17,6 +17,8 @@ import { LicensingError } from "@/services/lumenbo-client"
 import { openExternalUrl } from "@/services/external-link-gateway"
 import { planLabel, trialRemaining } from "@/lib/entitlements"
 import { appUrl } from "@/lib/app-urls"
+import type { TranscriptionStatus } from "@/lib/transcription/types"
+import { reportTranscriptionUsage } from "@/services/transcription-key-gateway"
 
 // The sign-up page is served by the lumenbo app (app.lumenlive.xyz/signup), not
 // the marketing site.
@@ -166,11 +168,32 @@ function SignedOut() {
 function SignedIn() {
   const { t } = useTranslation("settings")
   const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
   const entitlement = useEntitlementsStore((s) => s.entitlement)
   const reason = useEntitlementsStore((s) => s.reason)
   const machineId = useEntitlementsStore((s) => s.machineId)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<RevalidateResult | null>(null)
+  const [transcription, setTranscription] =
+    useState<TranscriptionStatus | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    // A zero-second report is a read-only status refresh: LumenBO accepts it
+    // and returns the same customer-facing meter used in the account portal.
+    void reportTranscriptionUsage(token, 0)
+      .then((status) => {
+        if (active) setTranscription(status)
+      })
+      .catch(() => {
+        // Account settings remain useful offline; usage simply is not shown
+        // until the next successful refresh.
+      })
+    return () => {
+      active = false
+    }
+  }, [token])
 
   async function handleRevalidate() {
     setBusy(true)
@@ -205,6 +228,12 @@ function SignedIn() {
       {entitlement.trialEnd != null && (
         <TrialCountdown trialEnd={entitlement.trialEnd} />
       )}
+
+      {transcription !== null &&
+        transcription.remainingMinutes !== null &&
+        transcription.allowanceMinutes >= 0 && (
+          <TranscriptionUsage status={transcription} />
+        )}
 
       {note && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5">
@@ -275,6 +304,36 @@ function SignedIn() {
         </Button>
       </div>
     </>
+  )
+}
+
+function TranscriptionUsage({ status }: { status: TranscriptionStatus }) {
+  const { t } = useTranslation("settings")
+  const used = Math.round(status.usedMinutes)
+  const allowance = Math.round(status.allowanceMinutes)
+  const remaining = Math.max(0, Math.round(status.remainingMinutes ?? 0))
+  const progress = allowance > 0 ? Math.min(100, (used / allowance) * 100) : 0
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+          {t("account.transcriptionUsage")}
+        </p>
+        <span className="text-[0.625rem] font-medium text-foreground tabular-nums">
+          {t("account.transcriptionUsageRemaining", { minutes: remaining })}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-foreground tabular-nums">
+        {t("account.transcriptionUsageProgress", { used, allowance })}
+      </p>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
   )
 }
 
