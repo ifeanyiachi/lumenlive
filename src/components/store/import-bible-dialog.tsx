@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -40,6 +41,7 @@ export function ImportBibleDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("store")
   const [path, setPath] = useState<string | null>(null)
   const [abbreviation, setAbbreviation] = useState("")
   const [title, setTitle] = useState("")
@@ -89,7 +91,7 @@ export function ImportBibleDialog({
       abbreviation: abbreviation.trim(),
       title: title.trim(),
       language: language.trim() || "en",
-      license: license.trim() || "Imported (user-provided)",
+      license: license.trim() || t("importBible.userProvidedLicense"),
     }
     setBusy(true)
     try {
@@ -108,12 +110,11 @@ export function ImportBibleDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Import a Bible translation</DialogTitle>
+          <DialogTitle>{t("importBible.title")}</DialogTitle>
           <DialogDescription>
-            Bring your own copy you're licensed to use. Choose a{" "}
-            <code>.txt</code>, <code>.csv</code>, <code>.bib</code>, or{" "}
-            <code>.sqlite</code> file — the name and code are filled in from the
-            filename.
+            {t("importBible.descriptionStart")} <code>.txt</code>,{" "}
+            <code>.csv</code>, <code>.bib</code>, or <code>.sqlite</code>{" "}
+            {t("importBible.descriptionEnd")}
           </DialogDescription>
         </DialogHeader>
 
@@ -121,13 +122,16 @@ export function ImportBibleDialog({
           <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span>
-              Imported <strong>{result.title}</strong> ({result.abbreviation}):{" "}
-              {result.verseCount.toLocaleString()} verses across{" "}
-              {result.bookCount} books
+              {t("importBible.success", {
+                title: result.title,
+                abbreviation: result.abbreviation,
+                verses: result.verseCount,
+                books: result.bookCount,
+              })}
               {result.skipped > 0
-                ? `, ${result.skipped.toLocaleString()} row(s) skipped`
+                ? t("importBible.skipped", { count: result.skipped })
                 : ""}
-              . It's now in your translation picker.
+              {t("importBible.availableNow")}
             </span>
           </div>
         ) : (
@@ -141,7 +145,9 @@ export function ImportBibleDialog({
                 className="shrink-0"
               >
                 <FileText />
-                {path ? "Change file" : "Choose file…"}
+                {path
+                  ? t("importBible.changeFile")
+                  : t("importBible.chooseFile")}
               </Button>
               {fileName && (
                 <span
@@ -155,25 +161,34 @@ export function ImportBibleDialog({
 
             {path && (
               <>
-                <Field label="Code / abbreviation" hint="from filename">
+                <Field
+                  label={t("importBible.code")}
+                  hint={t("importBible.fromFilename")}
+                >
                   <Input
                     value={abbreviation}
                     onChange={(e) => setAbbreviation(e.target.value)}
-                    placeholder="NKJV"
+                    placeholder={t("importBible.codePlaceholder")}
                     maxLength={16}
                     disabled={busy}
                   />
                 </Field>
-                <Field label="Title" hint="from filename">
+                <Field
+                  label={t("importBible.titleLabel")}
+                  hint={t("importBible.fromFilename")}
+                >
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="New King James Version"
+                    placeholder={t("importBible.titlePlaceholder")}
                     disabled={busy}
                   />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Language" hint="code or name">
+                  <Field
+                    label={t("importBible.language")}
+                    hint={t("importBible.codeOrName")}
+                  >
                     <Input
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
@@ -181,11 +196,14 @@ export function ImportBibleDialog({
                       disabled={busy}
                     />
                   </Field>
-                  <Field label="License / source" hint="optional">
+                  <Field
+                    label={t("importBible.license")}
+                    hint={t("common.optional")}
+                  >
                     <Input
                       value={license}
                       onChange={(e) => setLicense(e.target.value)}
-                      placeholder="Personal copy"
+                      placeholder={t("importBible.personalCopy")}
                       disabled={busy}
                     />
                   </Field>
@@ -204,7 +222,9 @@ export function ImportBibleDialog({
 
         <DialogFooter>
           {result ? (
-            <Button onClick={() => handleOpenChange(false)}>Done</Button>
+            <Button onClick={() => handleOpenChange(false)}>
+              {t("common.done")}
+            </Button>
           ) : (
             <>
               <Button
@@ -212,16 +232,16 @@ export function ImportBibleDialog({
                 onClick={() => handleOpenChange(false)}
                 disabled={busy}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button onClick={handleImport} disabled={!canSubmit}>
                 {busy ? (
                   <>
-                    <Loader2 className="animate-spin" /> Importing…
+                    <Loader2 className="animate-spin" /> {t("common.importing")}
                   </>
                 ) : (
                   <>
-                    <Upload /> Import
+                    <Upload /> {t("common.import")}
                   </>
                 )}
               </Button>

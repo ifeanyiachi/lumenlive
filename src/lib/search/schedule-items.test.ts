@@ -118,7 +118,12 @@ describe("buildGroupedScriptureScheduleItem", () => {
   })
 
   it("omits segments entirely when nothing was edited", () => {
-    const item = buildGroupedScriptureScheduleItem([verse()], "KJV", 0, new Map())
+    const item = buildGroupedScriptureScheduleItem(
+      [verse()],
+      "KJV",
+      0,
+      new Map()
+    )
     expect(item.segments).toBeUndefined()
   })
 })
@@ -182,6 +187,8 @@ describe("buildScriptureCollectionScheduleItem", () => {
     expect(cv17?.segment).toEqual(seg)
     expect(cv17?.text).toBe("B!")
     // Unedited verses carry no segment.
-    expect(item.collectionVerses?.find((v) => v.verse === 16)?.segment).toBeUndefined()
+    expect(
+      item.collectionVerses?.find((v) => v.verse === 16)?.segment
+    ).toBeUndefined()
   })
 })

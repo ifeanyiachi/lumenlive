@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ export function ImportRenameDialog({
   onConfirm: (name: string) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation("slides")
   // Re-seed the field each time a new import opens the dialog. Render-time reset
   // (not an effect) — matches PptxFontReconcileDialog and avoids cascading
   // renders / the set-state-in-effect lint rule.
@@ -54,11 +56,8 @@ export function ImportRenameDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Name already in use</DialogTitle>
-          <DialogDescription>
-            A presentation with this name already exists. Enter a different name
-            to finish importing.
-          </DialogDescription>
+          <DialogTitle>{t("rename.title")}</DialogTitle>
+          <DialogDescription>{t("rename.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
@@ -73,21 +72,21 @@ export function ImportRenameDialog({
               }
             }}
             aria-invalid={taken}
-            placeholder="Presentation name"
+            placeholder={t("rename.placeholder")}
           />
           {taken && (
             <span className="text-xs text-destructive">
-              That name is already taken.
+              {t("rename.taken")}
             </span>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={confirm} disabled={!canConfirm}>
-            Import
+            {t("grid.import")}
           </Button>
         </DialogFooter>
       </DialogContent>

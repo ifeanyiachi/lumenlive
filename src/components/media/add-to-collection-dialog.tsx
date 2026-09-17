@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useMediaStore } from "@/stores/media-store"
 import { FolderIcon, PlusIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 interface AddToCollectionDialogProps {
   open: boolean
@@ -24,6 +25,7 @@ export function AddToCollectionDialog({
   onOpenChange,
   assetIds,
 }: AddToCollectionDialogProps) {
+  const { t } = useTranslation("media")
   const collections = useMediaStore((s) => s.collections)
   const [newName, setNewName] = useState("")
 
@@ -44,7 +46,7 @@ export function AddToCollectionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add to Collection</DialogTitle>
+          <DialogTitle>{t("addDialog.title")}</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="max-h-[240px]">
@@ -52,7 +54,7 @@ export function AddToCollectionDialog({
             <EmptyState
               size="sm"
               icon={<FolderIcon />}
-              title="No collections yet — create one below"
+              title={t("addDialog.empty")}
             />
           ) : (
             <div className="flex flex-col gap-0.5 p-0.5">
@@ -76,7 +78,7 @@ export function AddToCollectionDialog({
 
         <div className="flex gap-2">
           <Input
-            placeholder="New collection..."
+            placeholder={t("addDialog.newCollection")}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -91,7 +93,7 @@ export function AddToCollectionDialog({
             onClick={handleCreateAndAdd}
           >
             <PlusIcon className="size-3" />
-            New
+            {t("addDialog.new")}
           </Button>
         </div>
       </DialogContent>

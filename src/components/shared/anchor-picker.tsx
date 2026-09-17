@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 
 export type AnchorPosition =
   | "center"
@@ -22,6 +23,7 @@ export function AnchorPicker({
   value: AnchorPosition
   onChange: (anchor: AnchorPosition) => void
 }) {
+  const { t } = useTranslation("shared")
   return (
     <div className="inline-grid grid-cols-3 gap-1 rounded-md border border-border bg-muted/30 p-1.5">
       {GRID.flat().map((anchor, i) => {
@@ -40,7 +42,7 @@ export function AnchorPicker({
                 : "border-border bg-background hover:border-primary/50 hover:bg-primary/10"
             )}
             onClick={() => onChange(anchor)}
-            title={anchor}
+            title={t(`anchor.${anchor}`)}
           >
             <span
               className={cn(

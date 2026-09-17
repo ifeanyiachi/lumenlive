@@ -1,0 +1,276 @@
+{
+  "display": {
+    "detectionBehavior": "Comportement de détection",
+    "directVerseAutoDisplay": {
+      "title": "Affichage automatique des versets directs",
+      "description": "Lorsqu’une référence telle que « Jean 3:16 » est prononcée, affichez-la automatiquement à l’écran. Lorsqu’elle est désactivée, elle apparaît uniquement dans la file d’attente."
+    },
+    "instantDirectDisplay": {
+      "title": "Affichage direct instantané",
+      "description": "Affichez une référence prononcée dès qu’elle est reconnue, au lieu d’attendre la fin de la phrase (supprime la pause d’environ 1 à 2 s). S’applique uniquement aux références directes ; le verset est confirmé pendant que vous continuez à parler."
+    },
+    "voiceNavigationGoesLive": {
+      "title": "La navigation vocale passe en direct",
+      "description": "Lorsque vous dites « verset suivant » ou « revenir d’un verset », envoyez directement le verset cible au public. Lorsqu’elle est désactivée (par défaut), il est préparé dans l’aperçu Programme afin que vous puissiez le diffuser."
+    },
+    "scheduleVoiceNavigationGoesLive": {
+      "title": "La navigation vocale du déroulé passe en direct",
+      "description": "Lorsque vous dites « diapositive suivante » ou « revenir à la diapositive précédente », avancez dans l’élément actif du déroulé (et ses sous-diapositives) et envoyez-le directement au public. Lorsqu’elle est désactivée, la nouvelle diapositive est préparée dans l’aperçu Programme afin que vous puissiez la diffuser. Indépendant de la navigation entre versets."
+    },
+    "confidenceThreshold": {
+      "label": "Seuil de confiance",
+      "description": "Niveau de confiance minimal pour qu’une correspondance sémantique apparaisse dans le panneau Détections IA. Les références directes telles que « Jean 3:16 » apparaissent toujours. Des valeurs plus élevées masquent les suggestions moins fiables. Les correspondances sémantiques sont uniquement des suggestions : elles ne sont jamais affichées automatiquement au public ou dans la file d’attente."
+    },
+    "cooldown": {
+      "label": "Délai minimal",
+      "description": "Temps minimal entre les détections affichées automatiquement. Empêche un scintillement rapide lorsque plusieurs versets sont détectés en succession rapide."
+    }
+  },
+  "audio": {
+    "inputDevice": "Périphérique d’entrée",
+    "loadingDevices": "Chargement des périphériques…",
+    "systemDefault": "Valeur par défaut du système",
+    "defaultDeviceSuffix": " (par défaut)",
+    "deviceDescription": "Le périphérique sélectionné est conservé entre les sessions. Laissez le réglage par défaut du système pour suivre le routage audio de l’OS.",
+    "inputGain": {
+      "label": "Gain d’entrée",
+      "description": "Amplifie le signal audio entrant avant la transcription. 50 % correspond à un gain unitaire."
+    }
+  },
+  "bible": {
+    "primaryTranslation": "Traduction principale",
+    "loading": "Chargement…",
+    "selectTranslation": "Sélectionner une traduction",
+    "english": "Anglais",
+    "otherLanguages": "Autres langues",
+    "detectedVerses": "Les versets détectés s’afficheront dans cette traduction.",
+    "translationsAvailable_one": "{{count}} traduction disponible.",
+    "translationsAvailable_other": "{{count}} traductions disponibles.",
+    "originalLanguages": "Langues originales",
+    "lexicon": {
+      "title": "Lexique grec et hébreu",
+      "description": "Fourni avec la KJV mais désactivé par défaut. Lorsqu’il est activé, chaque verset comporte un bouton interlinéaire (He / Gr) pour le texte original mot à mot avec les définitions Strong, et vous permet d’envoyer une étude de mot vers l’aperçu Programme. Lorsqu’il est désactivé, il reste masqué partout."
+    }
+  },
+  "schedule": {
+    "building": "Création du déroulé",
+    "preventDuplicates": {
+      "title": "Empêcher les éléments en double",
+      "description": "Lorsqu’un élément déjà présent dans le déroulé est ajouté à nouveau — le même verset, diaporama, fichier multimédia ou vidéo — conservez l’original et faites-le clignoter dans la liste au lieu d’ajouter une seconde copie. Les en-têtes de section ne sont jamais concernés, les séparateurs répétés continuent donc de fonctionner."
+    },
+    "guidance": {
+      "title": "Quel réglage convient à votre culte ?",
+      "leaveOn": "Laissez cette option activée",
+      "leaveOnDescription": "si plusieurs personnes préparent votre déroulé à l’avance, ou si des versets y arrivent depuis la détection IA et la recherche pendant le culte. Si deux opérateurs ajoutent Jean 3:16 depuis différents panneaux, vous obtenez un seul élément et le clignotement indique où il se trouve déjà.",
+      "turnOff": "Désactivez cette option",
+      "turnOffDescription": "si votre ordre du culte répète volontairement du contenu — un verset d’appel à l’adoration relu à la bénédiction, une vidéo d’introduction avant et après le sermon, ou une diapositive de chant reprise à la fin. Lorsqu’elle est désactivée, chaque ajout crée son propre élément que vous pouvez réorganiser et préparer indépendamment."
+    }
+  },
+  "privacy": {
+    "anonymousUsageData": "Données d’utilisation anonymes",
+    "shareUsage": {
+      "title": "Partager les données d’utilisation anonymes",
+      "description": "Aidez à améliorer LumenLive en envoyant des données d’utilisation anonymes et agrégées — les fonctions utilisées et la fréquence d’exécution d’un culte. Cela n’inclut jamais le texte biblique, les paroles de chants, les médias, ni les noms de l’église ou du culte, ou toute information permettant de vous identifier. Vous pouvez désactiver cette option à tout moment."
+    },
+    "collection": {
+      "title": "Ce qui est collecté ou non",
+      "collected": "Collecté :",
+      "collectedDescription": "le nombre d’événements tels que le lancement de l’application, le début d’un culte, le passage en direct, et les fonctions utilisées — ainsi que votre version de l’application et votre système d’exploitation. Cela nous aide à savoir quels aspects de LumenLive comptent pour les églises et où concentrer nos efforts.",
+      "neverCollected": "Jamais collecté :",
+      "neverCollectedDescription": "votre identité, votre église, le contenu des versets ou chants, les chemins de fichiers, les captures d’écran, ou tout texte que vous saisissez. Il n’y a aucun compte ni suivi entre applications."
+    }
+  },
+  "help": {
+    "description": "Des ressources pour vous aider à profiter au mieux de LumenLive.",
+    "tutorial": {
+      "title": "Tutoriel interactif",
+      "description": "Guide pas à pas de chaque fonction",
+      "restart": "Redémarrer"
+    }
+  },
+  "mediaLibrary": {
+    "whenImporting": "Lors de l’importation de médias",
+    "reference": {
+      "title": "Référencer les originaux",
+      "description": "Conserve uniquement un lien vers chaque fichier à son emplacement actuel. N’utilise aucun espace disque supplémentaire, mais un clip cesse de fonctionner si vous déplacez, renommez ou supprimez l’original — et la bibliothèque ne peut pas être transférée seule sur un autre ordinateur."
+    },
+    "copy": {
+      "title": "Copier dans la bibliothèque de l’application",
+      "description": "Copie chaque fichier importé dans un dossier géré par LumenLive, afin que la bibliothèque continue de fonctionner même si vous déplacez ou supprimez les originaux. Utilise plus d’espace disque. Supprimer un élément copié de la bibliothèque supprime sa copie."
+    },
+    "appliesFromNow": "Ce réglage s’applique aux fichiers importés à partir de maintenant. Les médias déjà dans votre bibliothèque restent exactement tels quels.",
+    "folder": "Dossier de la bibliothèque",
+    "open": "Ouvrir",
+    "folderDescription": "Emplacement des fichiers copiés. Utilisé uniquement lorsque « Copier dans la bibliothèque de l’application » est sélectionné."
+  },
+  "account": {
+    "signIn": {
+      "title": "Se connecter à LumenLive",
+      "description": "LumenLive est gratuit — aucun compte n’est nécessaire. Connectez-vous pour activer votre abonnement sur cet appareil.",
+      "action": "Se connecter"
+    },
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "signingIn": "Connexion…",
+    "newToLumenLive": "Nouveau sur LumenLive ?",
+    "registerChurch": "Enregistrer une église",
+    "unknownDevice": "Appareil inconnu",
+    "reason": {
+      "trial_ended": "Votre essai gratuit est terminé. Abonnez-vous à une offre pour rétablir l’accès complet.",
+      "expired": "Nous n’avons pas pu confirmer votre offre récemment. Connectez-vous à Internet, puis validez-la de nouveau ci-dessous.",
+      "machine_mismatch": "Cette offre est active sur un autre appareil. Connectez-vous ici pour la transférer sur celui-ci.",
+      "signature": "Votre offre a besoin d’une courte actualisation sur cet appareil. Validez-la de nouveau ci-dessous pour la mettre à jour."
+    },
+    "refreshFailed": "Nous n’avons pas pu actualiser votre offre pour le moment : {{message}}",
+    "revalidatedNow": "Tout est prêt — votre offre est maintenant {{plan}}.",
+    "revalidatedStill": "Vérification effectuée avec le serveur — vous êtes toujours sur {{plan}}, tout va bien.",
+    "thisDevice": "Cet appareil",
+    "loadingDevice": "…",
+    "unlimitedDevices": "Votre offre inclut un nombre illimité d’appareils.",
+    "deviceLimit_one": "Votre offre couvre jusqu’à {{count}} appareil.",
+    "deviceLimit_other": "Votre offre couvre jusqu’à {{count}} appareils.",
+    "revalidating": "Nouvelle validation…",
+    "revalidated": "Validé de nouveau",
+    "revalidateNow": "Valider de nouveau maintenant",
+    "signOut": "Se déconnecter",
+    "accessPeriod": "Période d’accès",
+    "accessEnded": "Accès terminé",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "hours_one": "{{count}} heure",
+    "hours_other": "{{count}} heures",
+    "accessRemaining": "{{days}} {{hours}} restants"
+  },
+  "songs": {
+    "apiKeyLabel": "Clé API Genius",
+    "apiKeyPlaceholder": "Saisissez votre clé API Genius…",
+    "instructionsTitle": "Comment obtenir une clé API Genius",
+    "helpText": "Active les résultats Genius (y compris les correspondances de lignes de paroles) dans la recherche de paroles en ligne. Enregistrée localement sur cet appareil. Les autres sources fonctionnent sans clé.",
+    "disclaimer": "Avertissement : en activant cette intégration, vous acceptez d’utiliser votre propre clé développeur Genius personnelle et non commerciale. Ce logiciel est un utilitaire neutre et n’est ni affilié à Genius, ni approuvé ou licencié par Genius. Vous êtes entièrement responsable du respect des Conditions d’utilisation de l’API Genius ; toute exploitation commerciale ou utilisation abusive de ses données relève strictement de votre responsabilité.",
+    "instructions": {
+      "signInAt": "Connectez-vous sur",
+      "freeAccount": "(un compte Genius gratuit).",
+      "click": "Cliquez sur",
+      "newApiClient": "New API Client",
+      "createClient": ", renseignez le nom et l’URL de votre application, puis créez-la.",
+      "onClient": "Dans le client, cliquez sur",
+      "generateToken": "Generate Access Token",
+      "copyToken": ", copiez le jeton, collez-le ci-dessus, puis appuyez sur",
+      "finish": "."
+    }
+  },
+  "remote": {
+    "featureName": "Contrôle à distance",
+    "listening": "En écoute",
+    "stopped": "Arrêté",
+    "osc": "OSC (Open Sound Control)",
+    "port": "Port",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "oscListening": "Écoute sur le port UDP {{port}}",
+    "oscDescription": "Reçoit les commandes des contrôleurs matériels (Stream Deck, TouchOSC, Companion) par OSC sur UDP. OSC n’a aucun code d’accès (le protocole n’a pas d’authentification) ; activez-le uniquement sur des réseaux de confiance.",
+    "httpApi": "API HTTP",
+    "httpServing": "Disponible sur http://localhost:{{port}}/api/v1/",
+    "accessCode": "Code d’accès (obligatoire)",
+    "accessCodeIntro": "Saisissez ce code sur votre appareil distant — envoyez-le dans un en-tête",
+    "accessCodeMiddle": "ou",
+    "accessCodeOutro": ". Sans lui, les demandes de contrôle sont refusées. Le code change à chaque redémarrage du serveur.",
+    "httpDescription": "API REST pour les requêtes d’état et les commandes de contrôle. À utiliser avec des tableaux de bord personnalisés, des scripts d’automatisation ou des contrôleurs compatibles HTTP. Les requêtes sont protégées par le code d’accès ci-dessus.",
+    "firewall": {
+      "title": "Remarque sur le pare-feu",
+      "description": "Votre système d’exploitation peut bloquer les connexions entrantes. Sur macOS, autorisez LumenLive dans Réglages Système → Réseau → Pare-feu. Sur Windows, autorisez-le dans Sécurité Windows → Pare-feu → Autoriser une application."
+    },
+    "commandLog": "Journal des commandes",
+    "clear": "Effacer",
+    "noCommands": "Aucune commande reçue pour le moment"
+  },
+  "backup": {
+    "heading": "Sauvegarde et restauration",
+    "moveTitle": "Transférer votre contenu sur un nouveau PC",
+    "moveDescription": "Enregistrez votre contenu — thèmes personnalisés, mises en page de scène, présentations, chants, déroulés, minuteries, alertes et bibliothèque multimédia (images et vidéos incluses) — dans un seul fichier de sauvegarde, puis restaurez-le sur un autre ordinateur. Choisissez tout ou seulement les types nécessaires. La restauration accepte toute sauvegarde et fusionne son contenu.",
+    "allContent": "Tout le contenu",
+    "saving": "Enregistrement…",
+    "export": "Exporter la sauvegarde",
+    "restoring": "Restauration…",
+    "restore": "Restaurer la sauvegarde",
+    "travelTitle": "Ce qui est transféré — et ce qui ne l’est pas",
+    "included": "Inclus :",
+    "includedDescription": "tout votre contenu personnalisé et les fichiers multimédias utilisés, afin que les arrière-plans et vidéos fonctionnent toujours sur la nouvelle machine.",
+    "notIncluded": "Non inclus :",
+    "notIncludedDescription": "les réglages de l’application et les clés API (saisissez-les de nouveau sur le nouveau PC), ainsi que les traductions de la Bible (retéléchargez-les depuis les réglages Bible). La restauration ajoute et met à jour votre bibliothèque actuelle ; elle ne supprime jamais ce qui existe déjà.",
+    "confirmTitle": "Restaurer depuis une sauvegarde ?",
+    "confirmDescription": "Cette opération fusionne le contenu de la sauvegarde dans votre bibliothèque et met à jour les éléments ayant le même identifiant. Votre contenu existant est conservé. Continuer ?",
+    "chooseFile": "Choisir un fichier…",
+    "kinds": {
+      "themes": "Thèmes",
+      "stageLayouts": "Mises en page de scène",
+      "presentations": "Présentations",
+      "songs": "Chants",
+      "schedules": "Déroulés",
+      "mediaAssets": "Bibliothèque multimédia",
+      "countdownTimers": "Minuteries",
+      "alertTemplates": "Alertes"
+    },
+    "summary": {
+      "themes_one": "{{count}} thème",
+      "themes_other": "{{count}} thèmes",
+      "stageLayouts_one": "{{count}} mise en page de scène",
+      "stageLayouts_other": "{{count}} mises en page de scène",
+      "presentations_one": "{{count}} présentation",
+      "presentations_other": "{{count}} présentations",
+      "songs_one": "{{count}} chant",
+      "songs_other": "{{count}} chants",
+      "schedules_one": "{{count}} déroulé",
+      "schedules_other": "{{count}} déroulés",
+      "mediaAssets_one": "{{count}} fichier multimédia",
+      "mediaAssets_other": "{{count}} fichiers multimédias",
+      "countdownTimers_one": "{{count}} minuterie",
+      "countdownTimers_other": "{{count}} minuteries",
+      "alertTemplates_one": "{{count}} alerte",
+      "alertTemplates_other": "{{count}} alertes",
+      "webBookmarks_one": "{{count}} signet",
+      "webBookmarks_other": "{{count}} signets"
+    },
+    "savedWithMissingMedia_one": "Sauvegarde enregistrée ({{summary}}) · {{count}} fichier multimédia était introuvable et n’a pas pu être inclus",
+    "savedWithMissingMedia_other": "Sauvegarde enregistrée ({{summary}}) · {{count}} fichiers multimédias étaient introuvables et n’ont pas pu être inclus",
+    "saved": "Sauvegarde enregistrée",
+    "savedWithSummary": "Sauvegarde enregistrée · {{summary}}",
+    "restored": "Sauvegarde restaurée",
+    "restoredWithSummary": "Sauvegarde restaurée · {{summary}}",
+    "createFailed": "Impossible de créer cette sauvegarde.",
+    "restoreFailed": "Impossible de restaurer cette sauvegarde."
+  },
+  "language": {
+    "label": "Langue de l’interface",
+    "description": "Choisissez la langue utilisée pour l’interface opérateur de LumenLive."
+  },
+  "sections": {
+    "account": { "name": "Compte", "title": "Compte et licence" },
+    "audio": { "name": "Audio", "title": "Audio" },
+    "bible": { "name": "Bible", "title": "Traduction de la Bible" },
+    "display": { "name": "Mode d’affichage", "title": "Mode d’affichage" },
+    "schedule": { "name": "Déroulé", "title": "Déroulé" },
+    "media": {
+      "name": "Bibliothèque multimédia",
+      "title": "Bibliothèque multimédia"
+    },
+    "songs": { "name": "Chants", "title": "Chants" },
+    "remote": { "name": "Contrôle à distance", "title": "Contrôle à distance" },
+    "backup": {
+      "name": "Sauvegarde et restauration",
+      "title": "Sauvegarde et restauration"
+    },
+    "privacy": { "name": "Confidentialité", "title": "Confidentialité" },
+    "help": { "name": "Aide", "title": "Aide" },
+    "language": { "name": "Langue", "title": "Langue" }
+  },
+  "dialog": {
+    "title": "Réglages",
+    "description": "Configurez l’audio, le mode d’affichage et les clés API.",
+    "buttonLabel": "Réglages",
+    "buttonTitle": "Réglages (Ctrl ,)",
+    "backupFile": "Sauvegarde LumenLive",
+    "allFiles": "Tous les fichiers",
+    "restoreBackup": "Restaurer une sauvegarde"
+  }
+}

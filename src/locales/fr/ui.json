@@ -1,0 +1,42 @@
+{
+  "command": {
+    "title": "Palette de commandes",
+    "description": "Rechercher une commande à exécuter…"
+  },
+  "actions": {
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "cancel": "Annuler",
+    "tryAgain": "Réessayer"
+  },
+  "accessibility": {
+    "breadcrumb": "Fil d’Ariane",
+    "more": "Plus",
+    "chooseColor": "Choisir une couleur",
+    "microphoneLevel": "Niveau du microphone",
+    "detectionConfidence": "Confiance de détection {{value}} %",
+    "toggleSidebar": "Afficher/masquer la barre latérale"
+  },
+  "color": { "hex": "Hex" },
+  "live": { "active": "DIRECT", "inactive": "HORS ANTENNE" },
+  "verseCard": { "empty": "Sélectionnez un verset à prévisualiser" },
+  "errorBoundary": {
+    "message": "Un problème est survenu{{location}}.",
+    "location": " dans {{label}}",
+    "unexpected": "Une erreur inattendue s’est produite."
+  },
+  "sidebar": {
+    "title": "Barre latérale",
+    "mobileDescription": "Affiche la barre latérale mobile."
+  },
+  "signInPrompt": {
+    "title": "Connectez-vous pour transcrire",
+    "description": "La transcription en direct est incluse avec votre compte LumenLive. Connectez-vous pour commencer l’écoute — rien d’autre à configurer.",
+    "signIn": "Se connecter",
+    "notNow": "Pas maintenant"
+  },
+  "transcriptionBlocked": {
+    "openPortal": "Ouvrir le portail du compte",
+    "notNow": "Pas maintenant"
+  }
+}

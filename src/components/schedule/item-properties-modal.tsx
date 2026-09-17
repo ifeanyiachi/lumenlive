@@ -1,4 +1,5 @@
 import { useRef, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PlusIcon } from "lucide-react"
 import { ItemPropertiesContent } from "@/components/schedule/item-properties-panel"
-import { TYPE_LABELS } from "@/components/schedule/schedule-utils"
+import { getTypeLabels } from "@/components/schedule/schedule-utils"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useMediaStore } from "@/stores/media-store"
 import type { ScheduleItem } from "@/types/schedule"
@@ -30,6 +31,8 @@ export function ItemPropertiesModal({
   mode?: "edit" | "add"
   onConfirmAdd?: (extras: ScheduleItem[]) => void
 }) {
+  const { t } = useTranslation("schedule")
+  const typeLabels = getTypeLabels()
   const stagedExtrasRef = useRef<ScheduleItem[]>([])
   const stagedMediaImportIdsRef = useRef<string[]>([])
 
@@ -74,7 +77,9 @@ export function ItemPropertiesModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm">
-            {isAdd ? `Add ${TYPE_LABELS[item.type]}` : "Edit Properties"}
+            {isAdd
+              ? t("properties.addType", { type: typeLabels[item.type] })
+              : t("properties.editTitle")}
           </DialogTitle>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
@@ -94,7 +99,7 @@ export function ItemPropertiesModal({
               className="text-xs"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button
               size="sm"
@@ -107,7 +112,7 @@ export function ItemPropertiesModal({
               }}
             >
               <PlusIcon className="size-3" />
-              Add to Schedule
+              {t("actions.addToSchedule")}
             </Button>
           </DialogFooter>
         )}

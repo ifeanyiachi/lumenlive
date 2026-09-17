@@ -1,4 +1,5 @@
 import { MusicIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { SlideElement } from "@/types/slide"
 import { findTextRole } from "@/lib/theme/model/roles"
 import {
@@ -23,17 +24,18 @@ export function SongThemeProperties({
 }: {
   elements: SlideElement[]
 }) {
+  const { t } = useTranslation("slides")
   const lyrics = findTextRole(elements, "lyrics")
 
   return (
     <ThemePanelShell
-      title="Song Theme"
+      title={t("themeProperties.songTheme")}
       icon={<MusicIcon className="size-3.5" />}
     >
       {lyrics ? (
-        <Section label="Lyrics">
+        <Section label={t("themeProperties.lyrics")}>
           <SizeRow
-            label="Size"
+            label={t("timerProperties.size")}
             value={lyrics.fontSize}
             onChange={(v) => patchElement(lyrics.id, { fontSize: v })}
             max={160}
@@ -43,7 +45,7 @@ export function SongThemeProperties({
             onChange={(v) => patchElement(lyrics.id, { fontWeight: v })}
           />
           <ColorRow
-            label="Color"
+            label={t("properties.color")}
             value={lyrics.color}
             onChange={(v) => patchElement(lyrics.id, { color: v })}
           />
@@ -53,7 +55,7 @@ export function SongThemeProperties({
           />
         </Section>
       ) : (
-        <MissingPlaceholder what="a lyrics placeholder" />
+        <MissingPlaceholder what={t("themeProperties.lyricsPlaceholder")} />
       )}
       <SelectElementHint />
     </ThemePanelShell>

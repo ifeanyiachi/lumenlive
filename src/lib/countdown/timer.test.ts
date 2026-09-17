@@ -62,6 +62,13 @@ describe("formatCountdownTime", () => {
     expect(formatCountdownTime(0, "mm:ss", true)).toBe("00:00")
     expect(formatCountdownTime(0, "mm:ss", false)).toBe("00:00")
   })
+
+  it("uses locale-specific digits when a locale is supplied", () => {
+    expect(formatCountdownTime(65, "mm:ss", false, "ar-EG")).toBe("٠١:٠٥")
+    expect(formatCountdownTime(3661, "hh:mm:ss", false, "ar-EG")).toBe(
+      "٠١:٠١:٠١"
+    )
+  })
 })
 
 describe("computeRemainingSeconds", () => {
@@ -184,5 +191,9 @@ describe("formatTimerDuration", () => {
     expect(formatTimerDuration(300)).toBe("5:00")
     expect(formatTimerDuration(3600)).toBe("60:00")
     expect(formatTimerDuration(65)).toBe("1:05")
+  })
+
+  it("uses locale-specific digits when a locale is supplied", () => {
+    expect(formatTimerDuration(65, "ar-EG")).toBe("١:٠٥")
   })
 })

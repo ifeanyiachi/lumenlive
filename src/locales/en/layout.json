@@ -1,0 +1,37 @@
+{
+  "youtube": {
+    "errors": {
+      "invalidUrl": "Please paste a YouTube URL",
+      "noVideoId": "Could not extract video ID"
+    },
+    "toasts": {
+      "removedFromSaved": "Video removed from saved",
+      "saved": "Video saved",
+      "sentLive": "YouTube sent to live output",
+      "addedToSchedule": "Added to schedule",
+      "alreadyScheduled": "Already in the schedule",
+      "removed": "Video removed"
+    },
+    "videoLabel": "Video: {{id}}",
+    "youtubeLabel": "YouTube: {{id}}",
+    "savedVideos": "Saved Videos",
+    "emptySaved": "Save YouTube videos for quick access",
+    "remove": "Remove",
+    "urlPlaceholder": "Paste a YouTube URL...",
+    "load": "Load",
+    "emptyPlayer": {
+      "title": "Paste a YouTube URL to start",
+      "description": "Supports youtube.com/watch, youtu.be, and shorts links"
+    },
+    "play": "Play",
+    "pause": "Pause",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "removeFromSaved": "Remove from saved",
+    "saveVideo": "Save video",
+    "selectScheduleFirst": "Select a schedule first",
+    "addToSchedule": "Add to schedule",
+    "schedule": "Schedule",
+    "goLive": "Go Live"
+  }
+}

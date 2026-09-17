@@ -3,10 +3,17 @@ import type { StageLayout } from "@/types/stage-layout"
 import type { Background } from "@/types/canvas"
 import { collectStageLayoutRefs, rewriteStageLayout } from "./stage-refs"
 
-const assetUrl = (p: string) => `http://asset.localhost/${encodeURIComponent(p)}`
+const assetUrl = (p: string) =>
+  `http://asset.localhost/${encodeURIComponent(p)}`
 
 function bg(): Background {
-  return { type: "solid", color: "#000", gradient: null, image: null, video: null }
+  return {
+    type: "solid",
+    color: "#000",
+    gradient: null,
+    image: null,
+    video: null,
+  }
 }
 
 function layout(over: Partial<StageLayout>): StageLayout {
@@ -33,7 +40,11 @@ describe("collectStageLayoutRefs", () => {
       background: {
         ...bg(),
         type: "video",
-        video: { url: assetUrl("C:\\m\\clip.mp4"), fit: "cover", brightness: 1 },
+        video: {
+          url: assetUrl("C:\\m\\clip.mp4"),
+          fit: "cover",
+          brightness: 1,
+        },
       },
       elements: [
         {
@@ -46,7 +57,12 @@ describe("collectStageLayoutRefs", () => {
           height: 1,
           visible: true,
           locked: false,
-          image: { url: assetUrl("C:\\m\\pic.png"), fit: "cover", opacity: 1, borderRadius: 0 },
+          image: {
+            url: assetUrl("C:\\m\\pic.png"),
+            fit: "cover",
+            opacity: 1,
+            borderRadius: 0,
+          },
         },
         {
           type: "shape",

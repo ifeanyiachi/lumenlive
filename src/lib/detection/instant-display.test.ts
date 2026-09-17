@@ -6,7 +6,9 @@ import {
   type InstantDisplayOptions,
 } from "./instant-display"
 
-const opts = (over: Partial<InstantDisplayOptions> = {}): InstantDisplayOptions => ({
+const opts = (
+  over: Partial<InstantDisplayOptions> = {}
+): InstantDisplayOptions => ({
   enabled: true,
   confidenceThreshold: 0.5,
   cooldownMs: 1000,
@@ -43,8 +45,18 @@ describe("evaluateInstantDisplay", () => {
 
   it("never displays when disabled, but still tracks the streak", () => {
     let s = initialInstantDisplayState()
-    s = evaluateInstantDisplay(s, "John 3:16", 0.9, opts({ enabled: false, now: 0 })).state
-    const r = evaluateInstantDisplay(s, "John 3:16", 0.9, opts({ enabled: false, now: 100 }))
+    s = evaluateInstantDisplay(
+      s,
+      "John 3:16",
+      0.9,
+      opts({ enabled: false, now: 0 })
+    ).state
+    const r = evaluateInstantDisplay(
+      s,
+      "John 3:16",
+      0.9,
+      opts({ enabled: false, now: 100 })
+    )
     expect(r.display).toBe(false)
     expect(r.state.pendingCount).toBe(2)
   })
@@ -78,14 +90,24 @@ describe("evaluateInstantDisplay", () => {
 
   it("honors a stabilityCount of 1 (instant, no confirmation)", () => {
     const s = initialInstantDisplayState()
-    const r = evaluateInstantDisplay(s, "John 1:1", 0.9, opts({ stabilityCount: 1, now: 0 }))
+    const r = evaluateInstantDisplay(
+      s,
+      "John 1:1",
+      0.9,
+      opts({ stabilityCount: 1, now: 0 })
+    )
     expect(r.display).toBe(true)
   })
 })
 
 describe("wasRecentlyDisplayed", () => {
   it("is true for the same ref inside the cooldown, false outside or for another ref", () => {
-    const s = { pendingRef: "John 3:16", pendingCount: 2, displayedRef: "John 3:16", displayedAt: 1000 }
+    const s = {
+      pendingRef: "John 3:16",
+      pendingCount: 2,
+      displayedRef: "John 3:16",
+      displayedAt: 1000,
+    }
     expect(wasRecentlyDisplayed(s, "John 3:16", 1500, 1000)).toBe(true)
     expect(wasRecentlyDisplayed(s, "John 3:16", 2500, 1000)).toBe(false) // outside cooldown
     expect(wasRecentlyDisplayed(s, "Romans 8:28", 1500, 1000)).toBe(false) // revised ref

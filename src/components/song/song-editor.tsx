@@ -9,6 +9,7 @@ import { SongProjectionOptions } from "@/components/song/song-projection-options
 import { Separator } from "@/components/ui/separator"
 import { useSongStore } from "@/stores/song-store"
 import type { Song } from "@/types/song"
+import { useTranslation } from "react-i18next"
 
 /**
  * Full-screen song editor overlay — the Phase 2 lyric editor, mounted the same
@@ -21,6 +22,7 @@ import type { Song } from "@/types/song"
  * arrive with auto slide generation in Phase 3.
  */
 export function SongEditor() {
+  const { t } = useTranslation("song")
   const editingSongId = useSongStore((s) => s.editingSongId)
   const song = useSongStore((s) => s.editingDraft)
 
@@ -36,8 +38,8 @@ export function SongEditor() {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Back (discard changes)"
-          title="Back (discard changes)"
+          aria-label={t("library.backDiscard")}
+          title={t("library.backDiscard")}
           onClick={() => useSongStore.getState().cancelEdit()}
         >
           <ArrowLeftIcon className="size-4" />
@@ -45,8 +47,8 @@ export function SongEditor() {
         <MusicIcon className="size-4 shrink-0 text-muted-foreground" />
         <Input
           value={song.title}
-          aria-label="Song title"
-          placeholder="Song title"
+          aria-label={t("import.songTitle")}
+          placeholder={t("import.songTitle")}
           onChange={(e) => update({ title: e.target.value })}
           className="h-8 max-w-md text-sm font-medium"
         />
@@ -58,7 +60,7 @@ export function SongEditor() {
           onClick={() => useSongStore.getState().cancelEdit()}
         >
           <XIcon className="size-3.5" />
-          Cancel
+          {t("import.cancel")}
         </Button>
         <Button
           size="sm"
@@ -66,16 +68,16 @@ export function SongEditor() {
           onClick={() => useSongStore.getState().saveEdit()}
         >
           <CheckIcon className="size-3.5" />
-          Save
+          {t("common.save", { ns: "slides" })}
         </Button>
       </div>
 
       {/* Metadata row */}
       <div className="grid grid-cols-2 gap-2 border-b border-border px-4 py-2 md:grid-cols-4">
         <LabeledInput
-          label="Authors"
+          label={t("editor.authors")}
           value={song.authors.join(", ")}
-          placeholder="Comma separated"
+          placeholder={t("library.commaSeparated")}
           onChange={(v) =>
             update({
               authors: v
@@ -91,12 +93,12 @@ export function SongEditor() {
           onChange={(v) => update({ ccliNumber: v || undefined })}
         />
         <LabeledInput
-          label="Key"
+          label={t("editor.key")}
           value={song.key ?? ""}
           onChange={(v) => update({ key: v || undefined })}
         />
         <LabeledInput
-          label="Copyright"
+          label={t("editor.copyright")}
           value={song.copyright ?? ""}
           onChange={(v) => update({ copyright: v || undefined })}
         />

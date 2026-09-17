@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { MultiVerseEditModal } from "@/components/verse-edit/multi-verse-edit-modal"
 import { fetchChapter } from "@/services/bible-search-gateway"
@@ -93,6 +94,7 @@ export function ScriptureItemEditModal({
   item: ScriptureScheduleItem | null
   scheduleId: string
 }) {
+  const { t } = useTranslation("schedule")
   const translations = useBibleStore((s) => s.translations)
   // Keyed by item id so verses from a previous item are never shown against a
   // newly-opened one (the async load resolves after the item prop changes).
@@ -137,7 +139,9 @@ export function ScriptureItemEditModal({
           const collectionVerses: ScriptureCollectionVerse[] =
             item.collectionVerses.map((cv, i) => {
               const segment = segmentById.get(i + 1)
-              return segment ? { ...cv, segment } : { ...cv, segment: undefined }
+              return segment
+                ? { ...cv, segment }
+                : { ...cv, segment: undefined }
             })
           updates.collectionVerses = collectionVerses
         } else {
@@ -145,7 +149,7 @@ export function ScriptureItemEditModal({
           updates.segments = segments.length > 0 ? segments : undefined
         }
         useScheduleStore.getState().updateItem(scheduleId, item.id, updates)
-        toast.success("Verse edits saved")
+        toast.success(t("toast.verseEditsSaved"))
       }}
     />
   )

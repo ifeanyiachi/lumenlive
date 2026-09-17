@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 
@@ -20,6 +21,7 @@ function LevelMeter({
   level: number
   bars?: number
 }) {
+  const { t } = useTranslation("ui")
   const scaled = Math.min(level / 0.25, 1)
   const curved = Math.pow(scaled, 0.4)
   const litCount = Math.round(curved * bars)
@@ -32,7 +34,7 @@ function LevelMeter({
       aria-valuenow={Math.round(curved * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label="Microphone level"
+      aria-label={t("accessibility.microphoneLevel")}
       {...props}
     >
       {Array.from({ length: bars }, (_, i) => {

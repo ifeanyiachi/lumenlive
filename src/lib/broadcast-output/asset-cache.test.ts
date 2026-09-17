@@ -144,8 +144,9 @@ describe("preloadSlideAssets (slide-model / RF3a)", () => {
 })
 
 describe("slideBackgroundReady", () => {
-  const bg = (b: Partial<SlideBackground>) =>
-    ({ background: b as SlideBackground })
+  const bg = (b: Partial<SlideBackground>) => ({
+    background: b as SlideBackground,
+  })
   const imgCache = () => new Map<string, HTMLImageElement>()
   const vidCache = () => new Map<string, HTMLVideoElement>()
 

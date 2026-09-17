@@ -24,7 +24,10 @@ export interface KeyEventLike {
  *   bare `t` shortcut from firing on Ctrl+T.
  * - Alt is never part of a shortcut here, so an Alt-modified combo never matches.
  */
-export function matchesChord(event: KeyEventLike, chord: ShortcutChord): boolean {
+export function matchesChord(
+  event: KeyEventLike,
+  chord: ShortcutChord
+): boolean {
   if (event.altKey) return false
   if (event.key.toLowerCase() !== chord.key.toLowerCase()) return false
   const mod = event.ctrlKey || event.metaKey

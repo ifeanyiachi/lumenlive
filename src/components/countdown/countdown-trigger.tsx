@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   TimerIcon,
   PlayIcon,
@@ -25,10 +26,11 @@ import { useCountdownStore } from "@/stores/countdown-store"
 import { requireFeature } from "@/components/entitlements/require-feature"
 import type { CountdownTimer } from "@/types/alert"
 import { cn } from "@/lib/utils"
-import { formatTimerDuration } from "@/lib/countdown/timer"
+import { formatDuration } from "@/lib/i18n/format"
 import { TimerEditor } from "@/components/countdown/countdown-config"
 
 export function CountdownTrigger() {
+  const { t } = useTranslation("countdown")
   const timers = useCountdownStore((s) => s.timers)
   const activeCountdowns = useCountdownStore((s) => s.activeCountdowns)
   const [editorOpen, setEditorOpen] = useState(false)
@@ -45,7 +47,8 @@ export function CountdownTrigger() {
       <Popover
         open={popoverOpen}
         onOpenChange={(open) => {
-          if (open && !requireFeature("countdown", "Countdown timers")) return
+          if (open && !requireFeature("countdown", t("trigger.featureName")))
+            return
           setPopoverOpen(open)
         }}
       >
@@ -53,7 +56,7 @@ export function CountdownTrigger() {
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Countdown Timer"
+            title={t("trigger.title")}
             data-tour="countdown"
             className="relative"
           >
@@ -67,7 +70,7 @@ export function CountdownTrigger() {
           <div className="border-b border-border px-3 py-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">
-                Countdown Timer
+                {t("trigger.title")}
               </span>
               {hasActive && (
                 <Button
@@ -76,7 +79,7 @@ export function CountdownTrigger() {
                   className="h-6 text-[0.625rem] text-red-400"
                   onClick={() => useCountdownStore.getState().dismissAll()}
                 >
-                  Stop All
+                  {t("trigger.stopAll")}
                 </Button>
               )}
             </div>
@@ -90,7 +93,7 @@ export function CountdownTrigger() {
               const durationLabel =
                 timer.mode === "clock"
                   ? (timer.targetTime ?? "--:--")
-                  : formatTimerDuration(timer.durationSeconds)
+                  : formatDuration(timer.durationSeconds * 1000)
               const paused = active?.state === "paused"
               return (
                 <div
@@ -116,7 +119,7 @@ export function CountdownTrigger() {
                         setEditingTimer(timer)
                         setEditorOpen(true)
                       }}
-                      title="Edit"
+                      title={t("trigger.edit")}
                     >
                       <PencilIcon className="size-2.5" />
                     </Button>
@@ -131,7 +134,7 @@ export function CountdownTrigger() {
                               .getState()
                               .adjustCountdown(active.id, -60)
                           }
-                          title="Subtract 1 minute"
+                          title={t("trigger.subtractMinute")}
                         >
                           <MinusIcon className="size-2.5" />
                         </Button>
@@ -144,7 +147,7 @@ export function CountdownTrigger() {
                               .getState()
                               .adjustCountdown(active.id, 60)
                           }
-                          title="Add 1 minute"
+                          title={t("trigger.addMinute")}
                         >
                           <PlusIcon className="size-2.5" />
                         </Button>
@@ -157,7 +160,9 @@ export function CountdownTrigger() {
                             if (paused) store.resumeCountdown(active.id)
                             else store.pauseCountdown(active.id)
                           }}
-                          title={paused ? "Resume" : "Pause"}
+                          title={
+                            paused ? t("trigger.resume") : t("trigger.pause")
+                          }
                         >
                           {paused ? (
                             <PlayIcon className="size-2.5" />
@@ -174,7 +179,7 @@ export function CountdownTrigger() {
                               .getState()
                               .dismissCountdown(active.id)
                           }
-                          title="Stop"
+                          title={t("trigger.stop")}
                         >
                           <SquareIcon className="size-2.5" />
                         </Button>
@@ -187,7 +192,7 @@ export function CountdownTrigger() {
                         onClick={() =>
                           useCountdownStore.getState().startCountdown(timer.id)
                         }
-                        title="Start"
+                        title={t("trigger.start")}
                       >
                         <PlayIcon className="size-2.5" />
                       </Button>
@@ -200,7 +205,7 @@ export function CountdownTrigger() {
                         onClick={() =>
                           useCountdownStore.getState().deleteTimer(timer.id)
                         }
-                        title="Delete"
+                        title={t("trigger.delete")}
                       >
                         <TrashIcon className="size-2.5" />
                       </Button>
@@ -219,7 +224,7 @@ export function CountdownTrigger() {
               onClick={() => {
                 setEditingTimer({
                   id: crypto.randomUUID(),
-                  label: "New Timer",
+                  label: t("trigger.newTimer"),
                   mode: "duration",
                   durationSeconds: 300,
                   targetTime: "10:00",
@@ -237,7 +242,7 @@ export function CountdownTrigger() {
               }}
             >
               <PlusIcon className="mr-1.5 size-3" />
-              New Timer
+              {t("trigger.newTimer")}
             </Button>
           </div>
         </PopoverContent>
@@ -248,8 +253,8 @@ export function CountdownTrigger() {
           <DialogHeader>
             <DialogTitle className="text-sm">
               {editingTimer && timers.some((t) => t.id === editingTimer.id)
-                ? "Edit Timer"
-                : "New Timer"}
+                ? t("trigger.editTimer")
+                : t("trigger.newTimer")}
             </DialogTitle>
           </DialogHeader>
           {editingTimer && (

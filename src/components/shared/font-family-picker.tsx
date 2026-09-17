@@ -1,4 +1,5 @@
 import { useState, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -15,6 +16,7 @@ export function FontFamilyPicker({
   value: string
   onChange: (family: string) => void
 }) {
+  const { t } = useTranslation("shared")
   const { fonts, loading } = useLocalFonts()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -42,7 +44,7 @@ export function FontFamilyPicker({
               if (!open) setOpen(true)
             }}
             onFocus={() => setOpen(true)}
-            placeholder={loading ? "Loading fonts..." : "Search fonts..."}
+            placeholder={loading ? t("loadingFonts") : t("searchFonts")}
             className="h-7 text-xs"
             style={!open ? { fontFamily: value } : undefined}
           />
@@ -80,7 +82,7 @@ export function FontFamilyPicker({
           ))}
           {filtered.length === 0 && (
             <span className="px-2 py-1 text-xs text-muted-foreground">
-              No fonts found
+              {t("noFontsFound")}
             </span>
           )}
         </div>

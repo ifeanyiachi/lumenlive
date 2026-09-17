@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +19,7 @@ export function BackgroundMediaLibrary({
   onApplyImage: (url: string) => void
   onApplyVideo: (url: string) => void
 }) {
+  const { t } = useTranslation("slides")
   const [open, setOpen] = useState(false)
   const presentations = usePresentationStore((s) => s.presentations)
 
@@ -63,14 +65,14 @@ export function BackgroundMediaLibrary({
       >
         <FolderOpenIcon className="mr-1.5 size-3" />
         {mediaItems.length === 0
-          ? "No saved media"
-          : `Library (${mediaItems.length})`}
+          ? t("backgroundLibrary.empty")
+          : t("backgroundLibrary.button", { count: mediaItems.length })}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Background Media Library</DialogTitle>
+            <DialogTitle>{t("backgroundLibrary.title")}</DialogTitle>
           </DialogHeader>
 
           <ScrollArea className="max-h-[400px]">

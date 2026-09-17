@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { i18n } from "@/lib/i18n/config"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useSongStore } from "@/stores/song-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -74,8 +75,9 @@ export function addSongToSchedule(
   }
 
   const added = current.insertItemAt(scheduleId, item, insertAt)
-  if (added) toast.success(`Added "${song.title}" to schedule`)
-  else toast.info("Already in the schedule")
+  if (added)
+    toast.success(i18n.t("schedule:toast.songAdded", { title: song.title }))
+  else toast.info(i18n.t("schedule:toast.alreadyInSchedule"))
 }
 
 /**
@@ -97,7 +99,7 @@ export function addSongAsIndividualSlides({
 
   const arrangement = resolveArrangement(song, arrangementId)
   if (!arrangement) {
-    toast.error("This song has no arrangement to expand")
+    toast.error(i18n.t("schedule:toast.songNoArrangement"))
     return
   }
 
@@ -114,7 +116,7 @@ export function addSongAsIndividualSlides({
     useThemesStore.getState().customThemes
   )
   if (deck.slides.length === 0) {
-    toast.info("This song has no lyrics to add as slides")
+    toast.info(i18n.t("schedule:toast.songNoLyrics"))
     return
   }
 

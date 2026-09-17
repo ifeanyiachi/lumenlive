@@ -14,7 +14,10 @@ import {
 } from "@/lib/broadcast/monitors"
 import { useBroadcastStore } from "@/stores"
 import { useCountdownStore } from "@/stores/countdown-store"
-import { isManagedElsewhere, isTauri } from "@/components/broadcast/output-manager/utils"
+import {
+  isManagedElsewhere,
+  isTauri,
+} from "@/components/broadcast/output-manager/utils"
 import type { BroadcastOutput } from "@/types/broadcast"
 
 /**
@@ -146,7 +149,11 @@ export function useAwaitingDisplayResume(): void {
       if (cancelled) return
       const operator = operatorScreenIndex(live)
       for (const o of awaiting) {
-        const resolution = resolveOutputMonitor(o.monitorTarget, o.monitor, live)
+        const resolution = resolveOutputMonitor(
+          o.monitorTarget,
+          o.monitor,
+          live
+        )
         // Only act once the assigned display is genuinely back on a non-operator
         // screen; otherwise keep holding.
         if (resolution.kind !== "resolved" || resolution.index === operator) {

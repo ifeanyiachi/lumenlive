@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   MusicIcon,
@@ -27,6 +28,7 @@ import type { Song } from "@/types/song"
  * still open the full-screen editor via the header "Edit" button.
  */
 export function SongDetail() {
+  const { t } = useTranslation("song")
   const song = useSongStore((s) =>
     s.songs.find((x) => x.id === s.selectedSongId)
   )
@@ -36,10 +38,10 @@ export function SongDetail() {
       <div className="flex min-h-0 flex-col items-center justify-center rounded-lg border border-border bg-card">
         <MusicIcon className="size-10 text-muted-foreground/25" />
         <p className="mt-3 text-sm text-muted-foreground">
-          Select a song to view its lyrics and slides
+          {t("detail.selectSong")}
         </p>
         <p className="mt-1 text-xs text-muted-foreground/60">
-          Or create one with New, Import, or Online
+          {t("detail.createSong")}
         </p>
       </div>
     )
@@ -56,11 +58,11 @@ export function SongDetail() {
           <TabsList variant="line">
             <TabsTrigger value="lyrics">
               <FileTextIcon className="size-3.5" />
-              Lyrics
+              {t("detail.lyrics")}
             </TabsTrigger>
             <TabsTrigger value="slides">
               <Wand2Icon className="size-3.5" />
-              Slides
+              {t("detail.slides")}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -78,6 +80,7 @@ export function SongDetail() {
 
 /** Title, author, and the Edit / Duplicate / Delete actions. */
 function SongDetailHeader({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   return (
     <div className="flex items-start gap-3 border-b border-border px-4 py-3">
       <div className="min-w-0 flex-1">
@@ -86,7 +89,9 @@ function SongDetailHeader({ song }: { song: Song }) {
         </h2>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
           <UserIcon className="size-3.5 shrink-0" />
-          {song.authors.length ? song.authors.join(", ") : "Unknown author"}
+          {song.authors.length
+            ? song.authors.join(", ")
+            : t("editor.unknownAuthor")}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -97,13 +102,13 @@ function SongDetailHeader({ song }: { song: Song }) {
           onClick={() => useSongStore.getState().openEditor(song.id)}
         >
           <PencilIcon className="size-3.5" />
-          Edit
+          {t("detail.edit")}
         </Button>
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label="Duplicate song"
-          title="Duplicate"
+          aria-label={t("detail.duplicateSong")}
+          title={t("library.duplicate")}
           onClick={() => useSongStore.getState().duplicateSong(song.id)}
         >
           <CopyIcon className="size-3.5" />
@@ -111,12 +116,12 @@ function SongDetailHeader({ song }: { song: Song }) {
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label="Delete song"
-          title="Delete"
+          aria-label={t("detail.deleteSong")}
+          title={t("library.delete")}
           className="text-destructive hover:text-destructive"
           onClick={() => {
             useSongStore.getState().removeSong(song.id)
-            toast(`Removed "${song.title}"`)
+            toast(t("detail.removed", { title: song.title }))
           }}
         >
           <TrashIcon className="size-3.5" />
@@ -132,6 +137,7 @@ function SongDetailHeader({ song }: { song: Song }) {
  * discards it — so lyrics are never autosaved mid-edit.
  */
 function LyricsTab({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   const [editing, setEditing] = useState(false)
   const draft = useSongStore((s) => s.editingDraft)
   // The draft is ours only while it matches this song and the full-screen
@@ -161,7 +167,7 @@ function LyricsTab({ song }: { song: Song }) {
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 px-4 py-2">
         <div className="flex flex-wrap items-center gap-1.5 text-[0.625rem] text-muted-foreground">
-          {song.key && <MetaChip label="Key" value={song.key} />}
+          {song.key && <MetaChip label={t("editor.key")} value={song.key} />}
           {song.ccliNumber && <MetaChip label="CCLI" value={song.ccliNumber} />}
           {song.copyright && <MetaChip label="©" value={song.copyright} />}
         </div>
@@ -173,14 +179,14 @@ function LyricsTab({ song }: { song: Song }) {
               className="gap-1.5"
               onClick={() => stopEditing(false)}
             >
-              Cancel
+              {t("import.cancel")}
             </Button>
             <Button
               size="sm"
               className="gap-1.5"
               onClick={() => stopEditing(true)}
             >
-              Save
+              {t("detail.save")}
             </Button>
           </div>
         ) : (
@@ -194,7 +200,7 @@ function LyricsTab({ song }: { song: Song }) {
             }}
           >
             <PencilIcon className="size-3.5" />
-            Edit lyrics
+            {t("editor.editLyrics")}
           </Button>
         )}
       </div>
@@ -204,7 +210,7 @@ function LyricsTab({ song }: { song: Song }) {
           <SongSectionsEditor song={editingDraft} />
         ) : song.sections.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No lyrics yet — click "Edit lyrics" to add sections.
+            {t("editor.noLyrics")}
           </p>
         ) : (
           <div className="flex flex-col gap-4 px-4 pb-4">
@@ -216,7 +222,7 @@ function LyricsTab({ song }: { song: Song }) {
                 <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                   {section.lyrics || (
                     <span className="text-muted-foreground/60 italic">
-                      (empty)
+                      {t("detail.emptyLyrics")}
                     </span>
                   )}
                 </p>
@@ -231,6 +237,7 @@ function LyricsTab({ song }: { song: Song }) {
 
 /** Slides tab: projection config + generated preview + Add to Schedule. */
 function SlidesTab({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   return (
     <div className="flex min-h-0 flex-1">
       <ScrollArea className="min-h-0 w-[260px] shrink-0 border-r border-border">
@@ -241,7 +248,7 @@ function SlidesTab({ song }: { song: Song }) {
             onClick={() => addSongToSchedule({ songId: song.id })}
           >
             <ListPlusIcon className="size-3.5" />
-            Add to Schedule
+            {t("editor.addToSchedule")}
           </Button>
         </div>
         <SongProjectionOptions song={song} />

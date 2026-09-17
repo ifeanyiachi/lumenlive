@@ -38,8 +38,7 @@ function scriptureContentFor(
 ): Map<string, ScriptureRenderPayload> | undefined {
   if (!verse) return undefined
   const el = slide.elements.find((e) => e.type === "scripture") as
-    | SlideScriptureElement
-    | undefined
+    SlideScriptureElement | undefined
   if (!el) return undefined
   return new Map<string, ScriptureRenderPayload>([
     [

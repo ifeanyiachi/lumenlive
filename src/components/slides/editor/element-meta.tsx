@@ -11,7 +11,7 @@ import type { SlideElement } from "@/types/slide"
 
 /**
  * Icon for a slide element's type, shown in the layer list. JSX-returning, so
- * it lives in the component layer; the pure `elementLabel`/`TRANSITION_LABELS`
+ * it lives in the component layer; the pure `elementLabel`/`TRANSITION_LABEL_KEYS`
  * counterparts live in `@/lib/slides/element-meta`.
  */
 export function elementIcon(el: SlideElement) {

@@ -1,0 +1,37 @@
+{
+  "youtube": {
+    "errors": {
+      "invalidUrl": "Veuillez coller une URL YouTube",
+      "noVideoId": "Impossible d’extraire l’identifiant de la vidéo"
+    },
+    "toasts": {
+      "removedFromSaved": "Vidéo retirée des favoris",
+      "saved": "Vidéo enregistrée",
+      "sentLive": "YouTube envoyé vers la sortie en direct",
+      "addedToSchedule": "Ajouté au planning",
+      "alreadyScheduled": "Déjà dans le planning",
+      "removed": "Vidéo supprimée"
+    },
+    "videoLabel": "Vidéo : {{id}}",
+    "youtubeLabel": "YouTube : {{id}}",
+    "savedVideos": "Vidéos enregistrées",
+    "emptySaved": "Enregistrez des vidéos YouTube pour y accéder rapidement",
+    "remove": "Supprimer",
+    "urlPlaceholder": "Collez une URL YouTube...",
+    "load": "Charger",
+    "emptyPlayer": {
+      "title": "Collez une URL YouTube pour commencer",
+      "description": "Compatible avec les liens youtube.com/watch, youtu.be et Shorts"
+    },
+    "play": "Lire",
+    "pause": "Pause",
+    "mute": "Couper le son",
+    "unmute": "Activer le son",
+    "removeFromSaved": "Retirer des favoris",
+    "saveVideo": "Enregistrer la vidéo",
+    "selectScheduleFirst": "Sélectionnez d’abord un planning",
+    "addToSchedule": "Ajouter au planning",
+    "schedule": "Planning",
+    "goLive": "Passer en direct"
+  }
+}

@@ -52,7 +52,9 @@ describe("buildBaseBackdropSlide", () => {
   })
 
   it("returns null when no scripture theme resolves (no fallback available)", () => {
-    expect(buildBaseBackdropSlide("x", null, [], () => "preview-base")).toBeNull()
+    expect(
+      buildBaseBackdropSlide("x", null, [], () => "preview-base")
+    ).toBeNull()
   })
 
   it("injects id/now deterministically", () => {

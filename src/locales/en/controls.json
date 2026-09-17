@@ -1,0 +1,27 @@
+{
+  "views": {
+    "live": "Live",
+    "slides": "Slides",
+    "media": "Media",
+    "songs": "Songs",
+    "youtube": "YouTube",
+    "store": "Store"
+  },
+  "updateAvailable": "Update available",
+  "broadcastSettings": "Broadcast Settings",
+  "themeDesigner": "Theme Designer",
+  "stageLayoutDesigner": "Stage Layout Designer",
+  "themeDesignerFeature": "Theme Designer",
+  "stageDisplayFeature": "Stage display",
+  "keyboardShortcuts": "Keyboard shortcuts (?)",
+  "reload": {
+    "button": "Reload app",
+    "title": "Reload app?",
+    "description": "Reloads the app interface.",
+    "liveOutputRestored": "Your live output is restored automatically.",
+    "transcriptionStops": "Transcription will stop and must be restarted manually.",
+    "workPreserved": "Saved work (schedules, themes, slides) is preserved.",
+    "cancel": "Cancel",
+    "confirm": "Reload"
+  }
+}

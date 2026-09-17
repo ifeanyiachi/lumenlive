@@ -1,18 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ScripturePreview } from "@/components/ui/scripture-preview"
 import { BasePreview } from "@/components/ui/base-preview"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
-  DropdownMenuShortcut,
-} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { useBroadcastStore, useBibleStore, useQueueStore } from "@/stores"
@@ -38,8 +31,6 @@ import {
   ImageIcon,
   MonitorOffIcon,
   EyeOffIcon,
-  SlidersHorizontalIcon,
-  ChevronDownIcon,
   MonitorUpIcon,
 } from "lucide-react"
 
@@ -51,6 +42,7 @@ import { LiveMediaMonitor } from "@/components/panels/live-output/live-media-mon
 import { LiveWebMonitor } from "@/components/panels/live-output/live-web-monitor"
 
 export function LiveOutputPanel() {
+  const { t } = useTranslation("panels")
   const isLive = useBroadcastStore((s) => s.isLive)
   const activeThemeId = useBroadcastStore(
     (s) => findOutput(s.outputs, "main")?.themeId ?? ""
@@ -139,11 +131,7 @@ export function LiveOutputPanel() {
   useEffect(() => {
     if (!isLive) return
     const onKey = (e: KeyboardEvent) => {
-      if (
-        e.code !== "Enter" &&
-        e.code !== "NumpadEnter" &&
-        e.code !== "Space"
-      )
+      if (e.code !== "Enter" && e.code !== "NumpadEnter" && e.code !== "Space")
         return
       if (isEditableTarget(e.target)) return
       if (!useBroadcastStore.getState().previewPending) {
@@ -217,7 +205,7 @@ export function LiveOutputPanel() {
         isLive && "shadow-[inset_0_2px_0_0_rgba(16,185,129,0.3)]"
       )}
     >
-      <PanelHeader title="Live display">
+      <PanelHeader title={t("live.title")}>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -227,7 +215,7 @@ export function LiveOutputPanel() {
               if (requireFeature("props", "Lower-thirds & props"))
                 setPropsOpen(true)
             }}
-            title="Props / Overlays"
+            title={t("live.props")}
           >
             <LayersIcon className="size-3.5" />
           </Button>
@@ -243,7 +231,7 @@ export function LiveOutputPanel() {
               variant="ghost"
               size="icon-sm"
               onClick={() => void focusBroadcastWindow("main").catch(() => {})}
-              title="Show LumenLive on the projector (bring output to front)"
+              title={t("live.showProjector")}
             >
               <MonitorUpIcon className="size-3.5" />
             </Button>
@@ -257,8 +245,8 @@ export function LiveOutputPanel() {
               }
               title={
                 broadcastMuted
-                  ? "Unmute broadcast audio"
-                  : "Mute broadcast audio"
+                  ? t("live.unmuteAudio")
+                  : t("live.muteAudio")
               }
               className={cn(broadcastMuted && "text-red-400")}
             >
@@ -269,73 +257,6 @@ export function LiveOutputPanel() {
               )}
             </Button>
           )}
-          {/* Audience-screen controls (clear / black / logo) live in one menu to
-              keep the header uncluttered. Content only reaches the audience via an
-              explicit take (schedule play icon, Enter, or the preview Go Live). */}
-          {isLive && (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Audience screen — clear, black, logo"
-                    className={cn(
-                      "h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider uppercase",
-                      blackout
-                        ? "text-red-400"
-                        : clearForeground || showLogo
-                          ? "text-amber-400"
-                          : "text-muted-foreground"
-                    )}
-                  >
-                    <SlidersHorizontalIcon className="size-3.5" />
-                    Screen
-                    <ChevronDownIcon className="size-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Audience screen</DropdownMenuLabel>
-                  <DropdownMenuCheckboxItem
-                    checked={clearForeground}
-                    onCheckedChange={() =>
-                      useBroadcastStore.getState().toggleClearForeground()
-                    }
-                  >
-                    <EyeOffIcon className="size-3.5" />
-                    Clear (hide text)
-                    <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={blackout}
-                    onCheckedChange={() =>
-                      useBroadcastStore.getState().toggleBlackout()
-                    }
-                  >
-                    <MonitorOffIcon className="size-3.5" />
-                    Black (cut to black)
-                    <DropdownMenuShortcut>Ctrl+B</DropdownMenuShortcut>
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={showLogo}
-                    disabled={!logoImagePath}
-                    title={
-                      logoImagePath
-                        ? undefined
-                        : "Set a logo image in Broadcast settings first"
-                    }
-                    onCheckedChange={() =>
-                      useBroadcastStore.getState().toggleLogo()
-                    }
-                  >
-                    <ImageIcon className="size-3.5" />
-                    Logo (holding image)
-                    <DropdownMenuShortcut>Ctrl+L</DropdownMenuShortcut>
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
           <label className="flex items-center gap-2">
             <span
               className={cn(
@@ -343,7 +264,7 @@ export function LiveOutputPanel() {
                 isLive ? "text-emerald-400" : "text-muted-foreground"
               )}
             >
-              {isLive ? "Live" : "Go live"}
+              {isLive ? t("live.live") : t("live.goLive")}
             </span>
             <Switch
               checked={isLive}
@@ -383,15 +304,11 @@ export function LiveOutputPanel() {
             )}
           </div>
         )}
-        <div className="relative z-10 flex size-full items-center justify-center">
-          {clearForeground ? (
-            // Clear reveals the central base backdrop (no content) — consistent
-            // across verse / slide / song, mirroring the audience output (RF3c).
-            <BasePreview
-              themeId={activeThemeId}
-              baseBackground={baseBackground}
-            />
-          ) : showWeb ? (
+        {/* Do not create a stacking context here. The video picture stays below
+            the z-15 audience-overlay canvas, while LiveWebMonitor's z-20
+            play/pause button can sit above it and still receive pointer input. */}
+        <div className="relative flex size-full items-center justify-center">
+          {showWeb ? (
             <LiveWebMonitor
               key={`${liveWeb.videoId ?? liveWeb.url}:${liveWeb.nonce ?? 0}`}
               web={liveWeb}
@@ -425,6 +342,18 @@ export function LiveOutputPanel() {
             />
           )}
         </div>
+        {clearForeground && (
+          // Keep the live surface mounted under Clear. In particular, unmounting
+          // a YouTube monitor destroys its iframe player and restarts playback
+          // when text is revealed again. This mirrors Black's overlay behaviour.
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black">
+            <BasePreview
+              themeId={activeThemeId}
+              baseBackground={baseBackground}
+              className="size-full object-cover"
+            />
+          </div>
+        )}
         {/* Single overlay layer (props / alerts / countdowns) drawn through the
             audience canvas painters — a faithful mirror of the projector/NDI feed,
             not a second DOM implementation. Below the Logo/Black finishers (z-20)
@@ -454,7 +383,7 @@ export function LiveOutputPanel() {
               disabled={liveVersePageIndex === 0}
               onClick={() => useBroadcastStore.getState().prevVersePage()}
               className="rounded px-1.5 py-0.5 hover:bg-white/15 disabled:opacity-30"
-              title="Previous page (←)"
+              title={t("live.previousPage")}
             >
               ‹
             </button>
@@ -466,7 +395,7 @@ export function LiveOutputPanel() {
               disabled={liveVersePageIndex >= liveVersePages.length - 1}
               onClick={() => useBroadcastStore.getState().nextVersePage()}
               className="rounded px-1.5 py-0.5 hover:bg-white/15 disabled:opacity-30"
-              title="Next page (→)"
+              title={t("live.nextPage")}
             >
               ›
             </button>
@@ -475,7 +404,7 @@ export function LiveOutputPanel() {
         {mediaLayer?.active && (
           <div className="absolute right-4 bottom-4 z-20 flex items-center gap-1 rounded bg-blue-500/70 px-1.5 py-0.5">
             <ImageIcon className="size-2.5 text-white" />
-            <span className="text-[0.5rem] font-medium text-white">BG</span>
+            <span className="text-[0.5rem] font-medium text-white">{t("live.background")}</span>
           </div>
         )}
         {/* Audience-hidden indicator — priority Black > Logo > Clear. */}
@@ -495,10 +424,10 @@ export function LiveOutputPanel() {
             )}
             <span className="text-[0.5rem] font-semibold tracking-wide text-white uppercase">
               {blackout
-                ? "Black · hidden"
+                ? t("live.blackHidden")
                 : showLogo
-                  ? "Logo"
-                  : "Clear · text hidden"}
+                  ? t("live.logo")
+                  : t("live.clearHidden")}
             </span>
           </div>
         )}

@@ -7,7 +7,7 @@ describe("appUrl", () => {
     // No VITE_LUMENLIVE_APP_URL set in the test env → falls back to the default.
     expect(appUrl("/signup")).toBe("https://app.lumenlive.xyz/signup")
     expect(appUrl("/account/transcription")).toBe(
-      "https://app.lumenlive.xyz/account/transcription",
+      "https://app.lumenlive.xyz/account/transcription"
     )
   })
 

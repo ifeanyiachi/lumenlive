@@ -175,7 +175,16 @@ export interface BroadcastState {
   setLiveMedia: (media: LiveMedia | null, source?: BroadcastSource) => void
   /** Patch the fit/pan/background of the currently-live media without restarting playback. */
   updateLiveMediaFit: (fit: MediaFitUpdate) => void
+  /** Patch the current clip's trim/loop/end action without restarting playback. */
+  updateLiveMediaPlayback: (
+    playback: Pick<LiveMedia, "trimStart" | "trimEnd" | "loop" | "endAction">
+  ) => void
   setLiveWeb: (web: LiveWeb | null, source?: BroadcastSource) => void
+  /**
+   * Update the staged YouTube cue without touching the audience output. This
+   * lets Program preview prepare a seek/edit that `takeToLive` can commit.
+   */
+  updatePreviewWeb: (update: Partial<LiveWeb>) => void
   clearLiveWeb: () => void
   syncWebOutput: () => void
   /**

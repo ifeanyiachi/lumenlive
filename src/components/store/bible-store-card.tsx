@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { useTranslation } from "react-i18next"
 import {
   CheckCircle2,
   Download,
@@ -20,14 +21,17 @@ import { cn } from "@/lib/utils"
 
 /**
  * A rich Bible-version store card: colored abbreviation badge, title + featured
- * star, a "language · verses · size" metadata row, a one-line description, and
- * a status-driven action (Download / Installed / Update / Installing).
+ * star, a "language · verses · size" metadata row, a one-line description, an
+ * optional license-attribution line (shown when the manifest carries one, e.g.
+ * for CC-licensed editions), and a status-driven action (Download / Installed /
+ * Update / Installing).
  *
  * `memo`ed with plain-data props only; the install/remove handlers are read from
  * the store via `getState()` so they stay stable and the memo holds (perf rule
  * 3). Only Bible resources render here — the store serves no other kind yet.
  */
 function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
+  const { t } = useTranslation("store")
   const { resource } = entry
   const id = resource.id
   const op = useResourceStore((s) => s.itemState[id])
@@ -57,7 +61,7 @@ function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
             </h3>
             {imported ? (
               <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
-                Imported
+                {t("bibleCard.imported")}
               </span>
             ) : (
               meta.featured && (
@@ -70,7 +74,7 @@ function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
             {[
               languageLabel(resource.language),
               !imported && meta.verses
-                ? `${meta.verses.toLocaleString()} verses`
+                ? t("bibleCard.verseCount", { count: meta.verses })
                 : null,
               resource.bytes ? formatBytes(resource.bytes) : null,
             ]
@@ -81,6 +85,12 @@ function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
           {!imported && meta.description && (
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground/90">
               {meta.description}
+            </p>
+          )}
+
+          {resource.license.attribution && (
+            <p className="mt-1 text-[0.625rem] leading-snug text-muted-foreground/70">
+              {resource.license.attribution}
             </p>
           )}
         </div>
@@ -106,20 +116,21 @@ function CardAction({
   entry: CatalogEntry
   op: "installing" | "removing" | undefined
 }) {
+  const { t } = useTranslation("store")
   const { status } = entry
   const busy = op !== undefined
 
   if (op === "installing") {
     return (
       <Button size="sm" variant="secondary" disabled>
-        <Loader2 className="animate-spin" /> Installing
+        <Loader2 className="animate-spin" /> {t("common.installing")}
       </Button>
     )
   }
   if (op === "removing") {
     return (
       <Button size="sm" variant="secondary" disabled>
-        <Loader2 className="animate-spin" /> Removing
+        <Loader2 className="animate-spin" /> {t("common.removing")}
       </Button>
     )
   }
@@ -133,7 +144,7 @@ function CardAction({
           disabled={busy}
           onClick={() => useResourceStore.getState().install(entry)}
         >
-          <Download /> Download
+          <Download /> {t("common.download")}
         </Button>
       )
     case "update-available":
@@ -144,7 +155,7 @@ function CardAction({
           disabled={busy}
           onClick={() => useResourceStore.getState().install(entry)}
         >
-          <RefreshCw /> Update
+          <RefreshCw /> {t("common.update")}
         </Button>
       )
     case "installed": {
@@ -154,13 +165,15 @@ function CardAction({
       return (
         <div className="flex items-center gap-1.5">
           <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-            <CheckCircle2 className="size-4" /> Installed
+            <CheckCircle2 className="size-4" /> {t("common.installed")}
           </span>
           {!bundled && (
             <Button
               size="icon-sm"
               variant="ghost"
-              aria-label={`Remove ${entry.resource.title}`}
+              aria-label={t("bibleCard.remove", {
+                title: entry.resource.title,
+              })}
               disabled={busy}
               onClick={() => useResourceStore.getState().remove(entry)}
             >

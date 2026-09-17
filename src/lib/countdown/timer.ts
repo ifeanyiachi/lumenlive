@@ -1,4 +1,5 @@
 import type { ActiveCountdown, CountdownFormat } from "@/types/alert"
+import { formatNumber } from "@/lib/i18n/format"
 
 /** Urgency colors applied when a timer crosses its warn/danger thresholds. */
 export const WARN_COLOR = "#f59e0b"
@@ -48,25 +49,28 @@ export function computeRemainingSeconds(
 export function formatCountdownTime(
   remainingSec: number,
   format: CountdownFormat,
-  allowNegative = false
+  allowNegative = false,
+  locale?: string
 ): string {
   const negative = remainingSec < 0
   const sign = negative && allowNegative ? "-" : ""
   const magnitude = negative && !allowNegative ? 0 : Math.abs(remainingSec)
   const secs = Math.max(0, Math.ceil(magnitude))
+  const integer = (value: number, minimumIntegerDigits = 1) =>
+    formatNumber(value, { useGrouping: false, minimumIntegerDigits }, locale)
 
   if (format === "minutes") {
-    return `${sign}${Math.ceil(secs / 60)}`
+    return `${sign}${integer(Math.ceil(secs / 60))}`
   }
   if (format === "hh:mm:ss") {
     const h = Math.floor(secs / 3600)
     const m = Math.floor((secs % 3600) / 60)
     const s = secs % 60
-    return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    return `${sign}${integer(h, 2)}:${integer(m, 2)}:${integer(s, 2)}`
   }
   const m = Math.floor(secs / 60)
   const s = secs % 60
-  return `${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  return `${sign}${integer(m, 2)}:${integer(s, 2)}`
 }
 
 /**
@@ -75,10 +79,17 @@ export function formatCountdownTime(
  * `formatCountdownTime`'s zero-padded running display. A compact label for the
  * static duration a timer is set to, not a live remaining time.
  */
-export function formatTimerDuration(durationSeconds: number): string {
+export function formatTimerDuration(
+  durationSeconds: number,
+  locale?: string
+): string {
   const m = Math.floor(durationSeconds / 60)
   const s = durationSeconds % 60
-  return `${m}:${String(s).padStart(2, "0")}`
+  return `${formatNumber(m, { useGrouping: false }, locale)}:${formatNumber(
+    s,
+    { useGrouping: false, minimumIntegerDigits: 2 },
+    locale
+  )}`
 }
 
 /**

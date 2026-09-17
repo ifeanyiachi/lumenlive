@@ -77,13 +77,19 @@ export interface RewriteContext {
  * imported location. References that don't resolve (a `data:`/remote URL, or a
  * file that wasn't in the bundle) are left exactly as-is.
  */
-export function rewriteSurface<T extends MediaSurface>(surface: T, ctx: RewriteContext): T {
+export function rewriteSurface<T extends MediaSurface>(
+  surface: T,
+  ctx: RewriteContext
+): T {
   const background = rewriteBackground(surface.background, ctx)
   const elements = (surface.elements ?? []).map((el) => rewriteElement(el, ctx))
   return { ...surface, background, elements }
 }
 
-function rewriteBackground(bg: SlideBackground, ctx: RewriteContext): SlideBackground {
+function rewriteBackground(
+  bg: SlideBackground,
+  ctx: RewriteContext
+): SlideBackground {
   if (!bg) return bg
   const next: SlideBackground = { ...bg }
   if (bg.mediaAssetId) {

@@ -34,16 +34,17 @@ import type { ServiceSchedule, MediaScheduleItem } from "@/types/schedule"
 import type { MediaAsset } from "@/types/media"
 import type { AlertTemplate, CountdownTimer } from "@/types/alert"
 import type { WebBookmark } from "@/types/web"
-import type { BundleMediaEntry, BundleMediaFile, ExtractedMedia } from "@/types/bundle"
+import type {
+  BundleMediaEntry,
+  BundleMediaFile,
+  ExtractedMedia,
+} from "@/types/bundle"
 import {
   collectSurfaceRefs,
   rewriteSurface,
   type RewriteContext,
 } from "@/lib/schedule-bundle"
-import {
-  collectStageLayoutRefs,
-  rewriteStageLayout,
-} from "@/lib/theme-bundle"
+import { collectStageLayoutRefs, rewriteStageLayout } from "@/lib/theme-bundle"
 import { BundleMediaCollector } from "@/lib/bundle-media/collector"
 
 /** Marker distinguishing a backup manifest from the other bundle formats. */
@@ -112,7 +113,8 @@ export function buildBackup(
 
   // Baked local paths on every media-carrying surface.
   for (const theme of content.themes) {
-    for (const path of collectSurfaceRefs(theme).localPaths) collector.addPath(path)
+    for (const path of collectSurfaceRefs(theme).localPaths)
+      collector.addPath(path)
   }
   for (const layout of content.stageLayouts) {
     for (const path of collectStageLayoutRefs(layout).localPaths) {
@@ -129,7 +131,11 @@ export function buildBackup(
   // Schedule media items that cache an absolute file path directly.
   for (const schedule of content.schedules) {
     for (const item of schedule.items) {
-      if (item.type === "media" && item.cachedFilePath && isAbsolute(item.cachedFilePath)) {
+      if (
+        item.type === "media" &&
+        item.cachedFilePath &&
+        isAbsolute(item.cachedFilePath)
+      ) {
         collector.addPath(item.cachedFilePath)
       }
     }
@@ -277,5 +283,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isAbsolute(path: string): boolean {
-  return /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("/") || path.startsWith("\\\\")
+  return (
+    /^[a-zA-Z]:[\\/]/.test(path) ||
+    path.startsWith("/") ||
+    path.startsWith("\\\\")
+  )
 }

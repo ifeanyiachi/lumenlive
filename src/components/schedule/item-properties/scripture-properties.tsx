@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { invoke } from "@tauri-apps/api/core"
 import { BookOpenIcon } from "lucide-react"
 import { FieldGroup } from "@/components/ui/field-group"
@@ -15,6 +16,7 @@ export function ScriptureProperties({
   item: ScriptureScheduleItem
   scheduleId: string
 }) {
+  const { t } = useTranslation("schedule")
   const translations = useBibleStore((s) => s.translations)
   const books = useBibleStore((s) => s.books)
   const [verses, setVerses] = useState<Verse[]>([])
@@ -72,10 +74,10 @@ export function ScriptureProperties({
     <>
       <div className="flex items-center gap-2 rounded-md bg-blue-500/10 p-2">
         <BookOpenIcon className="size-3.5 text-blue-400" />
-        <span className="text-xs font-medium text-blue-400">Scripture</span>
+        <span className="text-xs font-medium text-blue-400">{t("properties.scripture")}</span>
       </div>
 
-      <FieldGroup label="Translation">
+      <FieldGroup label={t("properties.translation")}>
         <select
           className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
           value={item.translationId}
@@ -98,7 +100,7 @@ export function ScriptureProperties({
         </select>
       </FieldGroup>
 
-      <FieldGroup label="Book">
+      <FieldGroup label={t("properties.book")}>
         <select
           className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
           value={item.bookNumber}
@@ -116,7 +118,7 @@ export function ScriptureProperties({
       </FieldGroup>
 
       <div className="grid grid-cols-3 gap-2">
-        <FieldGroup label="Chapter">
+        <FieldGroup label={t("properties.chapter")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -128,7 +130,7 @@ export function ScriptureProperties({
             }}
           />
         </FieldGroup>
-        <FieldGroup label="Start">
+        <FieldGroup label={t("properties.start")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -146,7 +148,7 @@ export function ScriptureProperties({
             }}
           />
         </FieldGroup>
-        <FieldGroup label="End">
+        <FieldGroup label={t("properties.end")}>
           <Input
             type="number"
             className="h-7 text-xs"

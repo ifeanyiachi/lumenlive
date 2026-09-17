@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Underline from "@tiptap/extension-underline"
@@ -51,6 +52,7 @@ export function VerseEditModal({
   translationAbbreviation,
   translationId,
 }: VerseEditModalProps) {
+  const { t } = useTranslation("verse-edit")
   const reference = `${verse.book_name} ${verse.chapter}:${verse.verse} (${translationAbbreviation})`
 
   const goLiveEnabled = useSettingsStore((s) => s.verseEditGoLive)
@@ -151,10 +153,10 @@ export function VerseEditModal({
         edited ? segment : undefined
       )
       const ok = scheduleStore.addItem(activeScheduleId, item)
-      if (ok) toast.success("Added to schedule")
-      else toast.info("Already in the schedule")
+      if (ok) toast.success(t("addedToSchedule"))
+      else toast.info(t("alreadyInSchedule"))
     } else {
-      toast.info("No active schedule — select or create one first")
+      toast.info(t("noActiveSchedule"))
     }
 
     if (goLiveEnabled) {
@@ -172,6 +174,7 @@ export function VerseEditModal({
     translationAbbreviation,
     goLiveEnabled,
     onOpenChange,
+    t,
   ])
 
   // Ctrl+Enter → quick schedule
@@ -191,7 +194,7 @@ export function VerseEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit Verse — {reference}</DialogTitle>
+          <DialogTitle>{t("editVerse", { reference })}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -200,7 +203,7 @@ export function VerseEditModal({
 
           {previewData && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">Preview</span>
+              <span className="text-xs text-muted-foreground">{t("preview")}</span>
               <ScripturePreview
                 themeId={activeThemeId}
                 verse={previewData}
@@ -212,7 +215,7 @@ export function VerseEditModal({
 
         <DialogFooter className="flex-row items-center justify-between sm:justify-between">
           <Button variant="ghost" size="sm" onClick={handleReset}>
-            Reset to Original
+            {t("resetToOriginal")}
           </Button>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -220,7 +223,7 @@ export function VerseEditModal({
                 htmlFor="go-live-toggle"
                 className="text-xs text-muted-foreground"
               >
-                Go Live
+                {t("goLive")}
               </label>
               <Switch
                 id="go-live-toggle"
@@ -228,8 +231,8 @@ export function VerseEditModal({
                 onCheckedChange={setGoLiveEnabled}
               />
             </div>
-            <Button onClick={handleSchedule} title="Schedule (Ctrl+Enter)">
-              Schedule
+            <Button onClick={handleSchedule} title={t("scheduleShortcut")}>
+              {t("schedule")}
             </Button>
           </div>
         </DialogFooter>

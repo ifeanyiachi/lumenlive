@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { RotateCwIcon, TriangleAlertIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +25,7 @@ import { useBroadcastStore, useTranscriptStore } from "@/stores"
  * so the confirmation warns explicitly while transcribing.
  */
 export function ReloadButton() {
+  const { t } = useTranslation("controls")
   const [open, setOpen] = useState(false)
   // Narrow selects: this button re-renders only when on-air / transcribing flips.
   const isLive = useBroadcastStore((s) => s.isLive)
@@ -35,8 +37,8 @@ export function ReloadButton() {
         variant="ghost"
         size="icon"
         className="size-7 text-muted-foreground hover:text-foreground"
-        title="Reload app"
-        aria-label="Reload app"
+        title={t("reload.button")}
+        aria-label={t("reload.button")}
         onClick={() => setOpen(true)}
       >
         <RotateCwIcon className="size-3.5" />
@@ -47,20 +49,20 @@ export function ReloadButton() {
             {isTranscribing && (
               <TriangleAlertIcon className="size-4 text-amber-500" />
             )}
-            Reload app?
+            {t("reload.title")}
           </DialogTitle>
           <DialogDescription>
-            Reloads the app interface.{" "}
-            {isLive && "Your live output is restored automatically. "}
+            {t("reload.description")} {" "}
+            {isLive && `${t("reload.liveOutputRestored")} `}
             {isTranscribing &&
-              "Transcription will stop and must be restarted manually. "}
-            Saved work (schedules, themes, slides) is preserved.
+              `${t("reload.transcriptionStops")} `}
+            {t("reload.workPreserved")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm">
-              Cancel
+              {t("reload.cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -68,7 +70,7 @@ export function ReloadButton() {
             size="sm"
             onClick={() => window.location.reload()}
           >
-            Reload
+            {t("reload.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -13,6 +13,7 @@ import { useMediaStore } from "@/stores/media-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { saveBundle, readBundle } from "@/services/bundle-gateway"
+import { i18n } from "@/lib/i18n/config"
 import {
   buildThemeBundle,
   parseThemeBundle,
@@ -22,9 +23,14 @@ import {
 } from "./bundle"
 
 /** Save dialog: always write the branded extension. */
-const SAVE_FILTERS = [
-  { name: "LumenLive theme", extensions: [THEME_BUNDLE_EXTENSION] },
-]
+function saveFilters() {
+  return [
+    {
+      name: i18n.t("broadcast:dialog.themeFile"),
+      extensions: [THEME_BUNDLE_EXTENSION],
+    },
+  ]
+}
 
 /**
  * Open dialog: accept the file whatever extension a transfer left it with. A
@@ -32,13 +38,15 @@ const SAVE_FILTERS = [
  * (or strip the extension). The Rust reader detects the real format from the
  * file's *content*, so the picker must not hide those renamed files.
  */
-const OPEN_FILTERS = [
-  {
-    name: "LumenLive theme",
-    extensions: [THEME_BUNDLE_EXTENSION, "zip", "json"],
-  },
-  { name: "All files", extensions: ["*"] },
-]
+function openFilters() {
+  return [
+    {
+      name: i18n.t("broadcast:dialog.themeFile"),
+      extensions: [THEME_BUNDLE_EXTENSION, "zip", "json"],
+    },
+    { name: i18n.t("broadcast:dialog.allFiles"), extensions: ["*"] },
+  ]
+}
 
 /** Outcome of an export attempt. */
 export interface ExportResult {
@@ -50,7 +58,10 @@ export interface ExportResult {
 
 /** Keep a proposed filename tidy; the picker still lets the user rename it. */
 function bundleFileName(name: string): string {
-  const base = name.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")
+  const base = name
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
   return `${base || "theme"}.${THEME_BUNDLE_EXTENSION}`
 }
 
@@ -65,7 +76,7 @@ async function exportItem(item: ThemeBundleItem): Promise<ExportResult> {
     bundleFileName(name),
     JSON.stringify(manifest),
     mediaFiles,
-    SAVE_FILTERS
+    saveFilters()
   )
   return { saved: path != null, missingMedia }
 }
@@ -96,7 +107,10 @@ export interface ImportResult {
  * Throws {@link ThemeBundleParseError} on an unreadable file.
  */
 export async function importThemeBundle(): Promise<ImportResult | null> {
-  const file = await readBundle("Import theme", OPEN_FILTERS)
+  const file = await readBundle(
+    i18n.t("broadcast:dialog.importTheme"),
+    openFilters()
+  )
   if (!file) return null
 
   let rawManifest: unknown

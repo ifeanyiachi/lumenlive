@@ -1,3 +1,5 @@
+import { formatDuration } from "@/lib/i18n/format"
+
 /**
  * Pure transport-display helpers for the operator monitors: clock formatting,
  * reconciling the local element state with the position echoed back from the
@@ -5,11 +7,9 @@
  */
 
 /** Format seconds as `m:ss`, treating non-finite/negative input as 0. */
-export function formatClock(seconds: number): string {
+export function formatClock(seconds: number, locale?: string): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${String(s).padStart(2, "0")}`
+  return formatDuration(seconds * 1000, locale)
 }
 
 export interface MediaTransport {

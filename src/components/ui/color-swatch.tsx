@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import {
@@ -42,6 +43,7 @@ export function ColorSwatch({
   title?: string
   align?: "start" | "center" | "end"
 }) {
+  const { t } = useTranslation("ui")
   const swatchColor = normalizeHex(value) ?? "#000000"
 
   return (
@@ -50,7 +52,7 @@ export function ColorSwatch({
         type="button"
         disabled={disabled}
         title={title}
-        aria-label={title ?? "Choose color"}
+        aria-label={title ?? t("accessibility.chooseColor")}
         style={{ backgroundColor: swatchColor }}
         className={cn(
           "cursor-pointer rounded border border-border disabled:cursor-not-allowed disabled:opacity-50",
@@ -75,6 +77,7 @@ function ColorPickerBody({
   value: string
   onChange: (value: string) => void
 }) {
+  const { t } = useTranslation("ui")
   // HSV is the internal source of truth while interacting so dragging through
   // pure black/white or fully-desaturated colors doesn't lose hue/saturation.
   // Seeded from `value` on mount — the popover content is remounted each time
@@ -116,7 +119,7 @@ function ColorPickerBody({
       {/* Hex first — the leading, default field */}
       <label className="flex items-center gap-2">
         <span className="w-8 shrink-0 text-[0.6875rem] text-muted-foreground">
-          Hex
+          {t("color.hex")}
         </span>
         <input
           value={hexText}

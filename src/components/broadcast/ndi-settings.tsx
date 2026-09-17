@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { requireFeature } from "@/components/entitlements/require-feature"
 import { CastIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { NdiAlphaMode, NdiFrameRate, NdiResolution } from "@/types"
 import type { OutputController } from "@/hooks/use-output-controller"
 
@@ -45,6 +46,7 @@ export function NdiSettings({
   controller: OutputController
   sourceNamePlaceholder?: string
 }) {
+  const { t } = useTranslation("broadcast-output")
   const {
     ndiResolution,
     setNdiResolution,
@@ -62,7 +64,7 @@ export function NdiSettings({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Resolution</label>
+          <label className="text-xs text-muted-foreground">{t("resolution")}</label>
           <Select
             value={ndiResolution}
             onValueChange={(v) => setNdiResolution(v as NdiResolution)}
@@ -81,7 +83,7 @@ export function NdiSettings({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Frame Rate</label>
+          <label className="text-xs text-muted-foreground">{t("frameRate")}</label>
           <Select
             value={ndiFrameRate}
             onValueChange={(v) => setNdiFrameRate(v as NdiFrameRate)}
@@ -101,7 +103,7 @@ export function NdiSettings({
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Alpha Channel</label>
+        <label className="text-xs text-muted-foreground">{t("alphaChannel")}</label>
         <Select
           value={ndiAlphaMode}
           onValueChange={(v) => setNdiAlphaMode(v as NdiAlphaMode)}
@@ -120,7 +122,7 @@ export function NdiSettings({
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Source Name</label>
+        <label className="text-xs text-muted-foreground">{t("sourceName")}</label>
         <Input
           value={ndiSourceName}
           onChange={(e) => setNdiSourceName(e.target.value)}
@@ -138,11 +140,12 @@ export function NdiSettings({
         )}
         onClick={() => {
           // Allow stopping regardless; gate only the start (ndi_output is Pro).
-          if (ndiActive || requireFeature("ndi_output", "NDI output")) toggleNdi()
+          if (ndiActive || requireFeature("ndi_output", "NDI output"))
+            toggleNdi()
         }}
       >
         <CastIcon className="size-3.5" />
-        {ndiActive ? "Stop NDI" : "Start NDI"}
+        {ndiActive ? t("stopNdi") : t("startNdi")}
       </Button>
     </div>
   )

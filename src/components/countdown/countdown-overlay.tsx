@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { XIcon, PauseIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCountdownStore } from "@/stores/countdown-store"
@@ -13,6 +14,7 @@ import {
 } from "@/lib/countdown/timer"
 
 function CountdownDisplay({ countdownId }: { countdownId: string }) {
+  const { t } = useTranslation("countdown")
   // `now` is advanced by the interval below rather than read from Date.now()
   // during render, keeping render pure (a fresh Date.now() each render is
   // non-idempotent). The lazy initializer runs once, off the render path.
@@ -57,7 +59,7 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
   return (
     <div
       role="timer"
-      aria-label={`${timer.label}: ${timeText}${paused ? ", paused" : ""}`}
+      aria-label={t("overlay.aria", { label: timer.label, time: timeText, paused: paused ? `, ${t("overlay.paused")}` : "" })}
       className="pointer-events-auto flex items-center gap-2 rounded-lg px-3 py-1.5"
       style={{
         backgroundColor: bgColor,
@@ -78,7 +80,7 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Dismiss countdown"
+        aria-label={t("overlay.dismiss")}
         className="size-5 shrink-0 text-current hover:bg-white/20"
         onClick={() =>
           useCountdownStore.getState().dismissCountdown(countdown.id)

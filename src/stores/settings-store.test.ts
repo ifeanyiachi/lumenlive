@@ -9,6 +9,20 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   load: (...args: unknown[]) => mockLoad(...args),
 }))
 
+// Isolate the store from real i18next: `hydrateSettings` awaits
+// `changeLanguage`, which initializes i18next and dynamically imports locale
+// catalogs. Under fake timers that async work never settles (the test awaits
+// hydration before advancing timers), so stub the language switch to resolve
+// immediately while keeping the pure `resolveSupportedLocale` real — the
+// "OS language" test relies on its actual mapping.
+vi.mock("@/lib/i18n/config", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/i18n/config")>(
+      "@/lib/i18n/config"
+    )
+  return { ...actual, changeLanguage: vi.fn().mockResolvedValue(undefined) }
+})
+
 async function flushSave(): Promise<void> {
   // Advance past the debounce window, then let the chained
   // pendingSave promise resolve.
@@ -29,6 +43,7 @@ describe("settings store", () => {
       set: mockSet,
       save: mockSave,
     })
+    vi.unstubAllGlobals()
     vi.resetModules()
   })
 
@@ -65,12 +80,27 @@ describe("settings store", () => {
     expect(after.directAutoDisplay).toBe(before.directAutoDisplay)
   })
 
+  it("seeds and persists a supported OS language on first run", async () => {
+    vi.stubGlobal("navigator", { language: "fr-FR" })
+    mockGet.mockResolvedValue(null)
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    expect(useSettingsStore.getState().uiLanguage).toBe("fr")
+    expect(mockSet).toHaveBeenCalledWith("uiLanguage", "fr")
+    expect(mockSave).toHaveBeenCalledTimes(1)
+  })
+
   it("lexicon is installed-but-disabled by default and persists when toggled", async () => {
     mockGet.mockResolvedValue(null)
 
     const { hydrateSettings, useSettingsStore } =
       await import("./settings-store")
     await hydrateSettings()
+    mockSet.mockClear()
+    mockSave.mockClear()
 
     // Bundled with KJV but off until the user opts in.
     expect(useSettingsStore.getState().lexiconEnabled).toBe(false)
@@ -88,6 +118,8 @@ describe("settings store", () => {
     const { hydrateSettings, useSettingsStore } =
       await import("./settings-store")
     await hydrateSettings()
+    mockSet.mockClear()
+    mockSave.mockClear()
 
     useSettingsStore.getState().setGain(1.75)
 
@@ -107,6 +139,8 @@ describe("settings store", () => {
     const { hydrateSettings, useSettingsStore } =
       await import("./settings-store")
     await hydrateSettings()
+    mockSet.mockClear()
+    mockSave.mockClear()
 
     const { setGain } = useSettingsStore.getState()
     setGain(1.1)
@@ -127,6 +161,8 @@ describe("settings store", () => {
     // Kick off two concurrent hydrations — a second caller must not
     // attach a duplicate subscription that would double every write.
     await Promise.all([hydrateSettings(), hydrateSettings()])
+    mockSet.mockClear()
+    mockSave.mockClear()
 
     useSettingsStore.getState().setGain(1.5)
     await flushSave()
@@ -152,12 +188,15 @@ describe("settings store", () => {
 
   it("persist handles save rejection gracefully", async () => {
     mockGet.mockResolvedValue(null)
-    mockSave.mockRejectedValue(new Error("disk error"))
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     const { hydrateSettings, useSettingsStore } =
       await import("./settings-store")
     await hydrateSettings()
+
+    mockSet.mockClear()
+    mockSave.mockReset()
+    mockSave.mockRejectedValue(new Error("disk error"))
 
     useSettingsStore.getState().setDirectAutoDisplay(false)
     await flushSave()

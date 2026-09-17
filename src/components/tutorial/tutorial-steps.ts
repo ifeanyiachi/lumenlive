@@ -1,126 +1,115 @@
 import type { Step } from "react-joyride"
+import type { TFunction } from "i18next"
 
 const STEP_DEFAULTS = {
   skipBeacon: true,
 } as const satisfies Partial<Step>
 
-export const TUTORIAL_STEPS: Step[] = [
+export function tutorialSteps(t: TFunction<"tutorial">): Step[] {
+  return [
   {
     ...STEP_DEFAULTS,
     target: '[data-slot="schedule-panel"]',
-    title: "Schedule",
-    content:
-      "Build your service run sheet here. Add verses, media, slides, and YouTube items, then reorder to match your flow.",
+    title: t("steps.schedule.title"),
+    content: t("steps.schedule.content"),
     placement: "right",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-slot="transcript-panel"]',
-    title: "Live Transcript",
-    content:
-      "Start transcribing to convert speech to text in real time. Detected Bible verses are highlighted automatically.",
+    title: t("steps.transcript.title"),
+    content: t("steps.transcript.content"),
     placement: "bottom",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-slot="detections-panel"]',
-    title: "AI Detections",
-    content:
-      "Detected verses appear here. Press Present to display a verse on screen, or Queue to save it for later.",
+    title: t("steps.detections.title"),
+    content: t("steps.detections.content"),
     placement: "left",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="ai-verses"]',
-    title: "AI Verses",
-    content:
-      "Detected verses with high confidence automatically land here. Review, reorder, and present them during your service.",
+    title: t("steps.aiVerses.title"),
+    content: t("steps.aiVerses.content"),
     placement: "right",
     spotlightPadding: 2,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="quick-tabs"]',
-    title: "Quick Tabs",
-    content:
-      "Quickly switch between Verse, Media, and Slide items for easy drag-and-drop into your schedule list.",
+    title: t("steps.quickTabs.title"),
+    content: t("steps.quickTabs.content"),
     placement: "bottom",
     spotlightPadding: 2,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="book-search"]',
-    title: "Book Search",
-    content:
-      "Look up any verse by book, chapter, and number. Switch translations from the dropdown.",
+    title: t("steps.bookSearch.title"),
+    content: t("steps.bookSearch.content"),
     placement: "bottom",
     spotlightPadding: 2,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="context-search"]',
-    title: "Context Search",
-    content:
-      "Search by phrase or topic. LumenLive uses AI to find matching verses.",
+    title: t("steps.contextSearch.title"),
+    content: t("steps.contextSearch.content"),
     placement: "bottom",
     spotlightPadding: 2,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="quick-nav"]',
-    title: "Quick Navigation",
-    content:
-      "Type to instantly navigate: 'J' → 'Joshua' or '1 J' → '1 John', press Tab to advance stages, then type chapter and verse.",
+    title: t("steps.quickNav.title"),
+    content: t("steps.quickNav.content"),
     placement: "bottom",
     spotlightPadding: 2,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-slot="preview-panel"]',
-    title: "Programme Preview",
-    content:
-      "Preview how your schedule items will look before going live. What you see here is what your audience sees.",
+    title: t("steps.preview.title"),
+    content: t("steps.preview.content"),
     placement: "bottom",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-slot="live-output-panel"]',
-    title: "Live Display",
-    content:
-      "The live output. Presented verses appear here and on connected displays or NDI outputs.",
+    title: t("steps.liveDisplay.title"),
+    content: t("steps.liveDisplay.content"),
     placement: "bottom",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="view-switcher"]',
-    title: "Views",
-    content:
-      "Switch between Slides, Media, and YouTube tabs to manage other content types alongside your live service.",
+    title: t("steps.views.title"),
+    content: t("steps.views.content"),
     placement: "bottom",
     spotlightPadding: 4,
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="broadcast"]',
-    title: "Broadcast",
-    content:
-      "Configure NDI output, display windows, and resolution for your production setup.",
+    title: t("steps.broadcast.title"),
+    content: t("steps.broadcast.content"),
     placement: "bottom",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="theme"]',
-    title: "Theme Designer",
-    content:
-      "Design how your broadcast looks — fonts, colours, backgrounds, and layouts for verses on screen.",
+    title: t("steps.theme.title"),
+    content: t("steps.theme.content"),
     placement: "bottom",
   },
   {
     ...STEP_DEFAULTS,
     target: '[data-tour="settings"]',
-    title: "Settings",
-    content:
-      "Configure audio input, Bible translations, display mode, remote control, and API keys.",
+    title: t("steps.settings.title"),
+    content: t("steps.settings.content"),
     placement: "bottom",
   },
-]
+  ]
+}

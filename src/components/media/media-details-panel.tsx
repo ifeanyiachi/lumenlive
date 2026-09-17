@@ -2,6 +2,7 @@ import { useState, useMemo } from "react"
 import {
   ImageIcon,
   FilmIcon,
+  PlayIcon,
   MusicIcon,
   TrashIcon,
   TagIcon,
@@ -19,33 +20,21 @@ import { Separator } from "@/components/ui/separator"
 import { AddToCollectionDialog } from "@/components/media/add-to-collection-dialog"
 import { useMediaStore } from "@/stores/media-store"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDimensions(w?: number, h?: number): string {
-  if (w && h) return `${w} x ${h}`
-  return "Unknown"
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, "0")}`
-}
+import { formatBytes, formatDuration } from "@/lib/i18n/format"
+import { useTranslation } from "react-i18next"
 
 export function MediaDetailsPanel() {
+  const { t } = useTranslation("media")
   const assets = useMediaStore((s) => s.assets)
   const collections = useMediaStore((s) => s.collections)
   const selectedAssetId = useMediaStore((s) => s.selectedAssetId)
   const [tagInput, setTagInput] = useState("")
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
+  const [failedVideoId, setFailedVideoId] = useState<string | null>(null)
 
   const asset = assets.find((a) => a.id === selectedAssetId) ?? null
+
+  const videoPreviewFailed = failedVideoId === asset?.id
 
   const assetCollections = useMemo(
     () =>
@@ -66,15 +55,23 @@ export function MediaDetailsPanel() {
     return null
   }, [asset])
 
+  const videoSrc = useMemo(() => {
+    if (!asset || asset.type !== "video") return null
+    return safeFileSrc(asset.filePath)
+  }, [asset])
+
   if (!asset) {
     return (
       <div
         data-slot="media-details"
         className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
       >
-        <PanelHeader title="Details" icon={<InfoIcon className="size-3.5" />} />
+        <PanelHeader
+          title={t("details")}
+          icon={<InfoIcon className="size-3.5" />}
+        />
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-xs text-muted-foreground">Select a media asset</p>
+          <p className="text-xs text-muted-foreground">{t("selectAsset")}</p>
         </div>
       </div>
     )
@@ -108,18 +105,43 @@ export function MediaDetailsPanel() {
       data-slot="media-details"
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title="Details" icon={<InfoIcon className="size-3.5" />} />
+      <PanelHeader
+        title={t("details")}
+        icon={<InfoIcon className="size-3.5" />}
+      />
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-3">
           {/* Preview */}
-          <div className="aspect-video overflow-hidden rounded-md border border-border bg-muted">
+          <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-muted">
             {previewSrc ? (
               <img
                 src={previewSrc}
                 alt={asset.name}
                 className="size-full object-contain"
               />
+            ) : videoSrc && !videoPreviewFailed ? (
+              <>
+                <video
+                  src={videoSrc}
+                  aria-label={t("preview", { name: asset.name })}
+                  className="size-full object-contain"
+                  muted
+                  playsInline
+                  preload="auto"
+                  onError={() => setFailedVideoId(asset.id)}
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget
+                    // Seek away from a possible black opening frame, without playing.
+                    if (Number.isFinite(video.duration) && video.duration > 0) {
+                      video.currentTime = Math.min(1, video.duration * 0.1)
+                    }
+                  }}
+                />
+                <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-black/60 text-white shadow-sm">
+                  <PlayIcon className="ml-px size-3 fill-current" />
+                </span>
+              </>
             ) : (
               <div className="flex size-full items-center justify-center">
                 {asset.type === "video" ? (
@@ -149,16 +171,20 @@ export function MediaDetailsPanel() {
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>Type</span>
+              <span>{t("type")}</span>
               <span className="capitalize">{asset.type}</span>
-              <span>Size</span>
-              <span>{formatFileSize(asset.fileSize)}</span>
-              <span>Dimensions</span>
-              <span>{formatDimensions(asset.width, asset.height)}</span>
+              <span>{t("size")}</span>
+              <span>{formatBytes(asset.fileSize)}</span>
+              <span>{t("dimensions")}</span>
+              <span>
+                {asset.width && asset.height
+                  ? `${asset.width} x ${asset.height}`
+                  : t("unknown")}
+              </span>
               {(asset.type === "video" || asset.type === "audio") &&
                 asset.duration != null && (
                   <>
-                    <span>Duration</span>
+                    <span>{t("duration")}</span>
                     <span>{formatDuration(asset.duration)}</span>
                   </>
                 )}
@@ -171,7 +197,7 @@ export function MediaDetailsPanel() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 text-xs font-medium tracking-wider text-muted-foreground uppercase">
               <TagIcon className="size-3" />
-              Tags
+              {t("tags")}
             </div>
             <div className="flex flex-wrap gap-1">
               {asset.tags.map((tag) => (
@@ -193,8 +219,8 @@ export function MediaDetailsPanel() {
             </div>
             <div className="flex gap-1">
               <Input
-                placeholder="Add tag..."
-                aria-label="Add tag"
+                placeholder={t("addTagPlaceholder")}
+                aria-label={t("addTag")}
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
@@ -203,7 +229,7 @@ export function MediaDetailsPanel() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Add tag"
+                aria-label={t("addTag")}
                 onClick={handleAddTag}
                 disabled={!tagInput.trim()}
               >
@@ -218,7 +244,7 @@ export function MediaDetailsPanel() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 text-xs font-medium tracking-wider text-muted-foreground uppercase">
               <FolderIcon className="size-3" />
-              Collections
+              {t("collections")}
             </div>
             {assetCollections.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -247,7 +273,7 @@ export function MediaDetailsPanel() {
               onClick={() => setAddToCollectionOpen(true)}
             >
               <PlusIcon className="size-3" />
-              Add to collection
+              {t("addToCollectionLower")}
             </Button>
           </div>
 
@@ -261,7 +287,7 @@ export function MediaDetailsPanel() {
             onClick={handleDelete}
           >
             <TrashIcon className="mr-1.5 size-3.5" />
-            Remove from Library
+            {t("removeFromLibrary")}
           </Button>
         </div>
       </ScrollArea>

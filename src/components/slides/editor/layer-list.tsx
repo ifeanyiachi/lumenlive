@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   TrashIcon,
@@ -29,6 +30,7 @@ export function LayerList({
   elements: SlideElement[]
   selectedElementId: string | null
 }) {
+  const { t } = useTranslation("slides")
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -122,7 +124,7 @@ export function LayerList({
                   el.visible === false && "line-through opacity-50"
                 )}
               >
-                {elementLabel(el)}
+                {elementLabel(el, t)}
               </span>
               <div className="ml-auto flex items-center gap-0.5">
                 <Button
@@ -135,7 +137,7 @@ export function LayerList({
                       visible: el.visible === false ? undefined : false,
                     })
                   }}
-                  title={el.visible === false ? "Show" : "Hide"}
+                  title={t(el.visible === false ? "layer.show" : "layer.hide")}
                 >
                   {el.visible === false ? (
                     <EyeOffIcon className="size-2.5" />
@@ -153,7 +155,7 @@ export function LayerList({
                       .getState()
                       .updateDraftElement(el.id, { locked: !el.locked })
                   }}
-                  title={el.locked ? "Unlock" : "Lock"}
+                  title={t(el.locked ? "layer.unlock" : "layer.lock")}
                 >
                   {el.locked ? (
                     <LockIcon className="size-2.5" />
@@ -164,7 +166,7 @@ export function LayerList({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Delete element"
+                  aria-label={t("layer.deleteElement")}
                   className="size-5 opacity-0 group-hover:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation()

@@ -16,6 +16,7 @@ import { useSongStore } from "@/stores/song-store"
 import { searchSongs } from "@/lib/song/song-search"
 import { cn } from "@/lib/utils"
 import type { Song } from "@/types/song"
+import { useTranslation } from "react-i18next"
 
 type SortKey = "recent" | "title" | "author"
 
@@ -40,6 +41,7 @@ function sortSongs(songs: Song[], key: SortKey): Song[] {
  * songs from the header; selecting a row drives the detail pane on the right.
  */
 export function SongLibrary() {
+  const { t } = useTranslation("song")
   const songs = useSongStore((s) => s.songs)
   const searchQuery = useSongStore((s) => s.searchQuery)
   const selectedSongId = useSongStore((s) => s.selectedSongId)
@@ -61,7 +63,7 @@ export function SongLibrary() {
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
           <MusicIcon className="size-3.5" />
-          Song Library
+          {t("library.title")}
         </span>
         <span className="text-[10px] text-muted-foreground">
           {songs.length}
@@ -72,7 +74,7 @@ export function SongLibrary() {
       <div className="flex flex-col gap-2 border-b border-border p-2">
         <div className="flex items-center gap-1.5">
           <Input
-            placeholder="Search songs..."
+            placeholder={t("library.search")}
             value={searchQuery}
             onChange={(e) =>
               useSongStore.getState().setSearchQuery(e.target.value)
@@ -88,13 +90,13 @@ export function SongLibrary() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="recent" className="text-xs">
-                Recent
+                {t("library.recent")}
               </SelectItem>
               <SelectItem value="title" className="text-xs">
-                Title
+                {t("library.songTitle")}
               </SelectItem>
               <SelectItem value="author" className="text-xs">
-                Author
+                {t("library.author")}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -106,7 +108,7 @@ export function SongLibrary() {
             onClick={() => useSongStore.getState().openNewSongEditor()}
           >
             <PlusIcon className="size-3" />
-            New
+            {t("library.new")}
           </Button>
           <SongImportButton />
           <Button
@@ -116,7 +118,7 @@ export function SongLibrary() {
             onClick={() => setOnlineOpen(true)}
           >
             <GlobeIcon className="size-3" />
-            Online
+            {t("library.online")}
           </Button>
         </div>
       </div>
@@ -124,7 +126,7 @@ export function SongLibrary() {
       {importProgress && (
         <div className="border-b border-border bg-muted/50 px-3 py-2">
           <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>{importProgress.label ?? "Importing…"}</span>
+            <span>{importProgress.label ?? t("library.importing")}</span>
             <span>
               {importProgress.current} / {importProgress.total}
             </span>
@@ -150,11 +152,11 @@ export function SongLibrary() {
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
             <MusicIcon className="size-9 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">
-              {searchQuery ? "No matching songs" : "No songs yet"}
+              {searchQuery ? t("library.noMatches") : t("library.empty")}
             </p>
             {!searchQuery && (
               <p className="px-6 text-xs text-muted-foreground/70">
-                Create one with New, Import, or search Online
+                {t("library.emptyDescription")}
               </p>
             )}
           </div>
@@ -182,7 +184,7 @@ export function SongLibrary() {
                   {song.authors.length ? song.authors.join(", ") : "—"}
                   {" · "}
                   {song.sections.length}{" "}
-                  {song.sections.length === 1 ? "section" : "sections"}
+                  {t("library.section", { count: song.sections.length })}
                 </span>
               </button>
             ))}

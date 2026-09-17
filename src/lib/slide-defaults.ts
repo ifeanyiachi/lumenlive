@@ -8,12 +8,13 @@ import type {
   SlideShapeElement,
   SlideTimerElement,
 } from "@/types/slide"
+import { i18n } from "@/lib/i18n/config"
 
 export function createDefaultTextElement(): SlideTextElement {
   return {
     id: crypto.randomUUID(),
     type: "text",
-    text: "New text",
+    text: i18n.t("slides:textProperties.defaultText"),
     x: 10,
     y: 30,
     width: 80,

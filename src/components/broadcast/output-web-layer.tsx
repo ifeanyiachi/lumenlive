@@ -54,6 +54,7 @@ function loadYouTubeApi(): Promise<void> {
 
 export function OutputWebLayer() {
   const [content, setContent] = useState<WebContentPayload | null>(null)
+  const [covered, setCovered] = useState(false)
   const playerRef = useRef<any>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const endHandledRef = useRef(false)
@@ -89,6 +90,23 @@ export function OutputWebLayer() {
   useEffect(() => {
     const unlisten = listenOutputEvent(BROADCAST_EVENTS.webContent, (event) =>
       setContent(event.payload)
+    )
+    return () => {
+      void unlisten.then((fn) => fn())
+    }
+  }, [])
+
+  // The YouTube iframe is a DOM layer above the canvas, so it must yield when
+  // the canvas is showing Clear, Black, or the holding logo. Hiding the host
+  // preserves the iframe and its playback position; unmounting it would restart
+  // the video when the audience display is revealed again.
+  useEffect(() => {
+    const unlisten = listenOutputEvent(
+      BROADCAST_EVENTS.outputVisibility,
+      (event) => {
+        const { blackout, clear, logo } = event.payload
+        setCovered(blackout || clear || logo)
+      }
     )
     return () => {
       void unlisten.then((fn) => fn())
@@ -257,6 +275,7 @@ export function OutputWebLayer() {
         inset: 0,
         background: "#000",
         zIndex: 1,
+        visibility: covered ? "hidden" : "visible",
       }}
     />
   )

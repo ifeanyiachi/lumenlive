@@ -19,6 +19,7 @@ import {
 import { useSongStore } from "@/stores/song-store"
 import { cn } from "@/lib/utils"
 import type { Song } from "@/types/song"
+import { useTranslation } from "react-i18next"
 
 /**
  * The arrangement builder: pick (or create) a named performance order, then
@@ -29,6 +30,7 @@ import type { Song } from "@/types/song"
  * arrangement.
  */
 export function SongArrangementBuilder({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   // `pickedId` is the operator's explicit selection; the *effective* active
   // arrangement is derived from it and falls back to the default when the pick
   // is null or no longer resolves (e.g. the picked arrangement was deleted), so
@@ -80,7 +82,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
     <div className="flex flex-col gap-3 p-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Arrangements
+          {t("editor.arrangements")}
         </span>
         <Button
           variant="outline"
@@ -89,7 +91,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
           onClick={() => useSongStore.getState().addArrangement(song.id)}
         >
           <PlusIcon className="size-3" />
-          New
+          {t("library.new")}
         </Button>
       </div>
 
@@ -97,7 +99,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
       <div className="flex items-center gap-1.5">
         <Select value={activeId ?? undefined} onValueChange={setPickedId}>
           <SelectTrigger className="h-7 w-40 text-xs">
-            <SelectValue placeholder="Select arrangement" />
+            <SelectValue placeholder={t("library.selectArrangement")} />
           </SelectTrigger>
           <SelectContent>
             {song.arrangements.map((a) => (
@@ -113,7 +115,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
           <>
             <Input
               value={active.name}
-              aria-label="Arrangement name"
+              aria-label={t("library.arrangementName")}
               onChange={(e) =>
                 useSongStore.getState().updateArrangement(song.id, active.id, {
                   name: e.target.value,
@@ -124,9 +126,9 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
             <Button
               variant={active.isDefault ? "secondary" : "ghost"}
               size="icon-sm"
-              aria-label="Set as default arrangement"
+              aria-label={t("library.setDefaultArrangement")}
               title={
-                active.isDefault ? "Default arrangement" : "Set as default"
+                active.isDefault ? t("editor.defaultArrangement") : t("library.setDefaultArrangement")
               }
               disabled={active.isDefault}
               onClick={() =>
@@ -142,7 +144,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Delete arrangement"
+              aria-label={t("library.deleteArrangement")}
               disabled={song.arrangements.length <= 1}
               onClick={() =>
                 useSongStore.getState().removeArrangement(song.id, active.id)
@@ -164,7 +166,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
         >
           {active.sectionIds.length === 0 && (
             <span className="text-xs text-muted-foreground">
-              Add sections below to build the order
+              {t("editor.addSections")}
             </span>
           )}
           {active.sectionIds.map((sectionId, slotIndex) => {
@@ -182,7 +184,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
               >
                 <button
                   type="button"
-                  aria-label="Drag to reorder"
+                  aria-label={t("library.dragReorder")}
                   className="cursor-grab touch-none"
                   onPointerDown={(e) => {
                     ;(e.currentTarget as HTMLElement).setPointerCapture(
@@ -196,7 +198,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
                 {section.label}
                 <button
                   type="button"
-                  aria-label="Remove from arrangement"
+                  aria-label={t("library.removeArrangement")}
                   onClick={() =>
                     useSongStore
                       .getState()
@@ -216,7 +218,7 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
       {active && song.sections.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.625rem] tracking-wider text-muted-foreground uppercase">
-            Add section
+            {t("editor.addSection")}
           </span>
           <div className="flex flex-wrap gap-1.5">
             {song.sections.map((section) => (

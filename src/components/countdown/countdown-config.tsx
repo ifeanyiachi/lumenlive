@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -27,6 +28,7 @@ export function TimerEditor({
   onSave: (timer: CountdownTimer) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation("countdown")
   const [draft, setDraft] = useState(timer)
   const minutes = Math.floor(draft.durationSeconds / 60)
   const seconds = draft.durationSeconds % 60
@@ -41,7 +43,7 @@ export function TimerEditor({
     <div className="flex flex-col gap-3 p-4">
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Label
+          {t("editor.label")}
         </span>
         <Input
           value={draft.label}
@@ -53,7 +55,7 @@ export function TimerEditor({
       {/* Style: custom inline appearance vs. a saved countdown theme */}
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Style
+          {t("editor.style")}
         </span>
         <div className="grid grid-cols-2 gap-1">
           {(["custom", "theme"] as const).map((mode) => (
@@ -79,7 +81,7 @@ export function TimerEditor({
                   : "border-border text-muted-foreground hover:bg-accent"
               )}
             >
-              {mode}
+              {t(`editor.${mode}`)}
             </button>
           ))}
         </div>
@@ -88,12 +90,11 @@ export function TimerEditor({
       {isThemed && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Theme
+            {t("editor.theme")}
           </span>
           {countdownThemes.length === 0 ? (
             <p className="rounded-md border border-dashed border-border px-2 py-3 text-center text-[0.625rem] text-muted-foreground">
-              No countdown themes yet. Create a Countdown theme in the Theme
-              Designer.
+              {t("editor.noThemes")}
             </p>
           ) : (
             <Select
@@ -101,7 +102,7 @@ export function TimerEditor({
               onValueChange={(value) => setDraft({ ...draft, themeId: value })}
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                <SelectValue placeholder="Select a theme" />
+                <SelectValue placeholder={t("editor.selectTheme")} />
               </SelectTrigger>
               <SelectContent>
                 {countdownThemes.map((theme) => {
@@ -130,7 +131,7 @@ export function TimerEditor({
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Mode
+          {t("editor.mode")}
         </span>
         <Select
           value={draft.mode}
@@ -142,8 +143,8 @@ export function TimerEditor({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="duration">Count down a duration</SelectItem>
-            <SelectItem value="clock">Count down to a clock time</SelectItem>
+            <SelectItem value="duration">{t("editor.durationMode")}</SelectItem>
+            <SelectItem value="clock">{t("editor.clockMode")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -151,7 +152,7 @@ export function TimerEditor({
       {draft.mode === "duration" ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Duration
+            {t("editor.duration")}
           </span>
           <div className="flex items-center gap-1">
             <Input
@@ -167,7 +168,9 @@ export function TimerEditor({
               }
               className="h-7 w-16 text-xs"
             />
-            <span className="text-xs text-muted-foreground">m</span>
+            <span className="text-xs text-muted-foreground">
+              {t("editor.minutesShort")}
+            </span>
             <Input
               type="number"
               value={seconds}
@@ -181,7 +184,9 @@ export function TimerEditor({
               }
               className="h-7 w-16 text-xs"
             />
-            <span className="text-xs text-muted-foreground">s</span>
+            <span className="text-xs text-muted-foreground">
+              {t("editor.secondsShort")}
+            </span>
           </div>
           <div className="flex flex-wrap gap-1">
             {DURATION_PRESETS.map((secs) => (
@@ -195,7 +200,7 @@ export function TimerEditor({
                     "border-emerald-500/50 bg-emerald-500/10 text-foreground"
                 )}
               >
-                {secs / 60}m
+                {t("editor.durationPreset", { minutes: secs / 60 })}
               </button>
             ))}
           </div>
@@ -203,7 +208,7 @@ export function TimerEditor({
       ) : (
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Target time
+          {t("editor.targetTime")}
           </span>
           <Input
             type="time"
@@ -212,14 +217,14 @@ export function TimerEditor({
             className="h-7 w-28 text-xs"
           />
           <span className="text-[0.625rem] text-muted-foreground">
-            Counts down to this time today (or tomorrow if already past).
+            {t("editor.targetTimeHint")}
           </span>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Format
+          {t("editor.format")}
         </span>
         <Select
           value={draft.format}
@@ -233,7 +238,7 @@ export function TimerEditor({
           <SelectContent>
             <SelectItem value="mm:ss">MM:SS</SelectItem>
             <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
-            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="minutes">{t("editor.minutes")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -242,7 +247,7 @@ export function TimerEditor({
         <>
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Position
+              {t("editor.position")}
             </span>
             <Select
               value={draft.position}
@@ -258,25 +263,27 @@ export function TimerEditor({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fullscreen">
-                  Full screen (starting soon)
+                  {t("editor.fullScreen")}
                 </SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="top-left">Top Left</SelectItem>
-                <SelectItem value="top-center">Top Center</SelectItem>
-                <SelectItem value="top-right">Top Right</SelectItem>
-                <SelectItem value="bottom-left">Bottom Left</SelectItem>
-                <SelectItem value="bottom-center">Bottom Center</SelectItem>
-                <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                <SelectItem value="center">{t("editor.center")}</SelectItem>
+                <SelectItem value="top-left">{t("editor.topLeft")}</SelectItem>
+                <SelectItem value="top-center">{t("editor.topCenter")}</SelectItem>
+                <SelectItem value="top-right">{t("editor.topRight")}</SelectItem>
+                <SelectItem value="bottom-left">{t("editor.bottomLeft")}</SelectItem>
+                <SelectItem value="bottom-center">{t("editor.bottomCenter")}</SelectItem>
+                <SelectItem value="bottom-right">{t("editor.bottomRight")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Appearance
+              {t("editor.appearance")}
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">BG</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                {t("editor.backgroundShort")}
+              </span>
               <ColorSwatch
                 value={
                   draft.backgroundColor.startsWith("rgba")
@@ -289,7 +296,7 @@ export function TimerEditor({
                 className="size-6"
               />
               <span className="text-[0.6875rem] text-muted-foreground">
-                Text
+                {t("editor.textShort")}
               </span>
               <ColorSwatch
                 value={draft.textColor}
@@ -305,7 +312,7 @@ export function TimerEditor({
                   setDraft({ ...draft, fontSize: Number(e.target.value) })
                 }
                 className="h-7 w-14 text-xs"
-                title="Font size"
+                title={t("editor.fontSize")}
               />
             </div>
           </div>
@@ -314,14 +321,16 @@ export function TimerEditor({
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Urgency colors
+          {t("editor.urgency")}
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-[0.6875rem] text-amber-500">Warn ≤</span>
+          <span className="text-[0.6875rem] text-amber-500">
+            {t("editor.warnAtOrBelow")}
+          </span>
           <Input
             type="number"
             min={0}
-            placeholder="off"
+            placeholder={t("editor.off")}
             value={draft.warnSeconds ?? ""}
             onChange={(e) =>
               setDraft({
@@ -332,11 +341,13 @@ export function TimerEditor({
             }
             className="h-7 w-16 text-xs"
           />
-          <span className="text-[0.6875rem] text-red-500">Danger ≤</span>
+          <span className="text-[0.6875rem] text-red-500">
+            {t("editor.dangerAtOrBelow")}
+          </span>
           <Input
             type="number"
             min={0}
-            placeholder="off"
+            placeholder={t("editor.off")}
             value={draft.dangerSeconds ?? ""}
             onChange={(e) =>
               setDraft({
@@ -347,13 +358,15 @@ export function TimerEditor({
             }
             className="h-7 w-16 text-xs"
           />
-          <span className="text-[0.6875rem] text-muted-foreground">s</span>
+          <span className="text-[0.6875rem] text-muted-foreground">
+            {t("editor.secondsShort")}
+          </span>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          When Finished
+          {t("editor.whenFinished")}
         </span>
         <Select
           value={draft.endAction}
@@ -368,10 +381,10 @@ export function TimerEditor({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="flash">Flash</SelectItem>
-            <SelectItem value="overtime">Count up (overtime)</SelectItem>
-            <SelectItem value="hide">Hide</SelectItem>
-            <SelectItem value="none">Stay</SelectItem>
+            <SelectItem value="flash">{t("editor.flash")}</SelectItem>
+            <SelectItem value="overtime">{t("editor.overtime")}</SelectItem>
+            <SelectItem value="hide">{t("editor.hide")}</SelectItem>
+            <SelectItem value="none">{t("editor.stay")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -385,16 +398,16 @@ export function TimerEditor({
               setDraft({ ...draft, showLabel: e.target.checked })
             }
           />
-          Show label
+          {t("editor.showLabel")}
         </label>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>
-          Cancel
+          {t("editor.cancel")}
         </Button>
         <Button size="sm" onClick={() => onSave(draft)}>
-          Save
+          {t("editor.save")}
         </Button>
       </div>
     </div>

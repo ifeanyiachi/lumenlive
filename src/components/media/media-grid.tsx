@@ -31,19 +31,10 @@ import { useMediaStore } from "@/stores/media-store"
 import { useOsFileDrop } from "@/hooks/use-os-file-drop"
 import { cn } from "@/lib/utils"
 import type { MediaType } from "@/types/media"
-
-const FILTERS: {
-  label: string
-  value: MediaType | "all"
-  icon: React.ReactNode
-}[] = [
-  { label: "All", value: "all", icon: <LayoutGridIcon className="size-3" /> },
-  { label: "Images", value: "image", icon: <ImageIcon className="size-3" /> },
-  { label: "Videos", value: "video", icon: <FilmIcon className="size-3" /> },
-  { label: "Audio", value: "audio", icon: <MusicIcon className="size-3" /> },
-]
+import { useTranslation } from "react-i18next"
 
 export function MediaGrid() {
+  const { t } = useTranslation("media")
   const allAssets = useMediaStore((s) => s.assets)
   const collections = useMediaStore((s) => s.collections)
   const filter = useMediaStore((s) => s.filter)
@@ -104,6 +95,12 @@ export function MediaGrid() {
 
   const checkedCount = checkedIds.size
   const hasChecked = checkedCount > 0
+  const filters: { label: string; value: MediaType | "all"; icon: React.ReactNode }[] = [
+    { label: t("filters.all"), value: "all", icon: <LayoutGridIcon className="size-3" /> },
+    { label: t("filters.images"), value: "image", icon: <ImageIcon className="size-3" /> },
+    { label: t("filters.videos"), value: "video", icon: <FilmIcon className="size-3" /> },
+    { label: t("filters.audio"), value: "audio", icon: <MusicIcon className="size-3" /> },
+  ]
 
   const handleDeleteChecked = () => {
     useMediaStore.getState().removeAssets(checkedIds)
@@ -120,7 +117,7 @@ export function MediaGrid() {
       ref={dropZoneRef}
       data-slot="media-grid"
       className={cn(
-        "relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors",
+        "relative flex size-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors",
         fileDragOver && "ring-2 ring-emerald-500/50 ring-inset"
       )}
       {...dropHandlers}
@@ -130,13 +127,13 @@ export function MediaGrid() {
           <div className="flex flex-col items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
             <UploadIcon className="size-7" />
             <span className="text-sm font-medium">
-              Drop files to add to library
+              {t("dropFiles")}
             </span>
           </div>
         </div>
       )}
       <PanelHeader
-        title="Media Library"
+        title={t("library")}
         icon={<ImageIcon className="size-3.5" />}
       >
         <MediaImportButton />
@@ -147,7 +144,10 @@ export function MediaGrid() {
         <div className="border-b border-border bg-muted/50 px-3 py-2">
           <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              Importing {importProgress.current} of {importProgress.total}...
+              {t("importingProgress", {
+                current: importProgress.current,
+                total: importProgress.total,
+              })}
             </span>
             <span>
               {Math.round(
@@ -171,7 +171,7 @@ export function MediaGrid() {
       {hasChecked ? (
         <div className="flex items-center gap-2 border-b border-border bg-primary/5 px-3 py-2">
           <span className="text-xs font-medium text-foreground">
-            {checkedCount} selected
+            {t("selected", { count: checkedCount })}
           </span>
           <Button
             variant="ghost"
@@ -179,7 +179,7 @@ export function MediaGrid() {
             className="h-7 px-2 text-xs"
             onClick={handleSelectAll}
           >
-            Select all
+            {t("selectAll")}
           </Button>
           <div className="flex-1" />
           <Button
@@ -189,7 +189,7 @@ export function MediaGrid() {
             onClick={() => setAddToCollectionOpen(true)}
           >
             <FolderPlusIcon className="size-3" />
-            Add to Collection
+            {t("addToCollection")}
           </Button>
           <Button
             variant="destructive"
@@ -198,12 +198,12 @@ export function MediaGrid() {
             onClick={handleDeleteChecked}
           >
             <TrashIcon className="size-3" />
-            Delete
+            {t("delete")}
           </Button>
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Clear selection"
+            aria-label={t("clearSelection")}
             onClick={() => useMediaStore.getState().clearChecked()}
           >
             <XIcon className="size-3.5" />
@@ -212,7 +212,7 @@ export function MediaGrid() {
       ) : (
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <div className="flex gap-1">
-            {FILTERS.map((f) => (
+            {filters.map((f) => (
               <Button
                 key={f.value}
                 variant={filter === f.value ? "secondary" : "ghost"}
@@ -238,7 +238,7 @@ export function MediaGrid() {
               >
                 <FolderIcon className="size-3" />
                 <span className="max-w-[100px] truncate">
-                  {activeCollection ? activeCollection.name : "All Collections"}
+                  {activeCollection ? activeCollection.name : t("allCollections")}
                 </span>
                 <ChevronDownIcon className="size-3" />
               </Button>
@@ -250,7 +250,7 @@ export function MediaGrid() {
                   useMediaStore.getState().setActiveCollection(null)
                 }
               >
-                All Collections
+                {t("allCollections")}
               </DropdownMenuItem>
               {collections.map((col) => (
                 <DropdownMenuItem
@@ -273,13 +273,13 @@ export function MediaGrid() {
                 onClick={() => setManagerOpen(true)}
               >
                 <SettingsIcon className="mr-1.5 size-3" />
-                Manage Collections...
+                {t("manageCollections")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <Input
-            placeholder="Search media..."
+            placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) =>
               useMediaStore.getState().setSearchQuery(e.target.value)
@@ -303,25 +303,25 @@ export function MediaGrid() {
             )}
             <p className="text-sm text-muted-foreground">
               {activeCollectionId
-                ? "No media in this collection"
+                ? t("empty.collection")
                 : searchQuery
-                  ? "No matching media found"
+                  ? t("empty.search")
                   : filter === "image"
-                    ? "No images imported yet"
+                    ? t("empty.images")
                     : filter === "video"
-                      ? "No videos imported yet"
+                      ? t("empty.videos")
                       : filter === "audio"
-                        ? "No audio imported yet"
-                        : "No media imported yet"}
+                        ? t("empty.audio")
+                        : t("empty.all")}
             </p>
             {!searchQuery && !activeCollectionId && (
               <p className="text-xs text-muted-foreground/70">
-                Click "Import" to add media
+                {t("empty.importHint")}
               </p>
             )}
             {activeCollectionId && (
               <p className="text-xs text-muted-foreground/70">
-                Select assets and use "Add to Collection"
+                {t("empty.collectionHint")}
               </p>
             )}
           </div>

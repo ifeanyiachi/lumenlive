@@ -14,6 +14,7 @@ import { useSongStore } from "@/stores/song-store"
 import { SECTION_TYPES, sectionTypeLabel } from "@/lib/song/song-mutations"
 import { cn } from "@/lib/utils"
 import type { Song, SongSectionType } from "@/types/song"
+import { useTranslation } from "react-i18next"
 
 /**
  * The left pane of the song editor: one editable block per section (type, label,
@@ -22,6 +23,7 @@ import type { Song, SongSectionType } from "@/types/song"
  * broken under WebView2, and `@dnd-kit` is unused in this codebase.
  */
 export function SongSectionsEditor({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -61,7 +63,7 @@ export function SongSectionsEditor({ song }: { song: Song }) {
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Sections
+          {t("editor.sections")}
         </span>
         <Button
           variant="outline"
@@ -70,7 +72,7 @@ export function SongSectionsEditor({ song }: { song: Song }) {
           onClick={() => useSongStore.getState().addSection(song.id)}
         >
           <PlusIcon className="size-3" />
-          Add Section
+          {t("editor.addSection")}
         </Button>
       </div>
 
@@ -82,7 +84,7 @@ export function SongSectionsEditor({ song }: { song: Song }) {
       >
         {song.sections.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No sections yet — click "Add Section" to start.
+            {t("editor.noSections")}
           </p>
         )}
 
@@ -99,7 +101,7 @@ export function SongSectionsEditor({ song }: { song: Song }) {
             <div className="mb-2 flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Drag to reorder section"
+                aria-label={t("editor.dragSection")}
                 className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
                 onPointerDown={(e) => handlePointerDown(e, index)}
               >
@@ -128,8 +130,8 @@ export function SongSectionsEditor({ song }: { song: Song }) {
 
               <Input
                 value={section.label}
-                aria-label="Section label"
-                placeholder="Label"
+                aria-label={t("library.sectionLabel")}
+                placeholder={t("library.label")}
                 onChange={(e) =>
                   useSongStore.getState().updateSection(song.id, section.id, {
                     label: e.target.value,
@@ -141,7 +143,7 @@ export function SongSectionsEditor({ song }: { song: Song }) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Remove section"
+                aria-label={t("library.removeSection")}
                 onClick={() =>
                   useSongStore.getState().removeSection(song.id, section.id)
                 }
@@ -152,8 +154,8 @@ export function SongSectionsEditor({ song }: { song: Song }) {
 
             <Textarea
               value={section.lyrics}
-              aria-label={`${section.label} lyrics`}
-              placeholder="Type lyrics, one line per row…"
+              aria-label={t("editor.sectionLyrics", { label: section.label })}
+              placeholder={t("library.lyricsPlaceholder")}
               onChange={(e) =>
                 useSongStore.getState().updateSection(song.id, section.id, {
                   lyrics: e.target.value,

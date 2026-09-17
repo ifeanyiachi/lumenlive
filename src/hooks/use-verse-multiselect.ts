@@ -11,6 +11,7 @@ import {
 } from "@/lib/search/schedule-items"
 import { verseReference } from "@/lib/search/verse-keys"
 import { toast } from "sonner"
+import { i18n } from "@/lib/i18n/config"
 import type { Verse, Translation } from "@/types"
 
 /** Minimal surface of the quick-nav input the multiselect handlers write to. */
@@ -175,7 +176,7 @@ export function useVerseMultiselect({
     const scheduleStore = useScheduleStore.getState()
     const activeScheduleId = scheduleStore.activeScheduleId
     if (!activeScheduleId) {
-      toast.error("No active schedule — select or create one first")
+      toast.error(i18n.t("schedule:toast.noActiveSchedule"))
       return
     }
     const schedule = scheduleStore.getActiveSchedule()
@@ -190,10 +191,12 @@ export function useVerseMultiselect({
     )
     if (scheduleStore.insertItemAt(activeScheduleId, item, insertAt)) {
       toast.success(
-        `Added group of ${multiSelectedVerses.length} verses to schedule`
+        i18n.t("schedule:toast.verseGroupAdded", {
+          count: multiSelectedVerses.length,
+        })
       )
     } else {
-      toast.info("Already in the schedule")
+      toast.info(i18n.t("schedule:toast.alreadyInSchedule"))
     }
     setMultiSelected(new Set())
   }, [multiSelectedVerses, translationAbbr])
@@ -206,7 +209,7 @@ export function useVerseMultiselect({
     const scheduleStore = useScheduleStore.getState()
     const activeScheduleId = scheduleStore.activeScheduleId
     if (!activeScheduleId) {
-      toast.error("No active schedule — select or create one first")
+      toast.error(i18n.t("schedule:toast.noActiveSchedule"))
       return
     }
     const schedule = scheduleStore.getActiveSchedule()
@@ -221,10 +224,12 @@ export function useVerseMultiselect({
     )
     if (scheduleStore.insertItemAt(activeScheduleId, item, insertAt)) {
       toast.success(
-        `Added group of ${multiSelectedVerses.length} verses to schedule`
+        i18n.t("schedule:toast.verseGroupAdded", {
+          count: multiSelectedVerses.length,
+        })
       )
     } else {
-      toast.info("Already in the schedule")
+      toast.info(i18n.t("schedule:toast.alreadyInSchedule"))
     }
     setMultiSelected(new Set())
   }, [multiSelectedVerses, translationAbbr])
@@ -234,7 +239,7 @@ export function useVerseMultiselect({
     const scheduleStore = useScheduleStore.getState()
     const activeScheduleId = scheduleStore.activeScheduleId
     if (!activeScheduleId) {
-      toast.error("No active schedule — select or create one first")
+      toast.error(i18n.t("schedule:toast.noActiveSchedule"))
       return
     }
     const schedule = scheduleStore.getActiveSchedule()
@@ -255,13 +260,18 @@ export function useVerseMultiselect({
     if (added === 0) {
       toast.info(
         skipped > 1
-          ? "Those verses are already in the schedule"
-          : "Already in the schedule"
+          ? i18n.t("schedule:toast.versesAlreadyInSchedule")
+          : i18n.t("schedule:toast.alreadyInSchedule")
       )
     } else {
       toast.success(
-        `${added} verse${added > 1 ? "s" : ""} added to schedule` +
-          (skipped > 0 ? ` · ${skipped} already there` : "")
+        i18n.t("schedule:toast.versesAdded", {
+          count: added,
+          skippedSuffix:
+            skipped > 0
+              ? i18n.t("schedule:toast.skipped", { count: skipped })
+              : "",
+        })
       )
     }
     setMultiSelected(new Set())

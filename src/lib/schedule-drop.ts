@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { i18n } from "@/lib/i18n/config"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useQueueStore } from "@/stores"
 import { addAssetsToSchedule } from "@/lib/schedule-media"
@@ -40,9 +41,11 @@ export function addVersesToSchedule(
       insertAt
     )
     if (store.insertItemAt(scheduleId, item, insertAt)) {
-      toast.success(`Added group of ${verses.length} verses to schedule`)
+      toast.success(
+        i18n.t("schedule:toast.verseGroupAdded", { count: verses.length })
+      )
     } else {
-      toast.info("Already in the schedule")
+      toast.info(i18n.t("schedule:toast.alreadyInSchedule"))
     }
     return
   }
@@ -65,9 +68,9 @@ export function addVersesToSchedule(
     cachedText: verse.text,
   }
   if (store.insertItemAt(scheduleId, item, insertAt)) {
-    toast.success("Verse added to schedule")
+    toast.success(i18n.t("schedule:toast.verseAdded"))
   } else {
-    toast.info("Already in the schedule")
+    toast.info(i18n.t("schedule:toast.alreadyInSchedule"))
   }
 }
 
@@ -95,6 +98,6 @@ export function addVersesToQueue({ verses, translation }: VersesPayload) {
     })
   }
   toast.success(
-    `${verses.length} verse${verses.length > 1 ? "s" : ""} added to queue`
+    i18n.t("schedule:toast.versesAddedToQueue", { count: verses.length })
   )
 }

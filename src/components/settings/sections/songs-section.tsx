@@ -1,9 +1,11 @@
 import { useSettingsStore } from "@/stores"
+import { useTranslation } from "react-i18next"
 
 import { ApiKeyField } from "../ui/api-key-field"
 import { useApiKeyField } from "../hooks/use-api-key-field"
 
 export function SongsSection() {
+  const { t } = useTranslation("settings")
   const geniusApiKey = useSettingsStore((s) => s.geniusApiKey)
   const setGeniusApiKey = useSettingsStore((s) => s.setGeniusApiKey)
 
@@ -13,45 +15,44 @@ export function SongsSection() {
     <div className="flex flex-col gap-6">
       {/* Genius API key — powers lyric-line search in "Search Online Lyrics" */}
       <ApiKeyField
-        label="Genius API Key"
-        placeholder="Enter your Genius API key..."
+        label={t("songs.apiKeyLabel")}
+        placeholder={t("songs.apiKeyPlaceholder")}
         configured={!!geniusApiKey}
         field={geniusKeyField}
-        instructionsTitle="How to get a Genius API key"
-        helpText="Enables Genius results (including lyric-line matches) in the online lyrics search. Stored locally on this device. Other sources work without a key."
+        instructionsTitle={t("songs.instructionsTitle")}
+        helpText={t("songs.helpText")}
       >
         <ol className="ml-3.5 list-decimal space-y-0.5 text-[0.625rem] leading-relaxed text-muted-foreground">
           <li>
-            Sign in at{" "}
+            {t("songs.instructions.signInAt")}{" "}
             <span className="font-mono text-foreground">
               genius.com/api-clients
             </span>{" "}
-            (a free Genius account).
+            {t("songs.instructions.freeAccount")}
           </li>
           <li>
-            Click{" "}
-            <span className="font-medium text-foreground">New API Client</span>,
-            fill in any app name and URL, then create it.
-          </li>
-          <li>
-            On the client, click{" "}
+            {t("songs.instructions.click")}{" "}
             <span className="font-medium text-foreground">
-              Generate Access Token
+              {t("songs.instructions.newApiClient")}
             </span>
-            , copy the token, paste it above, and press{" "}
-            <span className="font-medium text-foreground">Save</span>.
+            {t("songs.instructions.createClient")}
+          </li>
+          <li>
+            {t("songs.instructions.onClient")}{" "}
+            <span className="font-medium text-foreground">
+              {t("songs.instructions.generateToken")}
+            </span>
+            {t("songs.instructions.copyToken")}{" "}
+            <span className="font-medium text-foreground">
+              {t("common:save")}
+            </span>
+            {t("songs.instructions.finish")}
           </li>
         </ol>
       </ApiKeyField>
 
       <p className="border-t border-border/60 pt-4 text-[0.625rem] leading-relaxed text-muted-foreground">
-        <span className="font-semibold text-foreground">Disclaimer:</span> By
-        enabling this integration, you agree that you are using your own
-        personal, non-commercial Genius developer key. This software is a
-        neutral utility and is not affiliated with, endorsed, or licensed by
-        Genius. You are entirely responsible for complying with the Genius API
-        Terms of Service, and any commercial exploitation or misuse of their
-        data is strictly at your own risk.
+        {t("songs.disclaimer")}
       </p>
     </div>
   )

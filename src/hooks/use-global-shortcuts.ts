@@ -25,9 +25,10 @@ export function useGlobalShortcuts() {
       "toggle-shortcuts": () => useShortcutsStore.getState().toggleOverlay(),
       "open-settings": () => useSettingsDialogStore.getState().openSettings(),
       "transcription-toggle": () => {
-        if (useTranscriptStore.getState().isTranscribing) {
+        const transcript = useTranscriptStore.getState()
+        if (transcript.isTranscribing) {
           void transcriptionActions.stop()
-        } else {
+        } else if (transcript.connectionStatus !== "connecting") {
           // Mirror the panel's start button: count a keyboard start as a new
           // service for analytics before kicking off the pipeline.
           trackServiceStarted()

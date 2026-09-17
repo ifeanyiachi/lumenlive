@@ -26,6 +26,7 @@ import type {
 } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import type { Song, SongSlideOptions } from "@/types/song"
+import { useTranslation } from "react-i18next"
 
 const BUILTIN_SONG_THEMES = BUILTIN_THEMES.filter((t) => t.type === "song")
 
@@ -62,6 +63,7 @@ const TRANSITION_LABELS: Record<SlideTransitionType, string> = {
  * next to any field that deviates from the global default set in Settings.
  */
 export function SongProjectionOptions({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
   const customThemes = useThemesStore((s) => s.customThemes)
   // Built-in song looks plus any user-authored custom song themes.
@@ -116,12 +118,12 @@ export function SongProjectionOptions({ song }: { song: Song }) {
   return (
     <div className="flex flex-col gap-3 p-3">
       <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-        Projection
+        {t("editor.projection")}
       </span>
 
       {/* Theme */}
       <Field
-        label="Theme"
+        label={t("editor.theme")}
         overridden={isOverridden("themeId")}
         onReset={() => resetField("themeId")}
       >
@@ -141,7 +143,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={DEFAULT_THEME_SENTINEL} className="text-xs">
-              Default theme{defaultThemeName ? ` (${defaultThemeName})` : ""}
+              {t("editor.defaultTheme", { theme: defaultThemeName ? ` (${defaultThemeName})` : "" })}
             </SelectItem>
             {songThemes.map((t) => (
               <SelectItem key={t.id} value={t.id} className="text-xs">
@@ -157,14 +159,14 @@ export function SongProjectionOptions({ song }: { song: Song }) {
         <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Animated background
+              {t("editor.animatedBackground")}
             </span>
             {isOverridden("animatedBackground") && (
               <ResetButton onReset={() => resetField("animatedBackground")} />
             )}
           </div>
 
-          <Field label="Style" overridden={false} onReset={() => {}}>
+          <Field label={t("editor.style")} overridden={false} onReset={() => {}}>
             <Select
               value={effAnim.preset}
               onValueChange={(v) =>
@@ -192,7 +194,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
           {/* Palette */}
           <div className="flex flex-col gap-1">
             <span className="text-[0.625rem] tracking-wider text-muted-foreground uppercase">
-              Colors
+              {t("editor.colors")}
             </span>
             <div className="flex flex-wrap items-center gap-1.5">
               {effAnim.palette.map((color, i) => (
@@ -205,12 +207,12 @@ export function SongProjectionOptions({ song }: { song: Song }) {
                       setAnim({ palette: next })
                     }}
                     className="size-7"
-                    title={`Color ${i + 1}`}
+                    title={t("editor.color", { number: i + 1 })}
                   />
                   {effAnim.palette.length > 1 && (
                     <button
                       type="button"
-                      aria-label={`Remove color ${i + 1}`}
+                      aria-label={t("editor.removeColor", { number: i + 1 })}
                       onClick={() =>
                         setAnim({
                           palette: effAnim.palette.filter((_, j) => j !== i),
@@ -228,7 +230,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
                   variant="outline"
                   size="icon-sm"
                   className="size-7"
-                  aria-label="Add color"
+                  aria-label={t("library.addColor")}
                   onClick={() =>
                     setAnim({ palette: [...effAnim.palette, "#ffffff"] })
                   }
@@ -241,7 +243,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
           {/* Speed */}
           <SliderField
-            label="Speed"
+            label={t("editor.speed")}
             value={effAnim.speed}
             min={0.25}
             max={2}
@@ -252,7 +254,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
           {/* Intensity */}
           <SliderField
-            label="Intensity"
+            label={t("editor.intensity")}
             value={effAnim.intensity}
             min={0}
             max={1}
@@ -265,7 +267,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
       {/* Max lines per slide */}
       <Field
-        label="Lines per slide"
+        label={t("editor.linesPerSlide")}
         overridden={isOverridden("maxLinesPerSlide")}
         onReset={() => resetField("maxLinesPerSlide")}
       >
@@ -287,7 +289,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
       {/* Lyric font size — empty input inherits the theme's own size */}
       <Field
-        label="Font size"
+        label={t("editor.fontSize")}
         overridden={isOverridden("fontSize")}
         onReset={() => resetField("fontSize")}
       >
@@ -295,7 +297,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
           type="number"
           min={8}
           max={200}
-          placeholder="Theme default"
+          placeholder={t("library.themeDefault")}
           value={resolved.fontSize ?? ""}
           onChange={(e) => {
             const raw = e.target.value
@@ -312,7 +314,7 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 
       {/* Slide animation */}
       <Field
-        label="Slide animation"
+        label={t("editor.slideAnimation")}
         overridden={isOverridden("transition")}
         onReset={() => resetField("transition")}
       >
@@ -341,35 +343,35 @@ export function SongProjectionOptions({ song }: { song: Song }) {
       </Field>
 
       <ToggleField
-        label="Transparent background"
+        label={t("editor.transparentBackground")}
         checked={resolved.transparentBackground}
         overridden={isOverridden("transparentBackground")}
         onChange={(v) => setField("transparentBackground", v)}
         onReset={() => resetField("transparentBackground")}
       />
       <ToggleField
-        label="Break on blank lines"
+        label={t("editor.breakBlankLines")}
         checked={resolved.breakOnBlankLines}
         overridden={isOverridden("breakOnBlankLines")}
         onChange={(v) => setField("breakOnBlankLines", v)}
         onReset={() => resetField("breakOnBlankLines")}
       />
       <ToggleField
-        label="Title slide"
+        label={t("editor.titleSlide")}
         checked={resolved.includeTitleSlide}
         overridden={isOverridden("includeTitleSlide")}
         onChange={(v) => setField("includeTitleSlide", v)}
         onReset={() => resetField("includeTitleSlide")}
       />
       <ToggleField
-        label="Blank end slide"
+        label={t("editor.blankEndSlide")}
         checked={resolved.includeBlankEndSlide}
         overridden={isOverridden("includeBlankEndSlide")}
         onChange={(v) => setField("includeBlankEndSlide", v)}
         onReset={() => resetField("includeBlankEndSlide")}
       />
       <ToggleField
-        label="Show section labels"
+        label={t("editor.showSectionLabels")}
         checked={resolved.showSectionLabels}
         overridden={isOverridden("showSectionLabels")}
         onChange={(v) => setField("showSectionLabels", v)}
@@ -380,13 +382,14 @@ export function SongProjectionOptions({ song }: { song: Song }) {
 }
 
 function ResetButton({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation("song")
   return (
     <Button
       variant="ghost"
       size="icon-sm"
       className="size-5"
-      aria-label="Reset to default"
-      title="Reset to default"
+      aria-label={t("library.resetDefault")}
+      title={t("library.resetDefault")}
       onClick={onReset}
     >
       <RotateCcwIcon className="size-3" />

@@ -1,10 +1,11 @@
 import * as React from "react"
 import { RotateCcwIcon, TriangleAlertIcon } from "lucide-react"
+import { withTranslation, type WithTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-type ErrorBoundaryProps = {
+type ErrorBoundaryProps = WithTranslation & {
   children: React.ReactNode
   /**
    * Custom fallback. Receives the caught error and a `reset` callback that
@@ -68,20 +69,27 @@ class ErrorBoundary extends React.Component<
         />
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">
-            Something went wrong
-            {this.props.label ? ` in the ${this.props.label}` : ""}.
+            {this.props.t("errorBoundary.message", {
+              location: this.props.label
+                ? this.props.t("errorBoundary.location", {
+                    label: this.props.label,
+                  })
+                : "",
+            })}
           </p>
           <p className="max-w-[42ch] text-xs text-muted-foreground">
-            {error.message || "An unexpected error occurred."}
+            {error.message || this.props.t("errorBoundary.unexpected")}
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={this.reset}>
           <RotateCcwIcon />
-          Try again
+          {this.props.t("actions.tryAgain")}
         </Button>
       </div>
     )
   }
 }
 
-export { ErrorBoundary }
+const TranslatedErrorBoundary = withTranslation("ui")(ErrorBoundary)
+
+export { TranslatedErrorBoundary as ErrorBoundary }

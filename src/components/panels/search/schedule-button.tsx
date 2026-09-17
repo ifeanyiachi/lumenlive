@@ -10,6 +10,7 @@ import { CalendarPlusIcon, CheckIcon } from "lucide-react"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { buildScriptureScheduleItem } from "@/lib/search/schedule-items"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 import type { Verse } from "@/types"
 
 /**
@@ -65,6 +66,7 @@ export function ScheduleButton({
   positionClassName?: string
   addClassName?: string
 }) {
+  const { t } = useTranslation("panels")
   if (scheduled) {
     return (
       <TooltipProvider>
@@ -72,7 +74,7 @@ export function ScheduleButton({
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label="Already in schedule — scroll to it"
+              aria-label={t("search.alreadyInScheduleScroll")}
               className={cn(
                 "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 positionClassName
@@ -85,7 +87,7 @@ export function ScheduleButton({
               <CheckIcon className="size-4 text-ai-direct" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">Already in schedule</TooltipContent>
+          <TooltipContent side="left">{t("search.alreadyInSchedule")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )
@@ -98,7 +100,7 @@ export function ScheduleButton({
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Add to schedule"
+            aria-label={t("search.addToSchedule")}
             className={cn(
               "shrink-0 opacity-0 transition-opacity group-hover:opacity-100",
               positionClassName,
@@ -109,7 +111,7 @@ export function ScheduleButton({
               const store = useScheduleStore.getState()
               const scheduleId = store.activeScheduleId
               if (!scheduleId) {
-                toast.error("No active schedule — select or create one first")
+                toast.error(t("search.noActiveSchedule"))
                 return
               }
               const insertAt = insertPosition()
@@ -119,16 +121,16 @@ export function ScheduleButton({
                 insertAt
               )
               if (store.insertItemAt(scheduleId, item, insertAt)) {
-                toast.success(`Added ${item.label} to schedule`)
+                toast.success(t("search.addedToSchedule", { item: item.label }))
               } else {
-                toast.info("Already in the schedule")
+                toast.info(t("search.alreadyInSchedule"))
               }
             }}
           >
             <CalendarPlusIcon className="size-3" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">Add to schedule</TooltipContent>
+        <TooltipContent side="left">{t("search.addToSchedule")}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { invoke } from "@tauri-apps/api/core"
 import { MonitorPlayIcon, ListPlusIcon, PencilIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -26,6 +27,7 @@ interface LexiconBarProps {
 }
 
 export function LexiconBar({ verse }: LexiconBarProps) {
+  const { t } = useTranslation("panels")
   const [words, setWords] = useState<OriginalWord[]>([])
   const [loading, setLoading] = useState(true)
   const [empty, setEmpty] = useState(false)
@@ -91,9 +93,11 @@ export function LexiconBar({ verse }: LexiconBarProps) {
   if (empty) {
     return (
       <p className="pt-2 text-xs text-muted-foreground italic">
-        No {isHebrew ? "Hebrew" : "Greek"} interlinear data. Run{" "}
-        <code className="rounded bg-muted px-1">bun run setup:lexicon</code> to
-        import it.
+        {t("lexicon.noInterlinear", {
+          language: isHebrew ? t("lexicon.hebrew") : t("lexicon.greek"),
+        })}{" "}
+        <code className="rounded bg-muted px-1">bun run setup:lexicon</code>{" "}
+        {t("lexicon.importIt")}
       </p>
     )
   }
@@ -124,6 +128,7 @@ interface WordChipProps {
 }
 
 function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
+  const { t } = useTranslation("panels")
   const [entry, setEntry] = useState<LexiconEntry | null | undefined>(undefined)
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -133,8 +138,7 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
   // preview mid-edit. Built only once the entry has loaded (the modal mounts
   // only in that branch).
   const editCard = useMemo(
-    () =>
-      entry ? toLexiconCardData(word, entry, reference, isHebrew) : null,
+    () => (entry ? toLexiconCardData(word, entry, reference, isHebrew) : null),
     [entry, word, reference, isHebrew]
   )
 
@@ -153,7 +157,7 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
         buildLexiconSlide(word, entry ?? null, reference, isHebrew),
         "manual"
       )
-    toast.success(`Previewing ${word.word}`)
+    toast.success(t("lexicon.previewing", { word: word.word }))
     setOpen(false)
   }
 
@@ -166,7 +170,7 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
     const scheduleStore = useScheduleStore.getState()
     const scheduleId = scheduleStore.activeScheduleId
     if (!scheduleId) {
-      toast.error("Select or create a schedule first")
+      toast.error(t("search.noActiveSchedule"))
       return
     }
     const schedule = scheduleStore.getActiveSchedule()
@@ -178,8 +182,8 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
       schedule?.items.length ?? 0
     )
     const added = scheduleStore.addItem(scheduleId, item)
-    if (added) toast.success(`Added ${word.word} to schedule`)
-    else toast.info("Already in the schedule")
+    if (added) toast.success(t("lexicon.addedToSchedule", { word: word.word }))
+    else toast.info(t("search.alreadyInSchedule"))
     setOpen(false)
   }
 
@@ -190,152 +194,152 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
 
   return (
     <>
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          dir="ltr"
-          className={cn(
-            "flex shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-md border border-border bg-card px-2 py-1.5 transition-colors",
-            "max-w-[120px] min-w-[56px] hover:border-primary/50 hover:bg-primary/5",
-            open && "border-primary/50 bg-primary/5"
-          )}
-        >
-          {englishWord && (
-            <span
-              className="line-clamp-2 text-center text-[11px] leading-tight font-medium text-foreground"
-              title={englishWord}
-            >
-              {englishWord}
-            </span>
-          )}
-          {word.translit && (
-            <span className="text-[10px] leading-none text-muted-foreground italic">
-              {word.translit}
-            </span>
-          )}
-          {word.strong_number && (
-            <span className="rounded bg-primary/20 px-1 py-0.5 font-mono text-[9px] text-primary">
-              {word.strong_number}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-
-      <PopoverContent side="top" align="center" className="w-72">
-        {!word.strong_number ? (
-          <p className="text-xs text-muted-foreground">
-            No Strong's number for this word.
-          </p>
-        ) : entry === undefined ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : !entry ? (
-          <p className="text-xs text-muted-foreground">
-            No definition found for {word.strong_number}.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-base leading-tight font-medium">
-                  {entry.lemma ?? word.word}
-                </p>
-                {entry.translit && (
-                  <p className="text-xs text-muted-foreground italic">
-                    {entry.translit}
-                  </p>
-                )}
-                {entry.pronunciation && (
-                  <p className="text-xs text-muted-foreground">
-                    {entry.pronunciation}
-                  </p>
-                )}
-                {decodePartOfSpeech(word.morph, isHebrew) && (
-                  <p className="text-xs text-muted-foreground">
-                    {decodePartOfSpeech(word.morph, isHebrew)}
-                  </p>
-                )}
-              </div>
-              <span className="shrink-0 rounded bg-primary/20 px-1.5 py-0.5 font-mono text-xs text-primary">
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            dir="ltr"
+            className={cn(
+              "flex shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-md border border-border bg-card px-2 py-1.5 transition-colors",
+              "max-w-[120px] min-w-[56px] hover:border-primary/50 hover:bg-primary/5",
+              open && "border-primary/50 bg-primary/5"
+            )}
+          >
+            {englishWord && (
+              <span
+                className="line-clamp-2 text-center text-[11px] leading-tight font-medium text-foreground"
+                title={englishWord}
+              >
+                {englishWord}
+              </span>
+            )}
+            {word.translit && (
+              <span className="text-[10px] leading-none text-muted-foreground italic">
+                {word.translit}
+              </span>
+            )}
+            {word.strong_number && (
+              <span className="rounded bg-primary/20 px-1 py-0.5 font-mono text-[9px] text-primary">
                 {word.strong_number}
               </span>
-            </div>
-            {entry.definition && (
-              <div>
-                <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  Definition
-                </p>
-                <p className="text-xs">{entry.definition}</p>
-              </div>
             )}
-            {entry.kjv_usage && (
-              <div>
-                <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  KJV Usage
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {entry.kjv_usage}
-                </p>
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent side="top" align="center" className="w-72">
+          {!word.strong_number ? (
+            <p className="text-xs text-muted-foreground">
+              {t("lexicon.noStrongsNumber")}
+            </p>
+          ) : entry === undefined ? (
+            <p className="text-xs text-muted-foreground">{t("lexicon.loading")}</p>
+          ) : !entry ? (
+            <p className="text-xs text-muted-foreground">
+              {t("lexicon.noDefinition", { number: word.strong_number })}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-base leading-tight font-medium">
+                    {entry.lemma ?? word.word}
+                  </p>
+                  {entry.translit && (
+                    <p className="text-xs text-muted-foreground italic">
+                      {entry.translit}
+                    </p>
+                  )}
+                  {entry.pronunciation && (
+                    <p className="text-xs text-muted-foreground">
+                      {entry.pronunciation}
+                    </p>
+                  )}
+                  {decodePartOfSpeech(word.morph, isHebrew) && (
+                    <p className="text-xs text-muted-foreground">
+                      {decodePartOfSpeech(word.morph, isHebrew)}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 rounded bg-primary/20 px-1.5 py-0.5 font-mono text-xs text-primary">
+                  {word.strong_number}
+                </span>
               </div>
-            )}
-            {entry.derivation && (
-              <div>
-                <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  Word Origin
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {entry.derivation}
-                </p>
-              </div>
-            )}
-            <div className="mt-1 flex flex-col gap-1.5 border-t border-border pt-2">
-              <div className="flex gap-1.5">
+              {entry.definition && (
+                <div>
+                  <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {t("lexicon.definition")}
+                  </p>
+                  <p className="text-xs">{entry.definition}</p>
+                </div>
+              )}
+              {entry.kjv_usage && (
+                <div>
+                  <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {t("lexicon.kjvUsage")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {entry.kjv_usage}
+                  </p>
+                </div>
+              )}
+              {entry.derivation && (
+                <div>
+                  <p className="mb-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {t("lexicon.wordOrigin")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {entry.derivation}
+                  </p>
+                </div>
+              )}
+              <div className="mt-1 flex flex-col gap-1.5 border-t border-border pt-2">
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    className="h-7 flex-1 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                    onClick={handlePreview}
+                  >
+                    <MonitorPlayIcon className="size-3" />
+                    {t("detections.preview")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 flex-1 gap-1.5 text-xs"
+                    onClick={handleEdit}
+                    title={t("lexicon.formatBeforePresenting")}
+                  >
+                    <PencilIcon className="size-3" />
+                    {t("lexicon.edit")}
+                  </Button>
+                </div>
                 <Button
                   size="sm"
-                  className="h-7 flex-1 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                  onClick={handlePreview}
+                  variant="outline"
+                  className="h-7 w-full gap-1.5 text-xs"
+                  onClick={handleAddToSchedule}
+                  disabled={!activeScheduleId}
+                  title={
+                    activeScheduleId
+                      ? t("lexicon.addToSchedule")
+                      : t("search.noActiveSchedule")
+                  }
                 >
-                  <MonitorPlayIcon className="size-3" />
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 flex-1 gap-1.5 text-xs"
-                  onClick={handleEdit}
-                  title="Format the Lexical Summary before presenting"
-                >
-                  <PencilIcon className="size-3" />
-                  Edit
+                  <ListPlusIcon className="size-3" />
+                  {t("search.addToSchedule")}
                 </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 w-full gap-1.5 text-xs"
-                onClick={handleAddToSchedule}
-                disabled={!activeScheduleId}
-                title={
-                  activeScheduleId
-                    ? "Add this Lexical Summary to the schedule"
-                    : "Select or create a schedule first"
-                }
-              >
-                <ListPlusIcon className="size-3" />
-                Add to Schedule
-              </Button>
             </div>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-    {editOpen && editCard && (
-      <LexiconEditModal
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        card={editCard}
-        mode="create"
-      />
-    )}
+          )}
+        </PopoverContent>
+      </Popover>
+      {editOpen && editCard && (
+        <LexiconEditModal
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          card={editCard}
+          mode="create"
+        />
+      )}
     </>
   )
 }

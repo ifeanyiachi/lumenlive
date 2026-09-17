@@ -7,6 +7,7 @@
  * this gateway, then parse the returned text. Imports are dynamic so the module
  * is safe to load in the browser / tests, where the plugins are absent.
  */
+import { i18n } from "@/lib/i18n/config"
 
 export interface PickedSongFile {
   /** Basename including extension, e.g. "amazing-grace.xml". Drives detection. */
@@ -67,8 +68,13 @@ export async function pickAndReadSongFiles(): Promise<PickedSongFile[]> {
 
     const selected = await open({
       multiple: true,
-      title: "Import songs",
-      filters: [{ name: "Song files", extensions: SONG_FILE_EXTENSIONS }],
+      title: i18n.t("song:dialog.importSongs"),
+      filters: [
+        {
+          name: i18n.t("song:dialog.songFiles"),
+          extensions: SONG_FILE_EXTENSIONS,
+        },
+      ],
     })
     if (selected == null) return []
 
@@ -108,7 +114,7 @@ export async function readSongFolder(
     const dir = await open({
       directory: true,
       multiple: false,
-      title: "Import songs from folder",
+      title: i18n.t("song:dialog.importSongsFromFolder"),
     })
     if (!dir || Array.isArray(dir)) return null
 
@@ -160,8 +166,10 @@ export async function pickAndReadSongPacks(): Promise<PickedZipFile[]> {
     const { readFile } = await import("@tauri-apps/plugin-fs")
     const selected = await open({
       multiple: true,
-      title: "Import Quelea packs",
-      filters: [{ name: "Quelea pack", extensions: ZIP_EXTENSIONS }],
+      title: i18n.t("song:dialog.importQueleaPacks"),
+      filters: [
+        { name: i18n.t("song:dialog.queleaPack"), extensions: ZIP_EXTENSIONS },
+      ],
     })
     if (selected == null) return []
     const paths = Array.isArray(selected) ? selected : [selected]

@@ -208,8 +208,7 @@ export function hydrateBroadcastSession(): Promise<void> {
     try {
       const store = await getSessionStore()
       const raw = (await store.get(SESSION_KEY)) as
-        | Partial<LiveSessionData>
-        | undefined
+        Partial<LiveSessionData> | undefined
       const windowsOpen = await anyBroadcastWindowOpen().catch(() => false)
       const patch = buildLiveSessionPatch(raw, windowsOpen)
       if (patch) useBroadcastStore.setState(patch)

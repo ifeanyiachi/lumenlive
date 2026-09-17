@@ -61,6 +61,7 @@ export const BROADCAST_EVENTS = {
   slideUpdate: "broadcast:slide-update",
   mediaUpdate: "broadcast:media-update",
   mediaFitUpdate: "broadcast:media-fit-update",
+  mediaPlaybackConfigUpdate: "broadcast:media-playback-config-update",
   mediaTransport: "broadcast:media-transport",
   mediaLayerUpdate: "broadcast:media-layer-update",
   webContent: "broadcast:web-content",
@@ -123,6 +124,14 @@ export interface MediaUpdatePayload {
 export interface MediaTransportPayload {
   action: "play" | "pause" | "seek"
   position?: number
+}
+
+/** A playback-only media patch that preserves the current source and position. */
+export interface MediaPlaybackConfigUpdatePayload {
+  trimStart?: number
+  trimEnd?: number
+  loop?: boolean
+  endAction?: "hold" | "stop" | "loop" | "next"
 }
 
 export interface WebTransportPayload {
@@ -201,6 +210,7 @@ export interface OutputEventPayloads {
   "broadcast:slide-update": SlideUpdatePayload
   "broadcast:media-update": MediaUpdatePayload
   "broadcast:media-fit-update": MediaFitPayload
+  "broadcast:media-playback-config-update": MediaPlaybackConfigUpdatePayload
   "broadcast:media-transport": MediaTransportPayload
   "broadcast:media-layer-update": MediaLayerUpdatePayload
   "broadcast:web-content": WebContentPayload | null

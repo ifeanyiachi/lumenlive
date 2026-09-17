@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { MusicIcon, SearchIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSongStore } from "@/stores/song-store"
@@ -44,6 +45,7 @@ function DraggableSongCard({ song }: { song: Song }) {
 }
 
 export function SearchSongTab() {
+  const { t } = useTranslation("panels")
   const songs = useSongStore((s) => s.songs)
   const [query, setQuery] = useState("")
 
@@ -58,7 +60,7 @@ export function SearchSongTab() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search songs..."
+            placeholder={t("search.songsPlaceholder")}
             className="h-7 pl-7 text-xs"
           />
         </div>
@@ -69,8 +71,8 @@ export function SearchSongTab() {
         {filtered.length === 0 ? (
           <p className="p-6 text-center text-xs text-muted-foreground">
             {songs.length === 0
-              ? "No songs yet — add them in the Songs view."
-              : "No songs match your search."}
+              ? t("search.songsEmpty")
+              : t("search.songsNoMatch")}
           </p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2 p-2">

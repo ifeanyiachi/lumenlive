@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   BookOpen,
@@ -18,10 +19,18 @@ import type { CatalogEntry } from "@/types/resource-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/ui/empty-state"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import BibleStoreCard from "./bible-store-card"
 import { ImportBibleDialog } from "./import-bible-dialog"
 import { SongPacksSection } from "./song-packs-section"
 import { UpdateSection } from "./update-section"
+import { languageLabel } from "@/lib/resource-store"
 import { cn } from "@/lib/utils"
 
 /**
@@ -37,24 +46,29 @@ import { cn } from "@/lib/utils"
 
 /** Category filter chips. Only "bible" has a live catalog; the rest preview. */
 const CATEGORIES = [
-  { id: "all", label: "All", icon: Package, enabled: true },
-  { id: "templates", label: "Templates", icon: LayoutTemplate, enabled: false },
-  { id: "titles", label: "Titles", icon: Type, enabled: false },
-  { id: "songs", label: "Songs", icon: Music, enabled: true },
-  { id: "backgrounds", label: "Backgrounds", icon: ImageIcon, enabled: false },
-  { id: "videos", label: "Videos", icon: Clapperboard, enabled: false },
-  { id: "bible", label: "Bible Versions", icon: BookOpen, enabled: true },
+  { id: "all", icon: Package, enabled: true },
+  { id: "templates", icon: LayoutTemplate, enabled: false },
+  { id: "titles", icon: Type, enabled: false },
+  { id: "songs", icon: Music, enabled: true },
+  { id: "backgrounds", icon: ImageIcon, enabled: false },
+  { id: "videos", icon: Clapperboard, enabled: false },
+  { id: "bible", icon: BookOpen, enabled: true },
 ] as const
 
 type CategoryId = (typeof CATEGORIES)[number]["id"]
 
+const ALL_LANGUAGES = "all"
+const alphabetical = new Intl.Collator(undefined, { sensitivity: "base" })
+
 export function ResourceStorePage() {
+  const { t } = useTranslation("store")
   const catalog = useResourceStore((s) => s.catalog)
   const loading = useResourceStore((s) => s.loading)
   const error = useResourceStore((s) => s.error)
 
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<CategoryId>("all")
+  const [language, setLanguage] = useState(ALL_LANGUAGES)
   const [importOpen, setImportOpen] = useState(false)
 
   useEffect(() => {
@@ -77,6 +91,19 @@ export function ResourceStorePage() {
     }
   }, [])
 
+  const bibleLanguages = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          catalog
+            .filter((entry) => entry.resource.kind === "bible")
+            .filter((entry) => entry.status !== "byo-import")
+            .map((entry) => languageLabel(entry.resource.language))
+        )
+      ).sort(alphabetical.compare),
+    [catalog]
+  )
+
   const bibles = useMemo(() => {
     const q = query.trim().toLowerCase()
     return (
@@ -86,6 +113,11 @@ export function ResourceStorePage() {
         // installed. `byo-import` placeholders (copyrighted versions we don't
         // distribute) are dropped — users add those with the Import button.
         .filter((e) => e.status !== "byo-import")
+        .filter(
+          (e) =>
+            language === ALL_LANGUAGES ||
+            languageLabel(e.resource.language) === language
+        )
         .filter((e) => {
           if (!q) return true
           const r = e.resource
@@ -95,8 +127,13 @@ export function ResourceStorePage() {
             abbrev.toLowerCase().includes(q)
           )
         })
+        // The preceding filters return a new array, so sorting here never
+        // mutates the catalog held by the store.
+        .sort((a, b) =>
+          alphabetical.compare(a.resource.title, b.resource.title)
+        )
     )
-  }, [catalog, query])
+  }, [catalog, language, query])
 
   const showBibles = category === "all" || category === "bible"
   const showSongs = category === "all" || category === "songs"
@@ -112,10 +149,10 @@ export function ResourceStorePage() {
           <Package className="mt-1 size-7 shrink-0 text-foreground" />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Resource Store
+              {t("page.title")}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Browse and install Bible versions and community song packs.
+              {t("page.description")}
             </p>
           </div>
         </div>
@@ -128,7 +165,7 @@ export function ResourceStorePage() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search resources…"
+            placeholder={t("page.searchPlaceholder")}
             className="h-10 pl-9"
           />
         </div>
@@ -139,16 +176,16 @@ export function ResourceStorePage() {
           onClick={() => void useResourceStore.getState().loadCatalog()}
         >
           {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-          Refresh
+          {t("common.refresh")}
         </Button>
         <Button
           variant="outline"
           className="h-10"
           onClick={() => setImportOpen(true)}
-          title="Import a Bible translation file you're licensed to use"
+          title={t("page.importBibleTitle")}
         >
           <Upload />
-          Import
+          {t("common.import")}
         </Button>
       </div>
 
@@ -164,7 +201,7 @@ export function ResourceStorePage() {
               key={c.id}
               type="button"
               disabled={!c.enabled}
-              title={c.enabled ? undefined : "Coming soon"}
+              title={c.enabled ? undefined : t("common.comingSoon")}
               onClick={() => setCategory(c.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -176,7 +213,7 @@ export function ResourceStorePage() {
               )}
             >
               <Icon className="size-3.5" />
-              {c.label}
+              {t(`categories.${c.id}`)}
             </button>
           )
         })}
@@ -193,7 +230,7 @@ export function ResourceStorePage() {
             className="ml-auto"
             onClick={() => useResourceStore.getState().clearError()}
           >
-            Dismiss
+            {t("common.dismiss")}
           </Button>
         </div>
       )}
@@ -202,38 +239,73 @@ export function ResourceStorePage() {
       {showSongs && <SongPacksSection />}
 
       {/* Bible Versions section */}
-      {showBibles && <BibleSection entries={bibles} loading={loading} />}
+      {showBibles && (
+        <BibleSection
+          entries={bibles}
+          languages={bibleLanguages}
+          language={language}
+          loading={loading}
+          onLanguageChange={setLanguage}
+        />
+      )}
     </div>
   )
 }
 
 function BibleSection({
   entries,
+  languages,
+  language,
   loading,
+  onLanguageChange,
 }: {
   entries: CatalogEntry[]
+  languages: string[]
+  language: string
   loading: boolean
+  onLanguageChange: (language: string) => void
 }) {
+  const { t } = useTranslation("store")
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <BookOpen className="size-5 text-foreground" />
-        <h2 className="text-lg font-semibold text-foreground">
-          Bible Versions
-        </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BookOpen className="size-5 text-foreground" />
+          <h2 className="text-lg font-semibold text-foreground">
+            {t("categories.bible")}
+          </h2>
+        </div>
+        <Select value={language} onValueChange={onLanguageChange}>
+          <SelectTrigger
+            className="h-9 min-w-40"
+            aria-label={t("bibles.filterLanguage")}
+          >
+            <SelectValue placeholder={t("bibles.allLanguages")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_LANGUAGES}>
+              {t("bibles.allLanguages")}
+            </SelectItem>
+            {languages.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {loading && entries.length === 0 ? (
         <EmptyState
           icon={<Loader2 className="animate-spin" />}
-          title="Loading catalog…"
+          title={t("bibles.loading")}
           live
         />
       ) : entries.length === 0 ? (
         <EmptyState
           icon={<BookOpen />}
-          title="No Bible versions found"
-          description="Nothing matches your search, or the catalog couldn't be reached. Try refreshing."
+          title={t("bibles.empty")}
+          description={t("bibles.emptyDescription")}
           live
         />
       ) : (

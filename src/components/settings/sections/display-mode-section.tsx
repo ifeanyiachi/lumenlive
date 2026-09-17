@@ -1,4 +1,5 @@
 import { useSettingsStore } from "@/stores"
+import { useTranslation } from "react-i18next"
 import {
   thresholdToPercent,
   percentToThreshold,
@@ -8,6 +9,7 @@ import { ToggleCard } from "../ui/toggle-card"
 import { SectionSlider } from "../ui/section-slider"
 
 export function DisplayModeSection() {
+  const { t } = useTranslation("settings")
   const {
     confidenceThreshold,
     setConfidenceThreshold,
@@ -19,6 +21,8 @@ export function DisplayModeSection() {
     setDirectInstantDisplay,
     navAutoLive,
     setNavAutoLive,
+    scheduleNavAutoLive,
+    setScheduleNavAutoLive,
   } = useSettingsStore()
 
   const thresholdPercent = thresholdToPercent(confidenceThreshold)
@@ -28,13 +32,13 @@ export function DisplayModeSection() {
       {/* Detection behavior toggles */}
       <div className="flex flex-col gap-3">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Detection Behavior
+          {t("display.detectionBehavior")}
         </label>
 
         <div className="flex flex-col gap-3">
           <ToggleCard
-            title="Direct verse auto-display"
-            description='When a verse reference like "John 3:16" is spoken, automatically display it on screen. When off, it only appears in the queue.'
+            title={t("display.directVerseAutoDisplay.title")}
+            description={t("display.directVerseAutoDisplay.description")}
             checked={directAutoDisplay}
             onCheckedChange={setDirectAutoDisplay}
           />
@@ -42,8 +46,8 @@ export function DisplayModeSection() {
           {directAutoDisplay && (
             <div className="ml-3 border-l pl-3">
               <ToggleCard
-                title="Instant direct display"
-                description="Display a spoken reference the moment it's recognized, instead of waiting for the sentence to finish (removes the ~1-2s pause). Applies only to direct references; the verse is confirmed as you keep speaking."
+                title={t("display.instantDirectDisplay.title")}
+                description={t("display.instantDirectDisplay.description")}
                 checked={directInstantDisplay}
                 onCheckedChange={setDirectInstantDisplay}
               />
@@ -51,36 +55,45 @@ export function DisplayModeSection() {
           )}
 
           <ToggleCard
-            title="Voice navigation goes live"
-            description='When you say "turn to the next verse" or "go back one verse", push the target straight to the audience. When off (default), it is staged to Program preview for you to take.'
+            title={t("display.voiceNavigationGoesLive.title")}
+            description={t("display.voiceNavigationGoesLive.description")}
             checked={navAutoLive}
             onCheckedChange={setNavAutoLive}
+          />
+
+          <ToggleCard
+            title={t("display.scheduleVoiceNavigationGoesLive.title")}
+            description={t(
+              "display.scheduleVoiceNavigationGoesLive.description"
+            )}
+            checked={scheduleNavAutoLive}
+            onCheckedChange={setScheduleNavAutoLive}
           />
         </div>
       </div>
 
       {/* Confidence threshold */}
       <SectionSlider
-        label="Confidence Threshold"
-        valueLabel={`${thresholdPercent}%`}
+        label={t("display.confidenceThreshold.label")}
+        valueLabel={t("common:percent", { value: thresholdPercent })}
         min={35}
         max={100}
         step={1}
         value={thresholdPercent}
         onValueChange={(v) => setConfidenceThreshold(percentToThreshold(v))}
-        description="Minimum confidence for a semantic (meaning-based) match to appear in the AI Detections panel. Direct references like 'John 3:16' always appear. Higher values hide weaker guesses. Semantic matches are suggestions only — they never display to the audience or queue automatically."
+        description={t("display.confidenceThreshold.description")}
       />
 
       {/* Cooldown */}
       <SectionSlider
-        label="Cooldown"
-        valueLabel={`${cooldownMs}ms`}
+        label={t("display.cooldown.label")}
+        valueLabel={t("common:milliseconds", { value: cooldownMs })}
         min={500}
         max={10000}
         step={250}
         value={cooldownMs}
         onValueChange={(v) => setCooldownMs(v)}
-        description="Minimum time between auto-displayed detections. Prevents rapid flickering when multiple verses are detected in quick succession."
+        description={t("display.cooldown.description")}
       />
     </div>
   )

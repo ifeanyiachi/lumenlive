@@ -1,4 +1,5 @@
 import { useState, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import {
   PlusIcon,
   TrashIcon,
@@ -17,7 +18,7 @@ import { addSongToSchedule } from "@/lib/schedule-song"
 import { useDropZone } from "@/stores/drag-store"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { TYPE_LABELS } from "@/components/schedule/schedule-utils"
+import { getTypeLabels } from "@/components/schedule/schedule-utils"
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,8 @@ import type {
 } from "@/types/schedule"
 
 export function SchedulePanel() {
+  const { t } = useTranslation("schedule")
+  const typeLabels = getTypeLabels()
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null)
   const [editingScripture, setEditingScripture] =
     useState<ScriptureScheduleItem | null>(null)
@@ -93,13 +96,13 @@ export function SchedulePanel() {
   const handleCreateSchedule = () => {
     const id = useScheduleStore.getState().createSchedule()
     useScheduleStore.getState().setActiveSchedule(id)
-    toast.success("Schedule created")
+    toast.success(t("toast.created"))
   }
 
   const handleConfirmDelete = () => {
     if (activeScheduleId) {
       useScheduleStore.getState().deleteSchedule(activeScheduleId)
-      toast("Schedule deleted")
+      toast(t("toast.deleted"))
     }
     setConfirmDelete(false)
   }
@@ -116,22 +119,23 @@ export function SchedulePanel() {
           } missing and couldn't be packaged`
         )
       } else {
-        toast.success(`Exported "${activeSchedule.name}"`)
+        toast.success(t("toast.exported", { name: activeSchedule.name }))
       }
     } catch {
-      toast.error("Couldn't export that schedule.")
+      toast.error(t("toast.exportFailed"))
     }
   }
 
   const handleImportSchedule = async () => {
     try {
       const result = await importScheduleBundle()
-      if (result) toast.success(`Imported "${result.scheduleName}"`)
+      if (result)
+        toast.success(t("toast.imported", { name: result.scheduleName }))
     } catch (err) {
       toast.error(
         err instanceof ScheduleParseError
           ? err.message
-          : "Couldn't import that schedule file."
+          : t("toast.importFailed")
       )
     }
   }
@@ -141,13 +145,13 @@ export function SchedulePanel() {
       data-slot="schedule-panel"
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title="Schedule">
+      <PanelHeader title={t("panel.title")}>
         <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={handleCreateSchedule}
-            title="New schedule"
+            title={t("panel.new")}
           >
             <PlusIcon className="size-3.5" />
           </Button>
@@ -155,7 +159,7 @@ export function SchedulePanel() {
             variant="ghost"
             size="icon-sm"
             onClick={handleImportSchedule}
-            title="Import schedule from file"
+            title={t("panel.import")}
           >
             <DownloadIcon className="size-3.5" />
           </Button>
@@ -165,7 +169,7 @@ export function SchedulePanel() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={handleExportSchedule}
-                title="Export schedule to file"
+                title={t("panel.export")}
               >
                 <UploadIcon className="size-3.5" />
               </Button>
@@ -176,9 +180,9 @@ export function SchedulePanel() {
                   useScheduleStore
                     .getState()
                     .duplicateSchedule(activeScheduleId)
-                  toast.success("Schedule duplicated")
+                  toast.success(t("toast.duplicated"))
                 }}
-                title="Duplicate schedule"
+                title={t("panel.duplicate")}
               >
                 <CopyIcon className="size-3.5" />
               </Button>
@@ -186,7 +190,7 @@ export function SchedulePanel() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setConfirmDelete(true)}
-                title="Delete schedule"
+                title={t("panel.delete")}
               >
                 <TrashIcon className="size-3.5" />
               </Button>
@@ -208,7 +212,7 @@ export function SchedulePanel() {
               allTabDragOver && "bg-primary/15 ring-1 ring-primary/50"
             )}
           >
-            All
+            {t("panel.all")}
           </TabsTrigger>
           <TabsTrigger
             ref={aiTabRef}
@@ -219,7 +223,7 @@ export function SchedulePanel() {
               aiTabDragOver && "bg-primary/15 ring-1 ring-primary/50"
             )}
           >
-            AI Verses
+            {t("panel.aiVerses")}
             {queueCount > 0 && (
               <Badge
                 variant="outline"
@@ -238,7 +242,7 @@ export function SchedulePanel() {
             )}
           >
             <MusicIcon className="size-3.5" />
-            Songs
+            {t("panel.songs")}
           </TabsTrigger>
         </TabsList>
 
@@ -291,16 +295,14 @@ export function SchedulePanel() {
           card={editingLexicon.cardData}
           mode="edit"
           onSaved={(cardData) => {
-            useScheduleStore.getState().updateItem(
-              activeScheduleId,
-              editingLexicon.id,
-              {
+            useScheduleStore
+              .getState()
+              .updateItem(activeScheduleId, editingLexicon.id, {
                 cardData,
                 slide: buildLexiconSlideFromData(cardData),
                 label: lexiconCardDataLabel(cardData),
-              }
-            )
-            toast.success("Lexical Summary updated")
+              })
+            toast.success(t("toast.lexicalSummaryUpdated"))
           }}
         />
       )}
@@ -362,11 +364,15 @@ export function SchedulePanel() {
               }
             }
             if (added === 0) {
-              toast.info("Already in the schedule")
+              toast.info(t("toast.alreadyInSchedule"))
             } else {
               toast.success(
-                `${added} ${TYPE_LABELS[stagedNewItem.type]}${added > 1 ? " items" : ""} added` +
-                  (skipped > 0 ? ` · ${skipped} already there` : "")
+                t("toast.itemsAdded", {
+                  count: added,
+                  type: typeLabels[stagedNewItem.type],
+                  skippedSuffix:
+                    skipped > 0 ? t("toast.skipped", { count: skipped }) : "",
+                })
               )
             }
           }
@@ -377,16 +383,17 @@ export function SchedulePanel() {
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-sm">Delete Schedule</DialogTitle>
+            <DialogTitle className="text-sm">
+              {t("confirm.deleteTitle")}
+            </DialogTitle>
             <DialogDescription className="text-xs">
-              Are you sure you want to delete &ldquo;{activeSchedule?.name}
-              &rdquo;? This action cannot be undone.
+              {t("confirm.deleteDescription", { name: activeSchedule?.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" size="sm">
-                Cancel
+                {t("actions.cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -394,7 +401,7 @@ export function SchedulePanel() {
               size="sm"
               onClick={handleConfirmDelete}
             >
-              Delete
+              {t("actions.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

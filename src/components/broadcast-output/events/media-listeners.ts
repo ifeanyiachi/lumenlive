@@ -189,6 +189,23 @@ export function registerMediaListeners(
     }
   )
 
+  const unlistenMediaPlaybackConfig = listenOutputEvent(
+    BROADCAST_EVENTS.mediaPlaybackConfigUpdate,
+    (event) => {
+      if (rt.activeMode.current !== "media") return
+      const cfg = rt.mediaConfigRef.current
+      if (!cfg) return
+      rt.mediaConfigRef.current = { ...cfg, ...event.payload }
+      const el =
+        rt.mediaKindRef.current === "video"
+          ? rt.videoRef.current
+          : rt.mediaKindRef.current === "audio"
+            ? rt.audioRef.current
+            : null
+      if (el) el.loop = nativeLoopEnabled(rt.mediaConfigRef.current)
+    }
+  )
+
   const unlistenTransport = listenOutputEvent(
     BROADCAST_EVENTS.mediaTransport,
     (event) => {
@@ -233,6 +250,7 @@ export function registerMediaListeners(
   return disposeSubscriptions([
     unlistenMedia,
     unlistenMediaFit,
+    unlistenMediaPlaybackConfig,
     unlistenTransport,
   ])
 }

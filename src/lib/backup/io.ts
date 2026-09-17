@@ -17,6 +17,7 @@ import { useAlertStore } from "@/stores/alert-store"
 import { useWebStore } from "@/stores/web-store"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { saveBundle, readBundle } from "@/services/bundle-gateway"
+import { i18n } from "@/lib/i18n/config"
 import {
   buildBackup,
   parseBackup,
@@ -27,18 +28,28 @@ import {
 } from "./backup"
 
 /** Save dialog: always write the branded extension. */
-const SAVE_FILTERS = [
-  { name: "LumenLive backup", extensions: [BACKUP_EXTENSION] },
-]
+function saveFilters() {
+  return [
+    {
+      name: i18n.t("settings:dialog.backupFile"),
+      extensions: [BACKUP_EXTENSION],
+    },
+  ]
+}
 
 /**
  * Open dialog: accept the file whatever extension a transfer left it with. The
  * Rust reader detects the real format from the file's content, not its name.
  */
-const OPEN_FILTERS = [
-  { name: "LumenLive backup", extensions: [BACKUP_EXTENSION, "zip"] },
-  { name: "All files", extensions: ["*"] },
-]
+function openFilters() {
+  return [
+    {
+      name: i18n.t("settings:dialog.backupFile"),
+      extensions: [BACKUP_EXTENSION, "zip"],
+    },
+    { name: i18n.t("settings:dialog.allFiles"), extensions: ["*"] },
+  ]
+}
 
 /**
  * The content kinds a user can pick to include in an export, in display order.
@@ -139,12 +150,15 @@ export async function exportBackup(
   selection: BackupSelection = fullSelection()
 ): Promise<ExportBackupResult> {
   const content = gatherContent(selection)
-  const { manifest, mediaFiles, missingMedia } = buildBackup(content, Date.now())
+  const { manifest, mediaFiles, missingMedia } = buildBackup(
+    content,
+    Date.now()
+  )
   const path = await saveBundle(
     `lumenlive-backup.${BACKUP_EXTENSION}`,
     JSON.stringify(manifest),
     mediaFiles,
-    SAVE_FILTERS
+    saveFilters()
   )
   return { saved: path != null, missingMedia, counts: countsOf(content) }
 }
@@ -162,7 +176,10 @@ export interface RestoreBackupResult {
  * {@link BackupParseError} on an unreadable file.
  */
 export async function restoreBackup(): Promise<RestoreBackupResult | null> {
-  const file = await readBundle("Restore backup", OPEN_FILTERS)
+  const file = await readBundle(
+    i18n.t("settings:dialog.restoreBackup"),
+    openFilters()
+  )
   if (!file) return null
 
   let rawManifest: unknown
@@ -191,7 +208,8 @@ function applyRestore(parsed: ParsedBackup): void {
   }
 
   // Themes and stage layouts have their own upsert-by-id store methods.
-  for (const theme of parsed.themes) useThemesStore.getState().upsertTheme(theme)
+  for (const theme of parsed.themes)
+    useThemesStore.getState().upsertTheme(theme)
   for (const layout of parsed.stageLayouts) {
     useBroadcastStore.getState().saveStageLayout(layout)
   }
@@ -233,7 +251,10 @@ function applyRestore(parsed: ParsedBackup): void {
  * matching existing one in place; unmatched incoming records append. Preserves
  * existing order so the UI doesn't reshuffle on restore.
  */
-function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
+function mergeById<T extends { id: string }>(
+  existing: T[],
+  incoming: T[]
+): T[] {
   const incomingById = new Map(incoming.map((x) => [x.id, x]))
   const merged = existing.map((x) => incomingById.get(x.id) ?? x)
   const existingIds = new Set(existing.map((x) => x.id))

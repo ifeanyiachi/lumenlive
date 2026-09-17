@@ -47,7 +47,10 @@ interface EntitlementsState {
   clear: () => Promise<void>
 }
 
-async function persistLicense(token: string | null, lastValidatedAt: number | null) {
+async function persistLicense(
+  token: string | null,
+  lastValidatedAt: number | null
+) {
   try {
     const store = await load(LICENSE_FILE, { autoSave: false })
     if (token) {

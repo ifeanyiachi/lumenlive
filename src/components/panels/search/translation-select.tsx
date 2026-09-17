@@ -8,6 +8,7 @@ import {
 import { useBibleStore } from "@/stores"
 import { setActiveTranslation } from "@/services/translation-gateway"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 import type { Translation } from "@/types"
 
 /**
@@ -23,6 +24,7 @@ export function TranslationSelect({
   translations: Translation[]
   activeTranslationId: number
 }) {
+  const { t } = useTranslation("panels")
   return (
     <Select
       value={String(activeTranslationId)}
@@ -33,7 +35,7 @@ export function TranslationSelect({
           useBibleStore.getState().setActiveTranslation(id)
         } catch (err) {
           console.error(err)
-          toast.error("Couldn't switch translation", {
+          toast.error(t("search.translationFailed"), {
             description: String(err),
           })
         }

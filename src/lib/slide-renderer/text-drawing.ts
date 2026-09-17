@@ -11,6 +11,7 @@ import { surfaceFontScale } from "@/lib/canvas-constants"
 import type { RenderOptions } from "@/types/broadcast"
 import type { ScriptureRenderPayload } from "./types"
 import { scriptureElementToVerseStyle } from "./scripture-style"
+import { formatScriptureReference } from "./scripture-reference"
 
 /**
  * Text rendering for slides: font strings, line drawing (with alignment,
@@ -502,11 +503,13 @@ function authoringScripturePayload(
   const cached = authoringPayloadCache.get(el)
   if (cached) return cached
   // Parse a trailing verse number out of the reference (e.g. "John 3:16" → 16) so
-  // the verse-number marker has something to show when enabled.
+  // the verse-number marker has something to show when enabled. Parse the RAW
+  // reference before the translation suffix is appended, else the trailing
+  // "(KJV)" would defeat the regex.
   const refVerse = /:(\d+)\s*$/.exec(el.reference)?.[1]
   const payload: ScriptureRenderPayload = {
     verse: {
-      reference: el.reference,
+      reference: formatScriptureReference(el.reference, el.translation),
       segments: el.verseText
         ? [
             {

@@ -1,0 +1,95 @@
+{
+  "title": "Keyboard shortcuts",
+  "description": "Shortcuts are ignored while you're typing in a field.",
+  "or": "or",
+  "categories": {
+    "general": "General",
+    "transcription": "Transcription",
+    "search": "Search",
+    "schedule": "Schedule",
+    "live": "Live output",
+    "editing": "Editing"
+  },
+  "shortcuts": {
+    "toggle-shortcuts": {
+      "label": "Keyboard shortcuts",
+      "description": "Open or close this cheat sheet"
+    },
+    "open-settings": {
+      "label": "Open settings",
+      "description": "Open the settings dialog"
+    },
+    "escape": {
+      "label": "Close / unfocus",
+      "description": "Close a dialog, or unfocus the current input"
+    },
+    "transcription-toggle": {
+      "label": "Start / stop transcription",
+      "description": "Toggle the live transcription session"
+    },
+    "focus-search": {
+      "label": "Focus search",
+      "description": "Jump to the scripture search input"
+    },
+    "book-search-navigate": {
+      "label": "Navigate verses",
+      "description": "Move the selected verse in book search"
+    },
+    "book-search-chapter": {
+      "label": "Step chapter",
+      "description": "Previous or next chapter in book search"
+    },
+    "schedule-next": {
+      "label": "Next schedule item",
+      "description": "Stage the next item into Program preview"
+    },
+    "schedule-prev": {
+      "label": "Previous schedule item",
+      "description": "Stage the previous item into Program preview"
+    },
+    "schedule-go-to-current": {
+      "label": "Go to current item",
+      "description": "Reveal and highlight the current item on the schedule"
+    },
+    "schedule-step-items": {
+      "label": "Step schedule items",
+      "description": "Previous or next item when the schedule is focused"
+    },
+    "schedule-step-deck": {
+      "label": "Step within a group",
+      "description": "Move through the slides or verses of a grouped item"
+    },
+    "live-go": {
+      "label": "Stage then go live",
+      "description": "First press stages the verse; second sends it to the audience"
+    },
+    "live-verse-page": {
+      "label": "Verse page",
+      "description": "Previous or next page of a long paginated verse"
+    },
+    "live-blackout": {
+      "label": "Blackout",
+      "description": "Cut the audience output to black"
+    },
+    "live-clear": {
+      "label": "Clear text",
+      "description": "Hide the foreground text; keep the background"
+    },
+    "live-logo": {
+      "label": "Logo / holding slide",
+      "description": "Show the holding image"
+    },
+    "editor-delete": {
+      "label": "Delete element",
+      "description": "Remove the selected element in the slide editor"
+    },
+    "editor-undo": {
+      "label": "Undo",
+      "description": "Undo the last edit in the slide editor"
+    },
+    "editor-redo": {
+      "label": "Redo",
+      "description": "Redo the last undone edit in the slide editor"
+    }
+  }
+}

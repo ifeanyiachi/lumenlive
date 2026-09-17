@@ -1,4 +1,5 @@
 import { useState, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { PlayIcon, TrashIcon, SettingsIcon, ListPlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +18,7 @@ import { addVersesToQueue } from "@/lib/schedule-drop"
 import type { QueueItem } from "@/types/queue"
 
 export function AIVersesTab() {
+  const { t } = useTranslation("schedule")
   const items = useQueueStore((s) => s.items)
   const activeIndex = useQueueStore((s) => s.activeIndex)
   const highlightedId = useQueueStore((s) => s.highlightedId)
@@ -45,14 +47,14 @@ export function AIVersesTab() {
     const ok = useScheduleStore
       .getState()
       .insertItemAt(activeScheduleId, scheduleItem, insertIndex)
-    if (ok) toast.success("Verse added to schedule")
-    else toast.info("Already in the schedule")
+    if (ok) toast.success(t("toast.verseAdded"))
+    else toast.info(t("toast.alreadyInSchedule"))
   }
 
   const sourceBadge = (item: QueueItem) =>
     item.source === "manual" ? (
       <Badge variant="outline" className="shrink-0 text-[0.5rem]">
-        Manual
+        {t("aiVerses.manual")}
       </Badge>
     ) : (
       <Badge
@@ -80,7 +82,7 @@ export function AIVersesTab() {
             onClick={() => setConfirmClear(true)}
             className="text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
           >
-            Clear all
+            {t("actions.clearAll")}
           </button>
         )}
       </div>
@@ -96,7 +98,7 @@ export function AIVersesTab() {
           <div className="flex flex-col gap-0.5 p-1.5">
             {items.length === 0 && (
               <p className="p-4 text-center text-xs text-muted-foreground">
-                Verses will appear here when detected or queued
+                {t("aiVerses.empty")}
               </p>
             )}
             {items.map((item, idx) => (
@@ -130,7 +132,7 @@ export function AIVersesTab() {
                         e.stopPropagation()
                         handlePresent(item, idx)
                       }}
-                      title="Present"
+                      title={t("actions.present")}
                     >
                       <PlayIcon className="size-2.5" />
                     </Button>
@@ -141,7 +143,7 @@ export function AIVersesTab() {
                         e.stopPropagation()
                         handleAddToSchedule(item)
                       }}
-                      title="Add to schedule"
+                      title={t("actions.addToSchedule")}
                       disabled={!activeScheduleId}
                     >
                       <ListPlusIcon className="size-2.5" />
@@ -152,9 +154,9 @@ export function AIVersesTab() {
                       onClick={(e) => {
                         e.stopPropagation()
                         useQueueStore.getState().removeItem(item.id)
-                        toast("Verse removed")
+                        toast(t("toast.verseRemoved"))
                       }}
-                      title="Remove"
+                      title={t("actions.remove")}
                     >
                       <TrashIcon className="size-2.5" />
                     </Button>
@@ -167,7 +169,7 @@ export function AIVersesTab() {
                         if (requireFeature("verse_editing", "Verse editing"))
                           setEditVerse(item)
                       }}
-                      title="Edit verse formatting"
+                      title={t("aiVerses.editFormatting")}
                     >
                       <SettingsIcon className="size-2.5" />
                     </Button>
@@ -182,14 +184,12 @@ export function AIVersesTab() {
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title="Clear all verses"
-        description={`Remove all ${items.length} verse${
-          items.length === 1 ? "" : "s"
-        } from the queue? This cannot be undone.`}
-        confirmLabel="Clear all"
+        title={t("confirm.clearVersesTitle")}
+        description={t("confirm.clearVersesDescription", { count: items.length })}
+        confirmLabel={t("actions.clearAll")}
         onConfirm={() => {
           useQueueStore.getState().clearQueue()
-          toast("Queue cleared")
+          toast(t("toast.queueCleared"))
         }}
       />
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { nativeLoopEnabled } from "@/lib/media/loop-mode"
 import { isEditableTarget } from "@/lib/dom/is-editable-target"
@@ -33,6 +34,7 @@ export function LiveMediaMonitor({
   media: LiveMedia
   onAir: boolean
 }) {
+  const { t } = useTranslation("panels")
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null)
   const [duration, setDuration] = useState(0)
   const [current, setCurrent] = useState(0)
@@ -300,7 +302,7 @@ export function LiveMediaMonitor({
         {loadError === media.filePath && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 px-4 text-center">
             <p className="text-xs font-medium text-destructive">
-              Couldn&apos;t load this media
+              {t("liveMedia.loadFailed")}
             </p>
             <p className="max-w-full truncate text-[0.625rem] text-white/60">
               {loadError}
@@ -318,7 +320,7 @@ export function LiveMediaMonitor({
                 type="button"
                 onClick={() => jumpToMarker(m.time)}
                 className="rounded bg-white/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-white transition-colors hover:bg-white/25"
-                title={`Jump to ${formatClock(m.time)}`}
+                title={t("liveMedia.jumpTo", { time: formatClock(m.time) })}
               >
                 {m.label}
               </button>
@@ -330,7 +332,7 @@ export function LiveMediaMonitor({
             type="button"
             onClick={togglePlay}
             className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/90 text-black transition-colors hover:bg-white"
-            title={displayPlaying ? "Pause" : "Play"}
+            title={displayPlaying ? t("liveWeb.pause") : t("liveWeb.play")}
           >
             {displayPlaying ? (
               <PauseIcon className="size-3.5" />

@@ -11,14 +11,28 @@ import {
   type BackupContent,
 } from "./backup"
 
-const assetUrl = (p: string) => `http://asset.localhost/${encodeURIComponent(p)}`
+const assetUrl = (p: string) =>
+  `http://asset.localhost/${encodeURIComponent(p)}`
 
 function asset(id: string, filePath: string): MediaAsset {
-  return { id, name: id, type: "image", filePath, fileSize: 1, tags: [], addedAt: 0 }
+  return {
+    id,
+    name: id,
+    type: "image",
+    filePath,
+    fileSize: 1,
+    tags: [],
+    addedAt: 0,
+  }
 }
 
-function extract(files: { srcPath: string; zipName: string }[]): ExtractedMedia[] {
-  return files.map((m) => ({ zipName: m.zipName, path: `/managed/${m.zipName}` }))
+function extract(
+  files: { srcPath: string; zipName: string }[]
+): ExtractedMedia[] {
+  return files.map((m) => ({
+    zipName: m.zipName,
+    path: `/managed/${m.zipName}`,
+  }))
 }
 
 function emptyContent(): BackupContent {
@@ -134,7 +148,9 @@ describe("parseBackup", () => {
 
     // Theme background: mediaAssetId preserved (id-stable), imageUrl re-baked.
     expect(parsed.themes[0].background.mediaAssetId).toBe("asset-1")
-    expect(parsed.themes[0].background.imageUrl).toBe(`converted://${managedPath}`)
+    expect(parsed.themes[0].background.imageUrl).toBe(
+      `converted://${managedPath}`
+    )
 
     // Slide background re-baked too.
     expect(parsed.presentations[0].slides[0].background.imageUrl).toBe(
@@ -171,7 +187,10 @@ describe("parseBackup", () => {
   it("rejects a newer backup version", () => {
     const { manifest } = buildBackup(scenario(), 1)
     expect(() =>
-      parseBackup({ ...manifest, version: 999 }, [], { now: 0, toAssetUrl: (p) => p })
+      parseBackup({ ...manifest, version: 999 }, [], {
+        now: 0,
+        toAssetUrl: (p) => p,
+      })
     ).toThrow(BackupParseError)
   })
 })

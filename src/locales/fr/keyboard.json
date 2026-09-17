@@ -1,0 +1,95 @@
+{
+  "title": "Raccourcis clavier",
+  "description": "Les raccourcis sont ignorés lorsque vous saisissez du texte dans un champ.",
+  "or": "ou",
+  "categories": {
+    "general": "Général",
+    "transcription": "Transcription",
+    "search": "Recherche",
+    "schedule": "Conducteur",
+    "live": "Diffusion",
+    "editing": "Modification"
+  },
+  "shortcuts": {
+    "toggle-shortcuts": {
+      "label": "Raccourcis clavier",
+      "description": "Ouvrir ou fermer cette aide-mémoire"
+    },
+    "open-settings": {
+      "label": "Ouvrir les paramètres",
+      "description": "Ouvrir la boîte de dialogue des paramètres"
+    },
+    "escape": {
+      "label": "Fermer / quitter le champ",
+      "description": "Fermer une boîte de dialogue ou quitter le champ actif"
+    },
+    "transcription-toggle": {
+      "label": "Démarrer / arrêter la transcription",
+      "description": "Activer ou désactiver la transcription en direct"
+    },
+    "focus-search": {
+      "label": "Activer la recherche",
+      "description": "Accéder au champ de recherche biblique"
+    },
+    "book-search-navigate": {
+      "label": "Parcourir les versets",
+      "description": "Déplacer le verset sélectionné dans la recherche biblique"
+    },
+    "book-search-chapter": {
+      "label": "Changer de chapitre",
+      "description": "Chapitre précédent ou suivant dans la recherche biblique"
+    },
+    "schedule-next": {
+      "label": "Élément suivant du conducteur",
+      "description": "Préparer l’élément suivant dans l’aperçu programme"
+    },
+    "schedule-prev": {
+      "label": "Élément précédent du conducteur",
+      "description": "Préparer l’élément précédent dans l’aperçu programme"
+    },
+    "schedule-go-to-current": {
+      "label": "Aller à l’élément actuel",
+      "description": "Afficher et mettre en évidence l’élément actuel du conducteur"
+    },
+    "schedule-step-items": {
+      "label": "Parcourir le conducteur",
+      "description": "Élément précédent ou suivant lorsque le conducteur est actif"
+    },
+    "schedule-step-deck": {
+      "label": "Parcourir un groupe",
+      "description": "Parcourir les diapositives ou versets d’un élément groupé"
+    },
+    "live-go": {
+      "label": "Préparer puis diffuser",
+      "description": "La première pression prépare le verset; la seconde l’envoie au public"
+    },
+    "live-verse-page": {
+      "label": "Page de verset",
+      "description": "Page précédente ou suivante d’un long verset paginé"
+    },
+    "live-blackout": {
+      "label": "Écran noir",
+      "description": "Couper la sortie public sur noir"
+    },
+    "live-clear": {
+      "label": "Effacer le texte",
+      "description": "Masquer le texte au premier plan et conserver l’arrière-plan"
+    },
+    "live-logo": {
+      "label": "Logo / diapositive d’attente",
+      "description": "Afficher l’image d’attente"
+    },
+    "editor-delete": {
+      "label": "Supprimer l’élément",
+      "description": "Supprimer l’élément sélectionné dans l’éditeur de diapositives"
+    },
+    "editor-undo": {
+      "label": "Annuler",
+      "description": "Annuler la dernière modification dans l’éditeur de diapositives"
+    },
+    "editor-redo": {
+      "label": "Rétablir",
+      "description": "Rétablir la dernière modification annulée dans l’éditeur de diapositives"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 
@@ -17,6 +18,7 @@ function VerseCard({
   verseNumber?: number
   empty?: boolean
 }) {
+  const { t } = useTranslation("ui")
   return (
     <div
       data-slot="verse-card"
@@ -28,7 +30,7 @@ function VerseCard({
     >
       {empty ? (
         <p className="text-sm text-muted-foreground italic">
-          Select a verse to preview
+          {t("verseCard.empty")}
         </p>
       ) : (
         <>

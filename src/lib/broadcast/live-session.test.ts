@@ -27,7 +27,9 @@ function session(over: Partial<LiveSessionData> = {}): LiveSessionData {
 
 // A minimal stand-in for VerseRenderData — only object identity matters to the
 // diff/round-trip logic under test, so the exact shape is irrelevant here.
-const verse = { reference: "John 3:16" } as unknown as LiveSessionData["liveVerse"]
+const verse = {
+  reference: "John 3:16",
+} as unknown as LiveSessionData["liveVerse"]
 
 describe("pickLiveSession", () => {
   it("round-trips every durable field", () => {
@@ -50,7 +52,11 @@ describe("pickLiveSession", () => {
   })
 
   it("drops fields outside the session subset (e.g. preview staging)", () => {
-    const wide = { ...session({ isLive: true }), previewVerse: {}, blackout: true }
+    const wide = {
+      ...session({ isLive: true }),
+      previewVerse: {},
+      blackout: true,
+    }
     const picked = pickLiveSession(wide)
     expect("previewVerse" in picked).toBe(false)
   })

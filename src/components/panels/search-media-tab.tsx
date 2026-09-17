@@ -1,12 +1,16 @@
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   FilmIcon,
   ImageIcon,
+  ListPlusIcon,
   LoaderIcon,
   MusicIcon,
+  PlayIcon,
   SearchIcon,
   UploadIcon,
+  XIcon,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useMediaStore } from "@/stores/media-store"
@@ -19,18 +23,29 @@ import type { MediaAsset, MediaType } from "@/types/media"
 
 const ALL_MEDIA_KINDS: MediaType[] = ["image", "video", "audio"]
 
-const FILTERS: { value: MediaType | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "image", label: "Images" },
-  { value: "video", label: "Videos" },
-  { value: "audio", label: "Audio" },
-]
+const FILTERS: (MediaType | "all")[] = ["all", "image", "video", "audio"]
 
-function DraggableMediaCard({ asset }: { asset: MediaAsset }) {
+function DraggableMediaCard({
+  asset,
+  selected,
+  dragAssets,
+  onSelect,
+}: {
+  asset: MediaAsset
+  selected: boolean
+  /** Assets to drag when this card is dragged (accounts for multi-selection). */
+  dragAssets: MediaAsset[]
+  onSelect: (event: React.MouseEvent<HTMLButtonElement>) => void
+}) {
+  const { t } = useTranslation("panels")
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
   const dragSource = useDragSource()
   const dragHandlers = dragSource(() => ({
-    payload: { kind: "media" as const, assets: [asset] },
-    label: asset.name,
+    payload: { kind: "media" as const, assets: dragAssets },
+    label:
+      dragAssets.length > 1
+        ? t("search.mediaSelected", { count: dragAssets.length })
+        : asset.name,
   }))
 
   const thumbSrc = useMemo(() => {
@@ -45,14 +60,34 @@ function DraggableMediaCard({ asset }: { asset: MediaAsset }) {
     return null
   }, [asset.thumbnailDataUrl, asset.type, asset.filePath])
 
+  // Videos without a stored thumbnail seek to an early frame for a preview
+  // (matches media-card.tsx). safeFileSrc throws in the browser dev shell.
+  const videoSrc = useMemo(() => {
+    if (asset.type !== "video") return null
+    try {
+      return safeFileSrc(asset.filePath)
+    } catch {
+      return null
+    }
+  }, [asset.type, asset.filePath])
+
   return (
     <button
       type="button"
       {...dragHandlers}
       draggable={false}
-      onDoubleClick={() => addAssetsToSchedule([asset], true)}
-      title={`${asset.name} — drag to schedule or double-click to add`}
-      className="group flex cursor-grab flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-primary/50 hover:bg-accent/50 active:cursor-grabbing"
+      aria-pressed={selected}
+      onClick={onSelect}
+      onDoubleClick={() =>
+        addAssetsToSchedule(dragAssets.length > 1 ? dragAssets : [asset], true)
+      }
+      title={t("search.mediaCard", { name: asset.name })}
+      className={cn(
+        "group relative flex cursor-grab flex-col overflow-hidden rounded-lg border bg-card text-left transition-colors active:cursor-grabbing",
+        selected
+          ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+          : "border-border hover:border-primary/50 hover:bg-accent/50"
+      )}
     >
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
         {thumbSrc ? (
@@ -64,6 +99,29 @@ function DraggableMediaCard({ asset }: { asset: MediaAsset }) {
             draggable={false}
             className="size-full object-cover"
           />
+        ) : videoSrc && !videoPreviewFailed ? (
+          <>
+            <video
+              src={videoSrc}
+              aria-label={asset.name}
+              className="size-full object-cover"
+              draggable={false}
+              muted
+              playsInline
+              preload="auto"
+              onError={() => setVideoPreviewFailed(true)}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget
+                // Avoid the often-black first frame without starting playback.
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  video.currentTime = Math.min(1, video.duration * 0.1)
+                }
+              }}
+            />
+            <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-black/60 text-white shadow-sm">
+              <PlayIcon className="ml-px size-2 fill-current" />
+            </span>
+          </>
         ) : (
           <div className="flex size-full items-center justify-center">
             {asset.type === "video" ? (
@@ -86,9 +144,15 @@ function DraggableMediaCard({ asset }: { asset: MediaAsset }) {
 }
 
 export function SearchMediaTab() {
+  const { t } = useTranslation("panels")
   const assets = useMediaStore((s) => s.assets)
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<MediaType | "all">("all")
+  // Local multi-select: which library assets are selected in this panel. Kept
+  // panel-local (not the media-store's `checkedIds`) so selecting here doesn't
+  // affect the main media library toolbar.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const selectionAnchorId = useRef<string | null>(null)
   const {
     fileInputRef,
     isImporting,
@@ -120,6 +184,54 @@ export function SearchMediaTab() {
     })
   }, [assets, filter, query])
 
+  const selectMedia = useCallback(
+    (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
+      const isToggle = event.ctrlKey || event.metaKey
+      const isRange = event.shiftKey
+
+      setSelectedIds((prev) => {
+        if (isRange) {
+          const anchorIndex = filtered.findIndex(
+            (asset) => asset.id === selectionAnchorId.current
+          )
+          const targetIndex = filtered.findIndex((asset) => asset.id === id)
+
+          if (anchorIndex >= 0 && targetIndex >= 0) {
+            const range = filtered.slice(
+              Math.min(anchorIndex, targetIndex),
+              Math.max(anchorIndex, targetIndex) + 1
+            )
+            return isToggle
+              ? new Set([...prev, ...range.map((asset) => asset.id)])
+              : new Set(range.map((asset) => asset.id))
+          }
+        }
+
+        selectionAnchorId.current = id
+        if (isToggle) {
+          const next = new Set(prev)
+          if (next.has(id)) next.delete(id)
+          else next.add(id)
+          return next
+        }
+        return new Set([id])
+      })
+    },
+    [filtered]
+  )
+
+  const clearSelection = useCallback(() => {
+    selectionAnchorId.current = null
+    setSelectedIds(new Set())
+  }, [])
+
+  // Selected assets in library order (also drops ids of any removed asset).
+  const selectedAssets = useMemo(
+    () => assets.filter((a) => selectedIds.has(a.id)),
+    [assets, selectedIds]
+  )
+  const selectedCount = selectedAssets.length
+
   return (
     <div
       ref={dropRef}
@@ -133,7 +245,7 @@ export function SearchMediaTab() {
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-primary/10">
           <div className="flex items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-xs font-medium shadow">
             <UploadIcon className="size-4 text-primary" />
-            Drop to add to your media library
+            {t("search.dropToAdd")}
           </div>
         </div>
       )}
@@ -144,24 +256,24 @@ export function SearchMediaTab() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search media..."
+            placeholder={t("search.mediaPlaceholder")}
             className="h-7 pl-7 text-xs"
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {FILTERS.map((f) => (
             <button
-              key={f.value}
+              key={f}
               type="button"
-              onClick={() => setFilter(f.value)}
+              onClick={() => setFilter(f)}
               className={cn(
                 "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
-                filter === f.value
+                filter === f
                   ? "bg-lime-500/15 text-lime-300"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {f.label}
+              {t(`search.mediaFilters.${f}`)}
             </button>
           ))}
         </div>
@@ -169,7 +281,7 @@ export function SearchMediaTab() {
           type="button"
           onClick={startImport}
           disabled={isImporting}
-          title="Upload media from this device"
+          title={t("search.uploadMediaTitle")}
           className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[0.625rem] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
           {isImporting ? (
@@ -177,7 +289,7 @@ export function SearchMediaTab() {
           ) : (
             <UploadIcon className="size-3" />
           )}
-          {isImporting ? "Importing…" : "Upload"}
+          {isImporting ? t("search.importing") : t("search.upload")}
         </button>
       </div>
 
@@ -187,7 +299,7 @@ export function SearchMediaTab() {
           assets.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-6 text-center">
               <p className="text-xs text-muted-foreground">
-                No media yet — upload files to get started.
+                {t("search.mediaEmpty")}
               </p>
               <button
                 type="button"
@@ -200,22 +312,63 @@ export function SearchMediaTab() {
                 ) : (
                   <UploadIcon className="size-3.5" />
                 )}
-                {isImporting ? "Importing…" : "Upload media"}
+                {isImporting ? t("search.importing") : t("search.uploadMedia")}
               </button>
             </div>
           ) : (
             <p className="p-6 text-center text-xs text-muted-foreground">
-              No media matches your search.
+              {t("search.mediaNoMatch")}
             </p>
           )
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 p-2">
-            {filtered.map((asset) => (
-              <DraggableMediaCard key={asset.id} asset={asset} />
-            ))}
+            {filtered.map((asset) => {
+              const isSelected = selectedIds.has(asset.id)
+              // Dragging a selected card carries the whole selection; dragging
+              // an unselected one carries just that asset.
+              const dragAssets =
+                isSelected && selectedCount > 1 ? selectedAssets : [asset]
+              return (
+                <DraggableMediaCard
+                  key={asset.id}
+                  asset={asset}
+                  selected={isSelected}
+                  dragAssets={dragAssets}
+                  onSelect={(event) => selectMedia(asset.id, event)}
+                />
+              )
+            })}
           </div>
         )}
       </div>
+
+      {/* Selection action bar: appears while one or more assets are selected. */}
+      {selectedCount > 0 && (
+        <div className="flex shrink-0 items-center gap-2 border-t border-border bg-primary/5 px-3 py-2">
+          <span className="flex-1 text-xs font-medium text-foreground">
+            {t("search.mediaSelected", { count: selectedCount })}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              addAssetsToSchedule(selectedAssets, true)
+              clearSelection()
+            }}
+            className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-[0.6875rem] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <ListPlusIcon className="size-3" />
+            {t("search.addToSchedule")}
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            aria-label={t("search.clearSelection")}
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {needsFileInput && (
         <input

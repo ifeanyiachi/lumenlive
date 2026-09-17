@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ export function SlideImageProperties({
 }: {
   element: SlideImageElement
 }) {
+  const { t } = useTranslation("slides")
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const update = (updates: Partial<SlideImageElement>) => {
@@ -38,7 +40,7 @@ export function SlideImageProperties({
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
-        title="Image Properties"
+        title={t("imageProperties.title")}
         icon={<SettingsIcon className="size-3.5" />}
       />
 
@@ -47,7 +49,7 @@ export function SlideImageProperties({
           {/* Image source */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Image
+              {t("rightPanel.image")}
             </span>
             {element.imageUrl ? (
               <div className="flex flex-col gap-2">
@@ -66,7 +68,7 @@ export function SlideImageProperties({
                     onClick={() => setPickerOpen(true)}
                   >
                     <ImageIcon className="mr-1.5 size-3" />
-                    Replace
+                    {t("common.replace")}
                   </Button>
                   <Button
                     variant="outline"
@@ -74,7 +76,7 @@ export function SlideImageProperties({
                     className="text-xs text-destructive"
                     onClick={() => update({ imageUrl: "" })}
                   >
-                    Remove
+                    {t("common.remove")}
                   </Button>
                 </div>
               </div>
@@ -86,7 +88,7 @@ export function SlideImageProperties({
                 onClick={() => setPickerOpen(true)}
               >
                 <ImageIcon className="mr-1.5 size-3" />
-                Choose Image
+                {t("imageProperties.choose")}
               </Button>
             )}
           </div>

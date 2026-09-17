@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { useTranslation } from "react-i18next"
 import { bibleActions } from "@/hooks/use-bible"
 import { useDragSource } from "@/stores/drag-store"
 import { verseLocationKey, verseReference } from "@/lib/search/verse-keys"
@@ -52,6 +53,7 @@ const ContextResultRow = memo(function ContextResultRow({
   onEditVerse: (verse: Verse) => void
   onVerseDoubleClick: (verse: Verse) => void
 }) {
+  const { t } = useTranslation("panels")
   const verseDrag = useDragSource()
 
   // Context results are synthesized (no real row id), so we build the Verse once
@@ -112,7 +114,7 @@ const ContextResultRow = memo(function ContextResultRow({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Edit verse formatting"
+                aria-label={t("search.editVerseFormatting")}
                 className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -122,7 +124,7 @@ const ContextResultRow = memo(function ContextResultRow({
                 <PencilIcon className="size-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Edit verse formatting</TooltipContent>
+            <TooltipContent side="left">{t("search.editVerseFormatting")}</TooltipContent>
           </Tooltip>
           <ScheduleButton
             verse={verse}

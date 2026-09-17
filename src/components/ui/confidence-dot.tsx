@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 
@@ -11,11 +12,14 @@ function ConfidenceDot({
   confidence: number
   size?: "sm" | "md"
 }) {
+  const { t } = useTranslation("ui")
   return (
     <span
       data-slot="confidence-dot"
       role="img"
-      aria-label={`Detection confidence ${Math.round(confidence * 100)}%`}
+      aria-label={t("accessibility.detectionConfidence", {
+        value: Math.round(confidence * 100),
+      })}
       className={cn(
         "inline-block rounded-full",
         size === "sm" ? "size-1.5" : "size-2",

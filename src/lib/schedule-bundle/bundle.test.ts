@@ -12,9 +12,14 @@ import {
   type ExtractedMedia,
 } from "./bundle"
 
-const assetUrl = (p: string) => `http://asset.localhost/${encodeURIComponent(p)}`
+const assetUrl = (p: string) =>
+  `http://asset.localhost/${encodeURIComponent(p)}`
 
-function asset(id: string, filePath: string, type: MediaAsset["type"]): MediaAsset {
+function asset(
+  id: string,
+  filePath: string,
+  type: MediaAsset["type"]
+): MediaAsset {
   return { id, name: id, type, filePath, fileSize: 1, tags: [], addedAt: 0 }
 }
 
@@ -68,7 +73,14 @@ function scenario() {
         cachedFilePath: "C:\\media\\clip.mp4",
         cachedMediaType: "video",
       },
-      { id: "sl1", type: "slide", label: "Deck", order: 1, presentationId: "p1", slideIndex: 0 },
+      {
+        id: "sl1",
+        type: "slide",
+        label: "Deck",
+        order: 1,
+        presentationId: "p1",
+        slideIndex: 0,
+      },
       {
         id: "sg1",
         type: "song",
@@ -92,8 +104,13 @@ function scenario() {
 }
 
 /** Simulate the Rust extractor: each packaged file lands under /managed/<zipName>. */
-function extract(mediaFiles: { srcPath: string; zipName: string }[]): ExtractedMedia[] {
-  return mediaFiles.map((m) => ({ zipName: m.zipName, path: `/managed/${m.zipName}` }))
+function extract(
+  mediaFiles: { srcPath: string; zipName: string }[]
+): ExtractedMedia[] {
+  return mediaFiles.map((m) => ({
+    zipName: m.zipName,
+    path: `/managed/${m.zipName}`,
+  }))
 }
 
 describe("buildScheduleBundle", () => {
@@ -113,7 +130,11 @@ describe("buildScheduleBundle", () => {
     // Three unique files: the clip, the deck background, the theme background.
     expect(manifest.media).toHaveLength(3)
     expect(new Set(manifest.media.map((m) => m.srcPath))).toEqual(
-      new Set(["C:\\media\\clip.mp4", "C:\\media\\bg.png", "C:\\media\\theme-bg.jpg"])
+      new Set([
+        "C:\\media\\clip.mp4",
+        "C:\\media\\bg.png",
+        "C:\\media\\theme-bg.jpg",
+      ])
     )
     expect(mediaFiles).toHaveLength(3)
     // Every packaged file here is asset-backed.
@@ -151,7 +172,9 @@ describe("buildScheduleBundle", () => {
     const noCache = {
       ...schedule,
       items: schedule.items.map((it) =>
-        it.type === "media" ? { ...it, mediaAssetId: "gone", cachedFilePath: undefined } : it
+        it.type === "media"
+          ? { ...it, mediaAssetId: "gone", cachedFilePath: undefined }
+          : it
       ),
     }
     const { missingMedia } = buildScheduleBundle(noCache, sources, 1)
@@ -222,7 +245,9 @@ describe("parseScheduleBundle", () => {
     // Song deeply re-keyed and its slideOptions theme remapped.
     const parsedSong = parsed.songs[0]
     expect(parsedSong.slideOptions?.themeId).toBe(theme.id)
-    expect(parsedSong.arrangements[0].sectionIds[0]).toBe(parsedSong.sections[0].id)
+    expect(parsedSong.arrangements[0].sectionIds[0]).toBe(
+      parsedSong.sections[0].id
+    )
   })
 
   it("skips media whose bytes are absent from the archive", () => {

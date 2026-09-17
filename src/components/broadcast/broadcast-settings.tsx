@@ -42,6 +42,7 @@ import { MediaPickerDialog } from "@/components/media/media-picker-dialog"
 import { OutputManager } from "@/components/broadcast/output-manager"
 import { OutputCard } from "@/components/broadcast/output-card"
 import { useOutputController } from "@/hooks/use-output-controller"
+import { useTranslation } from "react-i18next"
 
 /**
  * Global base/master background editor: a theme (with branding) or a bare
@@ -50,6 +51,7 @@ import { useOutputController } from "@/hooks/use-output-controller"
  * gradient/solid controls and file pickers.
  */
 function BaseBackgroundSection() {
+  const { t } = useTranslation("broadcast")
   const baseBackground = useBroadcastStore((s) => s.baseBackground)
   const setBase = (bb: BaseBackground | null) =>
     useBroadcastStore.getState().setBaseBackground(bb)
@@ -109,15 +111,14 @@ function BaseBackgroundSection() {
     <div className="space-y-2.5 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-2">
         <MonitorIcon className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Clear &amp; Idle Background</span>
+        <span className="text-sm font-medium">{t("clearIdleBackground")}</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        What the audience sees when you Clear the text — and behind any content
-        set to a transparent background. Applies to all outputs.
+        {t("clearIdleDescription")}
       </p>
 
       <label className="text-xs text-muted-foreground">
-        When cleared, show
+        {t("whenClearedShow")}
       </label>
       <Select value={source} onValueChange={onSource}>
         <SelectTrigger className="w-full">
@@ -125,12 +126,12 @@ function BaseBackgroundSection() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="output">
-            Nothing extra — each output&apos;s own theme
+            {t("outputTheme")}
           </SelectItem>
-          <SelectItem value="solid">Solid color</SelectItem>
-          <SelectItem value="gradient">Gradient</SelectItem>
-          <SelectItem value="image">An image (logo / holding slide)</SelectItem>
-          <SelectItem value="video">A video loop</SelectItem>
+          <SelectItem value="solid">{t("solidColor")}</SelectItem>
+          <SelectItem value="gradient">{t("gradient")}</SelectItem>
+          <SelectItem value="image">{t("imageHoldingSlide")}</SelectItem>
+          <SelectItem value="video">{t("videoLoop")}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -160,7 +161,7 @@ function BaseBackgroundSection() {
             </div>
           ) : (
             <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
-              No image
+              {t("noImage")}
             </div>
           )}
           <Button
@@ -168,7 +169,7 @@ function BaseBackgroundSection() {
             size="sm"
             onClick={() => setImagePickerOpen(true)}
           >
-            {bg.image?.url ? "Change image…" : "Choose image…"}
+            {bg.image?.url ? t("changeImage") : t("chooseImage")}
           </Button>
         </div>
       )}
@@ -176,14 +177,14 @@ function BaseBackgroundSection() {
       {bg?.type === "video" && (
         <div className="flex items-center gap-3">
           <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
-            {bg.video?.url ? "Video set" : "No video"}
+            {bg.video?.url ? t("videoSet") : t("noVideo")}
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setVideoPickerOpen(true)}
           >
-            {bg.video?.url ? "Change video…" : "Choose video…"}
+            {bg.video?.url ? t("changeVideo") : t("chooseVideo")}
           </Button>
         </div>
       )}
@@ -222,6 +223,7 @@ export function BroadcastSettings({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("broadcast")
   // Each output renders scripture, so its theme picker lists scripture-type themes.
   const customThemes = useThemesStore((s) => s.customThemes)
   const themes = buildThemeRegistry(customThemes).filter(
@@ -333,7 +335,7 @@ export function BroadcastSettings({
             {/* Reserve room on the right so the "Manage Outputs" button clears
                 the dialog's absolute top-4 right-4 close (X) button. */}
             <div className="flex items-center justify-between pr-10">
-              <DialogTitle>Broadcast</DialogTitle>
+            <DialogTitle>{t("title")}</DialogTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -341,18 +343,18 @@ export function BroadcastSettings({
                 onClick={() => setOutputManagerOpen(true)}
               >
                 <LayersIcon className="size-3.5" />
-                Manage Outputs
+                {t("manageOutputs")}
               </Button>
             </div>
             <DialogDescription>
-              Configure each output's theme and layer routing.
+              {t("configureOutputs")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-4">
             <OutputCard
               controller={mainCtrl}
-              title="Main Output"
+              title={t("mainOutput")}
               icon={MonitorIcon}
               themes={themes}
               monitors={monitors}
@@ -362,7 +364,7 @@ export function BroadcastSettings({
             />
             <OutputCard
               controller={altCtrl}
-              title="Alternate Output"
+              title={t("alternateOutput")}
               icon={CastIcon}
               themes={themes}
               monitors={monitors}
@@ -377,16 +379,14 @@ export function BroadcastSettings({
           <BaseBackgroundSection />
 
           {/* Holding logo — a single global image shown on the audience output
-              when Logo is toggled (press L or the Screen menu while live). */}
+              when Logo is toggled with its live-output shortcut. */}
           <div className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="size-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Logo / Holding Image</span>
+              <span className="text-sm font-medium">{t("holdingImage")}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Shown full-screen on the audience output when you toggle Logo
-              (press L, or the Screen menu on the Live panel, while
-              broadcasting).
+              {t("holdingImageDescription")}
             </p>
             <div className="flex items-center gap-3">
               {logoImagePath ? (
@@ -399,18 +399,18 @@ export function BroadcastSettings({
                         return logoImagePath
                       }
                     })()}
-                    alt="Logo preview"
+                    alt={t("logoPreview")}
                     className="size-full object-contain"
                   />
                 </div>
               ) : (
                 <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded border border-dashed border-border text-[0.625rem] text-muted-foreground">
-                  No logo set
+                  {t("noLogo")}
                 </div>
               )}
               <div className="flex flex-col gap-2">
                 <Button variant="outline" size="sm" onClick={handleChooseLogo}>
-                  {logoImagePath ? "Change image…" : "Choose image…"}
+                  {logoImagePath ? t("changeImage") : t("chooseImage")}
                 </Button>
                 {logoImagePath && (
                   <Button
@@ -421,7 +421,7 @@ export function BroadcastSettings({
                       useBroadcastStore.getState().setLogoImage(null)
                     }
                   >
-                    Remove
+                    {t("remove")}
                   </Button>
                 )}
               </div>

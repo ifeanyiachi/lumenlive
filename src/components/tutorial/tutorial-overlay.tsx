@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Joyride, STATUS, type EventData } from "react-joyride"
 import { toast } from "sonner"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -7,10 +8,11 @@ import {
   hydrateOnboardingState,
   persistOnboardingComplete,
 } from "@/stores/tutorial-store"
-import { TUTORIAL_STEPS } from "./tutorial-steps"
+import { tutorialSteps } from "./tutorial-steps"
 import { TutorialTooltip } from "./tutorial-tooltip"
 
 export function TutorialOverlay() {
+  const { t } = useTranslation("tutorial")
   const [isHydrated, setIsHydrated] = useState(false)
   const isRunning = useTutorialStore((s) => s.isRunning)
   const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)
@@ -29,11 +31,11 @@ export function TutorialOverlay() {
 
   const steps = useMemo(
     () =>
-      TUTORIAL_STEPS.map((step) => ({
+      tutorialSteps(t).map((step) => ({
         ...step,
         arrowColor,
       })),
-    [arrowColor]
+    [arrowColor, t]
   )
 
   useEffect(() => {
@@ -57,12 +59,12 @@ export function TutorialOverlay() {
       persistOnboardingComplete()
 
       if (data.status === STATUS.SKIPPED) {
-        toast.info("Tutorial skipped", {
-          description: "Restart anytime in Settings.",
+        toast.info(t("toast.skipped"), {
+          description: t("toast.restart"),
         })
       }
     }
-  }, [])
+  }, [t])
 
   if (!isHydrated) return null
 

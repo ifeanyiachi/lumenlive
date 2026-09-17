@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { PresentationIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ import {
 import type { Presentation } from "@/types/slide"
 
 export function PresentationGrid() {
+  const { t } = useTranslation("slides")
   const allPresentations = usePresentationStore((s) => s.presentations)
   const searchQuery = usePresentationStore((s) => s.searchQuery)
   const selectedId = usePresentationStore((s) => s.selectedPresentationId)
@@ -72,7 +74,7 @@ export function PresentationGrid() {
   const doCommit = (presentation: Presentation, fileName: string) => {
     const id = commitImportedPresentation(presentation)
     usePresentationStore.getState().setSelectedPresentation(id)
-    toast.success(`Imported "${fileName}"`)
+    toast.success(t("grid.imported", { fileName }))
   }
 
   // Deck names must be unique. If the imported name collides with one already in
@@ -122,7 +124,9 @@ export function PresentationGrid() {
       })
     } catch (err) {
       toast.error(
-        `Import failed: ${err instanceof Error ? err.message : "unknown error"}`
+        t("grid.importFailed", {
+          message: err instanceof Error ? err.message : t("grid.unknownError"),
+        })
       )
     } finally {
       setImporting(false)
@@ -144,7 +148,7 @@ export function PresentationGrid() {
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
       <PanelHeader
-        title="Presentations"
+        title={t("grid.title")}
         icon={<PresentationIcon className="size-3.5" />}
       >
         <input
@@ -164,13 +168,13 @@ export function PresentationGrid() {
           className="h-7 gap-1 px-2 text-xs"
           disabled={importing}
           onClick={() => {
-            if (requireFeature("pptx_import", "PowerPoint import"))
+            if (requireFeature("pptx_import", t("grid.powerPointImport")))
               fileInputRef.current?.click()
           }}
-          title="Import a PowerPoint (.pptx) file"
+          title={t("grid.importPowerPointTitle")}
         >
           <UploadIcon className="size-3" />
-          {importing ? "Importing…" : "Import"}
+          {importing ? t("grid.importing") : t("grid.import")}
         </Button>
         <Button
           variant="ghost"
@@ -179,13 +183,13 @@ export function PresentationGrid() {
           onClick={handleCreate}
         >
           <PlusIcon className="size-3" />
-          New
+          {t("grid.new")}
         </Button>
       </PanelHeader>
 
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Input
-          placeholder="Search presentations..."
+          placeholder={t("grid.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) =>
             usePresentationStore.getState().setSearchQuery(e.target.value)
@@ -200,14 +204,8 @@ export function PresentationGrid() {
             size="lg"
             live={!!searchQuery}
             icon={<PresentationIcon />}
-            title={
-              searchQuery ? "No matching presentations" : "No presentations yet"
-            }
-            description={
-              !searchQuery
-                ? 'Click "New" to create your first presentation'
-                : undefined
-            }
+            title={searchQuery ? t("grid.noMatches") : t("grid.empty")}
+            description={!searchQuery ? t("grid.emptyDescription") : undefined}
           />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-3">

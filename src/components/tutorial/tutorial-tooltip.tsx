@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { SparklesIcon, ChevronLeftIcon } from "lucide-react"
 import type { TooltipRenderProps, Controls } from "react-joyride"
 
@@ -13,6 +14,7 @@ export function TutorialTooltip({
   controls,
   tooltipProps,
 }: TooltipRenderProps) {
+  const { t } = useTranslation("tutorial")
   const controlsRef = useRef<Controls>(controls)
   const indexRef = useRef(index)
   const isLastStepRef = useRef(isLastStep)
@@ -57,7 +59,7 @@ export function TutorialTooltip({
           <SparklesIcon className="size-3.5 text-primary" />
         </div>
         <h3 className="text-sm leading-tight font-semibold tracking-tight text-foreground">
-          {step.title ?? `Step ${index + 1}`}
+          {step.title ?? t("controls.step", { number: index + 1 })}
         </h3>
       </div>
 
@@ -91,7 +93,7 @@ export function TutorialTooltip({
             {...skipProps}
             className="mr-auto rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            Skip
+            {t("controls.skip")}
           </button>
           {index > 0 ? (
             <button
@@ -99,14 +101,14 @@ export function TutorialTooltip({
               className="inline-flex items-center gap-0.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeftIcon className="size-3" />
-              Back
+              {t("controls.back")}
             </button>
           ) : null}
           <button
             {...primaryProps}
             className="rounded-md bg-primary px-3.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            {isLastStep ? "Done" : "Next"}
+            {isLastStep ? t("controls.done") : t("controls.next")}
           </button>
         </div>
       </div>

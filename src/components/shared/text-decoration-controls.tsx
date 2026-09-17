@@ -1,6 +1,7 @@
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { ColorSwatch } from "@/components/ui/color-swatch"
+import { useTranslation } from "react-i18next"
 
 interface ShadowValue {
   color: string
@@ -43,6 +44,7 @@ export function TextShadowControls({
   onToggle: (enabled: boolean) => void
   onUpdate: (path: string, value: number | string) => void
 }) {
+  const { t } = useTranslation("shared")
   const shadowColor = shadow
     ? parseColorOpacity(shadow.color)
     : { hex: "#000000", opacity: 100 }
@@ -50,7 +52,7 @@ export function TextShadowControls({
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold">Text Shadow</label>
+        <label className="text-xs font-semibold">{t("textShadow")}</label>
         <input
           type="checkbox"
           checked={shadow !== null}
@@ -64,7 +66,7 @@ export function TextShadowControls({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Offset X
+                {t("offsetX")}
               </label>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {shadow.x}px
@@ -82,7 +84,7 @@ export function TextShadowControls({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Offset Y
+                {t("offsetY")}
               </label>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {shadow.y}px
@@ -100,7 +102,7 @@ export function TextShadowControls({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Blur
+                {t("blur")}
               </label>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {shadow.blur}px
@@ -117,7 +119,7 @@ export function TextShadowControls({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Shadow Color
+              {t("shadowColor")}
             </label>
             <div className="flex items-center gap-2">
               <ColorSwatch
@@ -146,7 +148,7 @@ export function TextShadowControls({
             </div>
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Opacity
+                {t("opacity")}
               </label>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {shadowColor.opacity}%
@@ -177,6 +179,7 @@ export function TextOutlineControls({
   onToggle: (enabled: boolean) => void
   onUpdate: (path: string, value: number | string) => void
 }) {
+  const { t } = useTranslation("shared")
   const outlineColor = outline
     ? parseColorOpacity(outline.color)
     : { hex: "#000000", opacity: 100 }
@@ -184,7 +187,7 @@ export function TextOutlineControls({
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold">Text Outline</label>
+        <label className="text-xs font-semibold">{t("textOutline")}</label>
         <input
           type="checkbox"
           checked={outline !== null}
@@ -198,7 +201,7 @@ export function TextOutlineControls({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Width
+                {t("width")}
               </label>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {outline.width}px
@@ -215,7 +218,7 @@ export function TextOutlineControls({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Outline Color
+              {t("outlineColor")}
             </label>
             <div className="flex items-center gap-2">
               <ColorSwatch

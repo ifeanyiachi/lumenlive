@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogClose,
@@ -20,8 +21,8 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   destructive = true,
   onConfirm,
 }: {
@@ -34,6 +35,7 @@ export function ConfirmDialog({
   destructive?: boolean
   onConfirm: () => void
 }) {
+  const { t } = useTranslation("ui")
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -48,7 +50,7 @@ export function ConfirmDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm">
-              {cancelLabel}
+              {cancelLabel ?? t("actions.cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -59,7 +61,7 @@ export function ConfirmDialog({
               onOpenChange(false)
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("actions.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

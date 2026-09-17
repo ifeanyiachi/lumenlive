@@ -20,8 +20,10 @@ import { StageZoneList } from "./stage-zone-list"
 import { StageInspector } from "./stage-inspector"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 export function StageLayoutDesigner() {
+  const { t } = useTranslation("broadcast")
   const isOpen = useBroadcastStore((s) => s.stageDesignerOpen)
   const draft = useBroadcastStore((s) => s.draftStageLayout)
   const editingId = useBroadcastStore((s) => s.editingStageLayoutId)
@@ -97,16 +99,16 @@ export function StageLayoutDesigner() {
     if (!current) return
     const name = current.name.trim()
     if (!name) {
-      toast.error("Enter a layout name before saving")
+      toast.error(t("stageDesigner.enterName"))
       return
     }
     // Names must be unique across the library (built-ins + customs).
     if (isNameTaken(store.stageLayouts, name, current.id)) {
-      toast.error(`A stage layout named “${name}” already exists`)
+      toast.error(t("stageDesigner.nameExists", { name }))
       return
     }
     store.saveStageDraft()
-    toast.success("Stage layout saved")
+    toast.success(t("stageDesigner.saved"))
   }
 
   const handleCommitName = () => {
@@ -114,7 +116,7 @@ export function StageLayoutDesigner() {
     if (trimmed && draft && editingId) {
       const store = useBroadcastStore.getState()
       if (isNameTaken(store.stageLayouts, trimmed, editingId)) {
-        toast.error(`A stage layout named “${trimmed}” already exists`)
+        toast.error(t("stageDesigner.nameExists", { name: trimmed }))
         return
       }
       store.renameStageLayout(editingId, trimmed)
@@ -137,7 +139,7 @@ export function StageLayoutDesigner() {
           aria-describedby={undefined}
         >
           <DialogPrimitive.Title className="sr-only">
-            Stage Layout Designer
+            {t("stageDesigner.title")}
           </DialogPrimitive.Title>
 
           {/* Top bar */}
@@ -175,16 +177,16 @@ export function StageLayoutDesigner() {
                   }
                   title={
                     draft && !draft.builtin
-                      ? "Double-click to rename"
+                      ? t("stageDesigner.renameHint")
                       : undefined
                   }
                 >
-                  {draft?.name ?? "Stage Layout"}
+                  {draft?.name ?? t("stageLayout")}
                 </span>
               )
             ) : (
               <span className="text-xl font-semibold text-foreground">
-                Stage Layout Designer
+                {t("stageDesigner.title")}
               </span>
             )}
 
@@ -196,7 +198,7 @@ export function StageLayoutDesigner() {
                   className="size-8"
                   disabled={!canUndo}
                   onClick={() => useBroadcastStore.getState().stageUndo()}
-                  title="Undo (Ctrl+Z)"
+                  title={t("undo") + " (Ctrl+Z)"}
                 >
                   <Undo2Icon className="size-4" />
                 </Button>
@@ -206,7 +208,7 @@ export function StageLayoutDesigner() {
                   className="size-8"
                   disabled={!canRedo}
                   onClick={() => useBroadcastStore.getState().stageRedo()}
-                  title="Redo (Ctrl+Y)"
+                  title={t("redo") + " (Ctrl+Y)"}
                 >
                   <Redo2Icon className="size-4" />
                 </Button>
@@ -222,21 +224,21 @@ export function StageLayoutDesigner() {
                   onClick={() =>
                     useBroadcastStore.getState().discardStageDraft()
                   }
-                  title="Reset changes and stay in editor"
+                  title={t("stageDesigner.resetTitle")}
                 >
                   <RotateCcwIcon className="size-4" />
-                  Reset
+                  {t("reset")}
                 </Button>
                 <Button variant="outline" onClick={() => setShowDiscard(true)}>
                   <TrashIcon className="size-4" />
-                  Discard
+                  {t("discard")}
                 </Button>
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"
                   onClick={handleSave}
                 >
                   <SaveIcon className="size-4" />
-                  Save Layout
+                  {t("stageDesigner.save")}
                 </Button>
               </>
             )}
@@ -248,7 +250,7 @@ export function StageLayoutDesigner() {
               }
             >
               <XIcon strokeWidth={2} />
-              Close
+              {t("close")}
             </Button>
           </div>
 
@@ -266,11 +268,11 @@ export function StageLayoutDesigner() {
                 <div className="flex min-h-0 flex-col overflow-hidden">
                   <StageDesignCanvas />
                   <div className="flex h-8 shrink-0 items-center border-t border-border/40 px-3 text-[0.5625rem] text-muted-foreground/70">
-                    <span>Output: 1920 × 1080px</span>
+                    <span>{t("stageDesigner.outputSize")}</span>
                     <span className="mx-2">·</span>
-                    <span>Drag to reposition, corners to resize</span>
+                    <span>{t("stageDesigner.dragHint")}</span>
                     <span className="mx-2">·</span>
-                    <span>Arrow keys nudge · Del removes</span>
+                    <span>{t("stageDesigner.keysHint")}</span>
                   </div>
                 </div>
                 <div className="flex min-h-0 flex-col overflow-hidden border-l border-border bg-card">
@@ -285,11 +287,10 @@ export function StageLayoutDesigner() {
                 <MonitorIcon className="size-10 opacity-40" strokeWidth={1.5} />
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Select a stage layout to edit
+                    {t("stageDesigner.selectLayout")}
                   </p>
                   <p className="mt-1 text-xs">
-                    Pick a layout from the list, or create a new one to get
-                    started.
+                    {t("stageDesigner.selectLayoutDescription")}
                   </p>
                 </div>
               </div>
@@ -301,10 +302,10 @@ export function StageLayoutDesigner() {
               <div className="w-full max-w-sm rounded-xl bg-popover p-6 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
                 <div className="flex flex-col gap-2">
                   <h3 className="font-heading leading-none font-medium">
-                    Discard changes?
+                    {t("stageDesigner.discardChanges")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    All unsaved changes to this layout will be lost.
+                    {t("stageDesigner.discardDescription")}
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
@@ -312,7 +313,7 @@ export function StageLayoutDesigner() {
                     variant="outline"
                     onClick={() => setShowDiscard(false)}
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -321,7 +322,7 @@ export function StageLayoutDesigner() {
                       useBroadcastStore.getState().discardStageDraft()
                     }}
                   >
-                    Discard
+                    {t("discard")}
                   </Button>
                 </div>
               </div>

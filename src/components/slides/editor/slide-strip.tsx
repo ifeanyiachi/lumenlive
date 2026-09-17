@@ -1,4 +1,5 @@
 import { PlusIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { usePresentationStore } from "@/stores/presentation-store"
@@ -10,6 +11,7 @@ export function SlideStrip({
 }: {
   onPreviewTransition?: (slideIndex: number) => void
 }) {
+  const { t } = useTranslation("slides")
   const draft = usePresentationStore((s) => s.draftPresentation)
   const activeIndex = usePresentationStore((s) => s.activeSlideIndex)
 
@@ -18,13 +20,15 @@ export function SlideStrip({
   return (
     <div className="flex h-full w-[15%] shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-11 items-center justify-between border-b border-border px-3">
-        <span className="text-xs font-medium text-foreground">Slides</span>
+        <span className="text-xs font-medium text-foreground">
+          {t("details.slides")}
+        </span>
         <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => usePresentationStore.getState().addSlide()}
-            title="Add slide"
+            title={t("slideStrip.add")}
           >
             <PlusIcon className="size-3" />
           </Button>

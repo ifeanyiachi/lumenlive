@@ -13,10 +13,9 @@ describe("shortcut registry", () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it("gives every shortcut a label, description, and at least one chord", () => {
+  it("gives every shortcut a stable ID and at least one chord", () => {
     for (const s of SHORTCUTS) {
-      expect(s.label, s.id).toBeTruthy()
-      expect(s.description, s.id).toBeTruthy()
+      expect(s.id).toMatch(/^[a-z-]+$/)
       expect(s.chords.length, s.id).toBeGreaterThan(0)
     }
   })
@@ -31,7 +30,9 @@ describe("shortcut registry", () => {
     // Two distinct global chords must never fire the same event, or the
     // dispatcher would run two actions for one keypress.
     const globalChords: { id: string; chord: ShortcutChord }[] =
-      GLOBAL_SHORTCUTS.flatMap((s) => s.chords.map((chord) => ({ id: s.id, chord })))
+      GLOBAL_SHORTCUTS.flatMap((s) =>
+        s.chords.map((chord) => ({ id: s.id, chord }))
+      )
 
     for (let i = 0; i < globalChords.length; i++) {
       for (let j = i + 1; j < globalChords.length; j++) {
@@ -45,10 +46,9 @@ describe("shortcut registry", () => {
         }
         const collision =
           matchesChord(event, a.chord) && matchesChord(event, b.chord)
-        expect(
-          collision,
-          `global chords collide: ${a.id} vs ${b.id}`
-        ).toBe(false)
+        expect(collision, `global chords collide: ${a.id} vs ${b.id}`).toBe(
+          false
+        )
       }
     }
   })

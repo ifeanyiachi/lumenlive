@@ -1,6 +1,7 @@
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { useTranslation } from "react-i18next"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { PropertyRow } from "@/components/shared/property-row"
 import type {
@@ -12,23 +13,6 @@ import type {
   ScrollingConfig,
 } from "@/types/slide"
 
-const ANIMATION_TYPES: { value: ElementAnimationType; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "fade", label: "Fade" },
-  { value: "slide-left", label: "Slide Left" },
-  { value: "slide-right", label: "Slide Right" },
-  { value: "slide-up", label: "Slide Up" },
-  { value: "slide-down", label: "Slide Down" },
-  { value: "scale", label: "Scale" },
-]
-
-const EASING_OPTIONS: { value: string; label: string }[] = [
-  { value: "ease-out", label: "Ease Out" },
-  { value: "ease-in", label: "Ease In" },
-  { value: "ease-in-out", label: "Ease In-Out" },
-  { value: "linear", label: "Linear" },
-]
-
 function AnimationSection({
   title,
   anim,
@@ -38,6 +22,13 @@ function AnimationSection({
   anim: ElementAnimation | undefined
   onChange: (anim: ElementAnimation | undefined) => void
 }) {
+  const { t } = useTranslation("slides")
+  const animationTypes: { value: ElementAnimationType; label: string }[] = [
+    { value: "none", label: t("properties.none") }, { value: "fade", label: t("properties.fade") }, { value: "slide-left", label: t("properties.slideLeft") }, { value: "slide-right", label: t("properties.slideRight") }, { value: "slide-up", label: t("properties.slideUp") }, { value: "slide-down", label: t("properties.slideDown") }, { value: "scale", label: t("properties.scale") },
+  ]
+  const easingOptions = [
+    { value: "ease-out", label: t("properties.easeOut") }, { value: "ease-in", label: t("properties.easeIn") }, { value: "ease-in-out", label: t("properties.easeInOut") }, { value: "linear", label: t("properties.linear") },
+  ]
   const current: ElementAnimation = anim ?? {
     type: "none",
     duration: 500,
@@ -52,7 +43,7 @@ function AnimationSection({
           {title}
         </span>
       </div>
-      <PropertyRow label="Type">
+      <PropertyRow label={t("properties.type")}>
         <select
           className="h-6 w-full rounded border border-border bg-card px-1 text-[0.6875rem]"
           value={current.type}
@@ -65,7 +56,7 @@ function AnimationSection({
             }
           }}
         >
-          {ANIMATION_TYPES.map((t) => (
+          {animationTypes.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>
@@ -74,7 +65,7 @@ function AnimationSection({
       </PropertyRow>
       {current.type !== "none" && (
         <>
-          <PropertyRow label="Duration">
+          <PropertyRow label={t("properties.duration")}>
             <div className="flex items-center gap-1">
               <Slider
                 value={[current.duration]}
@@ -88,7 +79,7 @@ function AnimationSection({
               </span>
             </div>
           </PropertyRow>
-          <PropertyRow label="Delay">
+          <PropertyRow label={t("properties.delay")}>
             <div className="flex items-center gap-1">
               <Slider
                 value={[current.delay]}
@@ -102,7 +93,7 @@ function AnimationSection({
               </span>
             </div>
           </PropertyRow>
-          <PropertyRow label="Easing">
+          <PropertyRow label={t("properties.easing")}>
             <select
               className="h-6 w-full rounded border border-border bg-card px-1 text-[0.6875rem]"
               value={current.easing}
@@ -113,7 +104,7 @@ function AnimationSection({
                 })
               }
             >
-              {EASING_OPTIONS.map((e) => (
+              {easingOptions.map((e) => (
                 <option key={e.value} value={e.value}>
                   {e.label}
                 </option>
@@ -131,6 +122,7 @@ export function ElementAnimationProperties({
 }: {
   element: SlideElement
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Partial<SlideElement>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -141,7 +133,7 @@ export function ElementAnimationProperties({
     <>
       <Separator />
       <AnimationSection
-        title="Entry Animation"
+        title={t("properties.entryAnimation")}
         anim={anim?.entry}
         onChange={(entry) => {
           update({
@@ -150,7 +142,7 @@ export function ElementAnimationProperties({
         }}
       />
       <AnimationSection
-        title="Exit Animation"
+        title={t("properties.exitAnimation")}
         anim={anim?.exit}
         onChange={(exit) => {
           update({
@@ -167,6 +159,7 @@ export function TextBuildProperties({
 }: {
   element: { id: string; textBuild?: TextBuildAnimation }
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Record<string, unknown>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -182,9 +175,9 @@ export function TextBuildProperties({
       <Separator />
       <div className="flex flex-col gap-2">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Text Build
+          {t("properties.textBuild")}
         </span>
-        <PropertyRow label="Type">
+        <PropertyRow label={t("properties.type")}>
           <select
             className="h-6 w-full rounded border border-border bg-card px-1 text-[0.6875rem]"
             value={build.type}
@@ -197,14 +190,14 @@ export function TextBuildProperties({
               }
             }}
           >
-            <option value="none">None</option>
-            <option value="line-by-line">Line by Line</option>
-            <option value="word-by-word">Word by Word</option>
+            <option value="none">{t("properties.none")}</option>
+            <option value="line-by-line">{t("properties.lineByLine")}</option>
+            <option value="word-by-word">{t("properties.wordByWord")}</option>
           </select>
         </PropertyRow>
         {build.type !== "none" && (
           <>
-            <PropertyRow label="Duration">
+            <PropertyRow label={t("properties.duration")}>
               <div className="flex items-center gap-1">
                 <Slider
                   value={[build.duration]}
@@ -220,7 +213,7 @@ export function TextBuildProperties({
                 </span>
               </div>
             </PropertyRow>
-            <PropertyRow label="Delay">
+            <PropertyRow label={t("properties.delay")}>
               <div className="flex items-center gap-1">
                 <Slider
                   value={[build.delay]}
@@ -248,6 +241,7 @@ export function ScrollingTextProperties({
 }: {
   element: { id: string; scrolling?: ScrollingConfig }
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Record<string, unknown>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -261,7 +255,7 @@ export function ScrollingTextProperties({
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Scrolling
+            {t("properties.scrolling")}
           </span>
           <Button
             variant={isEnabled ? "default" : "outline"}
@@ -275,12 +269,12 @@ export function ScrollingTextProperties({
               })
             }
           >
-            {isEnabled ? "On" : "Off"}
+            {isEnabled ? t("properties.on") : t("properties.off")}
           </Button>
         </div>
         {scrolling && (
           <>
-            <PropertyRow label="Speed">
+            <PropertyRow label={t("properties.speed")}>
               <Slider
                 value={[scrolling.speed]}
                 onValueChange={([v]) =>
@@ -291,7 +285,7 @@ export function ScrollingTextProperties({
                 step={5}
               />
             </PropertyRow>
-            <PropertyRow label="Direction">
+            <PropertyRow label={t("properties.direction")}>
               <select
                 className="h-6 w-full rounded border border-border bg-card px-1 text-[0.6875rem]"
                 value={scrolling.direction}
@@ -304,8 +298,8 @@ export function ScrollingTextProperties({
                   })
                 }
               >
-                <option value="up">Up</option>
-                <option value="down">Down</option>
+                <option value="up">{t("properties.up")}</option>
+                <option value="down">{t("properties.down")}</option>
               </select>
             </PropertyRow>
           </>
@@ -322,6 +316,7 @@ export function ShapeMaskProperties({
   element: { id: string; maskTargetId?: string }
   elements: SlideElement[]
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Record<string, unknown>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -335,7 +330,7 @@ export function ShapeMaskProperties({
       <Separator />
       <div className="flex flex-col gap-2">
         <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          Mask Target
+          {t("properties.maskTarget")}
         </span>
         <select
           className="h-7 w-full rounded border border-border bg-card px-2 text-xs"
@@ -344,15 +339,15 @@ export function ShapeMaskProperties({
             update({ maskTargetId: e.target.value || undefined })
           }
         >
-          <option value="">None (draw normally)</option>
+          <option value="">{t("properties.noneDrawNormally")}</option>
           {maskableElements.map((el) => (
             <option key={el.id} value={el.id}>
-              {el.type === "image" ? "Image" : "Video"} — {el.id.slice(0, 8)}
+              {el.type === "image" ? t("properties.image") : t("properties.video")} — {el.id.slice(0, 8)}
             </option>
           ))}
         </select>
         <p className="text-[0.5625rem] text-muted-foreground">
-          When set, this shape clips the selected image or video element.
+          {t("properties.maskTargetDescription")}
         </p>
       </div>
     </>

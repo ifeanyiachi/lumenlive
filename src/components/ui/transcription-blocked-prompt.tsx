@@ -1,4 +1,5 @@
 import { openExternalUrl } from "@/services/external-link-gateway"
+import { useTranslation } from "react-i18next"
 import { appUrl } from "@/lib/app-urls"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +38,7 @@ export function TranscriptionBlockedPrompt({
   title,
   message,
 }: TranscriptionBlockedPromptProps) {
+  const { t } = useTranslation("ui")
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -57,14 +59,14 @@ export function TranscriptionBlockedPrompt({
               void openExternalUrl(PORTAL_URL)
             }}
           >
-            Open account portal
+            {t("transcriptionBlocked.openPortal")}
           </Button>
           <Button
             variant="ghost"
             className="w-full text-muted-foreground"
             onClick={() => onOpenChange(false)}
           >
-            Not now
+            {t("transcriptionBlocked.notNow")}
           </Button>
         </DialogFooter>
       </DialogContent>

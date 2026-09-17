@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog"
 import { readFile } from "@tauri-apps/plugin-fs"
+import { i18n } from "@/lib/i18n/config"
 
 export interface PickedThemeImage {
   /** Base64 data URL, embedded into the theme so it persists across restarts. */
@@ -18,7 +19,7 @@ export async function pickThemeBackgroundImage(): Promise<PickedThemeImage | nul
     multiple: false,
     filters: [
       {
-        name: "Images",
+        name: i18n.t("broadcast:dialog.images"),
         extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"],
       },
     ],
@@ -56,7 +57,7 @@ export async function pickImageFile(): Promise<string | null> {
     multiple: false,
     filters: [
       {
-        name: "Images",
+        name: i18n.t("broadcast:dialog.images"),
         extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"],
       },
     ],
@@ -70,7 +71,7 @@ export async function pickVideoFile(): Promise<string | null> {
     multiple: false,
     filters: [
       {
-        name: "Videos",
+        name: i18n.t("broadcast:dialog.videos"),
         extensions: ["mp4", "webm", "mov", "avi", "mkv", "m4v"],
       },
     ],
@@ -84,7 +85,7 @@ export async function pickMediaFile(): Promise<string | null> {
     multiple: false,
     filters: [
       {
-        name: "Media",
+        name: i18n.t("broadcast:dialog.media"),
         extensions: [
           "png",
           "jpg",

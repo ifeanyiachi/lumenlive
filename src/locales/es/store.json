@@ -1,0 +1,103 @@
+{
+  "common": {
+    "refresh": "Actualizar",
+    "import": "Importar",
+    "dismiss": "Cerrar",
+    "cancel": "Cancelar",
+    "done": "Listo",
+    "optional": "opcional",
+    "unknown": "desconocido",
+    "install": "Instalar",
+    "installing": "Instalando…",
+    "installed": "Instalado",
+    "removing": "Eliminando…",
+    "download": "Descargar",
+    "downloading": "Descargando…",
+    "update": "Actualizar",
+    "reinstall": "Reinstalar",
+    "checking": "Comprobando…",
+    "comingSoon": "Próximamente"
+  },
+  "page": {
+    "title": "Tienda de recursos",
+    "description": "Explore e instale versiones de la Biblia y paquetes de canciones comunitarios.",
+    "searchPlaceholder": "Buscar recursos…",
+    "importBibleTitle": "Importe un archivo de traducción bíblica que tenga licencia para usar"
+  },
+  "categories": {
+    "all": "Todo",
+    "templates": "Plantillas",
+    "titles": "Títulos",
+    "songs": "Canciones",
+    "backgrounds": "Fondos",
+    "videos": "Vídeos",
+    "bible": "Versiones bíblicas"
+  },
+  "bibles": {
+    "filterLanguage": "Filtrar versiones bíblicas por idioma",
+    "allLanguages": "Todos los idiomas",
+    "loading": "Cargando catálogo…",
+    "empty": "No se encontraron versiones bíblicas",
+    "emptyDescription": "Nada coincide con su búsqueda o no se pudo acceder al catálogo. Intente actualizar."
+  },
+  "bibleCard": {
+    "imported": "Importada",
+    "verseCount_one": "{{count}} versículo",
+    "verseCount_other": "{{count}} versículos",
+    "remove": "Eliminar {{title}}"
+  },
+  "importBible": {
+    "title": "Importar una traducción bíblica",
+    "descriptionStart": "Use su propia copia para la que tenga licencia. Elija un archivo",
+    "descriptionEnd": ": el nombre y el código se completan desde el nombre del archivo.",
+    "success": "Se importó {{title}} ({{abbreviation}}): {{verses}} versículos en {{books}} libros",
+    "skipped_one": ", se omitió {{count}} fila",
+    "skipped_other": ", se omitieron {{count}} filas",
+    "availableNow": ". Ya está en su selector de traducciones.",
+    "changeFile": "Cambiar archivo",
+    "chooseFile": "Elegir archivo…",
+    "code": "Código / abreviatura",
+    "codePlaceholder": "NKJV",
+    "fromFilename": "del nombre del archivo",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Nueva Versión King James",
+    "language": "Idioma",
+    "codeOrName": "código o nombre",
+    "license": "Licencia / fuente",
+    "personalCopy": "Copia personal",
+    "userProvidedLicense": "Importada (proporcionada por el usuario)"
+  },
+  "songPacks": {
+    "title": "Paquetes de canciones comunitarios",
+    "description": "Instale un cancionero público completo con un clic y elimínelo con la misma facilidad. Las letras pueden tener derechos de autor; proyectarlas es responsabilidad CCLI de su iglesia.",
+    "noSongs": "No se encontraron canciones en «{{name}}»",
+    "installedFrom": "Se instalaron {{count}} canciones de «{{name}}»",
+    "installFailed": "Falló la instalación del paquete",
+    "removedFrom": "Se eliminaron {{count}} canciones de «{{name}}»",
+    "downloading": "Descargando… {{size}} MB",
+    "publicDomainTitle": "Dominio público: seguro para proyectar",
+    "publicDomain": "Dominio público",
+    "by": "por {{author}}",
+    "addedByUrl": "Añadido por URL",
+    "communityPack": "Paquete comunitario",
+    "installedCount": "{{count}} instalados",
+    "remove": "Eliminar {{label}}",
+    "viewSource": "Ver fuente"
+  },
+  "update": {
+    "title": "Actualización de software",
+    "currentVersion": "Versión actual {{version}}",
+    "updateNow": "Actualizar ahora",
+    "check": "Buscar actualizaciones",
+    "updatingTo": "Actualizando a LumenLive {{version}}",
+    "available": "LumenLive {{version}} está disponible",
+    "viewReleaseLog": "Ver registro de versiones",
+    "dismissNotification": "Cerrar notificación",
+    "checkFailed": "No se pudieron buscar actualizaciones. Revise su conexión e inténtelo de nuevo.",
+    "latest": "Tiene la versión más reciente.",
+    "checking": "Buscando actualizaciones…",
+    "checkDescription": "Compruebe si hay una versión más reciente de LumenLive disponible.",
+    "whatsNew": "Novedades de LumenLive {{version}}",
+    "noReleaseNotes": "No se proporcionaron notas de la versión."
+  }
+}

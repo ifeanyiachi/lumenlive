@@ -17,6 +17,7 @@ import {
   parsePort,
   type CommandLogEntry,
 } from "@/lib/settings/remote-log"
+import { formatTime } from "@/lib/i18n/format"
 
 /**
  * Owns all Remote Control section state: OSC/HTTP port inputs, live server
@@ -73,7 +74,7 @@ export function useRemoteControl() {
       if (cancelled) return
       const entry = makeCommandLogEntry({
         id: logIdRef.current++,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: formatTime(new Date()),
         source: "OSC", // We can't distinguish source at event level; default to OSC
         command: stripRemotePrefix(event),
       })

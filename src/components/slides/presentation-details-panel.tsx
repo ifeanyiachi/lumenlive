@@ -1,4 +1,5 @@
 import { useRef, useEffect, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { InfoIcon, PencilIcon, CopyIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,18 +9,10 @@ import { Separator } from "@/components/ui/separator"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { renderSlide } from "@/lib/slide-renderer"
 import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
-}
+import { formatDateTime, formatNumber } from "@/lib/i18n/format"
 
 export function PresentationDetailsPanel() {
+  const { t } = useTranslation("slides")
   const presentations = usePresentationStore((s) => s.presentations)
   const selectedId = usePresentationStore((s) => s.selectedPresentationId)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -52,9 +45,14 @@ export function PresentationDetailsPanel() {
         data-slot="presentation-details"
         className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
       >
-        <PanelHeader title="Details" icon={<InfoIcon className="size-3.5" />} />
+        <PanelHeader
+          title={t("details.title")}
+          icon={<InfoIcon className="size-3.5" />}
+        />
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-xs text-muted-foreground">Select a presentation</p>
+          <p className="text-xs text-muted-foreground">
+            {t("details.selectPresentation")}
+          </p>
         </div>
       </div>
     )
@@ -77,7 +75,10 @@ export function PresentationDetailsPanel() {
       data-slot="presentation-details"
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title="Details" icon={<InfoIcon className="size-3.5" />} />
+      <PanelHeader
+        title={t("details.title")}
+        icon={<InfoIcon className="size-3.5" />}
+      />
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-3">
@@ -103,12 +104,12 @@ export function PresentationDetailsPanel() {
 
           {/* Metadata */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Slides</span>
-            <span>{presentation.slides.length}</span>
-            <span>Created</span>
-            <span>{formatDate(presentation.createdAt)}</span>
-            <span>Modified</span>
-            <span>{formatDate(presentation.updatedAt)}</span>
+            <span>{t("details.slides")}</span>
+            <span>{formatNumber(presentation.slides.length)}</span>
+            <span>{t("details.created")}</span>
+            <span>{formatDateTime(presentation.createdAt)}</span>
+            <span>{t("details.modified")}</span>
+            <span>{formatDateTime(presentation.updatedAt)}</span>
           </div>
 
           <Separator />
@@ -122,7 +123,7 @@ export function PresentationDetailsPanel() {
               onClick={handleEdit}
             >
               <PencilIcon className="mr-1.5 size-3.5" />
-              Edit Presentation
+              {t("details.edit")}
             </Button>
             <Button
               variant="outline"
@@ -131,7 +132,7 @@ export function PresentationDetailsPanel() {
               onClick={handleDuplicate}
             >
               <CopyIcon className="mr-1.5 size-3.5" />
-              Duplicate
+              {t("common.duplicate")}
             </Button>
             <Button
               variant="destructive"
@@ -140,7 +141,7 @@ export function PresentationDetailsPanel() {
               onClick={handleDelete}
             >
               <TrashIcon className="mr-1.5 size-3.5" />
-              Delete
+              {t("common.delete")}
             </Button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
@@ -28,6 +29,7 @@ export function AlertTemplatesManager({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("alerts")
   const templates = useAlertStore((s) => s.templates)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -36,7 +38,7 @@ export function AlertTemplatesManager({
   const handleCreate = () => {
     const template: AlertTemplate = {
       id: crypto.randomUUID(),
-      name: "New Alert",
+      name: t("manager.newAlert"),
       style: "banner",
       position: "top",
       backgroundColor: "#2563eb",
@@ -53,7 +55,7 @@ export function AlertTemplatesManager({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] gap-4 overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Alert Templates</DialogTitle>
+          <DialogTitle>{t("manager.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex gap-4" style={{ minHeight: 360 }}>
@@ -62,12 +64,12 @@ export function AlertTemplatesManager({
           <div className="sticky top-0 flex w-48 shrink-0 flex-col self-start rounded-lg border border-border">
             <div className="flex items-center justify-between border-b border-border px-2 py-1.5">
               <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Templates
+                {t("manager.templates")}
               </span>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="New template"
+                aria-label={t("manager.newTemplate")}
                 onClick={handleCreate}
               >
                 <PlusIcon className="size-3" />
@@ -103,7 +105,7 @@ export function AlertTemplatesManager({
             ) : (
               <div className="flex flex-1 items-center justify-center">
                 <p className="text-xs text-muted-foreground">
-                  Select a template to edit
+                  {t("manager.selectTemplate")}
                 </p>
               </div>
             )}
@@ -115,12 +117,13 @@ export function AlertTemplatesManager({
 }
 
 function TemplateEditor({ template }: { template: AlertTemplate }) {
+  const { t } = useTranslation("alerts")
   const update = (updates: Partial<AlertTemplate>) =>
     useAlertStore.getState().updateTemplate(template.id, updates)
 
   return (
     <>
-      <FieldGroup label="Name">
+      <FieldGroup label={t("manager.name")}>
         <Input
           className="h-7 text-xs"
           value={template.name}
@@ -129,19 +132,19 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       </FieldGroup>
 
       <div className="grid grid-cols-2 gap-3">
-        <FieldGroup label="Style">
+        <FieldGroup label={t("manager.style")}>
           <select
             className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
             value={template.style}
             onChange={(e) => update({ style: e.target.value as AlertStyle })}
           >
-            <option value="banner">Banner</option>
-            <option value="lower-third">Lower Third</option>
-            <option value="fullscreen">Fullscreen</option>
+            <option value="banner">{t("manager.banner")}</option>
+            <option value="lower-third">{t("manager.lowerThird")}</option>
+            <option value="fullscreen">{t("manager.fullscreen")}</option>
           </select>
         </FieldGroup>
 
-        <FieldGroup label="Position">
+        <FieldGroup label={t("manager.position")}>
           <select
             className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
             value={template.position}
@@ -149,14 +152,14 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
               update({ position: e.target.value as AlertPosition })
             }
           >
-            <option value="top">Top</option>
-            <option value="bottom">Bottom</option>
+            <option value="top">{t("manager.top")}</option>
+            <option value="bottom">{t("manager.bottom")}</option>
           </select>
         </FieldGroup>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <FieldGroup label="Background Color">
+        <FieldGroup label={t("manager.backgroundColor")}>
           <div className="flex items-center gap-2">
             <ColorSwatch
               className="size-7"
@@ -171,7 +174,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
           </div>
         </FieldGroup>
 
-        <FieldGroup label="Text Color">
+        <FieldGroup label={t("manager.textColor")}>
           <div className="flex items-center gap-2">
             <ColorSwatch
               className="size-7"
@@ -188,7 +191,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <FieldGroup label="Font Size (px)">
+        <FieldGroup label={t("manager.fontSize")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -199,7 +202,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
           />
         </FieldGroup>
 
-        <FieldGroup label="Duration (seconds)">
+        <FieldGroup label={t("manager.duration")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -213,7 +216,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
         </FieldGroup>
       </div>
 
-      <FieldGroup label="Animation">
+      <FieldGroup label={t("manager.animation")}>
         <select
           className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
           value={template.animation}
@@ -221,37 +224,37 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
             update({ animation: e.target.value as AlertAnimation })
           }
         >
-          <option value="fade">Fade</option>
-          <option value="slide">Slide</option>
-          <option value="none">None</option>
+            <option value="fade">{t("manager.fade")}</option>
+            <option value="slide">{t("manager.slide")}</option>
+            <option value="none">{t("manager.none")}</option>
         </select>
       </FieldGroup>
 
       {/* Font */}
       <div className="grid grid-cols-2 gap-3">
-        <FieldGroup label="Font Family">
+        <FieldGroup label={t("manager.fontFamily")}>
           <FontFamilyPicker
             value={template.fontFamily ?? "Inter"}
             onChange={(v) => update({ fontFamily: v })}
           />
         </FieldGroup>
-        <FieldGroup label="Font Weight">
+        <FieldGroup label={t("manager.fontWeight")}>
           <select
             className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
             value={String(template.fontWeight ?? 600)}
             onChange={(e) => update({ fontWeight: Number(e.target.value) })}
           >
-            <option value="400">Regular</option>
-            <option value="500">Medium</option>
-            <option value="600">Semibold</option>
-            <option value="700">Bold</option>
-            <option value="800">Extra Bold</option>
+            <option value="400">{t("manager.regular")}</option>
+            <option value="500">{t("manager.medium")}</option>
+            <option value="600">{t("manager.semibold")}</option>
+            <option value="700">{t("manager.bold")}</option>
+            <option value="800">{t("manager.extraBold")}</option>
           </select>
         </FieldGroup>
       </div>
 
       {/* Text Shadow */}
-      <FieldGroup label="Text Shadow">
+      <FieldGroup label={t("manager.textShadow")}>
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <ColorSwatch
@@ -268,7 +271,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
                 })
               }
             />
-            <span className="text-[0.625rem] text-muted-foreground">Blur</span>
+            <span className="text-[0.625rem] text-muted-foreground">{t("manager.blur")}</span>
             <div className="w-20">
               <Slider
                 value={[template.textShadow?.blur ?? 0]}
@@ -293,7 +296,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
                 size="icon-sm"
                 className="size-5"
                 onClick={() => update({ textShadow: undefined })}
-                title="Remove shadow"
+                title={t("manager.removeShadow")}
               >
                 <TrashIcon className="size-2.5" />
               </Button>
@@ -303,7 +306,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       </FieldGroup>
 
       {/* Text Outline */}
-      <FieldGroup label="Text Outline">
+      <FieldGroup label={t("manager.textOutline")}>
         <div className="flex items-center gap-2">
           <ColorSwatch
             className="size-6"
@@ -317,7 +320,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
               })
             }
           />
-          <span className="text-[0.625rem] text-muted-foreground">Width</span>
+          <span className="text-[0.625rem] text-muted-foreground">{t("manager.width")}</span>
           <div className="w-20">
             <Slider
               value={[template.outline?.width ?? 0]}
@@ -340,7 +343,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
               size="icon-sm"
               className="size-5"
               onClick={() => update({ outline: undefined })}
-              title="Remove outline"
+              title={t("manager.removeOutline")}
             >
               <TrashIcon className="size-2.5" />
             </Button>
@@ -349,17 +352,17 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
       </FieldGroup>
 
       {/* Icon */}
-      <FieldGroup label="Icon (emoji or text)">
+      <FieldGroup label={t("manager.icon")}>
         <Input
           className="h-7 text-xs"
           value={template.icon ?? ""}
-          placeholder="e.g. 🔔 or ⚠️"
+          placeholder={t("manager.iconPlaceholder")}
           onChange={(e) => update({ icon: e.target.value || undefined })}
         />
       </FieldGroup>
 
       {/* Preview */}
-      <FieldGroup label="Preview">
+      <FieldGroup label={t("manager.preview")}>
         <div
           className="relative overflow-hidden rounded-md border border-border bg-black/80"
           style={{ height: 120 }}
@@ -375,7 +378,7 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
         onClick={() => useAlertStore.getState().deleteTemplate(template.id)}
       >
         <TrashIcon className="mr-1.5 size-3" />
-        Delete Template
+        {t("manager.delete")}
       </Button>
     </>
   )

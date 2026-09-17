@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { useBroadcastStore } from "@/stores"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 
 /**
  * CRUD for named stage-monitor groups — sets of presenter screens the operator
@@ -26,6 +27,7 @@ export function StageMonitorGroupsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("broadcast")
   // Stable slice + useMemo — a `.filter()` selector returns a new array each
   // render and loops zustand v5's plain useSyncExternalStore.
   const outputs = useBroadcastStore((s) => s.outputs)
@@ -49,24 +51,21 @@ export function StageMonitorGroupsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] gap-4 overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Stage monitor groups</DialogTitle>
+          <DialogTitle>{t("stageGroups.title")}</DialogTitle>
           <DialogDescription>
-            Name a set of presenter screens so you can send a stage cue to all
-            of them at once.
+            {t("stageGroups.description")}
           </DialogDescription>
         </DialogHeader>
 
         {stageOutputs.length === 0 ? (
           <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            No stage monitors yet. In Broadcast settings, add a display and set
-            its mode to <span className="font-medium">Stage</span> to build
-            groups.
+            {t("stageGroups.none")} <span className="font-medium">{t("stage")}</span> {t("stageGroups.noneEnd")}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
             {groups.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                No groups yet. Add one below.
+                {t("stageGroups.empty")}
               </p>
             )}
 
@@ -85,15 +84,15 @@ export function StageMonitorGroupsDialog({
                           name: e.target.value,
                         })
                     }
-                    placeholder="Group name"
+                    placeholder={t("stageGroups.name")}
                     className="h-8 flex-1 text-xs"
-                    aria-label="Group name"
+                    aria-label={t("stageGroups.name")}
                   />
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     className="shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label="Delete group"
+                    aria-label={t("stageGroups.delete")}
                     onClick={() =>
                       useBroadcastStore
                         .getState()
@@ -136,11 +135,11 @@ export function StageMonitorGroupsDialog({
               onClick={() =>
                 useBroadcastStore
                   .getState()
-                  .addStageMonitorGroup("New group", [])
+                  .addStageMonitorGroup(t("stageGroups.newGroup"), [])
               }
             >
               <PlusIcon className="size-3.5" />
-              Add group
+              {t("stageGroups.add")}
             </Button>
           </div>
         )}

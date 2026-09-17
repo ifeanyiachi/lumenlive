@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ColorSwatch } from "@/components/ui/color-swatch"
 import {
@@ -53,12 +54,13 @@ function ColorGrid({
   onSelect: (color: string) => void
   onClear: () => void
 }) {
+  const { t } = useTranslation("verse-edit")
   return (
     <div className="flex flex-col gap-2 p-2">
       <div
         className="grid grid-cols-4 gap-1.5"
         role="listbox"
-        aria-label="Color options"
+        aria-label={t("colorOptions")}
       >
         {colors.map((color) => (
           <button
@@ -79,7 +81,7 @@ function ColorGrid({
       </div>
       <div className="flex items-center gap-2">
         <label className="flex flex-1 items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Custom</span>
+          <span className="text-xs text-muted-foreground">{t("custom")}</span>
           <ColorSwatch
             value={activeColor || "#ffffff"}
             onChange={onSelect}
@@ -92,7 +94,7 @@ function ColorGrid({
           className="h-6 text-xs"
           onClick={onClear}
         >
-          Clear
+          {t("clear")}
         </Button>
       </div>
     </div>
@@ -100,6 +102,7 @@ function ColorGrid({
 }
 
 export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
+  const { t } = useTranslation("verse-edit")
   if (!editor) return null
 
   const activeTextColor = editor.getAttributes("textStyle").color as
@@ -111,14 +114,14 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
     <div
       className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1"
       role="toolbar"
-      aria-label="Text formatting"
+      aria-label={t("textFormatting")}
     >
       <Button
         variant={editor.isActive("bold") ? "default" : "ghost"}
         size="icon-sm"
         onClick={() => editor.chain().focus().toggleBold().run()}
-        title="Bold (Ctrl+B)"
-        aria-label="Bold"
+        title={t("boldShortcut")}
+        aria-label={t("bold")}
         aria-pressed={editor.isActive("bold")}
       >
         <BoldIcon className="size-4" />
@@ -128,8 +131,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
         variant={editor.isActive("italic") ? "default" : "ghost"}
         size="icon-sm"
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        title="Italic (Ctrl+I)"
-        aria-label="Italic"
+        title={t("italicShortcut")}
+        aria-label={t("italic")}
         aria-pressed={editor.isActive("italic")}
       >
         <ItalicIcon className="size-4" />
@@ -139,8 +142,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
         variant={editor.isActive("underline") ? "default" : "ghost"}
         size="icon-sm"
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        title="Underline (Ctrl+U)"
-        aria-label="Underline"
+        title={t("underlineShortcut")}
+        aria-label={t("underline")}
         aria-pressed={editor.isActive("underline")}
       >
         <UnderlineIcon className="size-4" />
@@ -153,8 +156,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
           <Button
             variant={activeTextColor ? "default" : "ghost"}
             size="icon-sm"
-            title="Text Color"
-            aria-label="Text color"
+            title={t("textColor")}
+            aria-label={t("textColor")}
             className="relative"
           >
             <TypeIcon className="size-4" />
@@ -179,8 +182,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
           <Button
             variant={activeHighlight ? "default" : "ghost"}
             size="icon-sm"
-            title="Highlight"
-            aria-label="Highlight color"
+            title={t("highlight")}
+            aria-label={t("highlightColor")}
             className="relative"
           >
             <HighlighterIcon className="size-4" />
@@ -208,8 +211,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
         variant="ghost"
         size="icon-sm"
         onClick={() => editor.chain().focus().unsetAllMarks().run()}
-        title="Clear formatting"
-        aria-label="Clear formatting"
+        title={t("clearFormatting")}
+        aria-label={t("clearFormatting")}
       >
         <Undo2Icon className="size-4" />
       </Button>

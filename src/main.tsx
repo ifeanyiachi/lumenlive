@@ -2,6 +2,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { invoke } from "@tauri-apps/api/core"
 import { error as logError } from "@tauri-apps/plugin-log"
+import { I18nextProvider } from "react-i18next"
 
 import "./index.css"
 import App from "./App.tsx"
@@ -27,6 +28,7 @@ import {
   startRevalidationLoop,
 } from "@/stores/licensing-actions"
 import { trackAppLaunched } from "@/services/analytics-gateway"
+import { i18n, initializeI18n } from "@/lib/i18n/config"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
 // left running from the previous webview session still has
@@ -74,6 +76,7 @@ invoke("stop_transcription")
   .catch(() => {})
   .then(() =>
     Promise.all([
+      initializeI18n(),
       hydrateSettings(),
       hydrateBibleStore(),
       hydrateBroadcastThemes(),
@@ -96,9 +99,11 @@ invoke("stop_transcription")
   .finally(() => {
     createRoot(document.getElementById("root")!).render(
       <StrictMode>
-        <TooltipProvider>
-          <App />
-        </TooltipProvider>
+        <I18nextProvider i18n={i18n}>
+          <TooltipProvider>
+            <App />
+          </TooltipProvider>
+        </I18nextProvider>
       </StrictMode>
     )
     // Check for app updates after first paint — fire-and-forget so a slow or

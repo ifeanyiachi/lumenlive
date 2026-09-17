@@ -1,6 +1,5 @@
 import { TransportBar } from "@/components/controls/transport-bar"
 import { MediaGrid } from "@/components/media/media-grid"
-import { MediaDetailsPanel } from "@/components/media/media-details-panel"
 
 export function MediaView() {
   return (
@@ -8,28 +7,19 @@ export function MediaView() {
       style={{
         position: "fixed",
         inset: "0px",
-        display: "grid",
-        gridTemplateRows: "56px minmax(0, 1fr)",
         overflow: "hidden",
       }}
-      className="bg-background"
+      className="flex flex-col bg-background"
     >
-      <div className="col-span-2">
-        <TransportBar />
-      </div>
+      <TransportBar />
 
       <div
-        className="col-span-2 min-h-0"
+        className="min-h-0 flex-1 p-3 [&>*]:size-full"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: "12px",
-          padding: "12px",
           overflow: "hidden",
         }}
       >
         <MediaGrid />
-        <MediaDetailsPanel />
       </div>
     </div>
   )

@@ -108,13 +108,7 @@ describe("data-first lexicon builders", () => {
 
   it("lexiconCardDataLabel matches the word-based label when there is no entry lemma", () => {
     // With no entry, cardData.lemma falls back to word.word, so both agree.
-    const plain = buildLexiconScheduleItem(
-      word({}),
-      null,
-      "John 1:1",
-      false,
-      0
-    )
+    const plain = buildLexiconScheduleItem(word({}), null, "John 1:1", false, 0)
     expect(plain.label).toBe(lexiconCardLabel(word({}), "John 1:1"))
   })
 })

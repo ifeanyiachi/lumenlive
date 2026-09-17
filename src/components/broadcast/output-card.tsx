@@ -19,6 +19,7 @@ import type { Monitor } from "@/services/broadcast-window-gateway"
 import type { BroadcastOutput, OutputDisplayMode } from "@/types"
 import type { OutputController } from "@/hooks/use-output-controller"
 import { NdiSettings } from "./ndi-settings"
+import { useTranslation } from "react-i18next"
 
 const MAX_VERSE_SCALE_OPTIONS = [
   { value: "1.25", label: "1.25×" },
@@ -34,6 +35,7 @@ const MAX_VERSE_SCALE_OPTIONS = [
  * immediately — so operators can tune it with the preview open.
  */
 function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
+  const { t } = useTranslation("broadcast-output")
   const store = useBroadcastStore.getState
   const displayMode = output.displayMode ?? "native"
   const custom = output.customResolution ?? { width: 1920, height: 1080 }
@@ -46,7 +48,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
   return (
     <div className="space-y-2.5 rounded-md border border-border/60 p-2.5">
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Display size</label>
+        <label className="text-xs text-muted-foreground">{t("displaySize")}</label>
         <Select
           value={displayMode}
           onValueChange={(v) =>
@@ -57,8 +59,8 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="native">Match monitor (fill screen)</SelectItem>
-            <SelectItem value="custom">Custom size…</SelectItem>
+            <SelectItem value="native">{t("matchMonitor")}</SelectItem>
+            <SelectItem value="custom">{t("customSize")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -68,7 +70,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[0.625rem] text-muted-foreground">
-                Width
+                {t("width")}
               </label>
               <Input
                 type="number"
@@ -84,7 +86,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
             </div>
             <div className="space-y-1">
               <label className="text-[0.625rem] text-muted-foreground">
-                Height
+                {t("height")}
               </label>
               <Input
                 type="number"
@@ -109,8 +111,8 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contain">Fit (letterbox)</SelectItem>
-              <SelectItem value="cover">Fill (crop edges)</SelectItem>
+              <SelectItem value="contain">{t("fit")}</SelectItem>
+              <SelectItem value="cover">{t("fill")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -118,7 +120,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
 
       <div className="flex items-center justify-between gap-2">
         <label className="text-xs text-muted-foreground">
-          Auto-fit verse text
+          {t("autoFitVerseText")}
         </label>
         <Switch
           checked={autoFit}
@@ -130,7 +132,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
         <div className="space-y-2.5">
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">
-              Max verse scale
+              {t("maxVerseScale")}
             </label>
             <Select
               value={String(maxScale)}
@@ -153,7 +155,7 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">
-              Minimum verse size (px)
+              {t("minimumVerseSize")}
             </label>
             <Input
               type="number"
@@ -168,14 +170,13 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
               className="h-8 text-xs"
             />
             <p className="text-[10px] leading-tight text-muted-foreground">
-              Verses won&apos;t shrink below this. Long passages split into
-              pages instead.
+              {t("minimumVerseSizeHelp")}
             </p>
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <label className="text-xs text-muted-foreground">
-              Paginate long verses
+              {t("paginateLongVerses")}
             </label>
             <Switch
               checked={paginate}
@@ -218,6 +219,7 @@ export function OutputCard({
   onRefreshMonitors,
   ndiSourceNamePlaceholder,
 }: OutputCardProps) {
+  const { t } = useTranslation("broadcast-output")
   const output = findOutput(
     useBroadcastStore((s) => s.outputs),
     c.outputId
@@ -234,7 +236,7 @@ export function OutputCard({
         </div>
         <div className="flex items-center gap-2">
           {c.awaitingDisplay && (
-            <span className="text-xs text-amber-500">Reconnecting…</span>
+            <span className="text-xs text-amber-500">{t("reconnecting")}</span>
           )}
           <span
             className={cn(
@@ -242,7 +244,7 @@ export function OutputCard({
               c.enabled ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            {c.enabled ? "On" : "Off"}
+            {c.enabled ? t("on") : t("off")}
           </span>
           <Switch
             checked={c.enabled}
@@ -254,7 +256,7 @@ export function OutputCard({
 
       {/* Theme selector */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Theme</label>
+        <label className="text-xs text-muted-foreground">{t("theme")}</label>
         <Select value={c.themeId} onValueChange={c.setTheme}>
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -271,7 +273,7 @@ export function OutputCard({
 
       {/* Output type toggle */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Output Type</label>
+        <label className="text-xs text-muted-foreground">{t("outputType")}</label>
         <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={() => c.setOutputType("display")}
@@ -283,7 +285,7 @@ export function OutputCard({
             )}
           >
             <MonitorIcon className="size-3.5" />
-            External Display
+            {t("externalDisplay")}
           </button>
           <button
             onClick={() => c.setOutputType("ndi")}
@@ -306,7 +308,7 @@ export function OutputCard({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs text-muted-foreground">
-                Target Monitor
+                {t("targetMonitor")}
               </label>
               <Button
                 variant="ghost"
@@ -318,7 +320,7 @@ export function OutputCard({
                 <RefreshCwIcon
                   className={cn("size-3", refreshing && "animate-spin")}
                 />
-                Refresh
+                {t("refresh")}
               </Button>
             </div>
             <Select
@@ -333,10 +335,10 @@ export function OutputCard({
                 <SelectValue
                   placeholder={
                     !isTauri
-                      ? "Desktop app required"
+                      ? t("desktopAppRequired")
                       : monitors.length === 0
-                        ? "No monitors detected"
-                        : "Select monitor"
+                          ? t("noMonitorsDetected")
+                          : t("selectMonitor")
                   }
                 />
               </SelectTrigger>
@@ -350,15 +352,12 @@ export function OutputCard({
             </Select>
             {!isTauri && (
               <p className="text-[0.625rem] text-muted-foreground">
-                Display output and preview are only available in the LumenLive
-                desktop app.
+                {t("displayUnavailable")}
               </p>
             )}
             {c.displayOnOperatorScreen && (
               <p className="text-[0.625rem] text-amber-500">
-                This is your control screen — output stays off so it won&apos;t
-                cover your workspace. Connect a second display to send output
-                there, or switch to NDI.
+                {t("operatorScreenWarning")}
               </p>
             )}
           </div>

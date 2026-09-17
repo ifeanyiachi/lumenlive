@@ -108,10 +108,7 @@ function buildCharStyles(
   return styles
 }
 
-function stylesRefEqual(
-  a: InlineStyle | null,
-  b: InlineStyle | null
-): boolean {
+function stylesRefEqual(a: InlineStyle | null, b: InlineStyle | null): boolean {
   return a === b
 }
 

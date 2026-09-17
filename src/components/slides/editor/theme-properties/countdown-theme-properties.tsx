@@ -1,4 +1,5 @@
 import { TimerIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -39,17 +40,18 @@ export function CountdownThemeProperties({
 }: {
   elements: SlideElement[]
 }) {
+  const { t } = useTranslation("slides")
   const timer = findTimerElement(elements)
 
   return (
     <ThemePanelShell
-      title="Countdown Theme"
+      title={t("themeProperties.countdownTheme")}
       icon={<TimerIcon className="size-3.5" />}
     >
       {timer ? (
         <>
-          <Section label="Timer">
-            <PropertyRow label="Format">
+          <Section label={t("rightPanel.timer")}>
+            <PropertyRow label={t("timerProperties.format")}>
               <Select
                 value={timer.format}
                 onValueChange={(v) =>
@@ -62,13 +64,13 @@ export function CountdownThemeProperties({
                 <SelectContent>
                   <SelectItem value="mm:ss">MM:SS</SelectItem>
                   <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
-                  <SelectItem value="minutes">Minutes</SelectItem>
+                  <SelectItem value="minutes">{t("timerProperties.minutes")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
           </Section>
-          <Section label="Urgency (seconds left)">
-            <PropertyRow label="Warn">
+          <Section label={t("timerProperties.urgency")}>
+            <PropertyRow label={t("timerProperties.warn")}>
               <Input
                 type="number"
                 value={timer.warnSeconds ?? ""}
@@ -79,10 +81,10 @@ export function CountdownThemeProperties({
                 }
                 className="h-7 text-xs"
                 min={0}
-                placeholder="off"
+                placeholder={t("properties.off")}
               />
             </PropertyRow>
-            <PropertyRow label="Danger">
+            <PropertyRow label={t("timerProperties.danger")}>
               <Input
                 type="number"
                 value={timer.dangerSeconds ?? ""}
@@ -93,26 +95,26 @@ export function CountdownThemeProperties({
                 }
                 className="h-7 text-xs"
                 min={0}
-                placeholder="off"
+                placeholder={t("properties.off")}
               />
             </PropertyRow>
           </Section>
-          <Section label="Text">
+          <Section label={t("rightPanel.text")}>
             <SizeRow
-              label="Size"
+              label={t("timerProperties.size")}
               value={timer.fontSize}
               onChange={(v) => patchElement(timer.id, { fontSize: v })}
               max={320}
             />
             <ColorRow
-              label="Color"
+              label={t("properties.color")}
               value={timer.color}
               onChange={(v) => patchElement(timer.id, { color: v })}
             />
           </Section>
         </>
       ) : (
-        <MissingPlaceholder what="a timer placeholder" />
+        <MissingPlaceholder what={t("themeProperties.timerPlaceholder")} />
       )}
       <SelectElementHint />
     </ThemePanelShell>

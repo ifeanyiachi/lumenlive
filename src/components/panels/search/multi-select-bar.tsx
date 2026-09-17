@@ -13,6 +13,7 @@ import {
   PlayIcon,
   XIcon,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 /**
  * The floating action bar shown when 2+ verses are multi-selected in the book
@@ -42,11 +43,12 @@ export function MultiSelectBar({
   onPresent: () => void
   onClear: () => void
 }) {
+  const { t } = useTranslation("panels")
   return (
     <div className="flex shrink-0 items-center gap-2 border-t border-border bg-sky-500/10 px-3 py-2">
       <LayersIcon className="size-3.5 text-sky-400" />
       <span className="flex-1 text-xs font-medium text-sky-300">
-        {count} verses selected
+        {t("search.versesSelected", { count })}
       </span>
       <Button
         variant="ghost"
@@ -55,7 +57,7 @@ export function MultiSelectBar({
         onClick={onAddToSchedule}
       >
         <ListPlusIcon className="size-3" />
-        Add to Schedule
+        {t("search.addToSchedule")}
       </Button>
       <Button
         variant="ghost"
@@ -64,7 +66,7 @@ export function MultiSelectBar({
         onClick={onEdit}
       >
         <PencilIcon className="size-3" />
-        Edit
+        {t("search.edit")}
       </Button>
       {/* Split button: primary click adds the collection; the caret opens the
           "separate items" alternative so both live in one compact control. */}
@@ -76,14 +78,14 @@ export function MultiSelectBar({
           onClick={onAddAsGroup}
         >
           <LayersIcon className="size-3" />
-          Add as Group
+          {t("search.addAsGroup")}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="More add options"
+              aria-label={t("search.moreAddOptions")}
               className="h-7 w-6 rounded-l-none border-l border-sky-500/20 hover:bg-sky-500/20 hover:text-sky-300"
             >
               <ChevronDownIcon className="size-3" />
@@ -92,7 +94,7 @@ export function MultiSelectBar({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onAddSeparately}>
               <ListPlusIcon className="size-3.5" />
-              Add as separate items
+              {t("search.addAsSeparate")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -103,12 +105,12 @@ export function MultiSelectBar({
         onClick={onPresent}
       >
         <PlayIcon className="size-3" />
-        Present
+        {t("detections.present")}
       </Button>
       <Button
         variant="ghost"
         size="icon-xs"
-        aria-label="Clear selection"
+        aria-label={t("search.clearSelection")}
         className="text-muted-foreground hover:text-foreground"
         onClick={onClear}
       >

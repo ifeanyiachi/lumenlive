@@ -1,4 +1,5 @@
 import { MinusIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { FieldGroup } from "@/components/ui/field-group"
 import { Input } from "@/components/ui/input"
 import { useScheduleStore } from "@/stores/schedule-store"
@@ -32,9 +33,10 @@ export function ItemPropertiesContent({
   onStagedExtras?: (extras: ScheduleItem[]) => void
   onStagedMediaImports?: (assetIds: string[]) => void
 }) {
+  const { t } = useTranslation("schedule")
   return (
     <div className="flex flex-col gap-3 p-3">
-      <FieldGroup label="Label">
+      <FieldGroup label={t("properties.label")}>
         <Input
           className="h-7 text-xs"
           value={item.label}
@@ -46,7 +48,7 @@ export function ItemPropertiesContent({
         />
       </FieldGroup>
 
-      <FieldGroup label="Notes">
+      <FieldGroup label={t("properties.notes")}>
         <textarea
           className="min-h-[60px] w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
           value={item.notes ?? ""}
@@ -55,7 +57,7 @@ export function ItemPropertiesContent({
               .getState()
               .updateItem(scheduleId, item.id, { notes: e.target.value })
           }
-          placeholder="Add notes..."
+          placeholder={t("properties.addNotes")}
         />
       </FieldGroup>
 
@@ -89,7 +91,7 @@ export function ItemPropertiesContent({
         <div className="flex items-center gap-2 rounded-md bg-muted/30 p-3">
           <MinusIcon className="size-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
-            Section headers are visual dividers only
+            {t("properties.sectionHeadersHelp")}
           </span>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -31,19 +32,24 @@ function KeyCap({ children }: { children: React.ReactNode }) {
 
 /** One shortcut row: label + description on the left, key caps on the right. */
 function ShortcutRow({ def, isMac }: { def: ShortcutDef; isMac: boolean }) {
+  const { t } = useTranslation("keyboard")
   return (
     <div className="flex items-center justify-between gap-4 py-1.5">
       <div className="min-w-0">
-        <div className="text-sm text-foreground">{def.label}</div>
+        <div className="text-sm text-foreground">
+          {t(`shortcuts.${def.id}.label`)}
+        </div>
         <div className="truncate text-xs text-muted-foreground">
-          {def.description}
+          {t(`shortcuts.${def.id}.description`)}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {def.chords.map((chord, ci) => (
           <span key={ci} className="flex items-center gap-1">
             {ci > 0 && (
-              <span className="text-[0.625rem] text-muted-foreground">or</span>
+              <span className="text-[0.625rem] text-muted-foreground">
+                {t("or")}
+              </span>
             )}
             {formatChord(chord, isMac).map((cap, ki) => (
               <KeyCap key={ki}>{cap}</KeyCap>
@@ -62,6 +68,7 @@ function ShortcutRow({ def, isMac }: { def: ShortcutDef; isMac: boolean }) {
  * the transport-bar keyboard button (both via `useShortcutsStore`).
  */
 export function KeyboardShortcutsOverlay() {
+  const { t } = useTranslation("keyboard")
   const open = useShortcutsStore((s) => s.overlayOpen)
   const setOpen = useShortcutsStore((s) => s.setOverlayOpen)
   const isMac = useMemo(() => detectIsMac(), [])
@@ -80,16 +87,14 @@ export function KeyboardShortcutsOverlay() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>
-            Shortcuts are ignored while you're typing in a field.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 sm:grid-cols-2">
           {byCategory.map(({ category, items }) => (
             <section key={category}>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {category}
+              <h3 className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {t(`categories.${category.toLowerCase()}`)}
               </h3>
               <div className="divide-y divide-border/60">
                 {items.map((def) => (

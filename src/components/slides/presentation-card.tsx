@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { renderSlide } from "@/lib/slide-renderer"
 import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
 import type { Presentation } from "@/types/slide"
@@ -15,6 +16,7 @@ export function PresentationCard({
   onSelect: () => void
   onEdit: () => void
 }) {
+  const { t } = useTranslation("slides")
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -59,7 +61,7 @@ export function PresentationCard({
         </span>
         <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[0.625rem] text-muted-foreground">
           {presentation.slides.length}{" "}
-          {presentation.slides.length === 1 ? "slide" : "slides"}
+          {t("card.slideCount", { count: presentation.slides.length })}
         </span>
       </div>
     </button>

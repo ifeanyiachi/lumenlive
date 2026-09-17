@@ -18,6 +18,7 @@ import {
   CheckIcon,
   XIcon,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 interface CollectionManagerDialogProps {
   open: boolean
@@ -28,6 +29,7 @@ export function CollectionManagerDialog({
   open,
   onOpenChange,
 }: CollectionManagerDialogProps) {
+  const { t } = useTranslation("media")
   const collections = useMediaStore((s) => s.collections)
   const [newName, setNewName] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -69,14 +71,14 @@ export function CollectionManagerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Collections</DialogTitle>
+          <DialogTitle>{t("manage.title")}</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="max-h-[320px]">
           {collections.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
               <FolderIcon className="size-8 opacity-40" />
-              <p className="text-xs">No collections yet</p>
+              <p className="text-xs">{t("manage.empty")}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-1 p-0.5">
@@ -102,7 +104,7 @@ export function CollectionManagerDialog({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="Confirm rename"
+                        aria-label={t("manage.confirmRename")}
                         onClick={handleConfirmRename}
                         disabled={!editingName.trim()}
                       >
@@ -111,7 +113,7 @@ export function CollectionManagerDialog({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="Cancel rename"
+                        aria-label={t("manage.cancelRename")}
                         onClick={handleCancelRename}
                       >
                         <XIcon className="size-3" />
@@ -128,7 +130,7 @@ export function CollectionManagerDialog({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Rename ${col.name}`}
+                        aria-label={t("manage.rename", { name: col.name })}
                         onClick={() => handleStartRename(col.id, col.name)}
                       >
                         <PencilIcon className="size-3" />
@@ -136,7 +138,7 @@ export function CollectionManagerDialog({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Delete ${col.name}`}
+                        aria-label={t("manage.delete", { name: col.name })}
                         className="text-destructive hover:text-destructive"
                         onClick={() => handleDelete(col.id)}
                       >
@@ -152,7 +154,7 @@ export function CollectionManagerDialog({
 
         <div className="flex gap-2">
           <Input
-            placeholder="New collection name..."
+            placeholder={t("manage.newName")}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -167,7 +169,7 @@ export function CollectionManagerDialog({
             onClick={handleCreate}
           >
             <PlusIcon className="size-3" />
-            Create
+            {t("manage.create")}
           </Button>
         </div>
       </DialogContent>

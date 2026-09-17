@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { ColorSwatch } from "@/components/ui/color-swatch"
+import { useTranslation } from "react-i18next"
 
 /**
  * Shared building blocks for the type-specific theme-properties panels
@@ -131,17 +132,18 @@ export function WeightRow({
   value: number
   onChange: (value: number) => void
 }) {
+  const { t } = useTranslation("slides")
   return (
-    <PropertyRow label="Weight">
+    <PropertyRow label={t("timerProperties.weight")}>
       <Select value={String(value)} onValueChange={(v) => onChange(Number(v))}>
         <SelectTrigger className="h-7 text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="400">Regular</SelectItem>
-          <SelectItem value="600">Semibold</SelectItem>
-          <SelectItem value="700">Bold</SelectItem>
-          <SelectItem value="900">Black</SelectItem>
+          <SelectItem value="400">{t("format.regular")}</SelectItem>
+          <SelectItem value="600">{t("format.semibold")}</SelectItem>
+          <SelectItem value="700">{t("format.bold")}</SelectItem>
+          <SelectItem value="900">{t("format.black")}</SelectItem>
         </SelectContent>
       </Select>
     </PropertyRow>
@@ -155,8 +157,9 @@ export function AlignRow({
   value: "left" | "center" | "right"
   onChange: (value: "left" | "center" | "right") => void
 }) {
+  const { t } = useTranslation("slides")
   return (
-    <PropertyRow label="Align">
+    <PropertyRow label={t("properties.align")}>
       <Select
         value={value}
         onValueChange={(v) => onChange(v as "left" | "center" | "right")}
@@ -165,9 +168,9 @@ export function AlignRow({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="left">Left</SelectItem>
-          <SelectItem value="center">Center</SelectItem>
-          <SelectItem value="right">Right</SelectItem>
+          <SelectItem value="left">{t("properties.left")}</SelectItem>
+          <SelectItem value="center">{t("properties.center")}</SelectItem>
+          <SelectItem value="right">{t("properties.right")}</SelectItem>
         </SelectContent>
       </Select>
     </PropertyRow>
@@ -180,11 +183,11 @@ export function AlignRow({
  * empty section.
  */
 export function MissingPlaceholder({ what }: { what: string }) {
+  const { t } = useTranslation("slides")
   return (
-    <Section label="Missing">
+    <Section label={t("themeProperties.missing")}>
       <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[0.6875rem] text-amber-600 dark:text-amber-400">
-        This theme needs {what}. Add it from the “+” menu so content has
-        somewhere to flow.
+        {t("themeProperties.missingDescription", { what })}
       </p>
     </Section>
   )
@@ -192,6 +195,7 @@ export function MissingPlaceholder({ what }: { what: string }) {
 
 /** Footer hint: element-level editing still lives in the layer/element panel. */
 export function SelectElementHint({ className }: { className?: string }) {
+  const { t } = useTranslation("slides")
   return (
     <p
       className={cn(
@@ -199,8 +203,7 @@ export function SelectElementHint({ className }: { className?: string }) {
         className
       )}
     >
-      Select any element on the canvas to edit its full properties, or use the
-      “+” menu to add decoration around the placeholder.
+      {t("themeProperties.selectElementHint")}
     </p>
   )
 }

@@ -12,6 +12,7 @@ type SettingsSection =
   | "backup"
   | "privacy"
   | "help"
+  | "language"
 
 interface SettingsDialogState {
   isOpen: boolean

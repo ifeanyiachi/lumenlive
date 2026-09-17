@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   DownloadIcon,
@@ -37,6 +38,7 @@ import {
 import { importSongsFromQsp } from "@/lib/song/import/quelea-pack"
 import { importSongsFromPack } from "@/lib/song/import/from-pack"
 import { stampImportBatch, packLabelFromUrl } from "@/lib/song/community-packs"
+import { formatNumber } from "@/lib/i18n/format"
 import {
   pickAndReadSongFiles,
   pickAndReadSongPacks,
@@ -59,6 +61,7 @@ const IMPORT_AS: { format: ImportableFormat; label: string }[] = [
  *    auto-detected), which works even in the browser.
  */
 export function SongImportButton() {
+  const { t } = useTranslation("song")
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteTitle, setPasteTitle] = useState("")
   const [pasteText, setPasteText] = useState("")
@@ -74,19 +77,19 @@ export function SongImportButton() {
       .map((f) => importSongFromText(f.name, f.text))
       .filter((s): s is NonNullable<typeof s> => s !== null)
     if (songs.length === 0) {
-      toast.error("No songs could be read from the selected files")
+      toast.error(t("import.noFiles"))
       return
     }
     useSongStore.getState().addSongs(songs)
     useSongStore.getState().setSelectedSong(songs[0].id)
-    toast.success(`Imported ${songs.length} song${songs.length > 1 ? "s" : ""}`)
+    toast.success(t("import.imported", { count: songs.length }))
   }
 
   const handleFolderImport = async () => {
     const setProgress = useSongStore.getState().setImportProgress
-    setProgress({ current: 0, total: 1, label: "Scanning folder…" })
+    setProgress({ current: 0, total: 1, label: t("import.scanningFolder") })
     const result = await readSongFolder((read, total) =>
-      setProgress({ current: read, total, label: "Reading files…" })
+      setProgress({ current: read, total, label: t("import.readingFiles") })
     )
     if (!result) {
       setProgress(null)
@@ -101,22 +104,22 @@ export function SongImportButton() {
       const song = importSongFromText(f.name, f.text)
       if (song) songs.push(song)
       done += 1
-      setProgress({ current: done, total: grand, label: "Importing…" })
+      setProgress({ current: done, total: grand, label: t("import.importing") })
     }
     for (const z of zipFiles) {
       songs.push(...(await importSongsFromQsp(z.bytes)))
       done += 1
-      setProgress({ current: done, total: grand, label: "Importing…" })
+      setProgress({ current: done, total: grand, label: t("import.importing") })
     }
     setProgress(null)
 
     if (songs.length === 0) {
-      toast.error("No songs found in that folder")
+      toast.error(t("import.noFolderSongs"))
       return
     }
     useSongStore.getState().addSongs(songs)
     useSongStore.getState().setSelectedSong(songs[0].id)
-    toast.success(`Imported ${songs.length} songs`)
+    toast.success(t("import.imported", { count: songs.length }))
   }
 
   const handlePackImport = async () => {
@@ -131,17 +134,17 @@ export function SongImportButton() {
       setProgress({
         current: done,
         total: packs.length,
-        label: "Importing packs…",
+        label: t("import.importingPacks"),
       })
     }
     setProgress(null)
     if (songs.length === 0) {
-      toast.error("No songs found in the selected pack(s)")
+      toast.error(t("import.noPacks"))
       return
     }
     useSongStore.getState().addSongs(songs)
     useSongStore.getState().setSelectedSong(songs[0].id)
-    toast.success(`Imported ${songs.length} songs`)
+    toast.success(t("import.imported", { count: songs.length }))
   }
 
   const handleCommunityPack = async () => {
@@ -155,7 +158,7 @@ export function SongImportButton() {
       )
       const parsed = await importSongsFromPack(bytes)
       if (parsed.length === 0) {
-        toast.error("No songs found in that pack")
+        toast.error(t("import.noPackSongs"))
         return
       }
       // Tag the batch (id = the source URL) so it shows in the Store as an
@@ -163,11 +166,11 @@ export function SongImportButton() {
       const songs = stampImportBatch(parsed, url, packLabelFromUrl(url))
       useSongStore.getState().addSongs(songs)
       useSongStore.getState().setSelectedSong(songs[0].id)
-      toast.success(`Imported ${songs.length} songs from the pack`)
+      toast.success(t("import.importedFromPack", { count: songs.length }))
       setPackOpen(false)
       setPackUrl("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pack import failed")
+      toast.error(err instanceof Error ? err.message : t("import.packFailed"))
     } finally {
       setPackBusy(false)
     }
@@ -180,19 +183,19 @@ export function SongImportButton() {
       .map((f) => importSongAs(format, f.name, f.text))
       .filter((s): s is NonNullable<typeof s> => s !== null)
     if (songs.length === 0) {
-      toast.error("No songs could be read from the selected files")
+      toast.error(t("import.noFiles"))
       return
     }
     useSongStore.getState().addSongs(songs)
     useSongStore.getState().setSelectedSong(songs[0].id)
-    toast.success(`Imported ${songs.length} song${songs.length > 1 ? "s" : ""}`)
+    toast.success(t("import.imported", { count: songs.length }))
   }
 
   const handlePasteImport = () => {
-    const name = pasteTitle.trim() || "Pasted Song"
+    const name = pasteTitle.trim() || t("import.pastedSong")
     const song = importSongFromText(name, pasteText)
     if (!song) {
-      toast.error("Nothing to import — paste some lyrics first")
+      toast.error(t("import.nothingToImport"))
       return
     }
     useSongStore.getState().addSong(song)
@@ -201,7 +204,7 @@ export function SongImportButton() {
     setPasteOpen(false)
     setPasteTitle("")
     setPasteText("")
-    toast.success(`Imported "${song.title}"`)
+    toast.success(t("import.importedTitle", { title: song.title }))
   }
 
   return (
@@ -214,7 +217,7 @@ export function SongImportButton() {
             className="h-7 gap-1 px-2 text-xs"
           >
             <DownloadIcon className="size-3" />
-            Import
+            {t("import.button")}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
@@ -223,33 +226,33 @@ export function SongImportButton() {
             onClick={() => void handleFileImport()}
           >
             <FileUpIcon className="mr-1.5 size-3.5" />
-            From file…
+            {t("import.fromFile")}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-xs"
             onClick={() => void handleFolderImport()}
           >
             <FolderInputIcon className="mr-1.5 size-3.5" />
-            From folder…
+            {t("import.fromFolder")}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-xs"
             onClick={() => setPasteOpen(true)}
           >
             <ClipboardPasteIcon className="mr-1.5 size-3.5" />
-            Paste lyrics…
+            {t("import.pasteLyrics")}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-xs"
             onClick={() => setPackOpen(true)}
           >
             <GitBranchIcon className="mr-1.5 size-3.5" />
-            Community pack…
+            {t("import.communityPack")}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-[0.625rem] tracking-wider text-muted-foreground uppercase">
-            Import from
+            {t("import.importFrom")}
           </DropdownMenuLabel>
           {IMPORT_AS.map(({ format, label }) => (
             <DropdownMenuItem
@@ -266,7 +269,7 @@ export function SongImportButton() {
             onClick={() => void handlePackImport()}
           >
             <PackageIcon className="mr-1.5 size-3.5" />
-            Quelea pack (.qsp)…
+            {t("import.queleaPack")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -274,18 +277,16 @@ export function SongImportButton() {
       <Dialog open={pasteOpen} onOpenChange={setPasteOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Paste lyrics</DialogTitle>
+            <DialogTitle>{t("import.pasteTitle")}</DialogTitle>
             <DialogDescription>
-              Plain text, ChordPro, or OpenLyrics — the format is detected
-              automatically. Blank lines separate sections; lines like "Verse 1"
-              or "Chorus" become labelled sections.
+              {t("import.pasteDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
             <Input
-              placeholder="Song title"
-              aria-label="Song title"
+              placeholder={t("import.songTitle")}
+              aria-label={t("import.songTitle")}
               value={pasteTitle}
               onChange={(e) => setPasteTitle(e.target.value)}
               className="h-8 text-sm"
@@ -294,7 +295,7 @@ export function SongImportButton() {
               placeholder={
                 "Verse 1\nLyrics line one\nLyrics line two\n\nChorus\n…"
               }
-              aria-label="Lyrics"
+              aria-label={t("import.lyrics")}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               className="min-h-56 text-sm"
@@ -307,14 +308,14 @@ export function SongImportButton() {
               size="sm"
               onClick={() => setPasteOpen(false)}
             >
-              Cancel
+              {t("import.cancel")}
             </Button>
             <Button
               size="sm"
               onClick={handlePasteImport}
               disabled={!pasteText.trim()}
             >
-              Import
+              {t("import.button")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -329,19 +330,16 @@ export function SongImportButton() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import a community pack</DialogTitle>
+            <DialogTitle>{t("import.communityTitle")}</DialogTitle>
             <DialogDescription>
-              Paste a public repository URL (e.g. a GitHub link like{" "}
-              <code>github.com/owner/worship-songs</code>) or a direct{" "}
-              <code>.zip</code> link. Every recognised song file inside —
-              OnSong, ChordPro, OpenLyrics, OpenSong, CCLI — is imported.
+              {t("import.communityDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-2">
             <Input
               placeholder="https://github.com/owner/repo"
-              aria-label="Pack URL"
+              aria-label={t("import.packUrl")}
               value={packUrl}
               onChange={(e) => setPackUrl(e.target.value)}
               disabled={packBusy}
@@ -353,7 +351,12 @@ export function SongImportButton() {
             {packBusy && (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2Icon className="size-3 animate-spin" />
-                Downloading pack… {(packReceived / 1_000_000).toFixed(1)} MB
+                {t("import.downloadingPack", {
+                  size: formatNumber(packReceived / 1_000_000, {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  }),
+                })}
               </p>
             )}
           </div>
@@ -365,14 +368,14 @@ export function SongImportButton() {
               onClick={() => setPackOpen(false)}
               disabled={packBusy}
             >
-              Cancel
+              {t("import.cancel")}
             </Button>
             <Button
               size="sm"
               onClick={() => void handleCommunityPack()}
               disabled={packBusy || !packUrl.trim()}
             >
-              {packBusy ? "Importing…" : "Import"}
+              {packBusy ? t("import.importing") : t("import.button")}
             </Button>
           </DialogFooter>
         </DialogContent>

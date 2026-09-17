@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { StageLayout, StageZone } from "@/types/stage-layout"
+import { useTranslation } from "react-i18next"
 
 function Field({
   label,
@@ -65,6 +66,7 @@ function ZoneProperties({
   draft: StageLayout
   zone: StageZone
 }) {
+  const { t } = useTranslation("broadcast")
   const idx = zoneIndex(draft, zone.id)
   if (idx < 0) return null
   const set = (path: string, value: unknown) =>
@@ -74,7 +76,7 @@ function ZoneProperties({
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Name">
+      <Field label={t("stageInspector.name")}>
         <Input
           value={zone.name}
           onChange={(e) => set("name", e.target.value)}
@@ -84,18 +86,18 @@ function ZoneProperties({
 
       <div>
         <p className="mb-1.5 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-          Position &amp; Size
+          {t("stageInspector.positionSize")}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <NumberField label="X" value={zone.x} onCommit={(n) => set("x", n)} />
           <NumberField label="Y" value={zone.y} onCommit={(n) => set("y", n)} />
           <NumberField
-            label="Width"
+            label={t("stageInspector.width")}
             value={zone.width}
             onCommit={(n) => set("width", Math.max(20, n))}
           />
           <NumberField
-            label="Height"
+            label={t("stageInspector.height")}
             value={zone.height}
             onCommit={(n) => set("height", Math.max(20, n))}
           />
@@ -103,7 +105,7 @@ function ZoneProperties({
       </div>
 
       {zone.source === "clock" && (
-        <Field label="Clock Format">
+        <Field label={t("clockFormat")}>
           <Select
             value={zone.clockFormat ?? "12h"}
             onValueChange={(v) => set("clockFormat", v)}
@@ -112,8 +114,8 @@ function ZoneProperties({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="12h">12-hour</SelectItem>
-              <SelectItem value="24h">24-hour</SelectItem>
+              <SelectItem value="12h">{t("twelveHour")}</SelectItem>
+              <SelectItem value="24h">{t("twentyFourHour")}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -121,7 +123,7 @@ function ZoneProperties({
 
       {zone.source !== "clock" && (
         <>
-          <Field label="Header Label">
+          <Field label={t("stageInspector.headerLabel")}>
             <Input
               value={zone.label ?? ""}
               onChange={(e) => set("label", e.target.value)}
@@ -130,7 +132,7 @@ function ZoneProperties({
           </Field>
           <label className="flex items-center justify-between">
             <span className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
-              Show Header
+              {t("stageInspector.showHeader")}
             </span>
             <Switch
               checked={zone.showHeader ?? false}
@@ -143,15 +145,15 @@ function ZoneProperties({
       {zone.text && (
         <div>
           <p className="mb-1.5 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-            Text
+            {t("stageInspector.text")}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <NumberField
-              label="Font Size"
+              label={t("stageInspector.fontSize")}
               value={zone.text.fontSize}
               onCommit={(n) => set("text.fontSize", Math.max(8, n))}
             />
-            <Field label="Colour">
+            <Field label={t("stageInspector.color")}>
               <ColorSwatch
                 value={zone.text.color}
                 onChange={(color) => set("text.color", color)}
@@ -166,10 +168,11 @@ function ZoneProperties({
 }
 
 function LayoutProperties({ draft }: { draft: StageLayout }) {
+  const { t } = useTranslation("broadcast")
   const store = useBroadcastStore.getState
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Display Mode">
+      <Field label={t("stageInspector.displayMode")}>
         <Select
           value={draft.displayMode}
           onValueChange={(v) =>
@@ -180,12 +183,16 @@ function LayoutProperties({ draft }: { draft: StageLayout }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="zone">Zone Layout</SelectItem>
-            <SelectItem value="custom">Custom Template</SelectItem>
+            <SelectItem value="zone">
+              {t("stageInspector.zoneLayout")}
+            </SelectItem>
+            <SelectItem value="custom">
+              {t("stageInspector.customTemplate")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </Field>
-      <Field label="Background Colour">
+      <Field label={t("stageInspector.backgroundColor")}>
         <ColorSwatch
           value={draft.background.color}
           onChange={(color) =>
@@ -195,13 +202,14 @@ function LayoutProperties({ draft }: { draft: StageLayout }) {
         />
       </Field>
       <p className="text-xs text-muted-foreground">
-        Select a zone on the canvas to edit its properties.
+        {t("stageInspector.selectZone")}
       </p>
     </div>
   )
 }
 
 export function StageInspector() {
+  const { t } = useTranslation("broadcast")
   const draft = useBroadcastStore((s) => s.draftStageLayout)
   const selectedZone = useBroadcastStore((s) => s.selectedZone)
   if (!draft) return null
@@ -211,7 +219,7 @@ export function StageInspector() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-14 shrink-0 items-center border-b border-border px-4">
         <span className="text-sm font-semibold text-foreground">
-          {zone ? zone.name : "Layout"}
+          {zone ? zone.name : t("layout")}
         </span>
       </div>
       <ScrollArea className="min-h-0 flex-1">

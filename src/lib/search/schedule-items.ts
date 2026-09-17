@@ -85,7 +85,9 @@ export function buildGroupedScriptureScheduleItem(
     verseStart: first.verse,
     verseEnd: last.verse,
     cachedReference: reference,
-    cachedText: sorted.map((v) => segmentById?.get(v.id)?.text ?? v.text).join(" "),
+    cachedText: sorted
+      .map((v) => segmentById?.get(v.id)?.text ?? v.text)
+      .join(" "),
     ...(segments.length > 0 ? { segments } : {}),
   }
 }

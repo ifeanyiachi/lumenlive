@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -22,15 +23,6 @@ import { BUILTIN_THEMES } from "@/lib/theme/builtins"
 import type { ThemeType } from "@/types/theme"
 import type { SlideBackground } from "@/types/slide"
 import { cn } from "@/lib/utils"
-
-const TYPE_LABELS: Record<ThemeType, string> = {
-  scripture: "Scripture",
-  song: "Song / Lyrics",
-  countdown: "Countdown",
-  sermon: "Sermon",
-  overlay: "Overlay",
-  announcement: "Announcement",
-}
 
 /** A static CSS swatch approximating a theme's background for the grid preview. */
 function gradientCss(bg: SlideBackground): string {
@@ -66,6 +58,7 @@ function gradientCss(bg: SlideBackground): string {
  * type-first model has no per-theme layout variants).
  */
 export function SlideThemePicker() {
+  const { t } = useTranslation("slides")
   const [open, setOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState<ThemeType | "all">("all")
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null)
@@ -96,13 +89,17 @@ export function SlideThemePicker() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon-sm" title="Apply theme">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title={t("themePicker.applyTheme")}
+        >
           <PaletteIcon className="size-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Slide Themes</DialogTitle>
+          <DialogTitle>{t("themePicker.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-2">
@@ -114,14 +111,21 @@ export function SlideThemePicker() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {(Object.entries(TYPE_LABELS) as [ThemeType, string][]).map(
-                ([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                )
-              )}
+              <SelectItem value="all">{t("themePicker.allTypes")}</SelectItem>
+              {(
+                [
+                  "scripture",
+                  "song",
+                  "countdown",
+                  "sermon",
+                  "overlay",
+                  "announcement",
+                ] as ThemeType[]
+              ).map((value) => (
+                <SelectItem key={value} value={value}>
+                  {t(`themeTypes.${value}`)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -155,7 +159,7 @@ export function SlideThemePicker() {
                   <div className="flex items-center justify-between px-2 py-1.5">
                     <span className="text-xs font-medium">{theme.name}</span>
                     <span className="text-[0.5625rem] text-muted-foreground">
-                      {TYPE_LABELS[theme.type]}
+                      {t(`themeTypes.${theme.type}`)}
                     </span>
                   </div>
                 </button>
@@ -167,10 +171,10 @@ export function SlideThemePicker() {
         {selectedTheme && (
           <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" size="sm" onClick={handleApplyToSlide}>
-              Apply to Current Slide
+              {t("themePicker.applyCurrent")}
             </Button>
             <Button size="sm" onClick={handleApplyToAll}>
-              Apply to All Slides
+              {t("themePicker.applyAll")}
             </Button>
           </div>
         )}

@@ -24,7 +24,9 @@ export interface MediaLoopConfig {
 }
 
 /** Loop is requested via the Loop switch (`loop`) or the "When finished" dropdown (`endAction`). */
-export function loopRequested(cfg: MediaLoopConfig | null | undefined): boolean {
+export function loopRequested(
+  cfg: MediaLoopConfig | null | undefined
+): boolean {
   return !!cfg && (cfg.loop === true || cfg.endAction === "loop")
 }
 

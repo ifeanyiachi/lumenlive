@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,16 +22,12 @@ import { appUrl } from "@/lib/app-urls"
 // the marketing site.
 const SIGNUP_URL = appUrl("/signup")
 
-const REASON_NOTE: Record<string, string> = {
-  trial_ended:
-    "Your free trial has ended. Subscribe to a plan to restore full access.",
-  expired:
-    "We haven't been able to confirm your plan lately. Connect to the internet, then re-validate below.",
-  machine_mismatch:
-    "This plan is active on another device. Sign in here to move it to this one.",
-  signature:
-    "Your plan needs a quick refresh on this device. Re-validate below to update it.",
-}
+const REASON_KEYS = new Set([
+  "trial_ended",
+  "expired",
+  "machine_mismatch",
+  "signature",
+])
 
 export function AccountSection() {
   const status = useAuthStore((s) => s.status)
@@ -45,6 +42,7 @@ export function AccountSection() {
 // ── Signed-out: sign in + register ──────────────────────────────────────────
 
 function SignedOut() {
+  const { t } = useTranslation("settings")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
@@ -65,7 +63,9 @@ function SignedOut() {
           const detail = err.details as
             { devices?: { machineName?: string }[] } | undefined
           setDevices(
-            detail?.devices?.map((d) => d.machineName ?? "Unknown device") ?? []
+            detail?.devices?.map(
+              (d) => d.machineName ?? t("account.unknownDevice")
+            ) ?? []
           )
         }
       } else {
@@ -80,11 +80,10 @@ function SignedOut() {
     <>
       <div className="flex flex-col gap-1">
         <h3 className="text-sm font-medium text-foreground">
-          Sign in to LumenLive
+          {t("account.signIn.title")}
         </h3>
         <p className="text-[0.6875rem] text-muted-foreground">
-          LumenLive is free to use — no account needed. Sign in to activate your
-          subscription on this device.
+          {t("account.signIn.description")}
         </p>
       </div>
 
@@ -96,7 +95,9 @@ function SignedOut() {
         className="flex flex-col gap-3"
       >
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Email</label>
+          <label className="text-xs text-muted-foreground">
+            {t("account.email")}
+          </label>
           <Input
             type="email"
             autoComplete="email"
@@ -107,7 +108,9 @@ function SignedOut() {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Password</label>
+          <label className="text-xs text-muted-foreground">
+            {t("account.password")}
+          </label>
           <Input
             type="password"
             autoComplete="current-password"
@@ -137,13 +140,13 @@ function SignedOut() {
           className="text-xs"
           disabled={busy || !email || !password}
         >
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t("account.signingIn") : t("account.signIn.action")}
         </Button>
       </form>
 
       <div className="flex items-center justify-between border-t border-border pt-4">
         <p className="text-[0.6875rem] text-muted-foreground">
-          New to LumenLive?
+          {t("account.newToLumenLive")}
         </p>
         <Button
           variant="outline"
@@ -151,7 +154,7 @@ function SignedOut() {
           className="text-xs"
           onClick={() => void openExternalUrl(SIGNUP_URL)}
         >
-          Register a church
+          {t("account.registerChurch")}
         </Button>
       </div>
     </>
@@ -161,6 +164,7 @@ function SignedOut() {
 // ── Signed-in: license status + devices ─────────────────────────────────────
 
 function SignedIn() {
+  const { t } = useTranslation("settings")
   const user = useAuthStore((s) => s.user)
   const entitlement = useEntitlementsStore((s) => s.entitlement)
   const reason = useEntitlementsStore((s) => s.reason)
@@ -177,7 +181,10 @@ function SignedIn() {
     }
   }
 
-  const note = reason !== "ok" ? REASON_NOTE[reason] : null
+  const note =
+    reason !== "ok" && REASON_KEYS.has(reason)
+      ? t(`account.reason.${reason}`)
+      : null
 
   return (
     <>
@@ -210,7 +217,7 @@ function SignedIn() {
       {result && !result.ok && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-2.5">
           <p className="text-[0.6875rem] text-red-500">
-            We couldn&apos;t refresh your plan right now: {result.message}
+            {t("account.refreshFailed", { message: result.message })}
           </p>
           <p className="mt-0.5 font-mono text-[0.625rem] text-muted-foreground">
             {result.code}
@@ -222,25 +229,25 @@ function SignedIn() {
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5">
           <p className="text-[0.6875rem] text-emerald-600 dark:text-emerald-400">
             {result.reason === "ok"
-              ? `You're all set — your plan is now ${planLabel(entitlement)}.`
-              : `Checked with the server — you're still on ${planLabel(entitlement)}, all good.`}
+              ? t("account.revalidatedNow", { plan: planLabel(entitlement) })
+              : t("account.revalidatedStill", { plan: planLabel(entitlement) })}
           </p>
         </div>
       )}
 
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
         <label className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          This device
+          {t("account.thisDevice")}
         </label>
         <code className="font-mono text-[0.625rem] break-all text-muted-foreground">
-          {machineId ?? "…"}
+          {machineId ?? t("account.loadingDevice")}
         </code>
         <p className="text-[0.625rem] text-muted-foreground">
           {entitlement.limits.maxDevices < 0
-            ? "Your plan includes unlimited devices."
-            : `Your plan covers up to ${entitlement.limits.maxDevices} device${
-                entitlement.limits.maxDevices === 1 ? "" : "s"
-              }.`}
+            ? t("account.unlimitedDevices")
+            : t("account.deviceLimit", {
+                count: entitlement.limits.maxDevices,
+              })}
         </p>
       </div>
 
@@ -253,10 +260,10 @@ function SignedIn() {
           onClick={() => void handleRevalidate()}
         >
           {busy
-            ? "Re-validating…"
+            ? t("account.revalidating")
             : result?.ok
-              ? "Re-validated"
-              : "Re-validate now"}
+              ? t("account.revalidated")
+              : t("account.revalidateNow")}
         </Button>
         <Button
           variant="ghost"
@@ -264,7 +271,7 @@ function SignedIn() {
           className="text-xs text-red-500 hover:text-red-500"
           onClick={() => void signOut()}
         >
-          Sign out
+          {t("account.signOut")}
         </Button>
       </div>
     </>
@@ -273,6 +280,7 @@ function SignedIn() {
 
 /** Live-updating trial/subscription countdown (ticks each minute). */
 function TrialCountdown({ trialEnd }: { trialEnd: number }) {
+  const { t } = useTranslation("settings")
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000)
@@ -283,14 +291,16 @@ function TrialCountdown({ trialEnd }: { trialEnd: number }) {
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
       <p className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-        Access period
+        {t("account.accessPeriod")}
       </p>
       {rem.expired ? (
-        <p className="mt-1 text-xs text-red-500">Access ended</p>
+        <p className="mt-1 text-xs text-red-500">{t("account.accessEnded")}</p>
       ) : (
         <p className="mt-1 text-xs text-foreground">
-          {rem.days > 0 && `${rem.days} day${rem.days === 1 ? "" : "s"} `}
-          {rem.hours} hour{rem.hours === 1 ? "" : "s"} remaining
+          {t("account.accessRemaining", {
+            days: t("account.days", { count: rem.days }),
+            hours: t("account.hours", { count: rem.hours }),
+          })}
         </p>
       )}
     </div>

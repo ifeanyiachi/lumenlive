@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Input } from "@/components/ui/input"
 import { ColorSwatch } from "@/components/ui/color-swatch"
@@ -30,14 +31,7 @@ import { useBibleStore } from "@/stores"
 import type { Verse, Book } from "@/types"
 import type { SlideScriptureElement } from "@/types/slide"
 
-const FONT_WEIGHTS: { value: number; label: string }[] = [
-  { value: 300, label: "Light" },
-  { value: 400, label: "Regular" },
-  { value: 500, label: "Medium" },
-  { value: 600, label: "Semibold" },
-  { value: 700, label: "Bold" },
-  { value: 800, label: "Extra Bold" },
-]
+const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800] as const
 
 function parseReference(
   input: string,
@@ -66,6 +60,7 @@ export function SlideScriptureProperties({
 }: {
   element: SlideScriptureElement
 }) {
+  const { t } = useTranslation("slides")
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
   const translations = useBibleStore((s) => s.translations)
   const books = useBibleStore((s) => s.books)
@@ -141,7 +136,7 @@ export function SlideScriptureProperties({
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
-        title="Scripture Properties"
+        title={t("scriptureProperties.title")}
         icon={<SettingsIcon className="size-3.5" />}
       />
 
@@ -150,21 +145,21 @@ export function SlideScriptureProperties({
           {/* Verse search */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Scripture
+              {t("themeTypes.scripture")}
             </span>
             <div className="flex gap-1">
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder="Search verse (e.g. John 3:16)..."
+                placeholder={t("scriptureProperties.searchPlaceholder")}
                 className="h-7 flex-1 text-xs"
               />
               <Button
                 variant="outline"
                 size="icon-sm"
                 className="size-7"
-                aria-label="Search scripture"
+                aria-label={t("scriptureProperties.search")}
                 onClick={handleSearch}
                 disabled={searching}
               >
@@ -213,22 +208,22 @@ export function SlideScriptureProperties({
           {/* Verse text (editable) */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Verse Text
+              {t("scriptureProperties.verseText")}
             </span>
             <Textarea
               value={element.verseText}
               onChange={(e) => update({ verseText: e.target.value })}
               className="min-h-16 text-xs"
-              placeholder="Verse text..."
+              placeholder={t("scriptureProperties.verseTextPlaceholder")}
             />
           </div>
 
-          <PropertyRow label="Reference">
+          <PropertyRow label={t("scriptureProperties.reference")}>
             <Input
               value={element.reference}
               onChange={(e) => update({ reference: e.target.value })}
               className="h-7 text-xs"
-              placeholder="e.g. John 3:16"
+              placeholder={t("scriptureProperties.referencePlaceholder")}
             />
           </PropertyRow>
 
@@ -237,16 +232,16 @@ export function SlideScriptureProperties({
           {/* Verse styling — the body of the scripture */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Verse Style
+              {t("scriptureProperties.verseStyle")}
             </span>
-            <PropertyRow label="Font">
+            <PropertyRow label={t("scriptureProperties.font")}>
               <FontFamilyPicker
                 value={element.fontFamily}
                 onChange={(v) => update({ fontFamily: v })}
               />
             </PropertyRow>
             <div className="grid grid-cols-2 gap-2">
-              <PropertyRow label="Size">
+              <PropertyRow label={t("timerProperties.size")}>
                 <Input
                   type="number"
                   value={element.fontSize}
@@ -256,16 +251,16 @@ export function SlideScriptureProperties({
                   max={200}
                 />
               </PropertyRow>
-              <PropertyRow label="Color">
+              <PropertyRow label={t("properties.color")}>
                 <ColorSwatch
                   value={element.color}
                   onChange={(color) => update({ color })}
                   className="h-7 w-full"
-                  title="Verse color"
+                  title={t("format.verseColor")}
                 />
               </PropertyRow>
             </div>
-            <PropertyRow label="Weight">
+            <PropertyRow label={t("timerProperties.weight")}>
               <Select
                 value={String(element.fontWeight)}
                 onValueChange={(v) => update({ fontWeight: Number(v) })}
@@ -274,15 +269,15 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FONT_WEIGHTS.map((w) => (
-                    <SelectItem key={w.value} value={String(w.value)}>
-                      {w.label}
+                  {FONT_WEIGHTS.map((weight) => (
+                    <SelectItem key={weight} value={String(weight)}>
+                      {t(`format.${({ 300: "light", 400: "regular", 500: "medium", 600: "semibold", 700: "bold", 800: "extraBold" } as const)[weight]}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </PropertyRow>
-            <PropertyRow label="Align">
+            <PropertyRow label={t("properties.align")}>
               <Select
                 value={element.horizontalAlign}
                 onValueChange={(v) =>
@@ -296,13 +291,13 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="center">Center</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="left">{t("properties.left")}</SelectItem>
+                  <SelectItem value="center">{t("properties.center")}</SelectItem>
+                  <SelectItem value="right">{t("properties.right")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
-            <PropertyRow label="Case">
+            <PropertyRow label={t("scriptureProperties.case")}>
               <Select
                 value={element.textTransform ?? "none"}
                 onValueChange={(v) =>
@@ -315,13 +310,13 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Normal</SelectItem>
+                  <SelectItem value="none">{t("scriptureProperties.normal")}</SelectItem>
                   <SelectItem value="uppercase">UPPERCASE</SelectItem>
                   <SelectItem value="lowercase">lowercase</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
-            <PropertyRow label="Line Height">
+            <PropertyRow label={t("textProperties.lineHeight")}>
               <Slider
                 value={[element.lineHeight]}
                 onValueChange={([v]) => update({ lineHeight: v })}
@@ -337,10 +332,10 @@ export function SlideScriptureProperties({
           {/* Reference styling — the citation label (e.g. John 3:16) */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Reference Style
+              {t("scriptureProperties.referenceStyle")}
             </span>
             <div className="grid grid-cols-2 gap-2">
-              <PropertyRow label="Size">
+              <PropertyRow label={t("timerProperties.size")}>
                 <Input
                   type="number"
                   value={element.referenceFontSize}
@@ -352,16 +347,16 @@ export function SlideScriptureProperties({
                   max={120}
                 />
               </PropertyRow>
-              <PropertyRow label="Color">
+              <PropertyRow label={t("properties.color")}>
                 <ColorSwatch
                   value={element.referenceColor}
                   onChange={(referenceColor) => update({ referenceColor })}
                   className="h-7 w-full"
-                  title="Reference color"
+                  title={t("format.referenceColor")}
                 />
               </PropertyRow>
             </div>
-            <PropertyRow label="Position">
+            <PropertyRow label={t("scriptureProperties.position")}>
               <Select
                 value={element.referencePosition ?? "below"}
                 onValueChange={(v) =>
@@ -375,15 +370,15 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="above">Above verse</SelectItem>
-                  <SelectItem value="below">Below verse</SelectItem>
-                  <SelectItem value="inline">Inline</SelectItem>
+                  <SelectItem value="above">{t("scriptureProperties.aboveVerse")}</SelectItem>
+                  <SelectItem value="below">{t("scriptureProperties.belowVerse")}</SelectItem>
+                  <SelectItem value="inline">{t("scriptureProperties.inline")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
             <div className="flex items-center justify-between">
               <span className="text-[0.6875rem] text-muted-foreground">
-                Uppercase
+                {t("scriptureProperties.uppercase")}
               </span>
               <Switch
                 checked={element.referenceUppercase ?? false}
@@ -398,7 +393,7 @@ export function SlideScriptureProperties({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Verse Numbers
+                {t("scriptureProperties.verseNumbers")}
               </span>
               <Switch
                 checked={element.verseNumbers?.visible ?? false}
@@ -419,7 +414,7 @@ export function SlideScriptureProperties({
             {element.verseNumbers?.visible && (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <PropertyRow label="Size">
+                  <PropertyRow label={t("timerProperties.size")}>
                     <Input
                       type="number"
                       value={element.verseNumbers.fontSize}
@@ -436,7 +431,7 @@ export function SlideScriptureProperties({
                       max={80}
                     />
                   </PropertyRow>
-                  <PropertyRow label="Color">
+                  <PropertyRow label={t("properties.color")}>
                     <ColorSwatch
                       value={element.verseNumbers.color}
                       onChange={(color) =>
@@ -448,13 +443,13 @@ export function SlideScriptureProperties({
                         })
                       }
                       className="h-7 w-full"
-                      title="Verse number color"
+                      title={t("scriptureProperties.verseNumberColor")}
                     />
                   </PropertyRow>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[0.6875rem] text-muted-foreground">
-                    Superscript
+                    {t("scriptureProperties.superscript")}
                   </span>
                   <Switch
                     checked={element.verseNumbers.superscript}
@@ -477,7 +472,7 @@ export function SlideScriptureProperties({
           {/* Verse layout — how multiple verses shown together are arranged */}
           <div className="flex items-center justify-between">
             <span className="pr-2 text-[0.6875rem] text-muted-foreground">
-              Break each verse onto a new line
+              {t("scriptureProperties.breakPerVerse")}
             </span>
             <Switch
               checked={element.breakPerVerse ?? false}

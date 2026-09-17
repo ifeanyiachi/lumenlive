@@ -19,22 +19,24 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ZoneSource } from "@/types/stage-layout"
+import { useTranslation } from "react-i18next"
 
 // The typed data sources an operator can drop onto a stage layout. Current /
 // Clock / Notes / Timer / Stage Message / Announcement render live; Playlist
 // renders from the schedule feed and Spacer is a visual-only placeholder.
-const ZONE_SOURCES: { source: ZoneSource; label: string }[] = [
-  { source: "current", label: "Current (Lyrics/Slide)" },
-  { source: "clock", label: "Clock" },
-  { source: "notes", label: "Notes" },
-  { source: "timer", label: "Timer" },
-  { source: "messages", label: "Stage Message" },
-  { source: "announcement", label: "Announcement" },
-  { source: "playlist", label: "Playlist Info" },
-  { source: "spacer", label: "Spacer" },
+const ZONE_SOURCES: { source: ZoneSource; labelKey: string }[] = [
+  { source: "current", labelKey: "stageZones.sources.current" },
+  { source: "clock", labelKey: "stageZones.sources.clock" },
+  { source: "notes", labelKey: "stageZones.sources.notes" },
+  { source: "timer", labelKey: "stageZones.sources.timer" },
+  { source: "messages", labelKey: "stageZones.sources.messages" },
+  { source: "announcement", labelKey: "stageZones.sources.announcement" },
+  { source: "playlist", labelKey: "stageZones.sources.playlist" },
+  { source: "spacer", labelKey: "stageZones.sources.spacer" },
 ]
 
 export function StageZoneList() {
+  const { t } = useTranslation("broadcast")
   const draft = useBroadcastStore((s) => s.draftStageLayout)
   const selectedZone = useBroadcastStore((s) => s.selectedZone)
   if (!draft) return null
@@ -63,22 +65,22 @@ export function StageZoneList() {
     <div className="flex min-h-0 flex-col border-b border-border">
       <div className="flex h-11 shrink-0 items-center justify-between px-3">
         <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Zones
+          {t("stageZones.title")}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="outline" className="h-7">
               <PlusIcon className="size-3.5" />
-              Add Zone
+              {t("stageZones.add")}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            {ZONE_SOURCES.map(({ source, label }) => (
+            {ZONE_SOURCES.map(({ source, labelKey }) => (
               <DropdownMenuItem
                 key={source}
                 onClick={() => useBroadcastStore.getState().addZone(source)}
               >
-                {label}
+                {t(labelKey)}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -89,7 +91,7 @@ export function StageZoneList() {
         <div className="flex flex-col gap-0.5 px-2 pb-2">
           {layers.length === 0 && (
             <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-              No zones yet — use “Add Zone”.
+              {t("stageZones.empty")}
             </p>
           )}
           {layers.map((layer) => {
@@ -111,7 +113,7 @@ export function StageZoneList() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Move up"
+                    aria-label={t("stageZones.moveUp")}
                     onClick={(e) => {
                       e.stopPropagation()
                       move(layer.id, 1)
@@ -122,7 +124,7 @@ export function StageZoneList() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Move down"
+                    aria-label={t("stageZones.moveDown")}
                     onClick={(e) => {
                       e.stopPropagation()
                       move(layer.id, -1)
@@ -133,7 +135,7 @@ export function StageZoneList() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={layer.locked ? "Unlock" : "Lock"}
+                    aria-label={layer.locked ? t("unlock") : t("lock")}
                     onClick={(e) => {
                       e.stopPropagation()
                       store().toggleZoneLocked(layer.id)
@@ -148,7 +150,7 @@ export function StageZoneList() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Delete"
+                    aria-label={t("delete")}
                     onClick={(e) => {
                       e.stopPropagation()
                       store().removeZone(layer.id)
@@ -160,7 +162,7 @@ export function StageZoneList() {
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={layer.visible ? "Hide" : "Show"}
+                  aria-label={layer.visible ? t("hide") : t("show")}
                   className="shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()

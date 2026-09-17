@@ -1,4 +1,5 @@
 import { openSettings } from "@/lib/settings-dialog"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,6 +25,7 @@ interface SignInPromptProps {
 }
 
 export function SignInPrompt({ open, onOpenChange }: SignInPromptProps) {
+  const { t } = useTranslation("ui")
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -31,10 +33,11 @@ export function SignInPrompt({ open, onOpenChange }: SignInPromptProps) {
         showCloseButton={false}
       >
         <DialogHeader>
-          <DialogTitle className="text-center">Sign in to transcribe</DialogTitle>
+          <DialogTitle className="text-center">
+            {t("signInPrompt.title")}
+          </DialogTitle>
           <DialogDescription className="text-center">
-            Live transcription is included with your LumenLive account. Sign in
-            to start listening — nothing else to set up.
+            {t("signInPrompt.description")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
@@ -47,14 +50,14 @@ export function SignInPrompt({ open, onOpenChange }: SignInPromptProps) {
               }, 120)
             }}
           >
-            Sign in
+            {t("signInPrompt.signIn")}
           </Button>
           <Button
             variant="ghost"
             className="w-full text-muted-foreground"
             onClick={() => onOpenChange(false)}
           >
-            Not now
+            {t("signInPrompt.notNow")}
           </Button>
         </DialogFooter>
       </DialogContent>

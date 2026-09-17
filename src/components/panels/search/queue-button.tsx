@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { CheckIcon, PlusIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { useQueueStore } from "@/stores"
 import { verseReference } from "@/lib/search/verse-keys"
 import { makeQueueItem } from "@/lib/search/queue-item"
@@ -53,6 +54,7 @@ export function QueueButton({
   positionClassName?: string
   addClassName?: string
 }) {
+  const { t } = useTranslation("panels")
   if (queued) {
     return (
       <TooltipProvider>
@@ -60,7 +62,7 @@ export function QueueButton({
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label="Already in queue — scroll to it"
+              aria-label={t("search.alreadyInQueueScroll")}
               className={cn(
                 "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 positionClassName
@@ -73,7 +75,7 @@ export function QueueButton({
               <CheckIcon className="size-4 text-ai-direct" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">Already in queue</TooltipContent>
+          <TooltipContent side="left">{t("search.alreadyInQueue")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )
@@ -86,7 +88,7 @@ export function QueueButton({
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Add to queue"
+            aria-label={t("search.addToQueue")}
             className={cn(
               "shrink-0 opacity-0 transition-opacity group-hover:opacity-100",
               positionClassName,
@@ -106,7 +108,7 @@ export function QueueButton({
             <PlusIcon className="size-3" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">Add to queue</TooltipContent>
+        <TooltipContent side="left">{t("search.addToQueue")}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

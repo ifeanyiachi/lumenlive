@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 
 /**
@@ -15,11 +16,12 @@ export function ContextSearchInput({
 }: {
   onSearch: (query: string) => void
 }) {
+  const { t } = useTranslation("panels")
   const [value, setValue] = useState("")
 
   return (
     <Input
-      placeholder="Search verse text..."
+      placeholder={t("search.versePlaceholder")}
       value={value}
       onChange={(e) => {
         const next = e.target.value

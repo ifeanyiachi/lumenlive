@@ -9,6 +9,7 @@ import {
   SaveIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +50,7 @@ export function EditorToolbar({
   setShowGrid: (updater: (v: boolean) => boolean) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation("slides")
   return (
     <div className="flex h-11 items-center justify-between border-b border-border px-4">
       <Input
@@ -65,13 +67,15 @@ export function EditorToolbar({
           }
         }}
         className="h-7 w-64 text-sm font-medium"
-        placeholder={themeMode ? "Theme name" : "Presentation name"}
+        placeholder={t(
+          themeMode ? "toolbar.themeName" : "toolbar.presentationName"
+        )}
       />
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Undo (Ctrl+Z)"
+          title={t("toolbar.undo")}
           onClick={() => usePresentationStore.getState().undo()}
         >
           <Undo2Icon className="size-3.5" />
@@ -79,7 +83,7 @@ export function EditorToolbar({
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Redo (Ctrl+Y)"
+          title={t("toolbar.redo")}
           onClick={() => usePresentationStore.getState().redo()}
         >
           <Redo2Icon className="size-3.5" />
@@ -88,7 +92,7 @@ export function EditorToolbar({
         <Button
           variant={showGrid ? "default" : "ghost"}
           size="icon-sm"
-          title="Toggle grid"
+          title={t("toolbar.toggleGrid")}
           onClick={() => setShowGrid((v) => !v)}
         >
           <GridIcon className="size-3.5" />
@@ -100,22 +104,29 @@ export function EditorToolbar({
             <Button
               variant="ghost"
               size="icon-sm"
-              title="Export presentation"
+              title={t("toolbar.exportPresentation")}
               onClick={() => {
                 if (!draft) return
                 const json = usePresentationStore
                   .getState()
                   .exportPresentation(draft.id)
                 if (!json) return
-                downloadJson(json, `${draft.name || "presentation"}.json`)
-                toast.success("Presentation exported as JSON")
+                downloadJson(
+                  json,
+                  `${draft.name || t("toolbar.presentation")}.json`
+                )
+                toast.success(t("toolbar.exportedJson"))
               }}
             >
               <DownloadIcon className="size-3.5" />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" title="Export as PDF">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={t("toolbar.exportPdf")}
+                >
                   <FileTextIcon className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -124,29 +135,31 @@ export function EditorToolbar({
                   onClick={async () => {
                     if (!draft) return
                     // PDF export is a Starter capability.
-                    if (!requireFeature("pdf_export", "PDF export")) return
+                    if (!requireFeature("pdf_export", t("toolbar.pdfExport")))
+                      return
                     await exportCurrentSlideAsPdf(draft, activeSlideIndex)
-                    toast.success("Slide exported as PDF")
+                    toast.success(t("toolbar.slideExportedPdf"))
                   }}
                 >
-                  Export current slide
+                  {t("toolbar.exportCurrent")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={async () => {
                     if (!draft) return
-                    if (!requireFeature("pdf_export", "PDF export")) return
+                    if (!requireFeature("pdf_export", t("toolbar.pdfExport")))
+                      return
                     await exportAllSlidesAsPdf(draft)
-                    toast.success("All slides exported as PDF")
+                    toast.success(t("toolbar.allSlidesExportedPdf"))
                   }}
                 >
-                  Export all slides
+                  {t("toolbar.exportAll")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
               variant="ghost"
               size="icon-sm"
-              title="Import presentation"
+              title={t("toolbar.importPresentation")}
               onClick={() => {
                 pickJsonFile((json) =>
                   usePresentationStore.getState().importPresentation(json)
@@ -167,7 +180,7 @@ export function EditorToolbar({
           }}
         >
           <XIcon className="mr-1.5 size-3" />
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           size="sm"
@@ -177,7 +190,7 @@ export function EditorToolbar({
             if (!d) return
             const name = d.name.trim()
             if (!name) {
-              toast.error("Enter a presentation name before saving")
+              toast.error(t("toolbar.enterName"))
               return
             }
             // Presentation names must be unique (case-insensitive) across the library.
@@ -187,15 +200,17 @@ export function EditorToolbar({
                 p.name.trim().toLowerCase() === name.toLowerCase()
             )
             if (nameTaken) {
-              toast.error(`A presentation named “${name}” already exists`)
+              toast.error(t("toolbar.nameExists", { name }))
               return
             }
             store.saveDraft()
-            toast.success(themeMode ? "Theme saved" : "Presentation saved")
+            toast.success(
+              t(themeMode ? "toolbar.themeSaved" : "toolbar.presentationSaved")
+            )
           }}
         >
           <SaveIcon className="mr-1.5 size-3" />
-          Save
+          {t("common.save")}
         </Button>
       </div>
     </div>

@@ -12,6 +12,7 @@
  */
 
 import { SCHEDULE_FILE_EXTENSION } from "@/lib/schedule-io"
+import { i18n } from "@/lib/i18n/config"
 import type { BundleManifest } from "@/lib/schedule-bundle"
 import {
   saveBundle,
@@ -21,9 +22,14 @@ import {
 } from "@/services/bundle-gateway"
 
 /** Save dialog: always write the branded extension. */
-const SAVE_FILTERS = [
-  { name: "LumenLive schedule", extensions: [SCHEDULE_FILE_EXTENSION] },
-]
+function saveFilters() {
+  return [
+    {
+      name: i18n.t("schedule:dialog.scheduleFile"),
+      extensions: [SCHEDULE_FILE_EXTENSION],
+    },
+  ]
+}
 
 /**
  * Open dialog: accept the file whatever extension a transfer left it with.
@@ -34,13 +40,15 @@ const SAVE_FILTERS = [
  * renamed files. `.lumsched`/`.zip`/`.json` lead the list; "All files" is the
  * fallback for anything else a transfer produced.
  */
-const OPEN_FILTERS = [
-  {
-    name: "LumenLive schedule",
-    extensions: [SCHEDULE_FILE_EXTENSION, "zip", "json"],
-  },
-  { name: "All files", extensions: ["*"] },
-]
+function openFilters() {
+  return [
+    {
+      name: i18n.t("schedule:dialog.scheduleFile"),
+      extensions: [SCHEDULE_FILE_EXTENSION, "zip", "json"],
+    },
+    { name: i18n.t("schedule:dialog.allFiles"), extensions: ["*"] },
+  ]
+}
 
 /**
  * Prompt for a save location (pre-filled with `defaultName`) and write
@@ -54,7 +62,10 @@ export async function saveScheduleFile(
   try {
     const { save } = await import("@tauri-apps/plugin-dialog")
     const { writeTextFile } = await import("@tauri-apps/plugin-fs")
-    const path = await save({ defaultPath: defaultName, filters: SAVE_FILTERS })
+    const path = await save({
+      defaultPath: defaultName,
+      filters: saveFilters(),
+    })
     if (!path) return null
     await writeTextFile(path, contents)
     return path
@@ -80,7 +91,7 @@ export async function saveScheduleBundle(
     defaultName,
     JSON.stringify(manifest),
     mediaFiles,
-    SAVE_FILTERS
+    saveFilters()
   )
 }
 
@@ -104,7 +115,7 @@ export interface ReadScheduleFile {
  * is the caller's job (see `@/lib/schedule-bundle` / `@/lib/schedule-io`).
  */
 export async function readScheduleFile(): Promise<ReadScheduleFile | null> {
-  return readBundle("Import schedule", OPEN_FILTERS)
+  return readBundle(i18n.t("schedule:dialog.importSchedule"), openFilters())
 }
 
 /** A schedule file the user picked, with its raw text ready to parse. */
@@ -125,8 +136,8 @@ export async function pickScheduleFile(): Promise<PickedScheduleFile | null> {
     const { readTextFile } = await import("@tauri-apps/plugin-fs")
     const selected = await open({
       multiple: false,
-      title: "Import schedule",
-      filters: OPEN_FILTERS,
+      title: i18n.t("schedule:dialog.importSchedule"),
+      filters: openFilters(),
     })
     if (selected == null || Array.isArray(selected)) return null
     const path = String(selected)

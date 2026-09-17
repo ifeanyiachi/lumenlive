@@ -29,10 +29,7 @@ import {
   type RewriteContext,
 } from "@/lib/schedule-bundle"
 import { BundleMediaCollector } from "@/lib/bundle-media/collector"
-import {
-  collectStageLayoutRefs,
-  rewriteStageLayout,
-} from "./stage-refs"
+import { collectStageLayoutRefs, rewriteStageLayout } from "./stage-refs"
 
 /** Marker distinguishing a theme bundle manifest from other bundle formats. */
 export const THEME_BUNDLE_FORMAT = "lumenlive.theme.bundle"
@@ -187,7 +184,10 @@ export function parseThemeBundle(
 
   if (manifest.kind === "stage-layout") {
     const src = manifest.stageLayout
-    if (!src) throw new ThemeBundleParseError("This bundle is missing its stage layout.")
+    if (!src)
+      throw new ThemeBundleParseError(
+        "This bundle is missing its stage layout."
+      )
     const stageLayout: StageLayout = {
       ...rewriteStageLayout(src, { pathRemap, toAssetUrl }),
       id: newId(),

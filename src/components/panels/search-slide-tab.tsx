@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { LayoutTemplateIcon, SearchIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { usePresentationStore } from "@/stores/presentation-store"
@@ -76,6 +77,7 @@ function DraggableSlideCard({ presentation }: { presentation: Presentation }) {
 }
 
 export function SearchSlideTab() {
+  const { t } = useTranslation("panels")
   const presentations = usePresentationStore((s) => s.presentations)
   const [query, setQuery] = useState("")
 
@@ -94,7 +96,7 @@ export function SearchSlideTab() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search slides..."
+            placeholder={t("search.slidesPlaceholder")}
             className="h-7 pl-7 text-xs"
           />
         </div>
@@ -105,8 +107,8 @@ export function SearchSlideTab() {
         {filtered.length === 0 ? (
           <p className="p-6 text-center text-xs text-muted-foreground">
             {presentations.length === 0
-              ? "No slides yet — create presentations in the Slide view."
-              : "No slides match your search."}
+              ? t("search.slidesEmpty")
+              : t("search.slidesNoMatch")}
           </p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2 p-2">

@@ -11,19 +11,35 @@ import {
   THEME_BUNDLE_FORMAT,
 } from "./bundle"
 
-const assetUrl = (p: string) => `http://asset.localhost/${encodeURIComponent(p)}`
+const assetUrl = (p: string) =>
+  `http://asset.localhost/${encodeURIComponent(p)}`
 
-function asset(id: string, filePath: string, type: MediaAsset["type"]): MediaAsset {
+function asset(
+  id: string,
+  filePath: string,
+  type: MediaAsset["type"]
+): MediaAsset {
   return { id, name: id, type, filePath, fileSize: 1, tags: [], addedAt: 0 }
 }
 
 function solidBackground(): Background {
-  return { type: "solid", color: "#000", gradient: null, image: null, video: null }
+  return {
+    type: "solid",
+    color: "#000",
+    gradient: null,
+    image: null,
+    video: null,
+  }
 }
 
 /** Simulate the Rust extractor: each packaged file lands under /managed/<zipName>. */
-function extract(mediaFiles: { srcPath: string; zipName: string }[]): ExtractedMedia[] {
-  return mediaFiles.map((m) => ({ zipName: m.zipName, path: `/managed/${m.zipName}` }))
+function extract(
+  mediaFiles: { srcPath: string; zipName: string }[]
+): ExtractedMedia[] {
+  return mediaFiles.map((m) => ({
+    zipName: m.zipName,
+    path: `/managed/${m.zipName}`,
+  }))
 }
 
 // ── Design theme ─────────────────────────────────────────────────────────────
@@ -232,7 +248,9 @@ describe("stage-layout bundle", () => {
     // No managed asset records for a stage layout.
     expect(parsed.mediaAssets).toHaveLength(0)
     // Background + element urls re-baked from managed paths.
-    expect(l.background.image?.url.startsWith("converted:///managed/")).toBe(true)
+    expect(l.background.image?.url.startsWith("converted:///managed/")).toBe(
+      true
+    )
     const el = l.elements[0]
     if (el.type === "image") {
       expect(el.image?.url.startsWith("converted:///managed/")).toBe(true)
@@ -255,7 +273,11 @@ describe("parseThemeBundle — validation", () => {
 
   it("rejects a newer bundle version", () => {
     const { theme, mediaAssets } = themeScenario()
-    const { manifest } = buildThemeBundle({ kind: "theme", theme }, { mediaAssets }, 1)
+    const { manifest } = buildThemeBundle(
+      { kind: "theme", theme },
+      { mediaAssets },
+      1
+    )
     expect(() =>
       parseThemeBundle({ ...manifest, version: 999 }, [], {
         newId: () => "x",

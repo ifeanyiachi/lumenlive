@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CheckIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type { ApiKeyField as ApiKeyFieldState } from "../hooks/use-api-key-field"
 
@@ -31,6 +32,8 @@ export function ApiKeyField({
   /** The `<ol>` of numbered steps shown inside the dashed instructions box. */
   children: ReactNode
 }) {
+  const { t } = useTranslation("common")
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -39,7 +42,7 @@ export function ApiKeyField({
         </label>
         {configured && (
           <Badge variant="outline" className="text-[0.5rem]">
-            Key configured
+            {t("apiKey.configured")}
           </Badge>
         )}
       </div>
@@ -55,10 +58,10 @@ export function ApiKeyField({
           {field.saved ? (
             <>
               <CheckIcon className="size-3" />
-              Saved
+              {t("saved")}
             </>
           ) : (
-            "Save"
+            t("save")
           )}
         </Button>
       </div>

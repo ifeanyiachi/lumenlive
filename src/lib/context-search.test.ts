@@ -78,7 +78,9 @@ const QUERIES = [
 ]
 
 /** Reduce Fuse results to a stable, comparable shape. */
-function shape(results: ReturnType<Fuse<ReturnType<typeof rowToDoc>>["search"]>) {
+function shape(
+  results: ReturnType<Fuse<ReturnType<typeof rowToDoc>>["search"]>
+) {
   return results.map((r) => ({
     ref: r.item.verse_ref,
     refIndex: r.refIndex,

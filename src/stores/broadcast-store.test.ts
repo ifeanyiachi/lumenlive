@@ -175,8 +175,9 @@ describe("broadcast store sync", () => {
       (c) => c[0] === "broadcast" && c[1] === "broadcast:base-theme"
     )
     expect(baseCall).toBeDefined()
-    const baseTheme = (baseCall![2] as { theme: { elements: Slide["elements"] } })
-      .theme
+    const baseTheme = (
+      baseCall![2] as { theme: { elements: Slide["elements"] } }
+    ).theme
     const baseScripture = baseTheme.elements.find((e) => e.type === "scripture")
     if (baseScripture?.type === "scripture") {
       expect(baseScripture.verseText).toBe("")

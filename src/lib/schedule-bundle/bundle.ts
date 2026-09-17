@@ -112,7 +112,8 @@ export function buildScheduleBundle(
   const themeIds = new Set<string>()
 
   for (const item of schedule.items) {
-    if (item.type === "slide" && item.presentationId) presIds.add(item.presentationId)
+    if (item.type === "slide" && item.presentationId)
+      presIds.add(item.presentationId)
     else if (item.type === "song" && item.songId) {
       songIds.add(item.songId)
       if (item.themeId) themeIds.add(item.themeId)
@@ -138,7 +139,12 @@ export function buildScheduleBundle(
     }
   }
 
-  const { media, missingMedia } = collectMedia(schedule, presentations, themes, sources)
+  const { media, missingMedia } = collectMedia(
+    schedule,
+    presentations,
+    themes,
+    sources
+  )
 
   const manifest: BundleManifest = {
     format: BUNDLE_FORMAT,
@@ -150,7 +156,10 @@ export function buildScheduleBundle(
     themes,
     media,
   }
-  const mediaFiles = media.map((m) => ({ srcPath: m.srcPath, zipName: m.zipName }))
+  const mediaFiles = media.map((m) => ({
+    srcPath: m.srcPath,
+    zipName: m.zipName,
+  }))
   return { manifest, mediaFiles, missingMedia }
 }
 
@@ -183,7 +192,9 @@ function collectMedia(
   // Schedule media items.
   for (const item of schedule.items) {
     if (item.type !== "media") continue
-    const asset = item.mediaAssetId ? assetById.get(item.mediaAssetId) : undefined
+    const asset = item.mediaAssetId
+      ? assetById.get(item.mediaAssetId)
+      : undefined
     if (asset?.filePath) add(asset.filePath, asset)
     else if (item.cachedFilePath && isAbsolute(item.cachedFilePath)) {
       add(item.cachedFilePath)
@@ -345,7 +356,11 @@ function rewriteSchedule(
 ): ServiceSchedule {
   const items: ScheduleItem[] = []
   for (const item of src.items) {
-    items.push({ ...rewriteScheduleItem(item, remaps), id: newId(), order: items.length })
+    items.push({
+      ...rewriteScheduleItem(item, remaps),
+      id: newId(),
+      order: items.length,
+    })
   }
   return {
     id: newId(),
@@ -356,7 +371,10 @@ function rewriteSchedule(
   }
 }
 
-function rewriteScheduleItem(item: ScheduleItem, remaps: ScheduleRemaps): ScheduleItem {
+function rewriteScheduleItem(
+  item: ScheduleItem,
+  remaps: ScheduleRemaps
+): ScheduleItem {
   switch (item.type) {
     case "media": {
       const mi = item as MediaScheduleItem
@@ -364,10 +382,13 @@ function rewriteScheduleItem(item: ScheduleItem, remaps: ScheduleRemaps): Schedu
       const managed = oldId ? remaps.assetIdToManaged.get(oldId) : undefined
       return {
         ...mi,
-        mediaAssetId: (oldId && remaps.assetIdRemap.get(oldId)) || mi.mediaAssetId,
+        mediaAssetId:
+          (oldId && remaps.assetIdRemap.get(oldId)) || mi.mediaAssetId,
         cachedFilePath:
           managed ??
-          (mi.cachedFilePath ? remaps.pathRemap.get(mi.cachedFilePath) : undefined) ??
+          (mi.cachedFilePath
+            ? remaps.pathRemap.get(mi.cachedFilePath)
+            : undefined) ??
           mi.cachedFilePath,
       }
     }
@@ -375,7 +396,8 @@ function rewriteScheduleItem(item: ScheduleItem, remaps: ScheduleRemaps): Schedu
       const si = item as SlideScheduleItem
       return {
         ...si,
-        presentationId: remaps.presIdRemap.get(si.presentationId) ?? si.presentationId,
+        presentationId:
+          remaps.presIdRemap.get(si.presentationId) ?? si.presentationId,
       }
     }
     case "song": {
@@ -384,7 +406,8 @@ function rewriteScheduleItem(item: ScheduleItem, remaps: ScheduleRemaps): Schedu
         ...so,
         songId: remaps.songIdRemap.get(so.songId) ?? so.songId,
         arrangementId: so.arrangementId
-          ? (remaps.arrangementIdRemap.get(so.arrangementId) ?? so.arrangementId)
+          ? (remaps.arrangementIdRemap.get(so.arrangementId) ??
+            so.arrangementId)
           : so.arrangementId,
         themeId: so.themeId
           ? (remaps.themeIdRemap.get(so.themeId) ?? so.themeId)
@@ -489,5 +512,9 @@ function sanitizeName(name: string): string {
 
 function isAbsolute(path: string): boolean {
   // Drive-letter (C:\ / C:/), POSIX root, or UNC (\\server\share).
-  return /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("/") || path.startsWith("\\\\")
+  return (
+    /^[a-zA-Z]:[\\/]/.test(path) ||
+    path.startsWith("/") ||
+    path.startsWith("\\\\")
+  )
 }

@@ -1,0 +1,95 @@
+{
+  "title": "Atalhos de teclado",
+  "description": "Os atalhos são ignorados enquanto você digita em um campo.",
+  "or": "ou",
+  "categories": {
+    "general": "Geral",
+    "transcription": "Transcrição",
+    "search": "Pesquisa",
+    "schedule": "Programação",
+    "live": "Saída ao vivo",
+    "editing": "Edição"
+  },
+  "shortcuts": {
+    "toggle-shortcuts": {
+      "label": "Atalhos de teclado",
+      "description": "Abre ou fecha este guia"
+    },
+    "open-settings": {
+      "label": "Abrir configurações",
+      "description": "Abre a janela de configurações"
+    },
+    "escape": {
+      "label": "Fechar / tirar o foco",
+      "description": "Fecha uma janela ou tira o foco do campo atual"
+    },
+    "transcription-toggle": {
+      "label": "Iniciar / parar transcrição",
+      "description": "Alterna a sessão de transcrição ao vivo"
+    },
+    "focus-search": {
+      "label": "Focar na pesquisa",
+      "description": "Vai para o campo de pesquisa bíblica"
+    },
+    "book-search-navigate": {
+      "label": "Navegar pelos versículos",
+      "description": "Move o versículo selecionado na pesquisa bíblica"
+    },
+    "book-search-chapter": {
+      "label": "Mudar de capítulo",
+      "description": "Capítulo anterior ou seguinte na pesquisa bíblica"
+    },
+    "schedule-next": {
+      "label": "Próximo item da programação",
+      "description": "Prepara o próximo item na prévia do programa"
+    },
+    "schedule-prev": {
+      "label": "Item anterior da programação",
+      "description": "Prepara o item anterior na prévia do programa"
+    },
+    "schedule-go-to-current": {
+      "label": "Ir para o item atual",
+      "description": "Mostra e destaca o item atual na programação"
+    },
+    "schedule-step-items": {
+      "label": "Percorrer a programação",
+      "description": "Item anterior ou seguinte quando a programação está em foco"
+    },
+    "schedule-step-deck": {
+      "label": "Percorrer um grupo",
+      "description": "Percorre os slides ou versículos de um item agrupado"
+    },
+    "live-go": {
+      "label": "Preparar e exibir ao vivo",
+      "description": "O primeiro toque prepara o versículo; o segundo o envia ao público"
+    },
+    "live-verse-page": {
+      "label": "Página do versículo",
+      "description": "Página anterior ou seguinte de um versículo longo paginado"
+    },
+    "live-blackout": {
+      "label": "Tela preta",
+      "description": "Corta a saída do público para preto"
+    },
+    "live-clear": {
+      "label": "Limpar texto",
+      "description": "Oculta o texto em primeiro plano e mantém o fundo"
+    },
+    "live-logo": {
+      "label": "Logotipo / slide de espera",
+      "description": "Mostra a imagem de espera"
+    },
+    "editor-delete": {
+      "label": "Excluir elemento",
+      "description": "Remove o elemento selecionado no editor de slides"
+    },
+    "editor-undo": {
+      "label": "Desfazer",
+      "description": "Desfaz a última edição no editor de slides"
+    },
+    "editor-redo": {
+      "label": "Refazer",
+      "description": "Refaz a última edição desfeita no editor de slides"
+    }
+  }
+}

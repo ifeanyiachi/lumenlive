@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
@@ -21,22 +22,19 @@ import type {
 import type { MediaAsset } from "@/types/media"
 import { isScheduleItemLive } from "./shared"
 
-const FIT_OPTIONS: { value: MediaFit; label: string; hint: string }[] = [
-  { value: "cover", label: "Cover", hint: "Fill the frame, crop overflow" },
+const FIT_OPTIONS: { value: MediaFit; labelKey: string; hintKey: string }[] = [
+  { value: "cover", labelKey: "cover", hintKey: "coverHint" },
   {
     value: "contain",
-    label: "Contain",
-    hint: "Fit inside, letterbox with black bars",
+    labelKey: "contain", hintKey: "containHint",
   },
   {
     value: "fill",
-    label: "Stretch",
-    hint: "Stretch to fill, ignores aspect ratio",
+    labelKey: "stretch", hintKey: "stretchHint",
   },
   {
     value: "zoom",
-    label: "Zoom",
-    hint: "Fill the frame, then scale up further",
+    labelKey: "zoom", hintKey: "zoomHint",
   },
 ]
 
@@ -53,10 +51,10 @@ const FOCAL_POSITIONS: { x: number; y: number }[] = [
   { x: 1, y: 1 },
 ]
 
-const CONTAIN_BG_OPTIONS: { value: ContainBackground; label: string }[] = [
-  { value: "black", label: "Black bars" },
-  { value: "blur", label: "Blurred image" },
-  { value: "color", label: "Solid color" },
+const CONTAIN_BG_OPTIONS: { value: ContainBackground; labelKey: string }[] = [
+  { value: "black", labelKey: "blackBars" },
+  { value: "blur", labelKey: "blurredImage" },
+  { value: "color", labelKey: "solidColor" },
 ]
 
 /** Extract just the fit-related fields from a media item. */
@@ -86,6 +84,7 @@ export function MediaFitEditor({
   scheduleId: string
   asset: MediaAsset
 }) {
+  const { t } = useTranslation("schedule")
   // Apply a fit change to the schedule item, and re-apply it live if this item
   // is currently on the program output. Reads the freshest item from the store
   // so rapid drag updates merge correctly.
@@ -135,18 +134,18 @@ export function MediaFitEditor({
     }
     toast.success(
       count > 0
-        ? `Applied fit to ${count} other media item${count > 1 ? "s" : ""}`
-        : "No other media items"
+        ? t("mediaFit.appliedToOthers", { count })
+        : t("mediaFit.noOtherMedia")
     )
-  }, [scheduleId, item])
+  }, [scheduleId, item, t])
 
   const saveDefault = useCallback(() => {
     setDefaultMediaFit(fitFieldsOf(item))
-    toast.success("Saved as default for new media")
-  }, [item])
+    toast.success(t("mediaFit.savedDefault"))
+  }, [item, t])
 
   return (
-    <FieldGroup label="Aspect / Fit">
+    <FieldGroup label={t("mediaFit.aspectFit")}>
       <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-2">
         <FitPreview
           key={asset.id}
@@ -164,18 +163,18 @@ export function MediaFitEditor({
         >
           {FIT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(`mediaFit.${o.labelKey}`)}
             </option>
           ))}
         </select>
         <p className="text-[0.625rem] text-muted-foreground">
-          {FIT_OPTIONS.find((o) => o.value === fit)?.hint}
+          {t(`mediaFit.${FIT_OPTIONS.find((o) => o.value === fit)?.hintKey}`)}
         </p>
 
         {fit === "zoom" && (
           <div className="flex items-center gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Zoom
+              {t("mediaFit.zoom")}
             </span>
             <input
               type="range"
@@ -195,7 +194,7 @@ export function MediaFitEditor({
         {fit === "contain" && (
           <div className="flex items-center gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Background
+              {t("mediaFit.background")}
             </span>
             <select
               className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground"
@@ -208,7 +207,7 @@ export function MediaFitEditor({
             >
               {CONTAIN_BG_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                {t(`mediaFit.${o.labelKey}`)}
                 </option>
               ))}
             </select>
@@ -219,7 +218,7 @@ export function MediaFitEditor({
                   applyFit({ containBackgroundColor })
                 }
                 className="h-7 w-8 shrink-0 bg-background"
-                title="Letterbox color"
+                title={t("mediaFit.letterboxColor")}
               />
             )}
           </div>
@@ -228,7 +227,7 @@ export function MediaFitEditor({
         {showFocal && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Focus
+              {t("mediaFit.focus")}
             </span>
             <div className="grid grid-cols-3 gap-0.5">
               {FOCAL_POSITIONS.map((p) => {
@@ -244,7 +243,7 @@ export function MediaFitEditor({
                         ? "border-primary bg-primary"
                         : "border-border bg-background hover:border-muted-foreground/50"
                     )}
-                    title={`Focus ${p.x === 0 ? "left" : p.x === 1 ? "right" : "center"} ${p.y === 0 ? "top" : p.y === 1 ? "bottom" : "middle"}`}
+                    title={t("mediaFit.focusPosition", { horizontal: t(`mediaFit.${p.x === 0 ? "left" : p.x === 1 ? "right" : "center"}`), vertical: t(`mediaFit.${p.y === 0 ? "top" : p.y === 1 ? "bottom" : "middle"}`) })}
                     onClick={() => applyFit({ focalX: p.x, focalY: p.y })}
                   />
                 )
@@ -260,7 +259,7 @@ export function MediaFitEditor({
             className="h-6 flex-1 px-2 text-[0.625rem]"
             onClick={applyToAll}
           >
-            Apply to all media
+            {t("mediaFit.applyToAll")}
           </Button>
           <Button
             variant="outline"
@@ -268,7 +267,7 @@ export function MediaFitEditor({
             className="h-6 flex-1 px-2 text-[0.625rem]"
             onClick={saveDefault}
           >
-            Set as default
+            {t("mediaFit.setDefault")}
           </Button>
         </div>
       </div>

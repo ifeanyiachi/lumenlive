@@ -26,6 +26,7 @@ import type { BroadcastOutput, ContentRouting } from "@/types/broadcast"
 import { PlusIcon } from "lucide-react"
 import { OutputRow } from "./output-row"
 import { isManagedElsewhere, isTauri } from "./utils"
+import { useTranslation } from "react-i18next"
 
 export function OutputManager({
   open,
@@ -34,6 +35,7 @@ export function OutputManager({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("broadcast")
   // An output renders scripture (verse look) + drives its idle/base backdrop, so it is
   // assigned a scripture-type Theme from the new typed store (themeredo.md, VR4).
   const customThemes = useThemesStore((s) => s.customThemes)
@@ -92,7 +94,7 @@ export function OutputManager({
   const handleAddOutput = () => {
     const newOutput: BroadcastOutput = {
       id: crypto.randomUUID().slice(0, 8),
-      name: `Output ${outputs.length + 1}`,
+      name: t("outputNumber", { number: outputs.length + 1 }),
       // Seed from the app-wide default Scripture theme, falling back to the
       // first available scripture theme.
       themeId:
@@ -226,8 +228,8 @@ export function OutputManager({
 
   const operatorIdx = operatorScreenIndex(monitors)
   const monitorLabel = (m: Monitor, i: number) =>
-    `${m.name ?? `Display ${i + 1}`} (${m.size.width}×${m.size.height})${
-      i === operatorIdx ? " — Primary (this screen)" : ""
+    `${m.name ?? t("displayLabel", { number: i + 1 })} (${m.size.width}×${m.size.height})${
+      i === operatorIdx ? ` — ${t("primaryMonitor")}` : ""
     }`
 
   return (
@@ -237,9 +239,9 @@ export function OutputManager({
         showCloseButton={true}
       >
         <DialogHeader>
-          <DialogTitle>Output Manager</DialogTitle>
+          <DialogTitle>{t("outputManager")}</DialogTitle>
           <DialogDescription>
-            Configure each output's theme and layer routing.
+            {t("configureOutputs")}
           </DialogDescription>
         </DialogHeader>
 
@@ -280,7 +282,7 @@ export function OutputManager({
           onClick={handleAddOutput}
         >
           <PlusIcon className="size-3.5" />
-          Add Output
+          {t("addOutput")}
         </Button>
       </DialogContent>
     </Dialog>

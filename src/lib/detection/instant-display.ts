@@ -66,10 +66,15 @@ export function evaluateInstantDisplay(
 ): InstantDisplayDecision {
   // Update the stability streak for this ref (reset when the ref changes).
   const pendingCount = prev.pendingRef === verseRef ? prev.pendingCount + 1 : 1
-  const next: InstantDisplayState = { ...prev, pendingRef: verseRef, pendingCount }
+  const next: InstantDisplayState = {
+    ...prev,
+    pendingRef: verseRef,
+    pendingCount,
+  }
 
   if (!opts.enabled) return { display: false, state: next }
-  if (confidence < opts.confidenceThreshold) return { display: false, state: next }
+  if (confidence < opts.confidenceThreshold)
+    return { display: false, state: next }
   if (pendingCount < opts.stabilityCount) return { display: false, state: next }
   // Cooldown since the last instant display (covers same-ref re-fires and
   // rapid different-ref spans alike).

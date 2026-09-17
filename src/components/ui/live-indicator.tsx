@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 
@@ -11,6 +12,7 @@ function LiveIndicator({
   active: boolean
   label?: string
 }) {
+  const { t } = useTranslation("ui")
   return (
     <div
       data-slot="live-indicator"
@@ -29,7 +31,7 @@ function LiveIndicator({
         )}
       />
       <span className={active ? "text-destructive" : "text-muted-foreground"}>
-        {label ?? (active ? "LIVE" : "OFF AIR")}
+        {label ?? (active ? t("live.active") : t("live.inactive"))}
       </span>
     </div>
   )

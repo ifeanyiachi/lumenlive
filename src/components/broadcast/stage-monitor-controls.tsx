@@ -20,6 +20,7 @@ import {
   SettingsIcon,
   XIcon,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 /** Which monitors a cue is aimed at. */
 type Target =
@@ -79,6 +80,7 @@ export function StageMonitorControls({
 }: {
   onManageGroups?: () => void
 }) {
+  const { t } = useTranslation("broadcast")
   // Select the stable `outputs` slice and derive with useMemo — a selector that
   // returns a fresh `.filter()` array every call makes zustand v5's plain
   // useSyncExternalStore loop ("Maximum update depth exceeded").
@@ -153,8 +155,8 @@ export function StageMonitorControls({
     effTarget.kind === "all"
       ? "all"
       : effTarget.kind === "group"
-        ? (groups.find((g) => g.id === effTarget.id)?.name ?? "group")
-        : (stageOutputs.find((o) => o.id === effTarget.id)?.name ?? "monitor")
+      ? (groups.find((g) => g.id === effTarget.id)?.name ?? t("stageControls.group"))
+        : (stageOutputs.find((o) => o.id === effTarget.id)?.name ?? t("stageControls.monitor"))
 
   const selectTarget = (value: string) => {
     const t = parseTarget(value)
@@ -184,13 +186,13 @@ export function StageMonitorControls({
         <div className="flex items-center gap-2">
           <MonitorIcon className="size-3.5 text-muted-foreground" />
           <span className="text-[0.625rem] font-semibold tracking-wider text-muted-foreground uppercase">
-            Stage monitor
+            {t("stageControls.title")}
           </span>
         </div>
         {liveCount > 0 && (
           <span className="flex items-center gap-1 text-[0.5625rem] font-medium tracking-wide text-amber-400 uppercase">
             <span className="size-1.5 rounded-full bg-amber-400" />
-            {liveCount} on stage
+            {t("stageControls.onStage", { count: liveCount })}
           </span>
         )}
       </div>
@@ -208,17 +210,17 @@ export function StageMonitorControls({
               <SelectItem value="all">
                 <span className="flex items-center gap-1.5">
                   <MonitorIcon className="size-3" />
-                  All monitors
+                  {t("stageControls.allMonitors")}
                 </span>
               </SelectItem>
               {groups.length > 0 && (
                 <SelectGroup>
-                  <SelectLabel>Groups</SelectLabel>
+                  <SelectLabel>{t("stageControls.groups")}</SelectLabel>
                   {groups.map((g) => (
                     <SelectItem key={g.id} value={`group:${g.id}`}>
                       <span className="flex items-center gap-1.5">
                         <UsersIcon className="size-3" />
-                        {g.name || "Unnamed"}
+                        {g.name || t("stageControls.unnamed")}
                         <span className="text-muted-foreground">
                           ({g.outputIds.length})
                         </span>
@@ -228,7 +230,7 @@ export function StageMonitorControls({
                 </SelectGroup>
               )}
               <SelectGroup>
-                <SelectLabel>Monitors</SelectLabel>
+                <SelectLabel>{t("stageControls.monitors")}</SelectLabel>
                 {stageOutputs.map((o) => (
                   <SelectItem key={o.id} value={`output:${o.id}`}>
                     <span className="flex items-center gap-1.5">
@@ -245,7 +247,7 @@ export function StageMonitorControls({
               variant="ghost"
               size="icon-sm"
               className="size-8 shrink-0 text-muted-foreground"
-              title="Manage groups"
+              title={t("stageControls.manageGroups")}
               onClick={onManageGroups}
             >
               <SettingsIcon className="size-3.5" />
@@ -266,8 +268,8 @@ export function StageMonitorControls({
           }}
           placeholder={
             messageMixed
-              ? "Mixed across monitors — typing overwrites all"
-              : "Stage message — e.g. WRAP UP (private to stage)"
+              ? t("stageControls.mixedPlaceholder")
+              : t("stageControls.messagePlaceholder")
           }
           className="h-8 pr-7 text-xs"
         />
@@ -275,7 +277,7 @@ export function StageMonitorControls({
           <button
             type="button"
             onClick={() => setDraftMessage("")}
-            title="Clear stage message"
+            title={t("stageControls.clearMessage")}
             className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <XIcon className="size-3.5" />
@@ -292,8 +294,8 @@ export function StageMonitorControls({
           onChange={(e) => setDraftAnnouncement(e.target.value)}
           placeholder={
             announcementMixed
-              ? "Mixed across monitors — typing overwrites all"
-              : "Announcement — a longer note for the presenter to read"
+              ? t("stageControls.mixedPlaceholder")
+              : t("stageControls.announcementPlaceholder")
           }
           rows={2}
           className="min-h-14 resize-none pt-2 pr-7 pl-7 text-xs"
@@ -302,7 +304,7 @@ export function StageMonitorControls({
           <button
             type="button"
             onClick={() => setDraftAnnouncement("")}
-            title="Clear announcement"
+            title={t("stageControls.clearAnnouncement")}
             className="absolute top-2 right-1.5 text-muted-foreground hover:text-foreground"
           >
             <XIcon className="size-3.5" />
@@ -318,7 +320,7 @@ export function StageMonitorControls({
           onClick={submit}
         >
           <SendIcon className="size-3" />
-          {targetHasLive ? "Update" : "Send to"} {targetLabel}
+          {targetHasLive ? t("update") : t("stageControls.sendTo")} {targetLabel}
         </Button>
         {targetHasLive && (
           <Button
@@ -326,9 +328,9 @@ export function StageMonitorControls({
             variant="outline"
             className="h-7 gap-1.5 text-xs"
             onClick={clearTarget}
-            title={`Remove the cue from ${targetLabel}`}
+            title={t("stageControls.removeCue", { target: targetLabel })}
           >
-            Clear
+            {t("clear")}
           </Button>
         )}
       </div>

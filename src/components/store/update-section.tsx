@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   CheckCircle2,
   Download,
@@ -53,7 +54,9 @@ function DownloadProgress() {
       ) : (
         <div
           className="h-full w-1/4 rounded-full bg-primary"
-          style={{ animation: "lumen-update-indeterminate 1.2s ease-in-out infinite" }}
+          style={{
+            animation: "lumen-update-indeterminate 1.2s ease-in-out infinite",
+          }}
         />
       )}
     </div>
@@ -73,6 +76,7 @@ function DownloadProgress() {
  * store change.
  */
 export function UpdateSection() {
+  const { t } = useTranslation("store")
   const status = useUpdateStore((s) => s.status)
   const available = useUpdateStore((s) => s.available)
   const currentVersion = useUpdateStore((s) => s.currentVersion)
@@ -104,9 +108,13 @@ export function UpdateSection() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">Software Update</p>
+          <p className="text-sm font-medium text-foreground">
+            {t("update.title")}
+          </p>
           <p className="truncate text-xs text-muted-foreground">
-            Current version {currentVersion ?? "unknown"}
+            {t("update.currentVersion", {
+              version: currentVersion ?? t("common.unknown"),
+            })}
           </p>
         </div>
 
@@ -118,10 +126,10 @@ export function UpdateSection() {
           >
             {busy && <Loader2 className="animate-spin" />}
             {installing
-              ? "Installing…"
+              ? t("common.installing")
               : downloading
-                ? "Downloading…"
-                : "Update now"}
+                ? t("common.downloading")
+                : t("update.updateNow")}
           </Button>
         ) : (
           <Button
@@ -131,7 +139,7 @@ export function UpdateSection() {
             onClick={() => void useUpdateStore.getState().check()}
           >
             {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {checking ? "Checking…" : "Check for updates"}
+            {checking ? t("common.checking") : t("update.check")}
           </Button>
         )}
       </div>
@@ -142,8 +150,8 @@ export function UpdateSection() {
           <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
             <p className="text-sm font-medium text-foreground">
               {busy
-                ? `Updating to LumenLive ${available.version}`
-                : `LumenLive ${available.version} is available`}
+                ? t("update.updatingTo", { version: available.version })
+                : t("update.available", { version: available.version })}
             </p>
             {available.notes && !busy && (
               <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
@@ -164,7 +172,7 @@ export function UpdateSection() {
                     onClick={() => setReleaseLogOpen(true)}
                   >
                     <FileText />
-                    View release log
+                    {t("update.viewReleaseLog")}
                   </Button>
                 )}
                 <Button
@@ -173,7 +181,7 @@ export function UpdateSection() {
                   className="h-6 text-muted-foreground"
                   onClick={() => useUpdateStore.getState().dismiss()}
                 >
-                  Dismiss notification
+                  {t("update.dismissNotification")}
                 </Button>
               </div>
             )}
@@ -181,19 +189,20 @@ export function UpdateSection() {
         ) : status === "error" ? (
           <p className="flex items-center gap-1.5 text-xs text-destructive">
             <TriangleAlert className="size-3.5 shrink-0" />
-            Couldn&apos;t check for updates. Check your connection and try
-            again.
+            {t("update.checkFailed")}
           </p>
         ) : lastCheckedAt !== null ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
-            You&apos;re on the latest version.
+            {t("update.latest")}
           </p>
         ) : checking ? (
-          <p className="text-xs text-muted-foreground">Checking for updates…</p>
+          <p className="text-xs text-muted-foreground">
+            {t("update.checking")}
+          </p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Check whether a newer version of LumenLive is available.
+            {t("update.checkDescription")}
           </p>
         )}
       </div>
@@ -202,15 +211,17 @@ export function UpdateSection() {
         <Dialog open={releaseLogOpen} onOpenChange={setReleaseLogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>What&apos;s new in LumenLive {available.version}</DialogTitle>
+              <DialogTitle>
+                {t("update.whatsNew", { version: available.version })}
+              </DialogTitle>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto text-sm text-muted-foreground">
               {available.notes ? (
-                <p className="whitespace-pre-wrap break-words">
+                <p className="break-words whitespace-pre-wrap">
                   {available.notes}
                 </p>
               ) : (
-                <p>No release notes were provided for this version.</p>
+                <p>{t("update.noReleaseNotes")}</p>
               )}
             </div>
             <DialogFooter showCloseButton />

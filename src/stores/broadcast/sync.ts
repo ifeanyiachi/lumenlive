@@ -83,7 +83,9 @@ export const createSyncSlice: StateCreator<
     // present the pushed content); the idle state no longer uses it either (idle is
     // blank black — see `emitIdleBackdrop`), so this now serves Clear alone.
     const baseTheme = outputTheme
-      ? stripThemeContent(resolveBaseTheme(s.baseBackground, outputTheme, newThemes))
+      ? stripThemeContent(
+          resolveBaseTheme(s.baseBackground, outputTheme, newThemes)
+        )
       : undefined
     if (baseTheme) {
       emitOutputEvent(outputId, BROADCAST_EVENTS.baseTheme, {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   GlobeIcon,
   ExternalLinkIcon,
@@ -40,6 +41,7 @@ function WebPlaybackEditor({
   item: WebScheduleItem
   scheduleId: string
 }) {
+  const { t } = useTranslation("schedule")
   const containerId = useMemo(() => `yt-prep-${item.id}`, [item.id])
   const { state, loadVideo, togglePlay, seekTo } = useYouTubePlayer(containerId)
 
@@ -67,7 +69,7 @@ function WebPlaybackEditor({
   const position = scrub ?? currentTime
 
   return (
-    <FieldGroup label="Playback">
+    <FieldGroup label={t("properties.playback")}>
       <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-2">
         {/* Player surface — the YT API replaces this div with an iframe. */}
         <div className="relative aspect-video w-full overflow-hidden rounded bg-black">
@@ -75,7 +77,7 @@ function WebPlaybackEditor({
           {!isReady && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-[0.625rem] text-muted-foreground">
-                {isLoading ? "Loading player…" : "No video"}
+                {isLoading ? t("properties.loadingPlayer") : t("properties.noVideo")}
               </span>
             </div>
           )}
@@ -84,7 +86,7 @@ function WebPlaybackEditor({
         {/* Live / VOD toggle — auto-detected on the URL, overridable here. */}
         <label className="flex items-center justify-between">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Live stream
+            {t("properties.liveStream")}
           </span>
           <Switch
             checked={isLive}
@@ -94,8 +96,8 @@ function WebPlaybackEditor({
         </label>
         <p className="-mt-1 text-[0.625rem] text-muted-foreground">
           {isLive
-            ? "Enters at a DVR offset; use Jump to Live on air. Markers are DVR offsets."
-            : "Recorded service (VOD): absolute timeline with In/Out trim and end action."}
+            ? t("properties.liveStreamHelp")
+            : t("properties.vodHelp")}
         </p>
 
         {/* Transport */}
@@ -105,7 +107,7 @@ function WebPlaybackEditor({
             size="icon-sm"
             onClick={togglePlay}
             disabled={!isReady}
-            title={isPlaying ? "Pause" : "Play"}
+            title={isPlaying ? t("properties.pause") : t("properties.play")}
           >
             {isPlaying ? (
               <PauseIcon className="size-3.5" />
@@ -142,17 +144,17 @@ function WebPlaybackEditor({
           className={cn("grid gap-2", isLive ? "grid-cols-1" : "grid-cols-2")}
         >
           <TrimPoint
-            label={isLive ? "Start at" : "In"}
+            label={isLive ? t("properties.startAt") : t("properties.in")}
             value={item.startTime}
-            fallback={isLive ? "Live edge" : "0:00"}
+            fallback={isLive ? t("properties.liveEdge") : "0:00"}
             onSet={() => update({ startTime: currentTime })}
             onClear={() => update({ startTime: undefined })}
           />
           {!isLive && (
             <TrimPoint
-              label="Out"
+              label={t("properties.out")}
               value={item.endTime}
-              fallback="End"
+              fallback={t("properties.end")}
               onSet={() => update({ endTime: currentTime })}
               onClear={() => update({ endTime: undefined })}
             />
@@ -161,7 +163,7 @@ function WebPlaybackEditor({
 
         {/* End action (VOD only — a live stream has no end to act on). */}
         {!isLive && (
-          <FieldGroup label="When finished">
+          <FieldGroup label={t("properties.whenFinished")}>
             <select
               className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
               value={item.endAction ?? "hold"}
@@ -180,7 +182,7 @@ function WebPlaybackEditor({
 
         {/* Cue markers */}
         <FieldGroup
-          label={isLive ? "Cue markers (DVR offsets)" : "Cue markers"}
+          label={isLive ? t("properties.cueMarkersDvr") : t("properties.cueMarkers")}
         >
           <div className="flex flex-col gap-1.5">
             <Button
@@ -192,7 +194,7 @@ function WebPlaybackEditor({
                 const existing = item.markers ?? []
                 const marker = {
                   id: crypto.randomUUID(),
-                  label: `Cue ${existing.length + 1}`,
+                  label: t("properties.cueNumber", { count: existing.length + 1 }),
                   time: currentTime,
                 }
                 update({
@@ -203,7 +205,7 @@ function WebPlaybackEditor({
               }}
             >
               <PlusIcon className="size-3.5" />
-              Add marker at {formatTimecode(currentTime)}
+              {t("properties.addMarkerAt", { time: formatTimecode(currentTime) })}
             </Button>
 
             {(item.markers ?? [])
@@ -215,7 +217,7 @@ function WebPlaybackEditor({
                     type="button"
                     className="shrink-0 rounded bg-muted px-1.5 py-1 text-[0.625rem] text-muted-foreground tabular-nums hover:text-foreground"
                     onClick={() => seekTo(m.time)}
-                    title="Jump to marker"
+                    title={t("properties.jumpToMarker")}
                   >
                     {formatTimecode(m.time)}
                   </button>
@@ -240,7 +242,7 @@ function WebPlaybackEditor({
                         ),
                       })
                     }
-                    title="Delete marker"
+                    title={t("properties.deleteMarker")}
                   >
                     <XIcon className="size-3.5" />
                   </button>
@@ -260,6 +262,7 @@ export function WebProperties({
   item: WebScheduleItem
   scheduleId: string
 }) {
+  const { t } = useTranslation("schedule")
   const update = (updates: Partial<WebScheduleItem>) => {
     useScheduleStore.getState().updateItem(scheduleId, item.id, updates)
   }
@@ -296,11 +299,11 @@ export function WebProperties({
       <div className="flex items-center gap-2 rounded-md bg-sky-500/10 p-2">
         <GlobeIcon className="size-3.5 text-sky-400" />
         <span className="text-xs font-medium text-sky-400">
-          {item.isYouTube ? "YouTube Video" : "Web Page"}
+          {item.isYouTube ? t("properties.youtubeVideo") : t("properties.webPage")}
         </span>
       </div>
 
-      <FieldGroup label="URL">
+      <FieldGroup label={t("properties.url")}>
         <Input
           type="url"
           className="h-7 text-xs"
@@ -315,7 +318,7 @@ export function WebProperties({
           <>
             <label className="flex items-center justify-between">
               <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Autoplay
+                {t("properties.autoplay")}
               </span>
               <Switch
                 checked={item.autoplay}
@@ -339,7 +342,7 @@ export function WebProperties({
           onClick={handleOpenInWebTab}
         >
           <ExternalLinkIcon className="size-3" />
-          Open in Web tab
+          {t("properties.openInWebTab")}
         </Button>
       )}
     </>

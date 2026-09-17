@@ -1,4 +1,5 @@
 import { BookOpenIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { SlideElement } from "@/types/slide"
 import { findScriptureElement } from "@/lib/theme/model/roles"
 import {
@@ -22,24 +23,25 @@ export function ScriptureThemeProperties({
 }: {
   elements: SlideElement[]
 }) {
+  const { t } = useTranslation("slides")
   const scripture = findScriptureElement(elements)
 
   return (
     <ThemePanelShell
-      title="Scripture Theme"
+      title={t("themeProperties.scriptureTheme")}
       icon={<BookOpenIcon className="size-3.5" />}
     >
       {scripture ? (
         <>
-          <Section label="Verse">
+          <Section label={t("scriptureProperties.verseText")}>
             <SizeRow
-              label="Size"
+              label={t("timerProperties.size")}
               value={scripture.fontSize}
               onChange={(v) => patchElement(scripture.id, { fontSize: v })}
               max={160}
             />
             <ColorRow
-              label="Color"
+              label={t("properties.color")}
               value={scripture.color}
               onChange={(v) => patchElement(scripture.id, { color: v })}
             />
@@ -50,9 +52,9 @@ export function ScriptureThemeProperties({
               }
             />
           </Section>
-          <Section label="Reference">
+          <Section label={t("scriptureProperties.reference")}>
             <SizeRow
-              label="Size"
+              label={t("timerProperties.size")}
               value={scripture.referenceFontSize}
               onChange={(v) =>
                 patchElement(scripture.id, { referenceFontSize: v })
@@ -61,7 +63,7 @@ export function ScriptureThemeProperties({
               max={96}
             />
             <ColorRow
-              label="Color"
+              label={t("properties.color")}
               value={scripture.referenceColor}
               onChange={(v) =>
                 patchElement(scripture.id, { referenceColor: v })
@@ -70,7 +72,7 @@ export function ScriptureThemeProperties({
           </Section>
         </>
       ) : (
-        <MissingPlaceholder what="a scripture placeholder" />
+        <MissingPlaceholder what={t("themeProperties.scripturePlaceholder")} />
       )}
       <SelectElementHint />
     </ThemePanelShell>

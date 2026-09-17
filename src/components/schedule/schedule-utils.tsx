@@ -15,6 +15,7 @@ import type {
 } from "@/types/schedule"
 import type { Slide } from "@/types/slide"
 import type { QueueItem } from "@/types/queue"
+import { i18n } from "@/lib/i18n/config"
 
 export const TYPE_ICONS: Record<ScheduleItemType, React.ReactNode> = {
   scripture: <BookOpenIcon className="size-3.5" />,
@@ -26,14 +27,16 @@ export const TYPE_ICONS: Record<ScheduleItemType, React.ReactNode> = {
   lexicon: <LanguagesIcon className="size-3.5" />,
 }
 
-export const TYPE_LABELS: Record<ScheduleItemType, string> = {
-  scripture: "Scripture",
-  slide: "Slide",
-  media: "Media",
-  header: "Section",
-  web: "Web Page",
-  song: "Song",
-  lexicon: "Word Study",
+export function getTypeLabels(): Record<ScheduleItemType, string> {
+  return {
+    scripture: i18n.t("schedule:itemTypes.scripture"),
+    slide: i18n.t("schedule:itemTypes.slide"),
+    media: i18n.t("schedule:itemTypes.media"),
+    header: i18n.t("schedule:itemTypes.header"),
+    web: i18n.t("schedule:itemTypes.web"),
+    song: i18n.t("schedule:itemTypes.song"),
+    lexicon: i18n.t("schedule:itemTypes.lexicon"),
+  }
 }
 
 export function createEmptyItem(
@@ -46,7 +49,7 @@ export function createEmptyItem(
       return {
         ...base,
         type: "scripture",
-        label: "Scripture Reading",
+        label: i18n.t("schedule:defaults.scriptureReading"),
         translationId: 1,
         bookNumber: 43,
         chapter: 3,
@@ -59,19 +62,28 @@ export function createEmptyItem(
       return {
         ...base,
         type: "slide",
-        label: "New Slide",
+        label: i18n.t("schedule:defaults.newSlide"),
         presentationId: "",
         slideIndex: 0,
       }
     case "media":
-      return { ...base, type: "media", label: "Media", mediaAssetId: "" }
+      return {
+        ...base,
+        type: "media",
+        label: i18n.t("schedule:itemTypes.media"),
+        mediaAssetId: "",
+      }
     case "header":
-      return { ...base, type: "header", label: "Section" }
+      return {
+        ...base,
+        type: "header",
+        label: i18n.t("schedule:itemTypes.header"),
+      }
     case "web":
       return {
         ...base,
         type: "web",
-        label: "Web Page",
+        label: i18n.t("schedule:itemTypes.web"),
         url: "",
         autoplay: false,
         isYouTube: false,
@@ -80,7 +92,7 @@ export function createEmptyItem(
       return {
         ...base,
         type: "song",
-        label: "Song",
+        label: i18n.t("schedule:itemTypes.song"),
         songId: "",
         cachedTitle: "",
       }
@@ -92,7 +104,7 @@ export function createEmptyItem(
       return {
         ...base,
         type: "lexicon",
-        label: "Word Study",
+        label: i18n.t("schedule:itemTypes.lexicon"),
         reference: "",
         slide: emptyPlaceholderSlide(),
       }
@@ -103,7 +115,7 @@ function emptyPlaceholderSlide(): Slide {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
-    name: "Word Study",
+    name: i18n.t("schedule:itemTypes.lexicon"),
     background: { type: "solid", color: "#f8fafc" },
     elements: [],
     createdAt: now,
@@ -119,39 +131,42 @@ export interface QuickAction {
   build: (order: number) => ScheduleItem
 }
 
-export const QUICK_ACTIONS: QuickAction[] = [
-  {
-    id: "scripture",
-    label: TYPE_LABELS.scripture,
-    icon: TYPE_ICONS.scripture,
-    build: (order) => createEmptyItem("scripture", order),
-  },
-  {
-    id: "slide",
-    label: TYPE_LABELS.slide,
-    icon: TYPE_ICONS.slide,
-    build: (order) => createEmptyItem("slide", order),
-  },
-  {
-    id: "media",
-    label: TYPE_LABELS.media,
-    icon: TYPE_ICONS.media,
-    build: (order) => createEmptyItem("media", order),
-  },
-  {
-    id: "youtube",
-    label: "YouTube",
-    icon: <MonitorPlayIcon className="size-3.5" />,
-    build: (order) => ({
-      ...(createEmptyItem(
-        "web",
-        order
-      ) as import("@/types/schedule").WebScheduleItem),
+export function getQuickActions(): QuickAction[] {
+  const labels = getTypeLabels()
+  return [
+    {
+      id: "scripture",
+      label: labels.scripture,
+      icon: TYPE_ICONS.scripture,
+      build: (order) => createEmptyItem("scripture", order),
+    },
+    {
+      id: "slide",
+      label: labels.slide,
+      icon: TYPE_ICONS.slide,
+      build: (order) => createEmptyItem("slide", order),
+    },
+    {
+      id: "media",
+      label: labels.media,
+      icon: TYPE_ICONS.media,
+      build: (order) => createEmptyItem("media", order),
+    },
+    {
+      id: "youtube",
       label: "YouTube",
-      isYouTube: true,
-    }),
-  },
-]
+      icon: <MonitorPlayIcon className="size-3.5" />,
+      build: (order) => ({
+        ...(createEmptyItem(
+          "web",
+          order
+        ) as import("@/types/schedule").WebScheduleItem),
+        label: "YouTube",
+        isYouTube: true,
+      }),
+    },
+  ]
+}
 
 export function queueItemToScheduleItem(
   queueItem: QueueItem,

@@ -44,11 +44,7 @@ export type {
   StageMonitorGroup,
 } from "./broadcast"
 export type { StageLayout, StageZone, ZoneSource } from "./stage-layout"
-export type {
-  InlineStyle,
-  StyledSpan,
-  StyledVerseSegment,
-} from "./verse-edit"
+export type { InlineStyle, StyledSpan, StyledVerseSegment } from "./verse-edit"
 export type {
   NdiAlphaMode,
   NdiConfigEventPayload,

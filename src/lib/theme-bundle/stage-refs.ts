@@ -66,7 +66,10 @@ export function rewriteStageLayout(
   }
 }
 
-function rewriteBackground(bg: Background, ctx: StageRewriteContext): Background {
+function rewriteBackground(
+  bg: Background,
+  ctx: StageRewriteContext
+): Background {
   if (!bg) return bg
   const next: Background = { ...bg }
   if (bg.image) next.image = { ...bg.image, url: rewriteUrl(bg.image.url, ctx) }
@@ -74,7 +77,10 @@ function rewriteBackground(bg: Background, ctx: StageRewriteContext): Background
   return next
 }
 
-function rewriteElement(el: ThemeElement, ctx: StageRewriteContext): ThemeElement {
+function rewriteElement(
+  el: ThemeElement,
+  ctx: StageRewriteContext
+): ThemeElement {
   if (el.type === "image" && el.image) {
     return { ...el, image: { ...el.image, url: rewriteUrl(el.image.url, ctx) } }
   }

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TimerIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
 import {
@@ -42,6 +43,7 @@ export function SlideTimerProperties({
 }: {
   element: SlideTimerElement
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Partial<SlideTimerElement>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -49,7 +51,7 @@ export function SlideTimerProperties({
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
-        title="Timer Properties"
+        title={t("timerProperties.title")}
         icon={<TimerIcon className="size-3.5" />}
       />
 
@@ -58,9 +60,9 @@ export function SlideTimerProperties({
           {/* Timer behaviour */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Timer
+              {t("rightPanel.timer")}
             </span>
-            <PropertyRow label="Mode">
+            <PropertyRow label={t("timerProperties.mode")}>
               <Select
                 value={element.mode}
                 onValueChange={(v) => update({ mode: v as CountdownMode })}
@@ -69,13 +71,13 @@ export function SlideTimerProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="duration">Duration</SelectItem>
-                  <SelectItem value="clock">Time of day</SelectItem>
+                  <SelectItem value="duration">{t("timerProperties.duration")}</SelectItem>
+                  <SelectItem value="clock">{t("timerProperties.timeOfDay")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
             {element.mode === "clock" ? (
-              <PropertyRow label="Target">
+              <PropertyRow label={t("timerProperties.target")}>
                 <Input
                   type="time"
                   value={element.targetTime ?? ""}
@@ -84,7 +86,7 @@ export function SlideTimerProperties({
                 />
               </PropertyRow>
             ) : (
-              <PropertyRow label="Seconds">
+              <PropertyRow label={t("timerProperties.seconds")}>
                 <Input
                   type="number"
                   value={element.durationSeconds}
@@ -98,7 +100,7 @@ export function SlideTimerProperties({
                 />
               </PropertyRow>
             )}
-            <PropertyRow label="Format">
+            <PropertyRow label={t("timerProperties.format")}>
               <Select
                 value={element.format}
                 onValueChange={(v) => update({ format: v as CountdownFormat })}
@@ -109,13 +111,13 @@ export function SlideTimerProperties({
                 <SelectContent>
                   <SelectItem value="mm:ss">MM:SS</SelectItem>
                   <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
-                  <SelectItem value="minutes">Minutes</SelectItem>
+                  <SelectItem value="minutes">{t("timerProperties.minutes")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
             <div className="flex items-center justify-between">
               <span className="text-[0.6875rem] text-muted-foreground">
-                Overtime
+                {t("timerProperties.overtime")}
               </span>
               <Switch
                 checked={element.overtime ?? false}
@@ -129,9 +131,9 @@ export function SlideTimerProperties({
           {/* Urgency thresholds */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Urgency (seconds left)
+              {t("timerProperties.urgency")}
             </span>
-            <PropertyRow label="Warn">
+            <PropertyRow label={t("timerProperties.warn")}>
               <Input
                 type="number"
                 value={element.warnSeconds ?? ""}
@@ -140,10 +142,10 @@ export function SlideTimerProperties({
                 }
                 className="h-7 text-xs"
                 min={0}
-                placeholder="off"
+                placeholder={t("properties.off")}
               />
             </PropertyRow>
-            <PropertyRow label="Danger">
+            <PropertyRow label={t("timerProperties.danger")}>
               <Input
                 type="number"
                 value={element.dangerSeconds ?? ""}
@@ -152,7 +154,7 @@ export function SlideTimerProperties({
                 }
                 className="h-7 text-xs"
                 min={0}
-                placeholder="off"
+                placeholder={t("properties.off")}
               />
             </PropertyRow>
           </div>
@@ -162,9 +164,9 @@ export function SlideTimerProperties({
           {/* Typography */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Text
+              {t("rightPanel.text")}
             </span>
-            <PropertyRow label="Color">
+            <PropertyRow label={t("properties.color")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   value={element.color}
@@ -178,7 +180,7 @@ export function SlideTimerProperties({
                 />
               </div>
             </PropertyRow>
-            <PropertyRow label="Size">
+            <PropertyRow label={t("timerProperties.size")}>
               <Slider
                 value={[element.fontSize]}
                 onValueChange={([v]) => update({ fontSize: v })}
@@ -187,7 +189,7 @@ export function SlideTimerProperties({
                 step={2}
               />
             </PropertyRow>
-            <PropertyRow label="Weight">
+            <PropertyRow label={t("timerProperties.weight")}>
               <Select
                 value={String(element.fontWeight)}
                 onValueChange={(v) => update({ fontWeight: Number(v) })}
@@ -196,14 +198,14 @@ export function SlideTimerProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="400">Regular</SelectItem>
-                  <SelectItem value="600">Semibold</SelectItem>
-                  <SelectItem value="700">Bold</SelectItem>
-                  <SelectItem value="900">Black</SelectItem>
+                  <SelectItem value="400">{t("timerProperties.regular")}</SelectItem>
+                  <SelectItem value="600">{t("timerProperties.semibold")}</SelectItem>
+                  <SelectItem value="700">{t("timerProperties.bold")}</SelectItem>
+                  <SelectItem value="900">{t("timerProperties.black")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
-            <PropertyRow label="Align">
+            <PropertyRow label={t("properties.align")}>
               <Select
                 value={element.horizontalAlign}
                 onValueChange={(v) =>
@@ -216,9 +218,9 @@ export function SlideTimerProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="center">Center</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="left">{t("properties.left")}</SelectItem>
+                  <SelectItem value="center">{t("properties.center")}</SelectItem>
+                  <SelectItem value="right">{t("properties.right")}</SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>

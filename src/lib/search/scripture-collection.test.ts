@@ -99,9 +99,9 @@ describe("scripture-collection helpers", () => {
   it("gives edit verses distinct ids (the multi-editor keys by id)", () => {
     // collectionVerseToVerse yields id 0 for every verse; the editor would
     // otherwise collapse them onto one instance.
-    expect(scriptureCollectionVerses(collectionItem()).map((v) => v.id)).toEqual(
-      [0, 0]
-    )
+    expect(
+      scriptureCollectionVerses(collectionItem()).map((v) => v.id)
+    ).toEqual([0, 0])
     const editVerses = scriptureCollectionEditVerses(collectionItem())
     expect(editVerses.map((v) => v.id)).toEqual([1, 2])
     expect(new Set(editVerses.map((v) => v.id)).size).toBe(editVerses.length)

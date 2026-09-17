@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { SettingsIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { usePresentationStore } from "@/stores/presentation-store"
 import {
   ElementAnimationProperties,
@@ -25,6 +26,7 @@ export function SlideElementProperties({
 }: {
   element: SlideTextElement
 }) {
+  const { t } = useTranslation("slides")
   const update = (updates: Partial<SlideTextElement>) => {
     usePresentationStore.getState().updateDraftElement(element.id, updates)
   }
@@ -32,7 +34,7 @@ export function SlideElementProperties({
   return (
     <div className="flex h-full min-w-0 flex-col">
       <PanelHeader
-        title="Properties"
+        title={t("textProperties.title")}
         icon={<SettingsIcon className="size-3.5" />}
       />
 
@@ -41,13 +43,13 @@ export function SlideElementProperties({
           {/* Text content */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Text
+              {t("rightPanel.text")}
             </span>
             <Textarea
               value={element.text}
               onChange={(e) => update({ text: e.target.value })}
               className="min-h-20 text-xs"
-              placeholder="Enter text..."
+              placeholder={t("textProperties.enterText")}
             />
           </div>
 
@@ -56,9 +58,9 @@ export function SlideElementProperties({
           {/* Spacing */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Spacing
+              {t("textProperties.spacing")}
             </span>
-            <PropertyRow label="Line Height">
+            <PropertyRow label={t("textProperties.lineHeight")}>
               <Slider
                 value={[element.lineHeight]}
                 onValueChange={([v]) => update({ lineHeight: v })}
@@ -67,7 +69,7 @@ export function SlideElementProperties({
                 step={0.1}
               />
             </PropertyRow>
-            <PropertyRow label="Letter Spacing">
+            <PropertyRow label={t("textProperties.letterSpacing")}>
               <Slider
                 value={[element.letterSpacing ?? 0]}
                 onValueChange={([v]) => update({ letterSpacing: v })}
@@ -97,9 +99,9 @@ export function SlideElementProperties({
           {/* Background */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Background
+              {t("rightPanel.background")}
             </span>
-            <PropertyRow label="Color">
+            <PropertyRow label={t("properties.color")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   value={element.backgroundColor ?? "#000000"}
@@ -112,7 +114,7 @@ export function SlideElementProperties({
                     update({ backgroundColor: e.target.value || undefined })
                   }
                   className="h-7 flex-1 text-xs"
-                  placeholder="None"
+                  placeholder={t("properties.none")}
                 />
                 {element.backgroundColor && (
                   <button
@@ -120,7 +122,7 @@ export function SlideElementProperties({
                     className="shrink-0 text-[0.625rem] text-muted-foreground hover:text-foreground"
                     onClick={() => update({ backgroundColor: undefined })}
                   >
-                    Clear
+                    {t("textProperties.clear")}
                   </button>
                 )}
               </div>

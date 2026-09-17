@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { invoke } from "@tauri-apps/api/core"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { trackFeatureUsed } from "@/services/analytics-gateway"
@@ -22,14 +23,8 @@ import {
   MusicIcon,
   PlayIcon,
 } from "lucide-react"
-import { ytMute, ytUnmute } from "@/lib/youtube-post-message"
-
-function formatClock(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${String(s).padStart(2, "0")}`
-}
+import { PreviewWebMonitor } from "@/components/panels/preview-web-monitor"
+import { formatClock } from "@/lib/live-output/transport"
 
 /** Read-only mirror of the live output's playback position (control lives in Live display). */
 function OutputProgressMirror() {
@@ -134,6 +129,7 @@ function MediaPreview({
 }
 
 export function PreviewPanel() {
+  const { t } = useTranslation("panels")
   const selectedVerse = useBibleStore((s) => s.selectedVerse)
   const translations = useBibleStore((s) => s.translations)
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
@@ -156,20 +152,6 @@ export function PreviewPanel() {
   const [interlinearText, setInterlinearText] = useState<string | null>(null)
   const interlinearCache = useRef<Map<string, string>>(new Map())
   const [monitorAudio, setMonitorAudio] = useState(false)
-  const webIframeRef = useRef<HTMLIFrameElement>(null)
-  const previewWebUrl = useMemo(() => {
-    if (!liveWeb) return null
-    if (!monitorAudio && liveWeb.isYouTube) {
-      try {
-        const u = new URL(liveWeb.url)
-        u.searchParams.set("mute", "1")
-        return u.toString()
-      } catch {
-        return liveWeb.url
-      }
-    }
-    return liveWeb.url
-  }, [liveWeb, monitorAudio])
 
   useEffect(() => {
     const verse = useBibleStore.getState().selectedVerse
@@ -298,15 +280,6 @@ export function PreviewPanel() {
       .setInterlinearText(interlinearOn ? interlinearText : null)
   }, [interlinearOn, interlinearText])
 
-  useEffect(() => {
-    if (!liveWeb) return
-    if (monitorAudio) {
-      ytUnmute(webIframeRef.current)
-    } else {
-      ytMute(webIframeRef.current)
-    }
-  }, [monitorAudio, liveWeb])
-
   const showWeb = liveWeb !== null
   const showMedia = !showWeb && liveMedia !== null
   const showSlide = !showWeb && !showMedia && liveSlide !== null
@@ -320,7 +293,7 @@ export function PreviewPanel() {
       data-slot="preview-panel"
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title="Program preview">
+      <PanelHeader title={t("preview.title")}>
         <div className="flex items-center gap-1.5">
           {isLive && (
             <Button
@@ -328,7 +301,7 @@ export function PreviewPanel() {
               size="sm"
               onClick={() => takeToLiveOrPrompt()}
               disabled={!previewPending}
-              title="Send the previewed item to the audience (Enter)"
+              title={t("preview.takeLive")}
               className="h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider text-emerald-400 uppercase hover:text-emerald-300 disabled:text-muted-foreground"
             >
               <PlayIcon className="size-3.5" />
@@ -339,7 +312,7 @@ export function PreviewPanel() {
             <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground">
               <GlobeIcon className="size-3" />
               <span className="max-w-[120px] truncate">
-                {liveWeb.isYouTube ? "YouTube" : "Web"}
+                {liveWeb.isYouTube ? t("liveWeb.youtube") : t("liveWeb.web")}
               </span>
             </span>
           )}
@@ -348,7 +321,11 @@ export function PreviewPanel() {
               variant="ghost"
               size="icon-sm"
               onClick={() => setMonitorAudio((v) => !v)}
-              title={monitorAudio ? "Mute monitor audio" : "Monitor audio"}
+              title={
+                monitorAudio
+                  ? t("preview.muteMonitorAudio")
+                  : t("preview.monitorAudio")
+              }
               className={cn(monitorAudio && "text-blue-400")}
             >
               {monitorAudio ? (
@@ -377,14 +354,7 @@ export function PreviewPanel() {
       </PanelHeader>
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black p-3">
         {showWeb ? (
-          <iframe
-            ref={webIframeRef}
-            src={previewWebUrl!}
-            title="Web preview"
-            allow="autoplay; encrypted-media"
-            className="size-full border-none"
-            style={{ aspectRatio: "16/9" }}
-          />
+          <PreviewWebMonitor web={liveWeb} monitorAudio={monitorAudio} />
         ) : showMedia ? (
           <MediaPreview media={liveMedia} monitorAudio={monitorAudio} />
         ) : showSlide ? (

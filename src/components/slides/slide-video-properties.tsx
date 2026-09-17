@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Button } from "@/components/ui/button"
@@ -43,6 +44,7 @@ export function SlideVideoProperties({
 }: {
   element: SlideVideoElement
 }) {
+  const { t } = useTranslation("slides")
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const update = (updates: Partial<SlideVideoElement>) => {
@@ -61,7 +63,7 @@ export function SlideVideoProperties({
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
-        title="Video Properties"
+        title={t("videoProperties.title")}
         icon={<SettingsIcon className="size-3.5" />}
       />
 
@@ -70,7 +72,7 @@ export function SlideVideoProperties({
           {/* Video source */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Video
+              {t("rightPanel.video")}
             </span>
             {element.videoUrl ? (
               <div className="flex flex-col gap-2">
@@ -89,7 +91,7 @@ export function SlideVideoProperties({
                     onClick={() => setPickerOpen(true)}
                   >
                     <VideoIcon className="mr-1.5 size-3" />
-                    Replace
+                    {t("common.replace")}
                   </Button>
                   <Button
                     variant="outline"
@@ -97,7 +99,7 @@ export function SlideVideoProperties({
                     className="text-xs text-destructive"
                     onClick={() => update({ videoUrl: "" })}
                   >
-                    Remove
+                    {t("common.remove")}
                   </Button>
                 </div>
               </div>
@@ -109,7 +111,7 @@ export function SlideVideoProperties({
                 onClick={() => setPickerOpen(true)}
               >
                 <VideoIcon className="mr-1.5 size-3" />
-                Choose Video
+                {t("videoProperties.choose")}
               </Button>
             )}
           </div>
@@ -127,11 +129,11 @@ export function SlideVideoProperties({
           {/* Playback */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Playback
+              {t("videoProperties.playback")}
             </span>
             <div className="flex items-center justify-between">
               <span className="text-[0.6875rem] text-muted-foreground">
-                Muted
+                {t("videoProperties.muted")}
               </span>
               <Switch
                 checked={element.muted}
@@ -140,7 +142,7 @@ export function SlideVideoProperties({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[0.6875rem] text-muted-foreground">
-                Loop
+                {t("videoProperties.loop")}
               </span>
               <Switch
                 checked={element.loop}
@@ -154,9 +156,9 @@ export function SlideVideoProperties({
           {/* Display */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Display
+              {t("videoProperties.display")}
             </span>
-            <PropertyRow label="Fit">
+            <PropertyRow label={t("videoProperties.fit")}>
               <Select
                 value={element.objectFit}
                 onValueChange={(v) =>
@@ -167,13 +169,19 @@ export function SlideVideoProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cover">Cover</SelectItem>
-                  <SelectItem value="contain">Contain</SelectItem>
-                  <SelectItem value="fill">Fill</SelectItem>
+                  <SelectItem value="cover">
+                    {t("videoProperties.cover")}
+                  </SelectItem>
+                  <SelectItem value="contain">
+                    {t("videoProperties.contain")}
+                  </SelectItem>
+                  <SelectItem value="fill">
+                    {t("videoProperties.fill")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
-            <PropertyRow label="Opacity">
+            <PropertyRow label={t("videoProperties.opacity")}>
               <Slider
                 value={[element.opacity]}
                 onValueChange={([v]) => update({ opacity: v })}
@@ -182,7 +190,7 @@ export function SlideVideoProperties({
                 step={0.05}
               />
             </PropertyRow>
-            <PropertyRow label="Radius">
+            <PropertyRow label={t("videoProperties.radius")}>
               <Slider
                 value={[element.borderRadius]}
                 onValueChange={([v]) => update({ borderRadius: v })}

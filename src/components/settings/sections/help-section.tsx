@@ -2,16 +2,16 @@ import { Button } from "@/components/ui/button"
 import { GraduationCapIcon } from "lucide-react"
 import { useTutorialStore } from "@/stores/tutorial-store"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
+import { useTranslation } from "react-i18next"
 
 export function HelpSection() {
+  const { t } = useTranslation("settings")
   const closeSettings = useSettingsDialogStore((s) => s.closeSettings)
 
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">
-          Resources to help you get the most out of LumenLive.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("help.description")}</p>
       </div>
 
       <div className="space-y-3">
@@ -21,9 +21,9 @@ export function HelpSection() {
               <GraduationCapIcon className="size-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium">Interactive Tutorial</p>
+              <p className="text-sm font-medium">{t("help.tutorial.title")}</p>
               <p className="text-xs text-muted-foreground">
-                Step-by-step walkthrough of every feature
+                {t("help.tutorial.description")}
               </p>
             </div>
           </div>
@@ -38,7 +38,7 @@ export function HelpSection() {
             }}
           >
             <GraduationCapIcon className="mr-1.5 size-3.5" />
-            Restart
+            {t("help.tutorial.restart")}
           </Button>
         </div>
       </div>

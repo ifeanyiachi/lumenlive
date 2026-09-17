@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   CheckCircle2,
@@ -20,6 +21,7 @@ import {
   type InstalledPack,
 } from "@/lib/song/community-packs"
 import { importSongsFromPack } from "@/lib/song/import/from-pack"
+import { formatNumber } from "@/lib/i18n/format"
 import { fetchSongPack } from "@/services/song-pack-gateway"
 
 /**
@@ -35,6 +37,7 @@ import { fetchSongPack } from "@/services/song-pack-gateway"
  * actions via `getState()` so they stay stable.
  */
 export function SongPacksSection() {
+  const { t } = useTranslation("store")
   const songs = useSongStore((s) => s.songs)
 
   const installed = useMemo(() => installedPacks(songs), [songs])
@@ -53,13 +56,11 @@ export function SongPacksSection() {
       <div className="flex items-center gap-2">
         <Music className="size-5 text-foreground" />
         <h2 className="text-lg font-semibold text-foreground">
-          Community Song Packs
+          {t("songPacks.title")}
         </h2>
       </div>
       <p className="-mt-1 text-xs text-muted-foreground">
-        Install a whole public songbook in one click, then remove it just as
-        easily. Lyrics may be under copyright — projecting them is your church's
-        CCLI responsibility.
+        {t("songPacks.description")}
       </p>
 
       <div
@@ -90,6 +91,7 @@ export function SongPacksSection() {
  * deletes every song of the batch. Local `busy`/`received` drive the card's UI.
  */
 function usePackInstaller() {
+  const { t } = useTranslation("store")
   const [busy, setBusy] = useState<"installing" | "removing" | null>(null)
   const [received, setReceived] = useState(0)
 
@@ -103,14 +105,18 @@ function usePackInstaller() {
       )
       const parsed = await importSongsFromPack(bytes)
       if (parsed.length === 0) {
-        toast.error(`No songs found in "${name}"`)
+        toast.error(t("songPacks.noSongs", { name }))
         return
       }
       const stamped = stampImportBatch(parsed, batchId, name)
       useSongStore.getState().addSongs(stamped)
-      toast.success(`Installed ${stamped.length} songs from "${name}"`)
+      toast.success(
+        t("songPacks.installedFrom", { count: stamped.length, name })
+      )
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pack install failed")
+      toast.error(
+        err instanceof Error ? err.message : t("songPacks.installFailed")
+      )
     } finally {
       setBusy(null)
     }
@@ -121,7 +127,7 @@ function usePackInstaller() {
     setBusy("removing")
     try {
       const removed = useSongStore.getState().removeSongsByBatch(batchId)
-      toast(`Removed ${removed} songs from "${name}"`)
+      toast(t("songPacks.removedFrom", { count: removed, name }))
     } finally {
       setBusy(null)
     }
@@ -143,6 +149,7 @@ function PackCardShell({
   busy: "installing" | "removing" | null
   actions: React.ReactNode
 }) {
+  const { t } = useTranslation("store")
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-border/80">
       <div className="flex items-start gap-3">
@@ -155,7 +162,12 @@ function PackCardShell({
       {busy === "installing" && (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="size-3 animate-spin" />
-          Downloading… {(received / 1_000_000).toFixed(1)} MB
+          {t("songPacks.downloading", {
+            size: formatNumber(received / 1_000_000, {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            }),
+          })}
         </p>
       )}
 
@@ -173,6 +185,7 @@ function CuratedPackCardInner({
   pack: CommunityPack
   installedCount: number
 }) {
+  const { t } = useTranslation("store")
   const { busy, received, install, remove } = usePackInstaller()
   const installed = installedCount > 0
 
@@ -190,10 +203,10 @@ function CuratedPackCardInner({
             {pack.publicDomain ? (
               <span
                 className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[0.625rem] font-medium text-emerald-500"
-                title="Public domain — safe to project"
+                title={t("songPacks.publicDomainTitle")}
               >
                 <ShieldCheck className="size-3" />
-                Public domain
+                {t("songPacks.publicDomain")}
               </span>
             ) : (
               pack.recommended && (
@@ -202,7 +215,11 @@ function CuratedPackCardInner({
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {[`by ${pack.author}`, pack.formats, pack.language]
+            {[
+              t("songPacks.by", { author: pack.author }),
+              pack.formats,
+              pack.language,
+            ]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -224,7 +241,7 @@ function CuratedPackCardInner({
                 variant="outline"
                 onClick={() => void install(pack.id, pack.url, pack.name)}
               >
-                <Download /> Reinstall
+                <Download /> {t("common.reinstall")}
               </Button>
               <RemoveButton
                 label={pack.name}
@@ -237,7 +254,7 @@ function CuratedPackCardInner({
               variant="outline"
               onClick={() => void install(pack.id, pack.url, pack.name)}
             >
-              <Download /> Install
+              <Download /> {t("common.install")}
             </Button>
           )}
         </>
@@ -247,6 +264,7 @@ function CuratedPackCardInner({
 }
 
 function CustomPackCardInner({ pack }: { pack: InstalledPack }) {
+  const { t } = useTranslation("store")
   const { busy, received, install, remove } = usePackInstaller()
   // For URL-added packs the batch id *is* the source URL, so reinstall works.
   const isUrl = /^https?:\/\//.test(pack.batchId)
@@ -263,10 +281,12 @@ function CustomPackCardInner({ pack }: { pack: InstalledPack }) {
               {pack.name}
             </h3>
             <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
-              Added by URL
+              {t("songPacks.addedByUrl")}
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">Community pack</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {t("songPacks.communityPack")}
+          </p>
           {isUrl && <SourceLink url={pack.batchId} />}
         </>
       }
@@ -285,7 +305,7 @@ function CustomPackCardInner({ pack }: { pack: InstalledPack }) {
                     void install(pack.batchId, pack.batchId, pack.name)
                   }
                 >
-                  <Download /> Reinstall
+                  <Download /> {t("common.reinstall")}
                 </Button>
               )}
               <RemoveButton
@@ -301,19 +321,21 @@ function CustomPackCardInner({ pack }: { pack: InstalledPack }) {
 }
 
 function InstalledBadge({ count }: { count: number }) {
+  const { t } = useTranslation("store")
   return (
     <span className="mr-auto flex items-center gap-1.5 text-xs font-medium text-emerald-500">
       <CheckCircle2 className="size-4" />
-      {count} installed
+      {t("songPacks.installedCount", { count })}
     </span>
   )
 }
 
 function BusyButton({ busy }: { busy: "installing" | "removing" }) {
+  const { t } = useTranslation("store")
   return (
     <Button size="sm" variant="secondary" disabled>
       <Loader2 className="animate-spin" />
-      {busy === "installing" ? "Installing" : "Removing"}
+      {t(busy === "installing" ? "common.installing" : "common.removing")}
     </Button>
   )
 }
@@ -325,11 +347,12 @@ function RemoveButton({
   label: string
   onClick: () => void
 }) {
+  const { t } = useTranslation("store")
   return (
     <Button
       size="icon-sm"
       variant="ghost"
-      aria-label={`Remove ${label}`}
+      aria-label={t("songPacks.remove", { label })}
       onClick={onClick}
     >
       <Trash2 />
@@ -338,6 +361,7 @@ function RemoveButton({
 }
 
 function SourceLink({ url }: { url: string }) {
+  const { t } = useTranslation("store")
   return (
     <a
       href={url}
@@ -346,7 +370,7 @@ function SourceLink({ url }: { url: string }) {
       className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] text-muted-foreground hover:text-foreground"
     >
       <ExternalLink className="size-3" />
-      View source
+      {t("songPacks.viewSource")}
     </a>
   )
 }

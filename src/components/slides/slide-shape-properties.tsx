@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { SettingsIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { PositionSizeSection } from "@/components/slides/element-property-sections"
 import {
@@ -36,6 +37,7 @@ export function SlideShapeProperties({
 }: {
   element: SlideShapeElement
 }) {
+  const { t } = useTranslation("slides")
   const draft = usePresentationStore((s) => s.draftPresentation)
   const activeSlideIndex = usePresentationStore((s) => s.activeSlideIndex)
   const activeSlide = draft?.slides[activeSlideIndex]
@@ -55,7 +57,7 @@ export function SlideShapeProperties({
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
-        title="Shape Properties"
+        title={t("shapeProperties.title")}
         icon={<SettingsIcon className="size-3.5" />}
       />
 
@@ -64,9 +66,9 @@ export function SlideShapeProperties({
           {/* Fill */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Fill
+              {t("shapeProperties.fill")}
             </span>
-            <PropertyRow label="Color">
+            <PropertyRow label={t("properties.color")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   value={
@@ -84,7 +86,7 @@ export function SlideShapeProperties({
                 />
               </div>
             </PropertyRow>
-            <PropertyRow label="Opacity">
+            <PropertyRow label={t("videoProperties.opacity")}>
               <Slider
                 value={[element.opacity]}
                 onValueChange={([v]) => update({ opacity: v })}
@@ -100,9 +102,9 @@ export function SlideShapeProperties({
           {/* Stroke */}
           <div className="flex flex-col gap-2">
             <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-              Stroke
+              {t("shapeProperties.stroke")}
             </span>
-            <PropertyRow label="Color">
+            <PropertyRow label={t("properties.color")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   value={element.strokeColor}
@@ -116,7 +118,7 @@ export function SlideShapeProperties({
                 />
               </div>
             </PropertyRow>
-            <PropertyRow label="Width">
+            <PropertyRow label={t("properties.width")}>
               <Slider
                 value={[element.strokeWidth]}
                 onValueChange={([v]) => update({ strokeWidth: v })}
@@ -134,9 +136,9 @@ export function SlideShapeProperties({
             <>
               <div className="flex flex-col gap-2">
                 <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                  Corner Radius
+                  {t("shapeProperties.cornerRadius")}
                 </span>
-                <PropertyRow label="Radius">
+                <PropertyRow label={t("videoProperties.radius")}>
                   <Slider
                     value={[element.borderRadius]}
                     onValueChange={([v]) => update({ borderRadius: v })}
@@ -154,13 +156,13 @@ export function SlideShapeProperties({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Shadow
+                {t("properties.shadow")}
               </span>
               <Button
                 variant={element.shadow ? "default" : "outline"}
                 size="icon-sm"
                 className="size-5 text-[0.5625rem]"
-                aria-label="Shadow"
+                aria-label={t("properties.shadow")}
                 aria-pressed={!!element.shadow}
                 onClick={() =>
                   update({
@@ -175,12 +177,12 @@ export function SlideShapeProperties({
                   })
                 }
               >
-                {element.shadow ? "On" : "Off"}
+                {element.shadow ? t("properties.on") : t("properties.off")}
               </Button>
             </div>
             {element.shadow && (
               <>
-                <PropertyRow label="Offset X">
+                <PropertyRow label={t("properties.offsetX")}>
                   <Slider
                     value={[shadow.offsetX]}
                     onValueChange={([v]) =>
@@ -191,7 +193,7 @@ export function SlideShapeProperties({
                     step={1}
                   />
                 </PropertyRow>
-                <PropertyRow label="Offset Y">
+                <PropertyRow label={t("properties.offsetY")}>
                   <Slider
                     value={[shadow.offsetY]}
                     onValueChange={([v]) =>
@@ -202,7 +204,7 @@ export function SlideShapeProperties({
                     step={1}
                   />
                 </PropertyRow>
-                <PropertyRow label="Blur">
+                <PropertyRow label={t("properties.blur")}>
                   <Slider
                     value={[shadow.blur]}
                     onValueChange={([v]) =>
@@ -213,7 +215,7 @@ export function SlideShapeProperties({
                     step={1}
                   />
                 </PropertyRow>
-                <PropertyRow label="Color">
+                <PropertyRow label={t("properties.color")}>
                   <div className="flex items-center gap-2">
                     <ColorSwatch
                       value={

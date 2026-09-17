@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { LiveIndicator } from "@/components/ui/live-indicator"
 import { Badge } from "@/components/ui/badge"
@@ -39,23 +40,28 @@ import { planLabel } from "@/lib/entitlements"
 import { cn } from "@/lib/utils"
 import type { AppView } from "@/stores/app-store"
 
-const VIEW_BUTTONS: { view: AppView; label: string; icon: React.ReactNode }[] =
-  [
-    { view: "live", label: "Live", icon: <RadioIcon className="size-3.5" /> },
+function getViewButtons(t: (key: string) => string): {
+  view: AppView
+  label: string
+  icon: React.ReactNode
+}[] {
+  return [
+    { view: "live", label: t("views.live"), icon: <RadioIcon className="size-3.5" /> },
     {
       view: "slide",
-      label: "Slides",
+      label: t("views.slides"),
       icon: <PresentationIcon className="size-3.5" />,
     },
-    { view: "media", label: "Media", icon: <ImageIcon className="size-3.5" /> },
-    { view: "song", label: "Songs", icon: <MusicIcon className="size-3.5" /> },
+    { view: "media", label: t("views.media"), icon: <ImageIcon className="size-3.5" /> },
+    { view: "song", label: t("views.songs"), icon: <MusicIcon className="size-3.5" /> },
     {
       view: "youtube",
-      label: "YouTube",
+      label: t("views.youtube"),
       icon: <PlayIcon className="size-3.5" />,
     },
-    { view: "store", label: "Store", icon: <StoreIcon className="size-3.5" /> },
+    { view: "store", label: t("views.store"), icon: <StoreIcon className="size-3.5" /> },
   ]
+}
 
 /**
  * Leaf that subscribes to the audio RMS only. Isolated so the high-frequency
@@ -69,6 +75,7 @@ function AudioLevelMeter() {
 }
 
 export function TransportBar() {
+  const { t } = useTranslation("controls")
   const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const currentView = useAppStore((s) => s.view)
@@ -79,6 +86,7 @@ export function TransportBar() {
   // Current plan label — "Free" | "Free trial" | "Starter" | "Pro". Selecting
   // the derived string keeps this a narrow (primitive) subscription.
   const plan = useEntitlementsStore((s) => planLabel(s.entitlement))
+  const viewButtons = getViewButtons(t)
 
   return (
     <div
@@ -104,7 +112,7 @@ export function TransportBar() {
         data-tour="view-switcher"
         className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/50 p-0.5"
       >
-        {VIEW_BUTTONS.map(({ view, label, icon }) => (
+        {viewButtons.map(({ view, label, icon }) => (
           <Button
             key={view}
             variant="ghost"
@@ -122,7 +130,7 @@ export function TransportBar() {
             {view === "store" && updateAvailable && (
               <span
                 className="size-1.5 rounded-full bg-red-500"
-                aria-label="Update available"
+                aria-label={t("updateAvailable")}
               />
             )}
           </Button>
@@ -139,7 +147,7 @@ export function TransportBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Broadcast Settings"
+          title={t("broadcastSettings")}
           data-tour="broadcast"
           onClick={() => setBroadcastOpen(true)}
         >
@@ -154,10 +162,10 @@ export function TransportBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Theme Designer"
+          title={t("themeDesigner")}
           data-tour="theme"
           onClick={() => {
-            if (requireFeature("theme_designer", "Theme Designer"))
+            if (requireFeature("theme_designer", t("themeDesignerFeature")))
               useBroadcastStore.getState().setDesignerOpen(true)
           }}
         >
@@ -168,9 +176,9 @@ export function TransportBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Stage Layout Designer"
+          title={t("stageLayoutDesigner")}
           onClick={() => {
-            if (requireFeature("stage_display", "Stage display"))
+            if (requireFeature("stage_display", t("stageDisplayFeature")))
               useBroadcastStore.getState().setStageDesignerOpen(true)
           }}
         >
@@ -181,8 +189,8 @@ export function TransportBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Keyboard shortcuts (?)"
-          aria-label="Keyboard shortcuts"
+          title={t("keyboardShortcuts")}
+          aria-label={t("keyboardShortcuts")}
           onClick={() => useShortcutsStore.getState().setOverlayOpen(true)}
         >
           <KeyboardIcon className="size-3.5" />

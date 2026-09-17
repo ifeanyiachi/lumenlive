@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { i18n } from "@/lib/i18n/config"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { usePresentationStore } from "@/stores/presentation-store"
 import type { SlideScheduleItem } from "@/types/schedule"
@@ -23,7 +24,7 @@ export function addSlideToSchedule(
   const store = useScheduleStore.getState()
   const { activeScheduleId, activeItemIndex } = store
   if (!activeScheduleId) {
-    toast.error("Select or create a schedule first")
+    toast.error(i18n.t("schedule:toast.selectOrCreateFirst"))
     return
   }
 
@@ -74,13 +75,16 @@ export function addSlideToSchedule(
   if (added === 0) {
     toast.info(
       skipped > 1
-        ? "Those slides are already in the schedule"
-        : "Already in the schedule"
+        ? i18n.t("schedule:toast.slidesAlreadyInSchedule")
+        : i18n.t("schedule:toast.alreadyInSchedule")
     )
     return
   }
   toast.success(
-    `${added} slide${added > 1 ? "s" : ""} added to schedule` +
-      (skipped > 0 ? ` · ${skipped} already there` : "")
+    i18n.t("schedule:toast.slidesAdded", {
+      count: added,
+      skippedSuffix:
+        skipped > 0 ? i18n.t("schedule:toast.skipped", { count: skipped }) : "",
+    })
   )
 }

@@ -35,8 +35,12 @@ describe("passesPanelFloor", () => {
   })
 
   it("shows semantic hits only at or above the floor", () => {
-    expect(passesPanelFloor(det({ source: "semantic", confidence: 0.8 }), 0.8)).toBe(true)
-    expect(passesPanelFloor(det({ source: "semantic", confidence: 0.79 }), 0.8)).toBe(false)
+    expect(
+      passesPanelFloor(det({ source: "semantic", confidence: 0.8 }), 0.8)
+    ).toBe(true)
+    expect(
+      passesPanelFloor(det({ source: "semantic", confidence: 0.79 }), 0.8)
+    ).toBe(false)
   })
 })
 
@@ -54,13 +58,19 @@ describe("panelDetections", () => {
 
 describe("shouldAutoQueue", () => {
   it("auto-queues direct hits the backend marked", () => {
-    expect(shouldAutoQueue(det({ source: "direct", auto_queued: true }))).toBe(true)
-    expect(shouldAutoQueue(det({ source: "direct", auto_queued: false }))).toBe(false)
+    expect(shouldAutoQueue(det({ source: "direct", auto_queued: true }))).toBe(
+      true
+    )
+    expect(shouldAutoQueue(det({ source: "direct", auto_queued: false }))).toBe(
+      false
+    )
   })
 
   it("never auto-queues semantic hits, even high-confidence ones", () => {
     expect(
-      shouldAutoQueue(det({ source: "semantic", auto_queued: true, confidence: 0.99 }))
+      shouldAutoQueue(
+        det({ source: "semantic", auto_queued: true, confidence: 0.99 })
+      )
     ).toBe(false)
   })
 })
@@ -71,14 +81,20 @@ describe("shouldAutoDisplayLive", () => {
   })
 
   it("never displays a semantic hit, no matter how confident", () => {
-    expect(shouldAutoDisplayLive(det({ source: "semantic", confidence: 1 }))).toBe(false)
+    expect(
+      shouldAutoDisplayLive(det({ source: "semantic", confidence: 1 }))
+    ).toBe(false)
   })
 
   it("blocks direct hits below the live-confidence guard", () => {
-    expect(shouldAutoDisplayLive(det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE - 0.01 }))).toBe(
-      false
-    )
-    expect(shouldAutoDisplayLive(det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE }))).toBe(true)
+    expect(
+      shouldAutoDisplayLive(
+        det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE - 0.01 })
+      )
+    ).toBe(false)
+    expect(
+      shouldAutoDisplayLive(det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE }))
+    ).toBe(true)
   })
 
   it("excludes chapter-only stubs and narrative mentions", () => {

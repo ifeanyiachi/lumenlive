@@ -1,13 +1,11 @@
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useMediaStore } from "@/stores/media-store"
+import { formatDuration } from "@/lib/i18n/format"
 import type { MediaEndAction, MediaScheduleItem } from "@/types/schedule"
 
 export function formatTimecode(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${String(s).padStart(2, "0")}`
+  return formatDuration(seconds * 1000)
 }
 
 export const END_ACTIONS: { value: MediaEndAction; label: string }[] = [

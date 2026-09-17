@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Select,
@@ -15,6 +16,7 @@ import { gainToPercent, percentToGain } from "@/lib/settings/conversions"
 import { SectionSlider } from "../ui/section-slider"
 
 export function AudioSection() {
+  const { t } = useTranslation("settings")
   const { audioDeviceId, setAudioDeviceId, gain, setGain } = useSettingsStore()
 
   const [devices, setDevices] = useState<DeviceInfo[]>([])
@@ -49,7 +51,7 @@ export function AudioSection() {
       {/* Device selector */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Input Device
+          {t("audio.inputDevice")}
         </label>
         <Select
           value={audioDeviceId ?? "__default__"}
@@ -60,35 +62,38 @@ export function AudioSection() {
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue
-              placeholder={loading ? "Loading devices..." : "System default"}
+              placeholder={
+                loading ? t("audio.loadingDevices") : t("audio.systemDefault")
+              }
             />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__default__">System default</SelectItem>
+            <SelectItem value="__default__">
+              {t("audio.systemDefault")}
+            </SelectItem>
             {devices.map((device) => (
               <SelectItem key={device.id} value={device.id}>
                 {device.name}
-                {device.is_default ? " (default)" : ""}
+                {device.is_default ? t("audio.defaultDeviceSuffix") : ""}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <p className="text-[0.625rem] text-muted-foreground">
-          Selected device persists across sessions. Leave as system default to
-          follow OS audio routing.
+          {t("audio.deviceDescription")}
         </p>
       </div>
 
       {/* Input gain */}
       <SectionSlider
-        label="Input Gain"
-        valueLabel={`${gainPercent}%`}
+        label={t("audio.inputGain.label")}
+        valueLabel={t("common:percent", { value: gainPercent })}
         min={0}
         max={100}
         step={1}
         value={gainPercent}
         onValueChange={(v) => setGain(percentToGain(v))}
-        description="Amplifies the incoming audio signal before transcription. 50% is unity gain."
+        description={t("audio.inputGain.description")}
       />
     </div>
   )

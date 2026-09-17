@@ -82,7 +82,9 @@ export function monitorLabel(
 }
 
 /** Capture a durable fingerprint of a monitor for later re-identification. */
-export function monitorFingerprint(monitor: LabeledMonitor): MonitorFingerprint {
+export function monitorFingerprint(
+  monitor: LabeledMonitor
+): MonitorFingerprint {
   return {
     name: monitor.name ?? null,
     position: { x: monitor.position.x, y: monitor.position.y },
@@ -138,7 +140,10 @@ function scoreMonitorMatch(
     score += NAME_WEIGHT
   if (m.position.x === target.position.x && m.position.y === target.position.y)
     score += ORIGIN_WEIGHT
-  if (m.size.width === target.size.width && m.size.height === target.size.height)
+  if (
+    m.size.width === target.size.width &&
+    m.size.height === target.size.height
+  )
     score += SIZE_WEIGHT
   return score
 }
@@ -185,8 +190,7 @@ export function resolveMonitorIndex(
  * a *specific* display that isn't currently connected.
  */
 export type OutputMonitorResolution =
-  | { kind: "resolved"; index: number }
-  | { kind: "absent" }
+  { kind: "resolved"; index: number } | { kind: "absent" }
 
 /**
  * Resolve an output's saved monitor selection to a concrete live display, being

@@ -1,0 +1,95 @@
+{
+  "title": "Atajos de teclado",
+  "description": "Los atajos se ignoran mientras escribes en un campo.",
+  "or": "o",
+  "categories": {
+    "general": "General",
+    "transcription": "Transcripción",
+    "search": "Búsqueda",
+    "schedule": "Programa",
+    "live": "Salida en vivo",
+    "editing": "Edición"
+  },
+  "shortcuts": {
+    "toggle-shortcuts": {
+      "label": "Atajos de teclado",
+      "description": "Abre o cierra esta guía"
+    },
+    "open-settings": {
+      "label": "Abrir ajustes",
+      "description": "Abre el diálogo de ajustes"
+    },
+    "escape": {
+      "label": "Cerrar / quitar foco",
+      "description": "Cierra un diálogo o quita el foco del campo actual"
+    },
+    "transcription-toggle": {
+      "label": "Iniciar / detener transcripción",
+      "description": "Activa o desactiva la sesión de transcripción en vivo"
+    },
+    "focus-search": {
+      "label": "Enfocar búsqueda",
+      "description": "Va al campo de búsqueda bíblica"
+    },
+    "book-search-navigate": {
+      "label": "Navegar versículos",
+      "description": "Mueve el versículo seleccionado en la búsqueda bíblica"
+    },
+    "book-search-chapter": {
+      "label": "Cambiar capítulo",
+      "description": "Capítulo anterior o siguiente en la búsqueda bíblica"
+    },
+    "schedule-next": {
+      "label": "Siguiente elemento del programa",
+      "description": "Prepara el siguiente elemento en la vista previa de programa"
+    },
+    "schedule-prev": {
+      "label": "Elemento anterior del programa",
+      "description": "Prepara el elemento anterior en la vista previa de programa"
+    },
+    "schedule-go-to-current": {
+      "label": "Ir al elemento actual",
+      "description": "Muestra y resalta el elemento actual del programa"
+    },
+    "schedule-step-items": {
+      "label": "Recorrer el programa",
+      "description": "Elemento anterior o siguiente cuando el programa tiene el foco"
+    },
+    "schedule-step-deck": {
+      "label": "Recorrer un grupo",
+      "description": "Recorre las diapositivas o versículos de un elemento agrupado"
+    },
+    "live-go": {
+      "label": "Preparar y emitir",
+      "description": "La primera pulsación prepara el versículo; la segunda lo envía al público"
+    },
+    "live-verse-page": {
+      "label": "Página de versículo",
+      "description": "Página anterior o siguiente de un versículo largo paginado"
+    },
+    "live-blackout": {
+      "label": "Pantalla negra",
+      "description": "Corta la salida al público a negro"
+    },
+    "live-clear": {
+      "label": "Borrar texto",
+      "description": "Oculta el texto en primer plano y conserva el fondo"
+    },
+    "live-logo": {
+      "label": "Logotipo / diapositiva de espera",
+      "description": "Muestra la imagen de espera"
+    },
+    "editor-delete": {
+      "label": "Eliminar elemento",
+      "description": "Elimina el elemento seleccionado en el editor de diapositivas"
+    },
+    "editor-undo": {
+      "label": "Deshacer",
+      "description": "Deshace la última edición en el editor de diapositivas"
+    },
+    "editor-redo": {
+      "label": "Rehacer",
+      "description": "Rehace la última edición deshecha en el editor de diapositivas"
+    }
+  }
+}

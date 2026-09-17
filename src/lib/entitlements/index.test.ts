@@ -74,7 +74,10 @@ describe("limit / unlimited", () => {
 })
 
 describe("planLabel", () => {
-  const mk = (tier: Entitlement["tier"], trialEnd: number | null): Entitlement => ({
+  const mk = (
+    tier: Entitlement["tier"],
+    trialEnd: number | null
+  ): Entitlement => ({
     tier,
     features: [],
     limits: { maxDevices: 1, maxTranslations: 1, maxTranscriptionMinutes: 60 },

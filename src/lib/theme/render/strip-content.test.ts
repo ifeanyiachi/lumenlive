@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest"
 import type { SlideElement } from "@/types/slide"
 import type { Theme } from "@/types/theme"
-import { SCRIPTURE_BUILTIN, SERMON_BUILTIN, COUNTDOWN_BUILTIN } from "../builtins"
+import {
+  SCRIPTURE_BUILTIN,
+  SERMON_BUILTIN,
+  COUNTDOWN_BUILTIN,
+} from "../builtins"
 import { stripPlaceholderContent, stripThemeContent } from "./strip-content"
 
 describe("stripPlaceholderContent", () => {

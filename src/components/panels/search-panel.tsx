@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 // Using native overflow-y-auto instead of Radix ScrollArea for reliable scrolling in flex layouts
 import { cn } from "@/lib/utils"
 import {
@@ -39,16 +40,17 @@ type ContentTab = "verse" | "media" | "slide" | "song"
 
 const CONTENT_TABS: {
   value: ContentTab
-  label: string
+  labelKey: string
   icon: typeof BookOpenIcon
 }[] = [
-  { value: "verse", label: "Verse", icon: BookOpenIcon },
-  { value: "media", label: "Media", icon: ImageIcon },
-  { value: "slide", label: "Slide", icon: LayoutTemplateIcon },
-  { value: "song", label: "Song", icon: MusicIcon },
+  { value: "verse", labelKey: "search.tabs.verse", icon: BookOpenIcon },
+  { value: "media", labelKey: "search.tabs.media", icon: ImageIcon },
+  { value: "slide", labelKey: "search.tabs.slide", icon: LayoutTemplateIcon },
+  { value: "song", labelKey: "search.tabs.song", icon: MusicIcon },
 ]
 
 export function SearchPanel() {
+  const { t } = useTranslation("panels")
   const [contentTab, setContentTab] = useState<ContentTab>("verse")
   const [activeTab, setActiveTab] = useState<SearchTab>("book")
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
@@ -141,7 +143,7 @@ export function SearchPanel() {
   useEffect(() => {
     bibleActions.loadTranslations().catch((err) => {
       console.error(err)
-      toast.error("Couldn't load translations", { description: String(err) })
+      toast.error(t("search.loadTranslationsFailed"), { description: String(err) })
     })
     bibleActions
       .loadBooks()
@@ -154,8 +156,13 @@ export function SearchPanel() {
       })
       .catch((err) => {
         console.error(err)
-        toast.error("Couldn't load Bible books", { description: String(err) })
+        toast.error(t("search.loadBooksFailed"), { description: String(err) })
       })
+    // Mount-only bootstrap: load translations/books and default to Genesis 1:1.
+    // `t` is used only inside error toasts and is intentionally omitted — adding
+    // it would re-run this on every UI-language change, reloading data and
+    // resetting the operator's navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Load chapter when book + chapter are set
@@ -163,9 +170,13 @@ export function SearchPanel() {
     if (selectedBookNumber && chapter >= 1) {
       bibleActions.loadChapter(selectedBookNumber, chapter).catch((err) => {
         console.error(err)
-        toast.error("Couldn't load chapter", { description: String(err) })
+        toast.error(t("search.loadChapterFailed"), { description: String(err) })
       })
     }
+    // Reload the chapter only when the passage or Bible translation changes. `t`
+    // (error toast only) is intentionally omitted so a UI-language switch does
+    // not trigger a redundant chapter reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBookNumber, chapter, activeTranslationId])
 
   const effectiveSelectedVerseId = useMemo(
@@ -333,7 +344,7 @@ export function SearchPanel() {
                     : "text-muted-foreground"
                 )}
               />
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           )
         })}
@@ -361,7 +372,7 @@ export function SearchPanel() {
                     : "text-muted-foreground"
                 )}
               />
-              Book search
+              {t("search.bookSearch")}
             </button>
             <button
               data-tour="context-search"
@@ -389,7 +400,7 @@ export function SearchPanel() {
                     : "text-muted-foreground"
                 )}
               />
-              Context search
+              {t("search.contextSearch")}
             </button>
           </div>
 

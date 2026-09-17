@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import {
   PlayIcon,
   PauseIcon,
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
+import { formatDuration } from "@/lib/i18n/format"
 import { toast } from "sonner"
 import { useWebStore } from "@/stores/web-store"
 import { useScheduleStore } from "@/stores/schedule-store"
@@ -28,14 +30,8 @@ import type { WebScheduleItem } from "@/types/schedule"
 
 const PLAYER_CONTAINER_ID = "lumenlive-yt-player"
 
-function formatTime(seconds: number): string {
-  if (!seconds || !isFinite(seconds)) return "0:00"
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, "0")}`
-}
-
 export function YouTubeView() {
+  const { t } = useTranslation("layout")
   const bookmarks = useWebStore((s) => s.bookmarks)
   const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
 
@@ -66,13 +62,13 @@ export function YouTubeView() {
     const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
 
     if (!isYouTubeUrl(normalized)) {
-      setError("Please paste a YouTube URL")
+      setError(t("youtube.errors.invalidUrl"))
       return
     }
 
     const videoId = extractVideoId(normalized)
     if (!videoId) {
-      setError("Could not extract video ID")
+      setError(t("youtube.errors.noVideoId"))
       return
     }
 
@@ -80,7 +76,7 @@ export function YouTubeView() {
     setActiveVideoId(videoId)
     setActiveUrl(normalized)
     void loadVideo(videoId, false)
-  }, [urlInput, loadVideo])
+  }, [urlInput, loadVideo, t])
 
   const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -103,18 +99,19 @@ export function YouTubeView() {
     if (isBookmarked) {
       const bm = bookmarks.find((b) => b.url === activeUrl)
       if (bm) useWebStore.getState().removeBookmark(bm.id)
-      toast("Video removed from saved")
+      toast(t("youtube.toasts.removedFromSaved"))
     } else {
-      const label = player.videoTitle || `Video: ${activeVideoId}`
+      const label =
+        player.videoTitle || t("youtube.videoLabel", { id: activeVideoId })
       useWebStore.getState().addBookmark(activeUrl, label, true, activeVideoId)
-      toast.success("Video saved")
+      toast.success(t("youtube.toasts.saved"))
     }
   }
 
   const handleGoLive = () => {
     if (!activeUrl) return
     void presentWebUrl(activeUrl)
-    toast.success("YouTube sent to live output")
+    toast.success(t("youtube.toasts.sentLive"))
   }
 
   const handleAddToSchedule = () => {
@@ -122,7 +119,8 @@ export function YouTubeView() {
     const item: WebScheduleItem = {
       id: crypto.randomUUID(),
       type: "web",
-      label: player.videoTitle || `YouTube: ${activeVideoId}`,
+      label:
+        player.videoTitle || t("youtube.youtubeLabel", { id: activeVideoId }),
       order: 0,
       url: activeUrl,
       autoplay: false,
@@ -130,9 +128,9 @@ export function YouTubeView() {
       videoId: activeVideoId,
     }
     if (useScheduleStore.getState().addItem(activeScheduleId, item)) {
-      toast.success("Added to schedule")
+      toast.success(t("youtube.toasts.addedToSchedule"))
     } else {
-      toast.info("Already in the schedule")
+      toast.info(t("youtube.toasts.alreadyScheduled"))
     }
   }
 
@@ -218,7 +216,7 @@ export function YouTubeView() {
         <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-xs font-semibold text-foreground">
-              Saved Videos
+              {t("youtube.savedVideos")}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {bookmarks.length}
@@ -230,7 +228,7 @@ export function YouTubeView() {
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
                   <StarIcon className="size-6 text-muted-foreground/30" />
                   <p className="text-xs text-muted-foreground">
-                    Save YouTube videos for quick access
+                    {t("youtube.emptySaved")}
                   </p>
                 </div>
               )}
@@ -273,9 +271,9 @@ export function YouTubeView() {
                     onClick={(e) => {
                       e.stopPropagation()
                       useWebStore.getState().removeBookmark(bm.id)
-                      toast("Video removed")
+                      toast(t("youtube.toasts.removed"))
                     }}
-                    title="Remove"
+                    title={t("youtube.remove")}
                   >
                     <TrashIcon className="size-2.5" />
                   </Button>
@@ -300,7 +298,7 @@ export function YouTubeView() {
                 setUrlInput(e.target.value)
                 setError("")
               }}
-              placeholder="Paste a YouTube URL..."
+              placeholder={t("youtube.urlPlaceholder")}
               className="h-7 min-w-0 flex-1 text-xs"
             />
             <Button
@@ -309,7 +307,7 @@ export function YouTubeView() {
               className="h-7 px-3 text-xs"
               disabled={!urlInput.trim()}
             >
-              Load
+              {t("youtube.load")}
             </Button>
           </form>
 
@@ -335,9 +333,9 @@ export function YouTubeView() {
                 <div className="flex size-16 items-center justify-center rounded-full bg-red-500/10">
                   <PlayIcon className="size-8 text-red-500/40" />
                 </div>
-                <p className="text-sm">Paste a YouTube URL to start</p>
+                <p className="text-sm">{t("youtube.emptyPlayer.title")}</p>
                 <p className="text-xs text-muted-foreground/60">
-                  Supports youtube.com/watch, youtu.be, and shorts links
+                  {t("youtube.emptyPlayer.description")}
                 </p>
               </div>
             )}
@@ -372,7 +370,9 @@ export function YouTubeView() {
                 variant="ghost"
                 size="icon-sm"
                 className="size-8"
-                aria-label={player.isPlaying ? "Pause" : "Play"}
+                aria-label={
+                  player.isPlaying ? t("youtube.pause") : t("youtube.play")
+                }
                 disabled={!player.isReady}
                 onClick={togglePlay}
               >
@@ -388,7 +388,9 @@ export function YouTubeView() {
                 variant="ghost"
                 size="icon-sm"
                 className="size-7"
-                aria-label={player.isMuted ? "Unmute" : "Mute"}
+                aria-label={
+                  player.isMuted ? t("youtube.unmute") : t("youtube.mute")
+                }
                 disabled={!player.isReady}
                 onClick={toggleMute}
               >
@@ -409,7 +411,8 @@ export function YouTubeView() {
 
               {/* Time */}
               <span className="min-w-[80px] text-xs text-muted-foreground tabular-nums">
-                {formatTime(player.currentTime)} / {formatTime(player.duration)}
+                {formatDuration(player.currentTime * 1000)} /{" "}
+                {formatDuration(player.duration * 1000)}
               </span>
 
               {/* Video title */}
@@ -427,7 +430,11 @@ export function YouTubeView() {
                 className="size-7"
                 disabled={!activeVideoId}
                 onClick={handleToggleBookmark}
-                title={isBookmarked ? "Remove from saved" : "Save video"}
+                title={
+                  isBookmarked
+                    ? t("youtube.removeFromSaved")
+                    : t("youtube.saveVideo")
+                }
               >
                 {isBookmarked ? (
                   <StarOffIcon className="size-3.5 text-yellow-500" />
@@ -444,12 +451,12 @@ export function YouTubeView() {
                 onClick={handleAddToSchedule}
                 title={
                   !activeScheduleId
-                    ? "Select a schedule first"
-                    : "Add to schedule"
+                    ? t("youtube.selectScheduleFirst")
+                    : t("youtube.addToSchedule")
                 }
               >
                 <ListPlusIcon className="size-3" />
-                Schedule
+                {t("youtube.schedule")}
               </Button>
 
               <Button
@@ -459,7 +466,7 @@ export function YouTubeView() {
                 onClick={handleGoLive}
               >
                 <CastIcon className="size-3" />
-                Go Live
+                {t("youtube.goLive")}
               </Button>
             </div>
           </div>

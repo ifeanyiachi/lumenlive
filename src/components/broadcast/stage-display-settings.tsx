@@ -10,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { MonitorIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 export function StageDisplaySettings() {
+  const { t } = useTranslation("broadcast")
   const altOutput = useBroadcastStore((s) =>
     s.outputs.find((o) => o.id === "alt")
   )
@@ -26,12 +28,12 @@ export function StageDisplaySettings() {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <MonitorIcon className="size-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium">Stage Display</span>
+        <span className="text-xs font-medium">{t("stageDisplay")}</span>
       </div>
 
       <div className="flex items-center justify-between">
         <label className="text-xs text-muted-foreground">
-          Use alt output as stage monitor
+          {t("useAltAsStageMonitor")}
         </label>
         <Switch
           checked={isStageMode}
@@ -45,7 +47,7 @@ export function StageDisplaySettings() {
         <div className="space-y-3 rounded-md border border-border/50 bg-muted/30 p-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Layout</label>
+              <label className="text-xs text-muted-foreground">{t("layout")}</label>
               <Select
                 value={config.layout}
                 onValueChange={(v) =>
@@ -56,15 +58,15 @@ export function StageDisplaySettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="minimal">Minimal</SelectItem>
+                  <SelectItem value="standard">{t("standard")}</SelectItem>
+                  <SelectItem value="minimal">{t("minimal")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">
-                Clock Format
+                {t("clockFormat")}
               </label>
               <Select
                 value={config.clockFormat}
@@ -76,8 +78,8 @@ export function StageDisplaySettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="12h">12-hour</SelectItem>
-                  <SelectItem value="24h">24-hour</SelectItem>
+                  <SelectItem value="12h">{t("twelveHour")}</SelectItem>
+                  <SelectItem value="24h">{t("twentyFourHour")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -86,7 +88,7 @@ export function StageDisplaySettings() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs text-muted-foreground">
-                Show current content
+                {t("showCurrent")}
               </label>
               <Switch
                 checked={config.showCurrent}
@@ -95,7 +97,7 @@ export function StageDisplaySettings() {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-xs text-muted-foreground">
-                Show clock
+                {t("showClock")}
               </label>
               <Switch
                 checked={config.showClock}
@@ -104,7 +106,7 @@ export function StageDisplaySettings() {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-xs text-muted-foreground">
-                Show notes
+                {t("showNotes")}
               </label>
               <Switch
                 checked={config.showNotes}
@@ -116,7 +118,7 @@ export function StageDisplaySettings() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">
-                Background
+                {t("background")}
               </label>
               <div className="flex items-center gap-2">
                 <ColorSwatch
@@ -131,7 +133,7 @@ export function StageDisplaySettings() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">
-                Text Color
+                {t("textColor")}
               </label>
               <div className="flex items-center gap-2">
                 <ColorSwatch

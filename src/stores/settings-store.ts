@@ -5,6 +5,11 @@ import type { SongSlideOptions } from "@/types/song"
 import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
+import {
+  changeLanguage,
+  resolveSupportedLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/config"
 
 type MediaImportMode = "reference" | "copy"
 
@@ -12,6 +17,7 @@ type MediaImportMode = "reference" | "copy"
 export type ScheduleViewMode = "list" | "thumbnail"
 
 interface SettingsState {
+  uiLanguage: SupportedLocale
   geniusApiKey: string | null
   openaiApiKey: string | null
   claudeApiKey: string | null
@@ -40,6 +46,15 @@ interface SettingsState {
    * spoken *references* rather than navigation.
    */
   navAutoLive: boolean
+  /**
+   * Where a spoken *schedule* navigation command ("next slide", "go back to the
+   * previous slide") sends the stepped item. `true` (default) pushes the newly
+   * active slide straight to the audience, hands-free; `false` stages it into
+   * Program preview for the operator to take. Independent of `navAutoLive`,
+   * which governs verse navigation — schedule commands step the schedule list
+   * (items and their sub-slides), not verses.
+   */
+  scheduleNavAutoLive: boolean
   /**
    * Reject schedule items whose content already appears in the schedule,
    * flash-highlighting the existing one instead of adding a second copy.
@@ -99,6 +114,7 @@ interface SettingsState {
   verseEditGoLive: boolean
 
   setGeniusApiKey: (key: string | null) => void
+  setUiLanguage: (locale: SupportedLocale) => void
   setOpenaiApiKey: (key: string | null) => void
   setClaudeApiKey: (key: string | null) => void
   setAudioDeviceId: (id: string | null) => void
@@ -110,6 +126,7 @@ interface SettingsState {
   setDirectInstantDisplay: (enabled: boolean) => void
   setSemanticAutoQueue: (enabled: boolean) => void
   setNavAutoLive: (enabled: boolean) => void
+  setScheduleNavAutoLive: (enabled: boolean) => void
   setPreventDuplicateScheduleItems: (enabled: boolean) => void
   setMediaImportMode: (mode: MediaImportMode) => void
   setLexiconEnabled: (enabled: boolean) => void
@@ -121,6 +138,7 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
+  uiLanguage: "en",
   geniusApiKey: null,
   openaiApiKey: null,
   claudeApiKey: null,
@@ -133,6 +151,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   directInstantDisplay: true,
   semanticAutoQueue: false,
   navAutoLive: false,
+  scheduleNavAutoLive: true,
   preventDuplicateScheduleItems: true,
   mediaImportMode: "reference",
   lexiconEnabled: false,
@@ -143,6 +162,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   verseEditGoLive: false,
 
   setGeniusApiKey: (geniusApiKey) => set({ geniusApiKey }),
+  setUiLanguage: (uiLanguage) => set({ uiLanguage }),
   setOpenaiApiKey: (openaiApiKey) => set({ openaiApiKey }),
   setClaudeApiKey: (claudeApiKey) => set({ claudeApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
@@ -155,6 +175,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ directInstantDisplay }),
   setSemanticAutoQueue: (semanticAutoQueue) => set({ semanticAutoQueue }),
   setNavAutoLive: (navAutoLive) => set({ navAutoLive }),
+  setScheduleNavAutoLive: (scheduleNavAutoLive) => set({ scheduleNavAutoLive }),
   setPreventDuplicateScheduleItems: (preventDuplicateScheduleItems) =>
     set({ preventDuplicateScheduleItems }),
   setMediaImportMode: (mediaImportMode) => set({ mediaImportMode }),
@@ -168,6 +189,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 }))
 
 const PERSISTED_KEYS = [
+  "uiLanguage",
   "geniusApiKey",
   "openaiApiKey",
   "claudeApiKey",
@@ -180,6 +202,7 @@ const PERSISTED_KEYS = [
   "directInstantDisplay",
   "semanticAutoQueue",
   "navAutoLive",
+  "scheduleNavAutoLive",
   "preventDuplicateScheduleItems",
   "mediaImportMode",
   "lexiconEnabled",
@@ -216,6 +239,22 @@ export function hydrateSettings(): Promise<void> {
         }
       }
 
+      // On the first run, use a supported OS language. Subsequent launches
+      // always honor the saved explicit choice instead of the OS setting.
+      const savedLanguage = patch.uiLanguage
+      const uiLanguage = resolveSupportedLocale(
+        typeof savedLanguage === "string"
+          ? savedLanguage
+          : typeof navigator === "undefined"
+            ? undefined
+            : navigator.language
+      )
+      if (savedLanguage !== uiLanguage) {
+        patch.uiLanguage = uiLanguage
+        await store.set("uiLanguage", uiLanguage)
+        await store.save()
+      }
+
       if (Object.keys(patch).length > 0) {
         useSettingsStore.setState(patch)
       }
@@ -225,6 +264,10 @@ export function hydrateSettings(): Promise<void> {
 
       // Mirror the analytics opt-out down to the gateway before any event fires.
       setAnalyticsEnabled(useSettingsStore.getState().telemetryEnabled)
+
+      // The locale string stays serializable in Zustand; i18next owns its
+      // runtime state and is synchronized only at hydration and on changes.
+      await changeLanguage(useSettingsStore.getState().uiLanguage)
 
       // Attach only after successful hydration so as not to overwrite disk with defaults.
       // Debounce writes, so a dragged slider (e.g. gain) coalesces into a single disk write.
@@ -244,6 +287,10 @@ export function hydrateSettings(): Promise<void> {
         // Mirror analytics opt-out toggles down to the gateway immediately.
         if (state.telemetryEnabled !== prevState.telemetryEnabled) {
           setAnalyticsEnabled(state.telemetryEnabled)
+        }
+
+        if (state.uiLanguage !== prevState.uiLanguage) {
+          void changeLanguage(state.uiLanguage)
         }
 
         if (saveTimer) clearTimeout(saveTimer)

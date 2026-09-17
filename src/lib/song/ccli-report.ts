@@ -1,4 +1,5 @@
 import type { SongUsageEntry } from "@/types/song"
+import { formatCcliDate } from "@/lib/i18n/format"
 
 /**
  * CCLI usage reporting (design doc §5, §7). Churches must report which
@@ -52,8 +53,7 @@ function csvCell(value: string): string {
 /** Render report rows as CSV. `formatDate` maps an epoch-ms to a date string. */
 export function ccliReportToCsv(
   rows: CcliReportRow[],
-  formatDate: (ms: number) => string = (ms) =>
-    new Date(ms).toISOString().slice(0, 10)
+  formatDate: (ms: number) => string = formatCcliDate
 ): string {
   const header = [
     "CCLI Number",

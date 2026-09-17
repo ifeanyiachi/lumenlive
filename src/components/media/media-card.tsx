@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   FilmIcon,
@@ -6,23 +6,13 @@ import {
   CheckIcon,
   MusicIcon,
   FolderIcon,
+  PlayIcon,
 } from "lucide-react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
+import { formatBytes, formatDuration, formatNumber } from "@/lib/i18n/format"
 import { useDragSource } from "@/stores/drag-store"
 import type { MediaAsset } from "@/types/media"
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, "0")}`
-}
+import { useTranslation } from "react-i18next"
 
 export function MediaCard({
   asset,
@@ -42,6 +32,8 @@ export function MediaCard({
   onSelect: () => void
   onToggleCheck: () => void
 }) {
+  const { t } = useTranslation("media")
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
   const dragSource = useDragSource()
   const dragHandlers = dragAssets
     ? dragSource(() => ({
@@ -62,6 +54,11 @@ export function MediaCard({
     }
     return null
   }, [asset.thumbnailDataUrl, asset.type, asset.filePath])
+
+  const videoSrc = useMemo(() => {
+    if (asset.type !== "video") return null
+    return safeFileSrc(asset.filePath)
+  }, [asset.type, asset.filePath])
 
   return (
     <button
@@ -107,6 +104,28 @@ export function MediaCard({
             alt={asset.name}
             className="size-full object-cover"
           />
+        ) : videoSrc && !videoPreviewFailed ? (
+          <>
+            <video
+              src={videoSrc}
+              aria-label={t("preview", { name: asset.name })}
+              className="size-full object-cover"
+              muted
+              playsInline
+              preload="auto"
+              onError={() => setVideoPreviewFailed(true)}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget
+                // Avoid the often-black first frame without starting playback.
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  video.currentTime = Math.min(1, video.duration * 0.1)
+                }
+              }}
+            />
+            <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white shadow-sm">
+              <PlayIcon className="ml-px size-2.5 fill-current" />
+            </span>
+          </>
         ) : (
           <div className="flex size-full items-center justify-center">
             {asset.type === "video" ? (
@@ -127,7 +146,7 @@ export function MediaCard({
         {collectionCount > 0 && (
           <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-medium text-white">
             <FolderIcon className="size-2.5" />
-            {collectionCount}
+            {formatNumber(collectionCount)}
           </span>
         )}
       </div>
@@ -136,7 +155,7 @@ export function MediaCard({
           {asset.name}
         </span>
         <span className="text-[0.625rem] text-muted-foreground">
-          {formatFileSize(asset.fileSize)}
+          {formatBytes(asset.fileSize)}
         </span>
       </div>
     </button>

@@ -1,4 +1,5 @@
 import { LayersIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { usePresentationStore } from "@/stores/presentation-store"
 import type { SlideBackground } from "@/types/slide"
@@ -15,24 +16,23 @@ export function OverlayThemeProperties({
 }: {
   background: SlideBackground
 }) {
+  const { t } = useTranslation("slides")
   const isTransparent = background.type === "transparent"
 
   return (
     <ThemePanelShell
-      title="Overlay Theme"
+      title={t("themeProperties.overlayTheme")}
       icon={<LayersIcon className="size-3.5" />}
     >
-      <Section label="Compositing">
+      <Section label={t("themeProperties.compositing")}>
         {isTransparent ? (
           <p className="text-[0.6875rem] leading-relaxed text-muted-foreground">
-            Background is transparent — this overlay will composite over the
-            live output. Add a lower-third bar, title, or logo as decoration.
+            {t("themeProperties.overlayTransparent")}
           </p>
         ) : (
           <div className="flex flex-col gap-2">
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[0.6875rem] text-amber-600 dark:text-amber-400">
-              An overlay must have a transparent background or it will hide the
-              live output behind it.
+              {t("themeProperties.overlayOpaque")}
             </p>
             <Button
               size="sm"
@@ -44,7 +44,7 @@ export function OverlayThemeProperties({
                   .updateDraftSlide({ background: { type: "transparent" } })
               }
             >
-              Make transparent
+              {t("themeProperties.makeTransparent")}
             </Button>
           </div>
         )}

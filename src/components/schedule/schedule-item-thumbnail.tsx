@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, memo } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { usePresentationStore } from "@/stores/presentation-store"
@@ -40,6 +41,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
 }: {
   item: ScheduleItem
 }) {
+  const { t } = useTranslation("schedule")
   const canvasRef = useRef<HTMLCanvasElement>(null)
   // Narrow subscriptions to just the one deck/asset this thumbnail draws, so an
   // unrelated presentation or media edit doesn't re-render every thumbnail.
@@ -149,7 +151,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
           ctx.fillStyle = "#555"
           ctx.font = "16px Inter, sans-serif"
           ctx.textAlign = "center"
-          ctx.fillText("No slide", w / 2, h / 2)
+          ctx.fillText(t("thumbnail.noSlide"), w / 2, h / 2)
         }
         break
       }
@@ -180,7 +182,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
           ctx.fillStyle = "#555"
           ctx.font = "14px Inter, sans-serif"
           ctx.textAlign = "center"
-          ctx.fillText("No media", w / 2, h / 2)
+          ctx.fillText(t("thumbnail.noMedia"), w / 2, h / 2)
         }
         break
       }
@@ -195,7 +197,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         ctx.fillText("🌐", w / 2, h / 2 - 16)
         ctx.fillStyle = "#94a3b8"
         ctx.font = "14px Inter, sans-serif"
-        ctx.fillText(wi.url || "Web", w / 2, h / 2 + 20, w - 16)
+        ctx.fillText(wi.url || t("itemTypes.web"), w / 2, h / 2 + 20, w - 16)
         break
       }
       case "song": {
@@ -258,7 +260,7 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         break
       }
     }
-  }, [item, presentation, mediaAsset, song, songSlideDefaults, customThemes])
+  }, [item, presentation, mediaAsset, song, songSlideDefaults, customThemes, t])
 
   useEffect(() => {
     drawRef.current = draw

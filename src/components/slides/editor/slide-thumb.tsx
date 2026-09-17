@@ -1,4 +1,5 @@
 import { useRef, useEffect, memo } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   CopyIcon,
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { renderSlide } from "@/lib/slide-renderer"
 import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
-import { TRANSITION_LABELS } from "@/lib/slides/element-meta"
+import { TRANSITION_LABEL_KEYS } from "@/lib/slides/element-meta"
 import { cn } from "@/lib/utils"
 import type { Slide, SlideTransitionType } from "@/types/slide"
 
@@ -28,6 +29,7 @@ export const SlideThumb = memo(function SlideThumb({
   total: number
   onPreviewTransition?: (slideIndex: number) => void
 }) {
+  const { t } = useTranslation("slides")
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -94,11 +96,11 @@ export const SlideThumb = memo(function SlideThumb({
                     : { type, duration: slide.transition?.duration ?? 500 },
               })
             }}
-            title="Slide transition"
+            title={t("slideThumb.transition")}
           >
-            {Object.entries(TRANSITION_LABELS).map(([key, label]) => (
+            {Object.entries(TRANSITION_LABEL_KEYS).map(([key, labelKey]) => (
               <option key={key} value={key}>
-                {label}
+                {t(labelKey)}
               </option>
             ))}
           </select>
@@ -111,7 +113,7 @@ export const SlideThumb = memo(function SlideThumb({
                 min={100}
                 max={3000}
                 step={100}
-                title="Duration (ms)"
+                title={t("slideThumb.duration")}
                 onChange={(e) => {
                   const store = usePresentationStore.getState()
                   store.updateDraftSlide({
@@ -127,7 +129,7 @@ export const SlideThumb = memo(function SlideThumb({
                 variant="ghost"
                 size="icon-sm"
                 className="size-5 shrink-0"
-                title="Preview transition"
+                title={t("slideThumb.previewTransition")}
                 onClick={() => onPreviewTransition?.(index)}
               >
                 <PlayCircleIcon className="size-3" />
@@ -142,7 +144,7 @@ export const SlideThumb = memo(function SlideThumb({
           variant="ghost"
           size="icon-sm"
           className="size-5"
-          title="Duplicate slide"
+          title={t("slideThumb.duplicate")}
           onClick={() => usePresentationStore.getState().duplicateSlide(index)}
         >
           <CopyIcon className="size-2.5" />
@@ -151,7 +153,7 @@ export const SlideThumb = memo(function SlideThumb({
           variant="ghost"
           size="icon-sm"
           className="size-5"
-          title="Move up"
+          title={t("common.moveUp")}
           disabled={index === 0}
           onClick={() =>
             usePresentationStore.getState().reorderSlide(index, index - 1)
@@ -163,7 +165,7 @@ export const SlideThumb = memo(function SlideThumb({
           variant="ghost"
           size="icon-sm"
           className="size-5"
-          title="Move down"
+          title={t("common.moveDown")}
           disabled={index === total - 1}
           onClick={() =>
             usePresentationStore.getState().reorderSlide(index, index + 1)
@@ -176,7 +178,7 @@ export const SlideThumb = memo(function SlideThumb({
             variant="ghost"
             size="icon-sm"
             className="size-5 text-destructive hover:text-destructive"
-            title="Delete slide"
+            title={t("slideThumb.delete")}
             onClick={() => usePresentationStore.getState().removeSlide(index)}
           >
             <TrashIcon className="size-2.5" />

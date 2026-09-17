@@ -1,4 +1,5 @@
 import { MegaphoneIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { SlideElement, SlideTextElement } from "@/types/slide"
 import { findTextRole } from "@/lib/theme/model/roles"
 import {
@@ -21,10 +22,11 @@ function TextRoleSection({
   element: SlideTextElement
   maxSize: number
 }) {
+  const { t } = useTranslation("slides")
   return (
     <Section label={label}>
       <SizeRow
-        label="Size"
+        label={t("timerProperties.size")}
         value={element.fontSize}
         onChange={(v) => patchElement(element.id, { fontSize: v })}
         max={maxSize}
@@ -34,7 +36,7 @@ function TextRoleSection({
         onChange={(v) => patchElement(element.id, { fontWeight: v })}
       />
       <ColorRow
-        label="Color"
+        label={t("properties.color")}
         value={element.color}
         onChange={(v) => patchElement(element.id, { color: v })}
       />
@@ -51,23 +53,24 @@ export function AnnouncementThemeProperties({
 }: {
   elements: SlideElement[]
 }) {
+  const { t } = useTranslation("slides")
   const title = findTextRole(elements, "title")
   const body = findTextRole(elements, "body")
 
   return (
     <ThemePanelShell
-      title="Announcement Theme"
+      title={t("themeProperties.announcementTheme")}
       icon={<MegaphoneIcon className="size-3.5" />}
     >
       {title ? (
-        <TextRoleSection label="Title" element={title} maxSize={160} />
+        <TextRoleSection label={t("themeProperties.title")} element={title} maxSize={160} />
       ) : (
-        <MissingPlaceholder what="a title placeholder" />
+        <MissingPlaceholder what={t("themeProperties.titlePlaceholder")} />
       )}
       {body ? (
-        <TextRoleSection label="Body" element={body} maxSize={120} />
+        <TextRoleSection label={t("themeProperties.body")} element={body} maxSize={120} />
       ) : (
-        <MissingPlaceholder what="a body placeholder" />
+        <MissingPlaceholder what={t("themeProperties.bodyPlaceholder")} />
       )}
       <SelectElementHint />
     </ThemePanelShell>

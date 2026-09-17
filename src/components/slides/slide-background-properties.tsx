@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
@@ -19,10 +20,7 @@ import {
   SolidControls as SharedSolidControls,
 } from "@/components/shared/gradient-controls"
 import type { GradientValue } from "@/components/shared/gradient-controls"
-import {
-  ANIMATED_PRESET_LABELS,
-  DEFAULT_ANIMATED_BACKGROUND,
-} from "@/lib/slide-renderer/animated-background"
+import { DEFAULT_ANIMATED_BACKGROUND } from "@/lib/slide-renderer/animated-background"
 import type {
   SlideBackground,
   AnimatedBackground,
@@ -46,6 +44,7 @@ function buildTint(hex: string, opacity: number): string {
 }
 
 export function SlideBackgroundProperties() {
+  const { t } = useTranslation("slides")
   const activeSlide = usePresentationStore(
     (s) => s.draftPresentation?.slides[s.activeSlideIndex] ?? null
   )
@@ -105,11 +104,11 @@ export function SlideBackgroundProperties() {
   return (
     <div className="flex flex-col gap-3 p-3">
       <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-        Background
+        {t("background.title")}
       </span>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">Type</label>
+        <label className="text-[0.6875rem] text-muted-foreground">{t("background.type")}</label>
         <Select
           value={bg.type}
           onValueChange={(v) => setType(v as SlideBackground["type"])}
@@ -118,12 +117,12 @@ export function SlideBackgroundProperties() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="solid">Solid Color</SelectItem>
-            <SelectItem value="gradient">Gradient</SelectItem>
-            <SelectItem value="image">Image</SelectItem>
-            <SelectItem value="video">Video</SelectItem>
-            <SelectItem value="animated">Animated</SelectItem>
-            <SelectItem value="transparent">Transparent</SelectItem>
+            <SelectItem value="solid">{t("background.solidColor")}</SelectItem>
+            <SelectItem value="gradient">{t("background.gradient")}</SelectItem>
+            <SelectItem value="image">{t("rightPanel.image")}</SelectItem>
+            <SelectItem value="video">{t("rightPanel.video")}</SelectItem>
+            <SelectItem value="animated">{t("background.animated")}</SelectItem>
+            <SelectItem value="transparent">{t("background.transparent")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -144,7 +143,7 @@ export function SlideBackgroundProperties() {
       {bg.type === "animated" && <AnimatedControls bg={bg} onUpdate={update} />}
       {bg.type === "transparent" && (
         <p className="text-[0.6875rem] text-muted-foreground">
-          Transparent background for overlay mode.
+          {t("background.transparentDescription")}
         </p>
       )}
     </div>
@@ -220,6 +219,7 @@ function AnimatedControls({
   bg: SlideBackground
   onUpdate: (bg: SlideBackground) => void
 }) {
+  const { t } = useTranslation("slides")
   const anim = bg.animated ?? DEFAULT_ANIMATED_BACKGROUND
 
   // Merge a patch onto the animated spec and write the whole background back.
@@ -230,7 +230,7 @@ function AnimatedControls({
     <div className="flex flex-col gap-3">
       {/* Style */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">Style</label>
+        <label className="text-[0.6875rem] text-muted-foreground">{t("background.style")}</label>
         <Select
           value={anim.preset}
           onValueChange={(v) =>
@@ -242,13 +242,13 @@ function AnimatedControls({
           </SelectTrigger>
           <SelectContent>
             {(
-              Object.entries(ANIMATED_PRESET_LABELS) as [
-                AnimatedBackgroundPreset,
-                string,
-              ][]
-            ).map(([value, label]) => (
+              [
+                "aurora", "bokeh", "embers", "starfield", "snow", "godrays",
+                "gradient-drift", "confetti", "plasma",
+              ] as AnimatedBackgroundPreset[]
+            ).map((value) => (
               <SelectItem key={value} value={value} className="text-xs">
-                {label}
+                {t(`background.presets.${value}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -257,7 +257,7 @@ function AnimatedControls({
 
       {/* Palette */}
       <div className="flex flex-col gap-1">
-        <label className="text-[0.6875rem] text-muted-foreground">Colors</label>
+        <label className="text-[0.6875rem] text-muted-foreground">{t("background.colors")}</label>
         <div className="flex flex-wrap items-center gap-1.5">
           {anim.palette.map((color, i) => (
             <div key={i} className="group relative">
@@ -269,12 +269,12 @@ function AnimatedControls({
                   setAnim({ palette: next })
                 }}
                 className="size-7"
-                title={`Color ${i + 1}`}
+                title={t("background.colorNumber", { number: i + 1 })}
               />
               {anim.palette.length > 1 && (
                 <button
                   type="button"
-                  aria-label={`Remove color ${i + 1}`}
+                  aria-label={t("background.removeColor", { number: i + 1 })}
                   onClick={() =>
                     setAnim({
                       palette: anim.palette.filter((_, j) => j !== i),
@@ -292,7 +292,7 @@ function AnimatedControls({
               variant="outline"
               size="icon-sm"
               className="size-7"
-              aria-label="Add color"
+              aria-label={t("background.addColor")}
               onClick={() => setAnim({ palette: [...anim.palette, "#ffffff"] })}
             >
               <PlusIcon className="size-3" />
@@ -305,7 +305,7 @@ function AnimatedControls({
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <label className="text-[0.6875rem] text-muted-foreground">
-            Speed
+            {t("properties.speed")}
           </label>
           <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
             {anim.speed.toFixed(2)}×
@@ -324,7 +324,7 @@ function AnimatedControls({
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <label className="text-[0.6875rem] text-muted-foreground">
-            Intensity
+            {t("background.intensity")}
           </label>
           <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
             {Math.round(anim.intensity * 100)}%
@@ -349,6 +349,7 @@ function ImageControls({
   bg: SlideBackground
   onUpdate: (bg: SlideBackground) => void
 }) {
+  const { t } = useTranslation("slides")
   const [pickerOpen, setPickerOpen] = useState(false)
   const hasImage = !!bg.imageUrl
 
@@ -376,7 +377,7 @@ function ImageControls({
               onUpdate({ ...bg, imageUrl: "", mediaAssetId: undefined })
             }
             className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white/80 transition-colors hover:bg-black/80"
-            title="Remove image"
+            title={t("background.removeImage")}
           >
             <XIcon className="size-3" />
           </button>
@@ -390,7 +391,7 @@ function ImageControls({
         onClick={() => setPickerOpen(true)}
       >
         <ImageIcon className="mr-1.5 size-3" />
-        {hasImage ? "Change Image" : "Choose Image"}
+        {hasImage ? t("background.changeImage") : t("imageProperties.choose")}
       </Button>
 
       <MediaPickerDialog
@@ -407,7 +408,7 @@ function ImageControls({
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-[0.6875rem] text-muted-foreground">
-                Brightness
+                {t("background.brightness")}
               </label>
               <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
                 {Math.round((bg.brightness ?? 1) * 100)}%
@@ -426,7 +427,7 @@ function ImageControls({
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-[0.6875rem] text-muted-foreground">
-                Blur
+                {t("properties.blur")}
               </label>
               <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
                 {bg.blur ?? 0}px
@@ -457,7 +458,7 @@ function ImageControls({
                 }
                 className="size-3.5 rounded border-border accent-primary"
               />
-              Color Overlay
+              {t("background.colorOverlay")}
             </label>
             {bg.tint &&
               (() => {
@@ -491,7 +492,7 @@ function ImageControls({
                     </div>
                     <div className="flex items-center justify-between">
                       <label className="text-[0.6875rem] text-muted-foreground">
-                        Opacity
+                        {t("videoProperties.opacity")}
                       </label>
                       <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
                         {tintOpacity}%
@@ -523,6 +524,7 @@ function VideoControls({
   bg: SlideBackground
   onUpdate: (bg: SlideBackground) => void
 }) {
+  const { t } = useTranslation("slides")
   const [pickerOpen, setPickerOpen] = useState(false)
   const hasVideo = !!bg.videoUrl
 
@@ -554,7 +556,7 @@ function VideoControls({
               onUpdate({ ...bg, videoUrl: "", mediaAssetId: undefined })
             }
             className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white/80 transition-colors hover:bg-black/80"
-            title="Remove video"
+            title={t("background.removeVideo")}
           >
             <XIcon className="size-3" />
           </button>
@@ -568,7 +570,7 @@ function VideoControls({
         onClick={() => setPickerOpen(true)}
       >
         <FilmIcon className="mr-1.5 size-3" />
-        {hasVideo ? "Change Video" : "Choose Video"}
+        {hasVideo ? t("background.changeVideo") : t("videoProperties.choose")}
       </Button>
 
       <MediaPickerDialog
@@ -584,7 +586,7 @@ function VideoControls({
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-[0.6875rem] text-muted-foreground">
-                Brightness
+                {t("background.brightness")}
               </label>
               <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
                 {Math.round((bg.brightness ?? 1) * 100)}%
@@ -615,7 +617,7 @@ function VideoControls({
                 }
                 className="size-3.5 rounded border-border accent-primary"
               />
-              Color Overlay
+              {t("background.colorOverlay")}
             </label>
             {bg.tint &&
               (() => {
@@ -649,7 +651,7 @@ function VideoControls({
                     </div>
                     <div className="flex items-center justify-between">
                       <label className="text-[0.6875rem] text-muted-foreground">
-                        Opacity
+                        {t("videoProperties.opacity")}
                       </label>
                       <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
                         {tintOpacity}%

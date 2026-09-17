@@ -31,7 +31,11 @@ function grantScheduleOutputFeatures() {
     entitlement: {
       tier: "pro",
       features: ["full_slides", "media_images", "media_video_audio"],
-      limits: { maxDevices: -1, maxTranslations: -1, maxTranscriptionMinutes: -1 },
+      limits: {
+        maxDevices: -1,
+        maxTranslations: -1,
+        maxTranscriptionMinutes: -1,
+      },
       trialEnd: null,
     },
   })
@@ -448,6 +452,135 @@ describe("schedule store song slide navigation", () => {
     store.nextItem()
     expect(useScheduleStore.getState().activeSlideIndex).toBe(1)
     expect(useScheduleStore.getState().activeItemIndex).toBe(0)
+  })
+})
+
+describe("schedule store stepSlideByVoice", () => {
+  let scheduleId: string
+  let songId: string
+
+  // Same 3-slide song deck as the navigation suite above.
+  function seedSong() {
+    const base = createDefaultSong("Amazing Grace")
+    const verse = {
+      id: "v1",
+      type: "verse" as const,
+      label: "Verse 1",
+      lyrics: "l1\nl2\nl3\nl4\nl5\nl6",
+    }
+    const chorus = {
+      id: "c1",
+      type: "chorus" as const,
+      label: "Chorus",
+      lyrics: "c1\nc2",
+    }
+    const song = {
+      ...base,
+      sections: [verse, chorus],
+      arrangements: [
+        {
+          id: "arr1",
+          name: "Default",
+          sectionIds: [verse.id, chorus.id],
+          isDefault: true,
+        },
+      ],
+      slideOptions: {
+        maxLinesPerSlide: 4,
+        breakOnBlankLines: true,
+        includeTitleSlide: false,
+        includeBlankEndSlide: false,
+      },
+    }
+    useSongStore.setState({ songs: [song] })
+    return song.id
+  }
+
+  beforeEach(() => {
+    grantScheduleOutputFeatures()
+    useSettingsStore.setState({ preventDuplicateScheduleItems: false })
+    useScheduleStore.setState({
+      schedules: [],
+      highlightedId: null,
+      activeItemIndex: null,
+      activeSlideIndex: null,
+      selectedItemId: null,
+      activeSongDeck: null,
+    })
+    songId = seedSong()
+    scheduleId = useScheduleStore.getState().createSchedule("Sunday")
+    useScheduleStore.getState().setActiveSchedule(scheduleId)
+  })
+
+  it("steps the active sub-slide forward and honors direction", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    await store.goToItem(0)
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(0)
+
+    await store.stepSlideByVoice("next", 1, false)
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(1)
+    expect(useScheduleStore.getState().activeItemIndex).toBe(0)
+
+    await store.stepSlideByVoice("previous", 1, false)
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(0)
+  })
+
+  it("steps count times in one call", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    await store.goToItem(0)
+
+    await store.stepSlideByVoice("next", 2, false)
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(2)
+  })
+
+  it("stages into preview without going live when goLive is false", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    await store.goToItem(0)
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: null,
+      previewPending: false,
+    })
+
+    await store.stepSlideByVoice("next", 1, false)
+
+    // Staged for the operator to take, audience untouched.
+    expect(useBroadcastStore.getState().previewSlide).not.toBeNull()
+    expect(useBroadcastStore.getState().liveSlide).toBeNull()
+    expect(useBroadcastStore.getState().previewPending).toBe(true)
+  })
+
+  it("takes the stepped slide to the audience when goLive is true", async () => {
+    const store = useScheduleStore.getState()
+    store.addItem(scheduleId, song({ songId }))
+    await store.goToItem(0)
+    useBroadcastStore.setState({
+      isLive: true,
+      liveSlide: null,
+      previewSlide: null,
+      previewPending: false,
+    })
+
+    await store.stepSlideByVoice("next", 1, true)
+
+    // The newly active sub-slide is live, and the preview has been committed.
+    expect(useScheduleStore.getState().activeSlideIndex).toBe(1)
+    expect(useBroadcastStore.getState().previewPending).toBe(false)
+    const deck = useScheduleStore.getState().activeSongDeck
+    expect(useBroadcastStore.getState().liveSlide?.id).toBe(
+      deck?.deck.slides[1].id
+    )
+  })
+
+  it("is a no-op with no active schedule", async () => {
+    useScheduleStore.setState({ activeScheduleId: null })
+    // Must not throw when nothing is active.
+    await useScheduleStore.getState().stepSlideByVoice("next", 1, true)
+    expect(useScheduleStore.getState().activeItemIndex).toBeNull()
   })
 })
 

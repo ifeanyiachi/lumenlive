@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   TrashIcon,
@@ -42,6 +43,7 @@ export function PropsManager({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation("props")
   const props = useBroadcastStore((s) => s.props)
   const mediaLayer = useBroadcastStore((s) => s.mediaLayer)
   const [selection, setSelection] = useState<SidebarSelection>(null)
@@ -92,7 +94,7 @@ export function PropsManager({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid-rows-[auto_1fr] overflow-hidden sm:max-h-[90vh] sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Props & Layers</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
 
         <div
@@ -105,7 +107,7 @@ export function PropsManager({
             <div className="border-b border-border">
               <div className="flex items-center justify-between px-2 py-1.5">
                 <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                  Media Layer
+                  {t("mediaLayer")}
                 </span>
               </div>
               <div className="px-1 pb-1">
@@ -128,7 +130,7 @@ export function PropsManager({
                           e.stopPropagation()
                           useBroadcastStore.getState().toggleMediaLayer()
                         }}
-                        title={mediaLayer.active ? "Hide" : "Show"}
+                        title={mediaLayer.active ? t("hide") : t("show")}
                       >
                         {mediaLayer.active ? (
                           <EyeIcon className="size-2.5 text-blue-500" />
@@ -147,7 +149,7 @@ export function PropsManager({
                     </>
                   ) : (
                     <span className="flex-1 truncate italic opacity-50">
-                      None set
+                      {t("noneSet")}
                     </span>
                   )}
                 </div>
@@ -157,14 +159,14 @@ export function PropsManager({
             {/* Props section */}
             <div className="flex items-center justify-between border-b border-border px-2 py-1.5">
               <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-                Props
+                {t("props")}
               </span>
               <div className="flex items-center gap-0.5">
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => handleCreate("text")}
-                  title="Add text prop"
+                  title={t("addTextProp")}
                 >
                   <TypeIcon className="size-3" />
                 </Button>
@@ -172,7 +174,7 @@ export function PropsManager({
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => handleCreate("marquee")}
-                  title="Add scrolling marquee"
+                  title={t("addMarquee")}
                 >
                   <ScrollTextIcon className="size-3" />
                 </Button>
@@ -199,7 +201,7 @@ export function PropsManager({
                         e.stopPropagation()
                         useBroadcastStore.getState().toggleProp(p.id)
                       }}
-                      title={p.active ? "Hide" : "Show"}
+                      title={p.active ? t("hide") : t("show")}
                     >
                       {p.active ? (
                         <EyeIcon className="size-2.5 text-green-500" />
@@ -219,7 +221,7 @@ export function PropsManager({
                 ))}
                 {props.length === 0 && (
                   <p className="px-2 py-4 text-center text-[0.625rem] text-muted-foreground">
-                    No props yet. Add a text or image overlay.
+                    {t("noProps")}
                   </p>
                 )}
               </div>
@@ -235,7 +237,7 @@ export function PropsManager({
             ) : (
               <div className="flex flex-1 items-center justify-center">
                 <p className="text-xs text-muted-foreground">
-                  Select a prop or layer to edit
+                  {t("selectToEdit")}
                 </p>
               </div>
             )}
@@ -247,6 +249,7 @@ export function PropsManager({
 }
 
 function MediaLayerEditor() {
+  const { t } = useTranslation("props")
   const mediaLayer = useBroadcastStore((s) => s.mediaLayer)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerType, setPickerType] = useState<"image" | "video">("image")
@@ -275,15 +278,14 @@ function MediaLayerEditor() {
 
   return (
     <>
-      <FieldGroup label="Background Media Layer">
+      <FieldGroup label={t("backgroundMediaLayer")}>
         <p className="text-[0.625rem] text-muted-foreground">
-          Persistent background that plays behind all slide and verse content.
-          Set your verse theme or slide background to transparent to see it.
+          {t("backgroundMediaDescription")}
         </p>
       </FieldGroup>
 
       {/* Source selection */}
-      <FieldGroup label="Source">
+      <FieldGroup label={t("source")}>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -295,7 +297,7 @@ function MediaLayerEditor() {
             }}
           >
             <ImageIcon className="mr-1.5 size-3" />
-            Image from Library
+            {t("imageFromLibrary")}
           </Button>
           <Button
             variant="outline"
@@ -307,7 +309,7 @@ function MediaLayerEditor() {
             }}
           >
             <FilmIcon className="mr-1.5 size-3" />
-            Video from Library
+            {t("videoFromLibrary")}
           </Button>
           <Button
             variant="outline"
@@ -316,7 +318,7 @@ function MediaLayerEditor() {
             onClick={() => void handlePickFromDevice("image")}
           >
             <ImageIcon className="mr-1.5 size-3" />
-            Image from Device
+            {t("imageFromDevice")}
           </Button>
           <Button
             variant="outline"
@@ -325,7 +327,7 @@ function MediaLayerEditor() {
             onClick={() => void handlePickFromDevice("video")}
           >
             <FilmIcon className="mr-1.5 size-3" />
-            Video from Device
+            {t("videoFromDevice")}
           </Button>
         </div>
       </FieldGroup>
@@ -356,7 +358,7 @@ function MediaLayerEditor() {
       <Separator />
 
       {/* Preview */}
-      <FieldGroup label="Preview">
+      <FieldGroup label={t("preview")}>
         <div className="relative aspect-video w-full overflow-hidden rounded-md border border-border bg-black">
           {mediaLayer && previewSrc ? (
             mediaLayer.mediaType === "video" ? (
@@ -379,7 +381,7 @@ function MediaLayerEditor() {
           ) : (
             <div className="flex size-full flex-col items-center justify-center gap-2 text-muted-foreground/40">
               <ImageIcon className="size-8" />
-              <span className="text-[0.625rem]">No media layer set</span>
+              <span className="text-[0.625rem]">{t("noMediaLayer")}</span>
             </div>
           )}
         </div>
@@ -394,7 +396,7 @@ function MediaLayerEditor() {
             className="h-7 flex-1 text-xs"
             onClick={() => useBroadcastStore.getState().toggleMediaLayer()}
           >
-            {mediaLayer.active ? "On Air" : "Show"}
+            {mediaLayer.active ? t("onAir") : t("show")}
           </Button>
           <Button
             variant="destructive"
@@ -403,7 +405,7 @@ function MediaLayerEditor() {
             onClick={() => useBroadcastStore.getState().setMediaLayer(null)}
           >
             <TrashIcon className="mr-1.5 size-3" />
-            Remove
+            {t("remove")}
           </Button>
         </div>
       )}
@@ -412,12 +414,13 @@ function MediaLayerEditor() {
 }
 
 function PropEditor({ prop }: { prop: BroadcastProp }) {
+  const { t } = useTranslation("props")
   const update = (updates: Partial<BroadcastProp>) =>
     useBroadcastStore.getState().updateProp(prop.id, updates)
 
   return (
     <>
-      <FieldGroup label="Name">
+      <FieldGroup label={t("name")}>
         <Input
           className="h-7 text-xs"
           value={prop.name}
@@ -428,7 +431,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
       {/* Position & size. Values are a percentage of the output; X/Y is the
           box's top-left corner. */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-        <FieldGroup label="Left (X %)">
+        <FieldGroup label={t("left")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -438,7 +441,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
             onChange={(e) => update({ x: Number(e.target.value) })}
           />
         </FieldGroup>
-        <FieldGroup label="Top (Y %)">
+        <FieldGroup label={t("top")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -448,7 +451,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
             onChange={(e) => update({ y: Number(e.target.value) })}
           />
         </FieldGroup>
-        <FieldGroup label="Width %">
+        <FieldGroup label={t("width")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -458,7 +461,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
             onChange={(e) => update({ width: Number(e.target.value) })}
           />
         </FieldGroup>
-        <FieldGroup label="Height %">
+        <FieldGroup label={t("height")}>
           <Input
             type="number"
             className="h-7 text-xs"
@@ -474,7 +477,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
 
       {(prop.type === "text" || prop.type === "marquee") && (
         <>
-          <FieldGroup label={prop.type === "marquee" ? "Message" : "Text"}>
+          <FieldGroup label={prop.type === "marquee" ? t("message") : t("text")}>
             <Input
               className="h-7 text-xs"
               value={prop.text ?? ""}
@@ -484,7 +487,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
 
           {prop.type === "marquee" && (
             <div className="grid grid-cols-2 gap-3">
-              <FieldGroup label={`Speed (${prop.scrollSpeed ?? 120} px/s)`}>
+              <FieldGroup label={t("speed", { value: prop.scrollSpeed ?? 120 })}>
                 <Slider
                   value={[prop.scrollSpeed ?? 120]}
                   onValueChange={([v]) => update({ scrollSpeed: v })}
@@ -493,7 +496,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
                   step={10}
                 />
               </FieldGroup>
-              <FieldGroup label="Direction">
+              <FieldGroup label={t("direction")}>
                 <select
                   className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
                   value={prop.scrollDirection ?? "left"}
@@ -503,21 +506,21 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
                     })
                   }
                 >
-                  <option value="left">Right to left</option>
-                  <option value="right">Left to right</option>
+                  <option value="left">{t("rightToLeft")}</option>
+                  <option value="right">{t("leftToRight")}</option>
                 </select>
               </FieldGroup>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <FieldGroup label="Font">
+            <FieldGroup label={t("font")}>
               <FontFamilyPicker
                 value={prop.fontFamily ?? "Inter"}
                 onChange={(v) => update({ fontFamily: v })}
               />
             </FieldGroup>
-            <FieldGroup label="Size">
+            <FieldGroup label={t("size")}>
               <Input
                 type="number"
                 className="h-7 text-xs"
@@ -530,7 +533,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
           </div>
 
           {prop.type === "text" && (
-            <FieldGroup label="Alignment">
+            <FieldGroup label={t("alignment")}>
               <div className="flex gap-1">
                 {(
                   [
@@ -546,7 +549,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
                       variant={active ? "default" : "outline"}
                       size="icon-sm"
                       className="size-7"
-                      title={`Align ${value}`}
+                      title={t("align", { value })}
                       onClick={() => update({ textAlign: value })}
                     >
                       <Icon className="size-3.5" />
@@ -558,7 +561,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <FieldGroup label="Text Color">
+            <FieldGroup label={t("textColor")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   className="size-6"
@@ -572,7 +575,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
                 />
               </div>
             </FieldGroup>
-            <FieldGroup label="Background">
+            <FieldGroup label={t("background")}>
               <div className="flex items-center gap-2">
                 <ColorSwatch
                   className="size-6"
@@ -582,7 +585,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
                 <Input
                   className="h-7 flex-1 text-xs"
                   value={prop.backgroundColor ?? ""}
-                  placeholder="none"
+                  placeholder={t("none")}
                   onChange={(e) =>
                     update({ backgroundColor: e.target.value || undefined })
                   }
@@ -591,17 +594,17 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
             </FieldGroup>
           </div>
 
-          <FieldGroup label="Font Weight">
+          <FieldGroup label={t("fontWeight")}>
             <select
               className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
               value={String(prop.fontWeight ?? 600)}
               onChange={(e) => update({ fontWeight: Number(e.target.value) })}
             >
-              <option value="400">Regular</option>
-              <option value="500">Medium</option>
-              <option value="600">Semibold</option>
-              <option value="700">Bold</option>
-              <option value="800">Extra Bold</option>
+              <option value="400">{t("regular")}</option>
+              <option value="500">{t("medium")}</option>
+              <option value="600">{t("semibold")}</option>
+              <option value="700">{t("bold")}</option>
+              <option value="800">{t("extraBold")}</option>
             </select>
           </FieldGroup>
         </>
@@ -609,15 +612,15 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
 
       {prop.type === "image" && (
         <>
-          <FieldGroup label="Image URL">
+          <FieldGroup label={t("imageUrl")}>
             <Input
               className="h-7 text-xs"
               value={prop.imageUrl ?? ""}
-              placeholder="Paste image URL or file path"
+              placeholder={t("imageUrlPlaceholder")}
               onChange={(e) => update({ imageUrl: e.target.value })}
             />
           </FieldGroup>
-          <FieldGroup label="Opacity">
+          <FieldGroup label={t("opacity")}>
             <Slider
               value={[prop.opacity ?? 1]}
               onValueChange={([v]) => update({ opacity: v })}
@@ -632,7 +635,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
       <Separator />
 
       {/* Preview */}
-      <FieldGroup label="Preview">
+      <FieldGroup label={t("preview")}>
         <div
           className="relative overflow-hidden rounded-md border border-border bg-black/80"
           style={{ height: 100 }}
@@ -648,7 +651,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
           className="h-7 flex-1 text-xs"
           onClick={() => useBroadcastStore.getState().toggleProp(prop.id)}
         >
-          {prop.active ? "On Air" : "Show"}
+          {prop.active ? t("onAir") : t("show")}
         </Button>
         <Button
           variant="destructive"
@@ -657,7 +660,7 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
           onClick={() => useBroadcastStore.getState().removeProp(prop.id)}
         >
           <TrashIcon className="mr-1.5 size-3" />
-          Delete
+          {t("delete")}
         </Button>
       </div>
     </>

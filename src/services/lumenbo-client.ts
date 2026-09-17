@@ -28,6 +28,7 @@ export type LicensingErrorCode =
   | "DEVICE_LIMIT_REACHED"
   | "NOT_FOUND"
   | "VALIDATION_ERROR"
+  | "SERVICE_UNAVAILABLE"
   | "INTERNAL"
   | "NETWORK"
   | "UNKNOWN"
@@ -44,7 +45,7 @@ export class LicensingError extends Error {
     code: LicensingErrorCode,
     message: string,
     status: number,
-    details?: unknown,
+    details?: unknown
   ) {
     super(message)
     this.name = "LicensingError"
@@ -101,7 +102,10 @@ export async function v1<T>(path: string, opts: RequestOpts = {}): Promise<T> {
   const res = await raw(path, opts)
   const json = parseJson(res.body) as
     | { success: true; data: T }
-    | { success: false; error: { code: string; message: string; details?: unknown } }
+    | {
+        success: false
+        error: { code: string; message: string; details?: unknown }
+      }
     | null
 
   if (json && "success" in json && json.success === true) {
@@ -112,10 +116,14 @@ export async function v1<T>(path: string, opts: RequestOpts = {}): Promise<T> {
       json.error.code,
       json.error.message,
       res.status,
-      json.error.details,
+      json.error.details
     )
   }
-  throw new LicensingError("UNKNOWN", `Unexpected response (HTTP ${res.status})`, res.status)
+  throw new LicensingError(
+    "UNKNOWN",
+    `Unexpected response (HTTP ${res.status})`,
+    res.status
+  )
 }
 
 /** The bearer token better-auth returns on sign-in, read from `set-auth-token`. */
@@ -130,25 +138,30 @@ export interface SignInResult {
  */
 export async function signIn(
   email: string,
-  password: string,
+  password: string
 ): Promise<SignInResult> {
   const res = await raw("/api/auth/sign-in/email", {
     method: "POST",
     body: { email, password },
   })
-  const json = parseJson(res.body) as
-    | { user?: { id: string; email: string; name: string; emailVerified: boolean }; message?: string }
-    | null
+  const json = parseJson(res.body) as {
+    user?: { id: string; email: string; name: string; emailVerified: boolean }
+    message?: string
+  } | null
 
   if (res.status === 401 || res.status === 403) {
-    throw new LicensingError("UNAUTHORIZED", json?.message ?? "Invalid email or password", res.status)
+    throw new LicensingError(
+      "UNAUTHORIZED",
+      json?.message ?? "Invalid email or password",
+      res.status
+    )
   }
   const token = res.headers["set-auth-token"]
   if (res.status < 200 || res.status >= 300 || !token || !json?.user) {
     throw new LicensingError(
       "UNKNOWN",
       json?.message ?? `Sign-in failed (HTTP ${res.status})`,
-      res.status,
+      res.status
     )
   }
   return { token, user: json.user }

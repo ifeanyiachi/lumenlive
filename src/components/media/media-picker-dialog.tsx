@@ -34,6 +34,7 @@ import {
   UploadIcon,
 } from "lucide-react"
 import type { MediaAsset, MediaType } from "@/types/media"
+import { useTranslation } from "react-i18next"
 
 interface MediaPickerDialogProps {
   open: boolean
@@ -52,6 +53,7 @@ export function MediaPickerDialog({
   onSelectMultiple,
   onSelectFromDevice,
 }: MediaPickerDialogProps) {
+  const { t } = useTranslation("media")
   const assets = useMediaStore((s) => s.assets)
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -156,26 +158,26 @@ export function MediaPickerDialog({
   )
 
   const label = !mediaType
-    ? "Media"
+    ? t("picker.labels.media")
     : mediaType === "video"
-      ? "Video"
+      ? t("picker.labels.video")
       : mediaType === "audio"
-        ? "Audio"
-        : "Image"
+        ? t("picker.labels.audio")
+        : t("picker.labels.image")
   const selectedCount = selectedIds.size
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Choose {label}</DialogTitle>
+          <DialogTitle>{t("picker.choose", { label })}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
           <div className="relative">
             <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder={`Search ${label.toLowerCase()}s in media library...`}
+              placeholder={t("picker.search", { label: label.toLowerCase() })}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 pl-8 text-xs"
@@ -202,7 +204,7 @@ export function MediaPickerDialog({
                 <div className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <UploadIcon className="size-6" />
                   <span className="text-xs font-medium">
-                    Drop {label.toLowerCase()} files here
+                    {t("picker.drop", { label: label.toLowerCase() })}
                   </span>
                 </div>
               </div>
@@ -220,10 +222,10 @@ export function MediaPickerDialog({
                     <ImageIcon className="size-8 opacity-40" />
                   )}
                   <p className="text-xs">
-                    No {label.toLowerCase()}s in media library
+                    {t("picker.empty", { label: label.toLowerCase() })}
                   </p>
                   <p className="text-[0.625rem] text-muted-foreground/60">
-                    Drag files here or use &ldquo;From Device&rdquo;
+                    {t("picker.hint")}
                   </p>
                 </div>
               ) : (
@@ -254,7 +256,7 @@ export function MediaPickerDialog({
             onClick={() => void handlePickFromDevice()}
           >
             <HardDriveIcon className="mr-1.5 size-3" />
-            From Device
+            {t("picker.fromDevice")}
           </Button>
           {!isTauri && (
             <>
@@ -265,7 +267,7 @@ export function MediaPickerDialog({
                 onClick={() => fileInputRef.current?.click()}
               >
                 <UploadIcon className="mr-1.5 size-3" />
-                Upload Files
+                {t("picker.uploadFiles")}
               </Button>
               <input
                 ref={fileInputRef}
@@ -287,7 +289,7 @@ export function MediaPickerDialog({
             disabled={selectedCount === 0}
             onClick={handleConfirm}
           >
-            {selectedCount > 1 ? `Select ${selectedCount}` : "Select"}
+            {selectedCount > 1 ? t("picker.selectCount", { count: selectedCount }) : t("picker.select")}
           </Button>
         </DialogFooter>
       </DialogContent>

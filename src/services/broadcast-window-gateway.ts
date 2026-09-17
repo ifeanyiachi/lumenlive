@@ -82,9 +82,8 @@ export interface OutputDisplayDisconnected {
 export function onOutputDisplayDisconnected(
   handler: (payload: OutputDisplayDisconnected) => void
 ): Promise<UnlistenFn> {
-  return listen<OutputDisplayDisconnected>(
-    "output_display_disconnected",
-    (e) => handler(e.payload)
+  return listen<OutputDisplayDisconnected>("output_display_disconnected", (e) =>
+    handler(e.payload)
   )
 }
 

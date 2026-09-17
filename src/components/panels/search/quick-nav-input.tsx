@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import {
   getAutocompleteSuggestion,
   getTabNavigationResult,
@@ -41,6 +42,7 @@ export const QuickNavInput = memo(
     QuickNavHandle,
     { books: Book[]; translations: Translation[]; activeTranslationId: number }
   >(function QuickNavInput({ books, translations, activeTranslationId }, ref) {
+    const { t } = useTranslation("panels")
     const [quickInput, setQuickInput] = useState("")
     const [showQuickVerses, setShowQuickVerses] = useState(false)
     const [quickVersesList, setQuickVersesList] = useState<Verse[]>([])
@@ -207,7 +209,7 @@ export const QuickNavInput = memo(
               setQuickInput(e.target.value)
             }}
             onKeyDown={handleQuickKeyDown}
-            placeholder="Type: J → John 3:16"
+            placeholder={t("search.quickNavPlaceholder")}
             className={cn(
               "relative h-7 bg-background text-xs",
               quickSuggestion && quickSuggestion !== quickInput

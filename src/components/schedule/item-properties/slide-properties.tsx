@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { LayoutIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field-group"
@@ -19,6 +20,7 @@ export function SlideProperties({
   stagingMode?: boolean
   onStagedExtras?: (extras: ScheduleItem[]) => void
 }) {
+  const { t } = useTranslation("schedule")
   const presentations = usePresentationStore((s) => s.presentations)
   const selectedPresentation = presentations.find(
     (p) => p.id === item.presentationId
@@ -81,21 +83,20 @@ export function SlideProperties({
       <div className="flex items-center gap-2 rounded-md bg-purple-500/10 p-2">
         <LayoutIcon className="size-3.5 text-purple-400" />
         <span className="text-xs font-medium text-purple-400">
-          Presentation
+          {t("properties.presentation")}
         </span>
       </div>
 
-      <FieldGroup label="Presentation">
+      <FieldGroup label={t("properties.presentation")}>
         <select
           className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
           value={item.presentationId}
           onChange={(e) => handlePresentationChange(e.target.value)}
         >
-          <option value="">Select a presentation...</option>
+          <option value="">{t("properties.selectPresentation")}</option>
           {presentations.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({p.slides.length}{" "}
-              {p.slides.length === 1 ? "slide" : "slides"})
+              {p.name} ({t("properties.slidesCount", { count: p.slides.length })})
             </option>
           ))}
         </select>
@@ -104,7 +105,7 @@ export function SlideProperties({
       {stagingMode &&
         selectedPresentation &&
         selectedPresentation.slides.length > 1 && (
-          <FieldGroup label="Add slides as">
+          <FieldGroup label={t("properties.addSlidesAs")}>
             <div className="flex gap-1">
               <Button
                 variant={addMode === "individual" ? "secondary" : "outline"}
@@ -115,7 +116,7 @@ export function SlideProperties({
                 )}
                 onClick={() => setAddMode("individual")}
               >
-                Individual ({selectedPresentation.slides.length})
+                {t("properties.individual", { count: selectedPresentation.slides.length })}
               </Button>
               <Button
                 variant={addMode === "group" ? "secondary" : "outline"}
@@ -126,13 +127,13 @@ export function SlideProperties({
                 )}
                 onClick={() => setAddMode("group")}
               >
-                Group (1)
+                {t("properties.group", { count: 1 })}
               </Button>
             </div>
             <p className="text-[0.625rem] text-muted-foreground">
               {addMode === "individual"
-                ? `Each slide will be a separate schedule item (${selectedPresentation.slides.length} items)`
-                : "All slides grouped as a single schedule item"}
+                ? t("properties.individualHelp", { count: selectedPresentation.slides.length })
+                : t("properties.groupHelp")}
             </p>
           </FieldGroup>
         )}
@@ -140,7 +141,7 @@ export function SlideProperties({
       {!stagingMode &&
         selectedPresentation &&
         selectedPresentation.slides.length > 1 && (
-          <FieldGroup label="Starting Slide">
+          <FieldGroup label={t("properties.startingSlide")}>
             <Input
               type="number"
               className="h-7 text-xs"
@@ -165,7 +166,7 @@ export function SlideProperties({
 
       {presentations.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          No presentations yet. Create one from the Slides tab.
+          {t("properties.noPresentations")}
         </p>
       )}
 
@@ -178,7 +179,7 @@ export function SlideProperties({
             usePresentationStore.getState().startEditing(item.presentationId)
           }}
         >
-          Edit Presentation
+          {t("properties.editPresentation")}
         </Button>
       )}
     </>

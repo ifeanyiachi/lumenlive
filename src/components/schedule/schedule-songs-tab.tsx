@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { MusicIcon, PlayIcon, TrashIcon, SettingsIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ export function ScheduleSongsTab({
 }: {
   onEditProperties: (item: ScheduleItem) => void
 }) {
+  const { t } = useTranslation("schedule")
   const schedules = useScheduleStore((s) => s.schedules)
   const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
   const activeItemIndex = useScheduleStore((s) => s.activeItemIndex)
@@ -70,7 +72,7 @@ export function ScheduleSongsTab({
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5">
         <div className="flex items-center gap-2">
           <span className="text-[0.625rem] text-muted-foreground">
-            Songs in this schedule
+            {t("songs.inSchedule")}
           </span>
           <Badge variant="outline">{songRows.length}</Badge>
         </div>
@@ -79,7 +81,7 @@ export function ScheduleSongsTab({
             onClick={() => setConfirmClear(true)}
             className="text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
           >
-            Clear all
+            {t("actions.clearAll")}
           </button>
         )}
       </div>
@@ -96,8 +98,8 @@ export function ScheduleSongsTab({
             {songRows.length === 0 ? (
               <p className="p-4 text-center text-xs text-muted-foreground">
                 {activeSchedule
-                  ? "No songs yet — drag a song here from the Songs view, or double-click one to add it."
-                  : "Select or create a schedule first."}
+                  ? t("songs.empty")
+                  : t("songs.selectSchedule")}
               </p>
             ) : (
               songRows.map(({ item, index }) => (
@@ -119,7 +121,7 @@ export function ScheduleSongsTab({
                     onRemove={() => {
                       if (!activeScheduleId) return
                       store.removeItem(activeScheduleId, item.id)
-                      toast("Item removed")
+                      toast(t("toast.itemRemoved"))
                     }}
                   />
                 </div>
@@ -132,15 +134,13 @@ export function ScheduleSongsTab({
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title="Clear all songs"
-        description={`Remove all ${songRows.length} song${
-          songRows.length === 1 ? "" : "s"
-        } from this schedule? Other items are left in place.`}
-        confirmLabel="Clear all"
+        title={t("confirm.clearSongsTitle")}
+        description={t("confirm.clearSongsDescription", { count: songRows.length })}
+        confirmLabel={t("actions.clearAll")}
         onConfirm={() => {
           if (!activeScheduleId) return
           store.clearItems(activeScheduleId, (i) => i.type === "song")
-          toast("Songs cleared")
+          toast(t("toast.songsCleared"))
         }}
       />
     </div>
@@ -171,6 +171,7 @@ function SongScheduleRow({
   onEdit: () => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation("schedule")
   const title = song?.title ?? item.cachedTitle ?? item.label
   const authors = song?.authors.join(", ") ?? ""
   const sectionCount = song?.sections.length
@@ -200,7 +201,7 @@ function SongScheduleRow({
           {sectionCount !== undefined && (
             <>
               {" · "}
-              {sectionCount} {sectionCount === 1 ? "section" : "sections"}
+              {t("songs.section", { count: sectionCount })}
             </>
           )}
         </span>
@@ -210,7 +211,7 @@ function SongScheduleRow({
         <Button
           variant="ghost"
           size="icon-xs"
-          title="Present"
+          title={t("actions.present")}
           onClick={(e) => {
             e.stopPropagation()
             onPresent()
@@ -221,7 +222,7 @@ function SongScheduleRow({
         <Button
           variant="ghost"
           size="icon-xs"
-          title="Remove"
+          title={t("actions.remove")}
           onClick={(e) => {
             e.stopPropagation()
             onRemove()
@@ -232,7 +233,7 @@ function SongScheduleRow({
         <Button
           variant="ghost"
           size="icon-xs"
-          title="Edit properties"
+          title={t("actions.editProperties")}
           onClick={(e) => {
             e.stopPropagation()
             onEdit()

@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 
 /**
  * The He / Gr interlinear toggle shown on a verse row (only when the lexicon is
@@ -24,6 +25,7 @@ export function LexiconToggle({
   onToggle: () => void
   className?: string
 }) {
+  const { t } = useTranslation("panels")
   const isHebrew = bookNumber <= 39
   return (
     <TooltipProvider>
@@ -48,7 +50,7 @@ export function LexiconToggle({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">
-          {isHebrew ? "Hebrew interlinear" : "Greek interlinear"}
+          {isHebrew ? t("search.hebrewInterlinear") : t("search.greekInterlinear")}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

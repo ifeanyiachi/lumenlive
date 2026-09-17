@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { requireFeature } from "@/components/entitlements/require-feature"
+import { useTranslation } from "react-i18next"
 
 import { useRemoteControl } from "../hooks/use-remote-control"
 
 function StatusDot({ running }: { running: boolean }) {
+  const { t } = useTranslation("settings")
   return (
     <div className="flex items-center gap-1.5">
       <div
@@ -14,13 +16,14 @@ function StatusDot({ running }: { running: boolean }) {
         }`}
       />
       <span className="text-[0.625rem] text-muted-foreground">
-        {running ? "Listening" : "Stopped"}
+        {running ? t("remote.listening") : t("remote.stopped")}
       </span>
     </div>
   )
 }
 
 export function RemoteControlSection() {
+  const { t } = useTranslation("settings")
   const {
     oscPort,
     setOscPort,
@@ -41,11 +44,13 @@ export function RemoteControlSection() {
       {/* OSC */}
       <div className="flex flex-col gap-3">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          OSC (Open Sound Control)
+          {t("remote.osc")}
         </label>
         <div className="flex items-center gap-3">
           <div className="flex flex-1 items-center gap-2">
-            <label className="text-xs text-muted-foreground">Port</label>
+            <label className="text-xs text-muted-foreground">
+              {t("remote.port")}
+            </label>
             <Input
               type="number"
               value={oscPort}
@@ -59,35 +64,38 @@ export function RemoteControlSection() {
             size="sm"
             variant={oscStatus.running ? "destructive" : "default"}
             onClick={() => {
-              if (oscStatus.running || requireFeature("remote_control", "Remote control"))
+              if (
+                oscStatus.running ||
+                requireFeature("remote_control", t("remote.featureName"))
+              )
                 handleOscToggle()
             }}
             className="text-xs"
           >
-            {oscStatus.running ? "Stop" : "Start"}
+            {oscStatus.running ? t("remote.stop") : t("remote.start")}
           </Button>
         </div>
         {oscError && <p className="text-[0.625rem] text-red-500">{oscError}</p>}
         {oscStatus.running && oscStatus.port && (
           <p className="text-[0.625rem] text-muted-foreground">
-            Listening on UDP port {oscStatus.port}
+            {t("remote.oscListening", { port: oscStatus.port })}
           </p>
         )}
         <p className="text-[0.625rem] text-muted-foreground">
-          Receives commands from hardware controllers (Stream Deck, TouchOSC,
-          Companion) via OSC over UDP. OSC has no access code (the protocol has
-          no auth) — only enable it on networks you trust.
+          {t("remote.oscDescription")}
         </p>
       </div>
 
       {/* HTTP API */}
       <div className="flex flex-col gap-3">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          HTTP API
+          {t("remote.httpApi")}
         </label>
         <div className="flex items-center gap-3">
           <div className="flex flex-1 items-center gap-2">
-            <label className="text-xs text-muted-foreground">Port</label>
+            <label className="text-xs text-muted-foreground">
+              {t("remote.port")}
+            </label>
             <Input
               type="number"
               value={httpPort}
@@ -101,12 +109,15 @@ export function RemoteControlSection() {
             size="sm"
             variant={httpStatus.running ? "destructive" : "default"}
             onClick={() => {
-              if (httpStatus.running || requireFeature("remote_control", "Remote control"))
+              if (
+                httpStatus.running ||
+                requireFeature("remote_control", t("remote.featureName"))
+              )
                 handleHttpToggle()
             }}
             className="text-xs"
           >
-            {httpStatus.running ? "Stop" : "Start"}
+            {httpStatus.running ? t("remote.stop") : t("remote.start")}
           </Button>
         </div>
         {httpError && (
@@ -114,44 +125,40 @@ export function RemoteControlSection() {
         )}
         {httpStatus.running && httpStatus.port && (
           <p className="text-[0.625rem] text-muted-foreground">
-            Serving on http://localhost:{httpStatus.port}/api/v1/
+            {t("remote.httpServing", { port: httpStatus.port })}
           </p>
         )}
         {httpStatus.running && httpStatus.token && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5">
             <p className="mb-1 text-[0.625rem] font-medium text-amber-600 dark:text-amber-400">
-              Access code (required)
+              {t("remote.accessCode")}
             </p>
             <code className="block font-mono text-xs break-all text-foreground select-all">
               {httpStatus.token}
             </code>
             <p className="mt-1.5 text-[0.5625rem] leading-relaxed text-muted-foreground">
-              Enter this on your remote device — send it as an{" "}
+              {t("remote.accessCodeIntro")}{" "}
               <span className="font-mono">
                 Authorization: Bearer &lt;code&gt;
               </span>{" "}
-              or <span className="font-mono">X-Auth-Token</span> header. Without
-              it, control requests are rejected. The code changes each time you
-              restart the server.
+              {t("remote.accessCodeMiddle")}{" "}
+              <span className="font-mono">X-Auth-Token</span>{" "}
+              {t("remote.accessCodeOutro")}
             </p>
           </div>
         )}
         <p className="text-[0.625rem] text-muted-foreground">
-          REST API for status queries and control commands. Use with custom
-          dashboards, automation scripts, or HTTP-capable controllers. Requests
-          are protected by the access code above.
+          {t("remote.httpDescription")}
         </p>
       </div>
 
       {/* Firewall guidance */}
       <div className="rounded-lg border border-border bg-muted/30 p-3">
         <p className="mb-1 text-[0.625rem] font-medium text-muted-foreground">
-          Firewall Note
+          {t("remote.firewall.title")}
         </p>
         <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-          Your OS may block incoming connections. On macOS, allow LumenLive
-          through System Settings → Network → Firewall. On Windows, allow
-          through Windows Security → Firewall → Allow an app.
+          {t("remote.firewall.description")}
         </p>
       </div>
 
@@ -159,7 +166,7 @@ export function RemoteControlSection() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-            Command Log
+            {t("remote.commandLog")}
           </label>
           {commandLog.length > 0 && (
             <Button
@@ -168,14 +175,14 @@ export function RemoteControlSection() {
               className="h-5 px-1.5 text-[0.5rem]"
               onClick={clearCommandLog}
             >
-              Clear
+              {t("remote.clear")}
             </Button>
           )}
         </div>
         <div className="h-32 overflow-y-auto rounded-lg border border-border bg-background p-2">
           {commandLog.length === 0 ? (
             <p className="mt-8 text-center text-[0.625rem] text-muted-foreground">
-              No commands received yet
+              {t("remote.noCommands")}
             </p>
           ) : (
             <div className="flex flex-col gap-0.5">

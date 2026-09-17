@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import {
   ImageIcon,
@@ -55,6 +56,7 @@ export function MediaProperties({
   onStagedExtras?: (extras: ScheduleItem[]) => void
   onStagedMediaImports?: (assetIds: string[]) => void
 }) {
+  const { t } = useTranslation("schedule")
   const assets = useMediaStore((s) => s.assets)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
@@ -142,10 +144,10 @@ export function MediaProperties({
           )
         }
       } else if (!stagingMode) {
-        toast.success("Media file added")
+        toast.success(t("toast.mediaFileAdded"))
       }
     },
-    [item.id, scheduleId, assignAsset, stagingMode, onStagedExtras]
+    [item.id, scheduleId, assignAsset, stagingMode, onStagedExtras, t]
   )
 
   const importFiles = useCallback(
@@ -381,7 +383,7 @@ export function MediaProperties({
       {/* Drop zone for files from computer */}
       {showSources && (
         <>
-          <FieldGroup label="Upload from Computer">
+          <FieldGroup label={t("media.uploadFromComputer")}>
             <div
               ref={dropZoneRef}
               className={cn(
@@ -418,7 +420,7 @@ export function MediaProperties({
                       : "text-muted-foreground"
                   )}
                 >
-                  {fileDragOver ? "Drop files here" : "Drag & drop files here"}
+                  {fileDragOver ? t("media.dropFilesHere") : t("media.dragDropFilesHere")}
                 </p>
                 <p className="text-[0.625rem] text-muted-foreground/60">
                   or click to browse
@@ -428,7 +430,7 @@ export function MediaProperties({
           </FieldGroup>
 
           {/* Choose from library button */}
-          <FieldGroup label="Media Library">
+          <FieldGroup label={t("media.library")}>
             <Button
               variant="outline"
               size="sm"
@@ -467,12 +469,12 @@ export function MediaProperties({
         </>
       )}
 
-      <FieldGroup label="Auto-advance (ms)">
+      <FieldGroup label={t("media.autoAdvance")}>
         <Input
           type="number"
           className="h-7 text-xs"
           value={item.duration ?? ""}
-          placeholder="Manual (no auto-advance)"
+          placeholder={t("media.manualAdvance")}
           min={0}
           step={1000}
           onChange={(e) => {

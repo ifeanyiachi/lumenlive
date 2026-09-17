@@ -14,38 +14,39 @@ import {
   type BackupKind,
 } from "@/lib/backup/io"
 import { BackupParseError } from "@/lib/backup"
-
-/** Human labels for each selectable content kind, in display order. */
-const KIND_LABELS: Record<BackupKind, string> = {
-  themes: "Themes",
-  stageLayouts: "Stage layouts",
-  presentations: "Presentations",
-  songs: "Songs",
-  schedules: "Schedules",
-  mediaAssets: "Media library",
-  countdownTimers: "Timers",
-  alertTemplates: "Alerts",
-}
+import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 
 /** Build a "3 themes, 12 songs, 40 media files" style summary from counts. */
-function summarize(c: BackupCounts): string {
+function summarize(c: BackupCounts, t: TFunction<"settings">): string {
   const parts: string[] = []
-  const add = (n: number, one: string, many = `${one}s`) => {
-    if (n > 0) parts.push(`${n} ${n === 1 ? one : many}`)
+  const add = (n: number, key: string) => {
+    if (n > 0) parts.push(t(`backup.summary.${key}`, { count: n }))
   }
-  add(c.themes, "theme")
-  add(c.stageLayouts, "stage layout")
-  add(c.presentations, "presentation")
-  add(c.songs, "song")
-  add(c.schedules, "schedule")
-  add(c.mediaAssets, "media file")
-  add(c.countdownTimers, "timer")
-  add(c.alertTemplates, "alert")
-  add(c.webBookmarks, "bookmark")
+  add(c.themes, "themes")
+  add(c.stageLayouts, "stageLayouts")
+  add(c.presentations, "presentations")
+  add(c.songs, "songs")
+  add(c.schedules, "schedules")
+  add(c.mediaAssets, "mediaAssets")
+  add(c.countdownTimers, "countdownTimers")
+  add(c.alertTemplates, "alertTemplates")
+  add(c.webBookmarks, "webBookmarks")
   return parts.join(", ")
 }
 
 export function BackupSection() {
+  const { t } = useTranslation("settings")
+  const kindLabels: Record<BackupKind, string> = {
+    themes: t("backup.kinds.themes"),
+    stageLayouts: t("backup.kinds.stageLayouts"),
+    presentations: t("backup.kinds.presentations"),
+    songs: t("backup.kinds.songs"),
+    schedules: t("backup.kinds.schedules"),
+    mediaAssets: t("backup.kinds.mediaAssets"),
+    countdownTimers: t("backup.kinds.countdownTimers"),
+    alertTemplates: t("backup.kinds.alertTemplates"),
+  }
   const [busy, setBusy] = useState<"export" | "restore" | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   // What to include in an export — everything by default.
@@ -72,18 +73,20 @@ export function BackupSection() {
     try {
       const { saved, missingMedia, counts } = await exportBackup(selection)
       if (!saved) return
-      const summary = summarize(counts)
+      const summary = summarize(counts, t)
       if (missingMedia > 0) {
         toast.warning(
-          `Backup saved (${summary}) · ${missingMedia} media file${
-            missingMedia > 1 ? "s were" : " was"
-          } missing and couldn't be packaged`
+          t("backup.savedWithMissingMedia", { summary, count: missingMedia })
         )
       } else {
-        toast.success(`Backup saved${summary ? ` · ${summary}` : ""}`)
+        toast.success(
+          summary
+            ? t("backup.savedWithSummary", { summary })
+            : t("backup.saved")
+        )
       }
     } catch {
-      toast.error("Couldn't create that backup.")
+      toast.error(t("backup.createFailed"))
     } finally {
       setBusy(null)
     }
@@ -94,14 +97,18 @@ export function BackupSection() {
     try {
       const result = await restoreBackup()
       if (result) {
-        const summary = summarize(result.counts)
-        toast.success(`Backup restored${summary ? ` · ${summary}` : ""}`)
+        const summary = summarize(result.counts, t)
+        toast.success(
+          summary
+            ? t("backup.restoredWithSummary", { summary })
+            : t("backup.restored")
+        )
       }
     } catch (err) {
       toast.error(
         err instanceof BackupParseError
           ? err.message
-          : "Couldn't restore that backup."
+          : t("backup.restoreFailed")
       )
     } finally {
       setBusy(null)
@@ -112,26 +119,22 @@ export function BackupSection() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Backup &amp; Restore
+          {t("backup.heading")}
         </label>
 
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-foreground">
-              Move your content to a new PC
+              {t("backup.moveTitle")}
             </span>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Save your content — custom themes, stage layouts, presentations,
-              songs, schedules, timers, alerts and the media library (images and
-              videos included) — into a single backup file, then restore it on
-              another computer. Pick everything, or just the kinds you need.
-              Restore accepts any backup and merges in whatever it holds.
+              {t("backup.moveDescription")}
             </p>
           </div>
           {/* What to include — pick everything, or just the kinds you need. */}
           <div className="flex flex-col gap-px overflow-hidden rounded-md border">
             <SelectRow
-              label="All content"
+              label={t("backup.allContent")}
               emphasized
               checked={allSelected}
               onCheckedChange={toggleAll}
@@ -139,7 +142,7 @@ export function BackupSection() {
             {BACKUP_KINDS.map((kind) => (
               <SelectRow
                 key={kind}
-                label={KIND_LABELS[kind]}
+                label={kindLabels[kind]}
                 checked={selection.has(kind)}
                 onCheckedChange={(on) => toggleKind(kind, on)}
               />
@@ -153,7 +156,7 @@ export function BackupSection() {
               disabled={busy !== null || noneSelected}
             >
               <UploadIcon className="size-4" />
-              {busy === "export" ? "Saving…" : "Export backup"}
+              {busy === "export" ? t("backup.saving") : t("backup.export")}
             </Button>
             <Button
               variant="outline"
@@ -161,26 +164,26 @@ export function BackupSection() {
               disabled={busy !== null}
             >
               <DownloadIcon className="size-4" />
-              {busy === "restore" ? "Restoring…" : "Restore backup"}
+              {busy === "restore" ? t("backup.restoring") : t("backup.restore")}
             </Button>
           </div>
         </div>
 
         <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            What travels — and what doesn't
+            {t("backup.travelTitle")}
           </span>
           <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Included:</span> all
-            your custom content and the media files it uses, so backgrounds and
-            videos still play on the new machine.
+            <span className="font-medium text-foreground">
+              {t("backup.included")}
+            </span>{" "}
+            {t("backup.includedDescription")}
           </p>
           <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Not included:</span>{" "}
-            app settings and API keys (re-enter those on the new PC), and Bible
-            translations (re-download them from the Bible settings). Restoring
-            adds to — and updates — your current library; it never deletes what's
-            already there.
+            <span className="font-medium text-foreground">
+              {t("backup.notIncluded")}
+            </span>{" "}
+            {t("backup.notIncludedDescription")}
           </p>
         </div>
       </div>
@@ -188,9 +191,9 @@ export function BackupSection() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Restore from a backup?"
-        description="This merges the backup's content into your library, updating any items that share an id. Your existing content is kept. Continue?"
-        confirmLabel="Choose file…"
+        title={t("backup.confirmTitle")}
+        description={t("backup.confirmDescription")}
+        confirmLabel={t("backup.chooseFile")}
         destructive={false}
         onConfirm={handleRestore}
       />

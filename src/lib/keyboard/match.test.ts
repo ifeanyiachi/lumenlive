@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { matchesChord, matchesAny, formatChord, type KeyEventLike } from "./match"
+import {
+  matchesChord,
+  matchesAny,
+  formatChord,
+  type KeyEventLike,
+} from "./match"
 
 function ev(over: Partial<KeyEventLike>): KeyEventLike {
   return { key: "", ctrlKey: false, metaKey: false, altKey: false, ...over }

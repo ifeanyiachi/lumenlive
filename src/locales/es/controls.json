@@ -1,0 +1,27 @@
+{
+  "views": {
+    "live": "En vivo",
+    "slides": "Diapositivas",
+    "media": "Multimedia",
+    "songs": "Canciones",
+    "youtube": "YouTube",
+    "store": "Tienda"
+  },
+  "updateAvailable": "Actualización disponible",
+  "broadcastSettings": "Configuración de transmisión",
+  "themeDesigner": "Diseñador de temas",
+  "stageLayoutDesigner": "Diseñador de distribución de escenario",
+  "themeDesignerFeature": "Diseñador de temas",
+  "stageDisplayFeature": "Pantalla de escenario",
+  "keyboardShortcuts": "Atajos de teclado (?)",
+  "reload": {
+    "button": "Recargar aplicación",
+    "title": "¿Recargar la aplicación?",
+    "description": "Recarga la interfaz de la aplicación.",
+    "liveOutputRestored": "La salida en vivo se restaurará automáticamente.",
+    "transcriptionStops": "La transcripción se detendrá y deberá reiniciarse manualmente.",
+    "workPreserved": "El trabajo guardado (programas, temas y diapositivas) se conserva.",
+    "cancel": "Cancelar",
+    "confirm": "Recargar"
+  }
+}

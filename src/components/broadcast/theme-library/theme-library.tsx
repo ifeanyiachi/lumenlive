@@ -36,15 +36,16 @@ import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
 import { importThemeBundle } from "@/lib/theme-bundle/io"
 import { ThemeBundleParseError } from "@/lib/theme-bundle"
+import { useTranslation } from "react-i18next"
 
 /** Per-type display metadata for the New menu and card badges. */
-const TYPE_META: Record<ThemeType, { label: string; icon: LucideIcon }> = {
-  scripture: { label: "Scripture", icon: BookOpenIcon },
-  song: { label: "Song / Lyrics", icon: MusicIcon },
-  countdown: { label: "Countdown", icon: TimerIcon },
-  sermon: { label: "Sermon", icon: PresentationIcon },
-  overlay: { label: "Overlay", icon: LayersIcon },
-  announcement: { label: "Announcement", icon: MegaphoneIcon },
+const TYPE_META: Record<ThemeType, { labelKey: string; icon: LucideIcon }> = {
+  scripture: { labelKey: "themeLibrary.types.scripture", icon: BookOpenIcon },
+  song: { labelKey: "themeLibrary.types.song", icon: MusicIcon },
+  countdown: { labelKey: "themeLibrary.types.countdown", icon: TimerIcon },
+  sermon: { labelKey: "themeLibrary.types.sermon", icon: PresentationIcon },
+  overlay: { labelKey: "themeLibrary.types.overlay", icon: LayersIcon },
+  announcement: { labelKey: "themeLibrary.types.announcement", icon: MegaphoneIcon },
 }
 
 type FilterTab = "all" | "pinned"
@@ -66,6 +67,7 @@ export function ThemeLibrary({
   onOpenTheme: (theme: Theme) => void
   onNewTheme: (type: ThemeType) => void
 }) {
+  const { t } = useTranslation("broadcast")
   // Subscribe to the stable `customThemes` slice and derive the merged registry
   // via useMemo — selecting `s.allThemes()` directly returns a fresh array every
   // render, which drives Zustand into an infinite re-render loop.
@@ -114,12 +116,12 @@ export function ThemeLibrary({
   const handleImport = async () => {
     try {
       const result = await importThemeBundle()
-      if (result) toast.success(`Imported "${result.name}"`)
+      if (result) toast.success(t("themeLibrary.imported", { name: result.name }))
     } catch (err) {
       toast.error(
         err instanceof ThemeBundleParseError
           ? err.message
-          : "Couldn't import that theme file."
+          : t("themeLibrary.importFailed")
       )
     }
   }
@@ -128,13 +130,13 @@ export function ThemeLibrary({
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
-        <span className="text-lg font-semibold text-foreground">Themes</span>
+        <span className="text-lg font-semibold text-foreground">{t("themeLibrary.title")}</span>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon"
-            title="Import theme (.lumtheme)"
-            aria-label="Import theme"
+            title={t("themeLibrary.importTitle")}
+            aria-label={t("themeLibrary.import")}
             onClick={handleImport}
           >
             <UploadIcon className="size-4" />
@@ -143,17 +145,17 @@ export function ThemeLibrary({
             <DropdownMenuTrigger asChild>
               <Button>
                 <PlusIcon className="size-4" />
-                New
+                {t("new")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>New theme</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("themeLibrary.newTheme")}</DropdownMenuLabel>
               {THEME_TYPES.map((type) => {
-                const { label, icon: Icon } = TYPE_META[type]
+                const { labelKey, icon: Icon } = TYPE_META[type]
                 return (
                   <DropdownMenuItem key={type} onClick={() => onNewTheme(type)}>
                     <Icon className="mr-2 size-3.5" />
-                    {label}
+                    {t(labelKey)}
                   </DropdownMenuItem>
                 )
               })}
@@ -167,7 +169,7 @@ export function ThemeLibrary({
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search themes..."
+            placeholder={t("themeLibrary.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-7"
@@ -183,10 +185,10 @@ export function ThemeLibrary({
       >
         <TabsList className="h-7 w-full">
           <TabsTrigger value="all" className="capitalize">
-            all
+            {t("all")}
           </TabsTrigger>
           <TabsTrigger value="pinned" className="capitalize">
-            pinned
+            {t("pinned")}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -194,14 +196,14 @@ export function ThemeLibrary({
       {/* Type filter chips */}
       <div className="flex shrink-0 flex-wrap gap-1 px-3 pb-3">
         <TypeChip
-          label="All"
+          label={t("all")}
           active={typeFilter === "all"}
           onClick={() => setTypeFilter("all")}
         />
         {THEME_TYPES.map((type) => (
           <TypeChip
             key={type}
-            label={TYPE_META[type].label}
+            label={t(TYPE_META[type].labelKey)}
             active={typeFilter === type}
             onClick={() => setTypeFilter(type)}
           />
@@ -222,7 +224,7 @@ export function ThemeLibrary({
 
           {orderedThemes.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
-              No themes found
+              {t("themeLibrary.noThemes")}
             </p>
           )}
         </div>
@@ -266,7 +268,8 @@ function ThemeCard({
   isActive: boolean
   onSelect: () => void
 }) {
-  const { label, icon: Icon } = TYPE_META[theme.type]
+  const { t } = useTranslation("broadcast")
+  const { labelKey, icon: Icon } = TYPE_META[theme.type]
   // Scripture and song themes carry an app-wide default; the current default is
   // badged here. Setting the default now lives in the Theme Designer's top bar
   // (not a per-card action). The default id is resolved through the legacy-id
@@ -302,7 +305,7 @@ function ThemeCard({
         <ThemeThumbnail theme={theme} className="border border-border/50" />
         {isDefault && (
           <span className="absolute top-1 left-1 rounded-sm bg-primary px-1.5 py-px text-[0.5625rem] font-semibold tracking-wide text-primary-foreground uppercase shadow-sm">
-            Default {theme.type}
+            {t("themeLibrary.defaultType", { type: theme.type })}
           </span>
         )}
       </div>
@@ -312,7 +315,7 @@ function ThemeCard({
           {theme.name}
         </span>
         <span className="shrink-0 text-[0.5625rem] tracking-wide text-muted-foreground uppercase">
-          {label}
+          {t(labelKey)}
         </span>
         {/* Hover actions: pin/delete for custom themes (built-ins are code).
             "Set as default" lives in the Theme Designer's top bar. */}
@@ -322,10 +325,12 @@ function ThemeCard({
               variant="ghost"
               size="icon-sm"
               className="size-6"
-              title={theme.pinned ? "Unpin" : "Pin"}
+              title={theme.pinned ? t("unpin") : t("pin")}
               onClick={(e) => {
                 e.stopPropagation()
-                useThemesStore.getState().setThemePinned(theme.id, !theme.pinned)
+                useThemesStore
+                  .getState()
+                  .setThemePinned(theme.id, !theme.pinned)
               }}
             >
               <StarIcon
@@ -339,7 +344,7 @@ function ThemeCard({
               variant="ghost"
               size="icon-sm"
               className="size-6 text-muted-foreground hover:text-destructive"
-              title="Delete"
+              title={t("delete")}
               onClick={(e) => {
                 e.stopPropagation()
                 useThemesStore.getState().deleteTheme(theme.id)

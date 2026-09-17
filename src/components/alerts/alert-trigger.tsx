@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { BellIcon, SendIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,7 @@ import { requireFeature } from "@/components/entitlements/require-feature"
 import { cn } from "@/lib/utils"
 
 export function AlertTrigger() {
+  const { t } = useTranslation("alerts")
   const templates = useAlertStore((s) => s.templates)
   const activeAlerts = useAlertStore((s) => s.activeAlerts)
   // A live stage cue (on any monitor) also warrants the badge now that the
@@ -49,7 +51,7 @@ export function AlertTrigger() {
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Alerts & stage monitor"
+            title={t("trigger.title")}
             data-tour="alerts"
             className="relative"
           >
@@ -69,7 +71,7 @@ export function AlertTrigger() {
           <div className="border-b border-border px-3 py-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">
-                Send Alert
+                {t("trigger.sendAlert")}
               </span>
               {hasActive && (
                 <Button
@@ -78,7 +80,7 @@ export function AlertTrigger() {
                   className="h-6 text-[0.625rem] text-red-400"
                   onClick={() => useAlertStore.getState().dismissAll()}
                 >
-                  Dismiss All
+                  {t("trigger.dismissAll")}
                 </Button>
               )}
             </div>
@@ -120,7 +122,7 @@ export function AlertTrigger() {
                         .getState()
                         .showAlert(template.id, template.name)
                     }}
-                    title="Quick send"
+                    title={t("trigger.quickSend")}
                   >
                     <SendIcon className="size-2.5" />
                   </Button>
@@ -131,8 +133,8 @@ export function AlertTrigger() {
                     <Input
                       autoFocus
                       className="h-7 flex-1 text-xs"
-                      aria-label="Custom message"
-                      placeholder="Custom message..."
+                      aria-label={t("trigger.customMessage")}
+                      placeholder={t("trigger.customMessagePlaceholder")}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyDown={(e) => {
@@ -148,7 +150,7 @@ export function AlertTrigger() {
                     <Button
                       size="icon-sm"
                       className="size-7"
-                      aria-label="Send alert"
+                      aria-label={t("trigger.send")}
                       disabled={!message.trim()}
                       onClick={() => {
                         useAlertStore
@@ -173,7 +175,7 @@ export function AlertTrigger() {
               className="h-7 w-full text-xs text-muted-foreground"
               onClick={() => setManagerOpen(true)}
             >
-              Manage Templates
+              {t("trigger.manageTemplates")}
             </Button>
           </div>
 

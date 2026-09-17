@@ -66,7 +66,7 @@ export function getOsInfo(): Promise<OsInfo> {
  */
 export function verifyLicense(
   token: string,
-  machineId: string,
+  machineId: string
 ): Promise<VerifyResult> {
   return invoke<VerifyResult>("verify_license", { token, machineId })
 }
@@ -105,7 +105,7 @@ export function activate(input: ActivateInput): Promise<LicenseResult> {
  */
 export function validate(
   token: string,
-  machineId: string,
+  machineId: string
 ): Promise<LicenseResult> {
   return v1<LicenseResult>("/v1/licenses/validate", {
     method: "POST",
@@ -117,7 +117,7 @@ export function validate(
 /** Free this device's slot (revokes its tokens server-side). */
 export function deactivate(
   token: string,
-  machineId: string,
+  machineId: string
 ): Promise<{ machineId: string }> {
   return v1<{ machineId: string }>("/v1/licenses/deactivate", {
     method: "POST",

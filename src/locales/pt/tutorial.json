@@ -1,0 +1,71 @@
+{
+  "controls": {
+    "step": "Etapa {{number}}",
+    "skip": "Pular",
+    "back": "Voltar",
+    "done": "Concluído",
+    "next": "Próximo"
+  },
+  "toast": {
+    "skipped": "Tutorial ignorado",
+    "restart": "Reinicie a qualquer momento em Configurações."
+  },
+  "steps": {
+    "schedule": {
+      "title": "Programação",
+      "content": "Monte aqui a ordem do seu culto. Adicione versículos, mídias, slides e itens do YouTube, depois reorganize-os conforme o seu fluxo."
+    },
+    "transcript": {
+      "title": "Transcrição ao vivo",
+      "content": "Inicie a transcrição para converter fala em texto em tempo real. Os versículos bíblicos detectados são destacados automaticamente."
+    },
+    "detections": {
+      "title": "Detecções de IA",
+      "content": "Os versículos detectados aparecem aqui. Pressione Apresentar para exibir um versículo na tela, ou Fila para salvá-lo para depois."
+    },
+    "aiVerses": {
+      "title": "Versículos de IA",
+      "content": "Versículos detectados com alta confiança chegam aqui automaticamente. Revise, reordene e apresente-os durante seu culto."
+    },
+    "quickTabs": {
+      "title": "Abas rápidas",
+      "content": "Alterne rapidamente entre itens de Versículo, Mídia e Slide para arrastá-los facilmente para sua lista de programação."
+    },
+    "bookSearch": {
+      "title": "Pesquisa por livro",
+      "content": "Procure qualquer versículo por livro, capítulo e número. Altere as traduções no menu suspenso."
+    },
+    "contextSearch": {
+      "title": "Pesquisa contextual",
+      "content": "Pesquise por frase ou tema. O LumenLive usa IA para encontrar versículos correspondentes."
+    },
+    "quickNav": {
+      "title": "Navegação rápida",
+      "content": "Digite para navegar instantaneamente: «J» → «Josué» ou «1 J» → «1 João», pressione Tab para avançar e depois digite capítulo e versículo."
+    },
+    "preview": {
+      "title": "Prévia da programação",
+      "content": "Veja como os itens da programação ficarão antes de exibir ao vivo. O que você vê aqui é o que seu público vê."
+    },
+    "liveDisplay": {
+      "title": "Tela ao vivo",
+      "content": "A saída ao vivo. Os versículos apresentados aparecem aqui e em telas conectadas ou saídas NDI."
+    },
+    "views": {
+      "title": "Visualizações",
+      "content": "Alterne entre as abas Slides, Mídia e YouTube para gerenciar outros tipos de conteúdo junto ao seu culto."
+    },
+    "broadcast": {
+      "title": "Transmissão",
+      "content": "Configure a saída NDI, as janelas de exibição e a resolução para sua produção."
+    },
+    "theme": {
+      "title": "Designer de temas",
+      "content": "Defina a aparência da transmissão: fontes, cores, planos de fundo e layouts dos versículos na tela."
+    },
+    "settings": {
+      "title": "Configurações",
+      "content": "Configure a entrada de áudio, traduções bíblicas, modo de exibição, controle remoto e chaves de API."
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "youtube": {
+    "errors": {
+      "invalidUrl": "Pega una URL de YouTube",
+      "noVideoId": "No se pudo extraer el ID del vídeo"
+    },
+    "toasts": {
+      "removedFromSaved": "Vídeo eliminado de guardados",
+      "saved": "Vídeo guardado",
+      "sentLive": "YouTube enviado a la salida en directo",
+      "addedToSchedule": "Añadido a la programación",
+      "alreadyScheduled": "Ya está en la programación",
+      "removed": "Vídeo eliminado"
+    },
+    "videoLabel": "Vídeo: {{id}}",
+    "youtubeLabel": "YouTube: {{id}}",
+    "savedVideos": "Vídeos guardados",
+    "emptySaved": "Guarda vídeos de YouTube para acceder rápidamente",
+    "remove": "Eliminar",
+    "urlPlaceholder": "Pega una URL de YouTube...",
+    "load": "Cargar",
+    "emptyPlayer": {
+      "title": "Pega una URL de YouTube para empezar",
+      "description": "Compatible con enlaces youtube.com/watch, youtu.be y Shorts"
+    },
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "mute": "Silenciar",
+    "unmute": "Activar sonido",
+    "removeFromSaved": "Quitar de guardados",
+    "saveVideo": "Guardar vídeo",
+    "selectScheduleFirst": "Primero selecciona una programación",
+    "addToSchedule": "Añadir a la programación",
+    "schedule": "Programación",
+    "goLive": "Salir en directo"
+  }
+}

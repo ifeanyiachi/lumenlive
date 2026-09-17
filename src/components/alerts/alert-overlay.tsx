@@ -1,5 +1,6 @@
 import { useAlertStore } from "@/stores/alert-store"
 import { XIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button"
  * back, without a full banner covering the controls.
  */
 export function AlertOverlay() {
+  const { t } = useTranslation("alerts")
   const activeAlerts = useAlertStore((s) => s.activeAlerts)
   const templates = useAlertStore((s) => s.templates)
 
@@ -36,7 +38,7 @@ export function AlertOverlay() {
             />
             <div className="flex min-w-0 flex-col">
               <span className="text-[0.625rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                Live · {template?.name ?? "Alert"}
+                {t("overlay.live")} · {template?.name ?? t("overlay.fallbackName")}
               </span>
               <span className="truncate text-sm font-medium text-foreground">
                 {alert.message}
@@ -45,7 +47,7 @@ export function AlertOverlay() {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Dismiss alert"
+              aria-label={t("overlay.dismiss")}
               className="ml-auto shrink-0"
               onClick={() => useAlertStore.getState().dismissAlert(alert.id)}
             >

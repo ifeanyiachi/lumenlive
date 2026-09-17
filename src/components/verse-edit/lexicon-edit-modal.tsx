@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { Editor } from "@tiptap/react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
@@ -51,15 +52,15 @@ const EDITOR_EXTENSIONS = [
 ]
 
 /** The formattable card fields, in the order they appear on the card. */
-const FIELD_LABELS: Array<{ field: LexiconField; label: string }> = [
-  { field: "summary", label: "Summary" },
-  { field: "lemma", label: "Original Word" },
-  { field: "partOfSpeech", label: "Part of Speech" },
-  { field: "transliteration", label: "Transliteration" },
-  { field: "pronunciation", label: "Pronunciation" },
-  { field: "kjvUsage", label: "KJV Usage" },
-  { field: "wordOrigin", label: "Word Origin" },
-  { field: "definition", label: "Definition" },
+const FIELD_LABELS: Array<{ field: LexiconField; labelKey: string }> = [
+  { field: "summary", labelKey: "field.summary" },
+  { field: "lemma", labelKey: "field.originalWord" },
+  { field: "partOfSpeech", labelKey: "field.partOfSpeech" },
+  { field: "transliteration", labelKey: "field.transliteration" },
+  { field: "pronunciation", labelKey: "field.pronunciation" },
+  { field: "kjvUsage", labelKey: "field.kjvUsage" },
+  { field: "wordOrigin", labelKey: "field.wordOrigin" },
+  { field: "definition", labelKey: "field.definition" },
 ]
 
 /** Live-preview render scale — see recomputePreview. */
@@ -111,6 +112,7 @@ export function LexiconEditModal({
   mode,
   onSaved,
 }: LexiconEditModalProps) {
+  const { t } = useTranslation("verse-edit")
   // Only fields that actually have text are editable.
   const fields = useMemo(
     () => FIELD_LABELS.filter(({ field }) => fieldText(card, field).length > 0),
@@ -209,23 +211,23 @@ export function LexiconEditModal({
     const scheduleStore = useScheduleStore.getState()
     const scheduleId = scheduleStore.activeScheduleId
     if (!scheduleId) {
-      toast.error("Select or create a schedule first")
+      toast.error(t("selectOrCreateSchedule"))
       return false
     }
     const order = scheduleStore.getActiveSchedule()?.items.length ?? 0
     const item = buildLexiconScheduleItemFromData(data, order)
     const added = scheduleStore.addItem(scheduleId, item)
-    if (added) toast.success(`Added ${item.reference} to schedule`)
-    else toast.info("Already in the schedule")
+    if (added) toast.success(t("addedReferenceToSchedule", { reference: item.reference }))
+    else toast.info(t("alreadyInSchedule"))
     return true
-  }, [])
+  }, [t])
 
   const handlePreview = useCallback(() => {
     const data = collect()
     stagePreview(data)
-    toast.success(`Previewing ${data.lemma}`)
+    toast.success(t("previewing", { name: data.lemma }))
     onOpenChange(false)
-  }, [collect, stagePreview, onOpenChange])
+  }, [collect, stagePreview, onOpenChange, t])
 
   const handleAddToSchedule = useCallback(() => {
     if (addToSchedule(collect())) onOpenChange(false)
@@ -261,12 +263,12 @@ export function LexiconEditModal({
         onPointerDown={(e) => e.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle>Lexical Summary — {card.reference}</DialogTitle>
+          <DialogTitle>{t("lexicalSummary", { reference: card.reference })}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted-foreground">Preview</span>
+            <span className="text-xs text-muted-foreground">{t("preview")}</span>
             <canvas
               ref={previewCanvasRef}
               className="aspect-video w-full rounded-lg border border-border bg-[#f8fafc]"
@@ -276,11 +278,11 @@ export function LexiconEditModal({
           <VerseEditToolbar editor={activeEditor} />
 
           <div className="flex flex-col gap-3">
-            {fields.map(({ field, label }) => (
+            {fields.map(({ field, labelKey }) => (
               <LexiconFieldEditor
                 key={field}
                 field={field}
-                label={label}
+                label={t(labelKey)}
                 text={fieldText(card, field)}
                 spans={card.styles?.[field]}
                 onRegister={registerEditor}
@@ -293,15 +295,15 @@ export function LexiconEditModal({
 
         <DialogFooter className="flex-row items-center justify-between sm:justify-between">
           <Button variant="ghost" size="sm" onClick={handleReset}>
-            Reset to Original
+            {t("resetToOriginal")}
           </Button>
           <div className="flex items-center gap-2">
             {mode === "edit" ? (
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave}>{t("save")}</Button>
             ) : (
               <>
                 <Button variant="outline" onClick={handlePreview}>
-                  Preview
+                  {t("preview")}
                 </Button>
                 <Button
                   variant="outline"
@@ -309,22 +311,22 @@ export function LexiconEditModal({
                   disabled={!activeScheduleId}
                   title={
                     activeScheduleId
-                      ? "Add this Lexical Summary to the schedule"
-                      : "Select or create a schedule first"
+                      ? t("addLexicalSummary")
+                      : t("selectOrCreateSchedule")
                   }
                 >
-                  Add to Schedule
+                  {t("addToSchedule")}
                 </Button>
                 <Button
                   onClick={handleScheduleAndPreview}
                   disabled={!activeScheduleId}
                   title={
                     activeScheduleId
-                      ? "Add to the schedule and stage it in the preview"
-                      : "Select or create a schedule first"
+                      ? t("scheduleAndPreviewTitle")
+                      : t("selectOrCreateSchedule")
                   }
                 >
-                  Schedule &amp; Preview
+                  {t("scheduleAndPreview")}
                 </Button>
               </>
             )}
@@ -363,8 +365,7 @@ const LexiconFieldEditor = memo(function LexiconFieldEditor({
 }) {
   // Seed from the field's stored styling if present, else plain text. Once.
   const initialContent = useMemo(
-    () =>
-      styledSegmentsToTiptapContent([{ verseNumber: 0, text, spans }]),
+    () => styledSegmentsToTiptapContent([{ verseNumber: 0, text, spans }]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )

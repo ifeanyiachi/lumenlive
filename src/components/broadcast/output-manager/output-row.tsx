@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { StageConfigPanel } from "./stage-config-panel"
 import { isManagedElsewhere, isTauri } from "./utils"
+import { useTranslation } from "react-i18next"
 
 export type OutputRowProps = {
   output: BroadcastOutput
@@ -78,6 +79,7 @@ export function OutputRow({
   wouldCoverOperator,
   monitorLabel,
 }: OutputRowProps) {
+  const { t } = useTranslation("broadcast")
   const isMain = output.id === "main"
 
   return (
@@ -110,14 +112,14 @@ export function OutputRow({
                 : "bg-muted text-muted-foreground"
             )}
           >
-            {output.mode === "stage" ? "Stage" : "Program"}
+            {output.mode === "stage" ? t("stage") : t("program")}
           </span>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {output.enabled && output.awaitingDisplay && (
             <span className="text-xs text-amber-500">
-              Waiting for display…
+              {t("waitingForDisplay")}
             </span>
           )}
           <span
@@ -126,7 +128,7 @@ export function OutputRow({
               output.enabled ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            {output.enabled ? "On" : "Off"}
+            {output.enabled ? t("on") : t("off")}
           </span>
           <Switch
             checked={output.enabled}
@@ -155,17 +157,17 @@ export function OutputRow({
         <div className="space-y-3 border-t border-border p-3">
           {/* Name */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Name</label>
+            <label className="text-xs text-muted-foreground">{t("name")}</label>
             <Input
               value={output.name}
               onChange={(e) => onNameChange(output.id, e.target.value)}
-              placeholder="Output name"
+              placeholder={t("outputName")}
             />
           </div>
 
           {/* Theme */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Theme</label>
+            <label className="text-xs text-muted-foreground">{t("theme")}</label>
             <Select
               value={output.themeId}
               onValueChange={(v) => onThemeChange(output.id, v)}
@@ -185,7 +187,7 @@ export function OutputRow({
 
           {/* Mode */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Mode</label>
+            <label className="text-xs text-muted-foreground">{t("mode")}</label>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={() => onModeChange(output.id, "normal")}
@@ -197,7 +199,7 @@ export function OutputRow({
                 )}
               >
                 <RadioIcon className="size-3.5" />
-                Program
+                {t("program")}
               </button>
               <button
                 onClick={() => onModeChange(output.id, "stage")}
@@ -209,7 +211,7 @@ export function OutputRow({
                 )}
               >
                 <MonitorIcon className="size-3.5" />
-                Stage
+                {t("stage")}
               </button>
             </div>
           </div>
@@ -221,7 +223,7 @@ export function OutputRow({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs text-muted-foreground">
-                  Target Monitor
+                  {t("targetMonitor")}
                 </label>
                 <Button
                   variant="ghost"
@@ -233,7 +235,7 @@ export function OutputRow({
                   <RefreshCwIcon
                     className={cn("size-3", refreshing && "animate-spin")}
                   />
-                  Refresh
+                  {t("refresh")}
                 </Button>
               </div>
               <Select
@@ -248,10 +250,10 @@ export function OutputRow({
                   <SelectValue
                     placeholder={
                       !isTauri
-                        ? "Desktop app required"
+                        ? t("desktopAppRequired")
                         : monitors.length === 0
-                          ? "No monitors detected"
-                          : "Select monitor"
+                          ? t("noMonitorsDetected")
+                          : t("selectMonitor")
                     }
                   />
                 </SelectTrigger>
@@ -291,7 +293,7 @@ export function OutputRow({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 <LinkIcon className="size-3" />
-                Content Routing
+                {t("contentRouting")}
               </label>
               <Select
                 value={output.contentSource.type}
@@ -301,9 +303,9 @@ export function OutputRow({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="independent">Full program</SelectItem>
-                  <SelectItem value="mirror">Mirror another output</SelectItem>
-                  <SelectItem value="layer-filter">Layer Filter</SelectItem>
+                  <SelectItem value="independent">{t("fullProgram")}</SelectItem>
+                  <SelectItem value="mirror">{t("mirrorOutput")}</SelectItem>
+                  <SelectItem value="layer-filter">{t("layerFilter")}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -314,7 +316,7 @@ export function OutputRow({
                   onValueChange={(v) => onMirrorSourceChange(output.id, v)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Mirror source" />
+                    <SelectValue placeholder={t("mirrorSource")} />
                   </SelectTrigger>
                   <SelectContent>
                     {outputs
@@ -333,15 +335,15 @@ export function OutputRow({
                 <div className="space-y-2 rounded-md border border-border p-2.5">
                   <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <LayersIcon className="size-3" />
-                    Visible layers
+                    {t("visibleLayers")}
                   </div>
                   {(
                     [
-                      ["showContent", "Content (Verse/Slide/Media)"],
-                      ["showProps", "Props Overlay"],
-                      ["showAlerts", "Alert Overlay"],
-                      ["showCountdowns", "Countdown Overlay"],
-                      ["showMediaLayer", "Media Layer"],
+                      ["showContent", t("contentLayer")],
+                      ["showProps", t("propsLayer")],
+                      ["showAlerts", t("alertsLayer")],
+                      ["showCountdowns", t("countdownsLayer")],
+                      ["showMediaLayer", t("mediaLayer")],
                     ] as const
                   ).map(([key, label]) => (
                     <label

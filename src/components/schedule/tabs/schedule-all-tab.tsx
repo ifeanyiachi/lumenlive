@@ -6,6 +6,7 @@ import {
   useMemo,
   Fragment,
 } from "react"
+import { useTranslation } from "react-i18next"
 import {
   TrashIcon,
   PlayIcon,
@@ -42,8 +43,8 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
   TYPE_ICONS,
-  TYPE_LABELS,
-  QUICK_ACTIONS,
+  getTypeLabels,
+  getQuickActions,
   type QuickAction,
 } from "@/components/schedule/schedule-utils"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -86,6 +87,9 @@ export function ScheduleAllTab({
   onEditLexicon: (item: LexiconScheduleItem) => void
   onStageNewItem: (item: ScheduleItem) => void
 }) {
+  const { t } = useTranslation("schedule")
+  const typeLabels = getTypeLabels()
+  const quickActions = getQuickActions()
   const schedules = useScheduleStore((s) => s.schedules)
   const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
   const activeItemIndex = useScheduleStore((s) => s.activeItemIndex)
@@ -355,7 +359,7 @@ export function ScheduleAllTab({
     // the properties modal is where they become real content.
     if (item.type === "header") {
       store.addItem(activeScheduleId, item, { dedupe: false })
-      toast.success(`${TYPE_LABELS[item.type]} added`)
+      toast.success(t("toast.itemAdded", { type: typeLabels[item.type] }))
       return
     }
     store.addItem(activeScheduleId, item, { dedupe: false })
@@ -474,7 +478,7 @@ export function ScheduleAllTab({
             value={activeScheduleId ?? ""}
             onChange={(e) => store.setActiveSchedule(e.target.value || null)}
           >
-            <option value="">Select a schedule...</option>
+            <option value="">{t("all.selectSchedule")}</option>
             {schedules.map((sc) => (
               <option key={sc.id} value={sc.id}>
                 {sc.name}
@@ -524,7 +528,7 @@ export function ScheduleAllTab({
                 viewMode === "list" && "bg-accent"
               )}
               onClick={() => setViewMode("list")}
-              title="List view"
+              title={t("all.listView")}
             >
               <ListIcon className="size-3" />
             </Button>
@@ -536,7 +540,7 @@ export function ScheduleAllTab({
                 viewMode === "thumbnail" && "bg-accent"
               )}
               onClick={() => setViewMode("thumbnail")}
-              title="Thumbnail view"
+              title={t("all.thumbnailView")}
             >
               <LayoutGridIcon className="size-3" />
             </Button>
@@ -681,7 +685,7 @@ export function ScheduleAllTab({
                               e.stopPropagation()
                               void store.presentLive(index)
                             }}
-                            title="Send to live"
+                            title={t("all.sendToLive")}
                           >
                             <PlayIcon className="size-3" />
                           </Button>
@@ -702,9 +706,9 @@ export function ScheduleAllTab({
                                 return
                             }
                             store.removeItem(activeScheduleId, item.id)
-                            toast("Item removed")
+                            toast(t("toast.itemRemoved"))
                           }}
-                          title="Remove"
+                          title={t("actions.remove")}
                         >
                           <TrashIcon className="size-3" />
                         </Button>
@@ -717,7 +721,7 @@ export function ScheduleAllTab({
                               e.stopPropagation()
                               onEditScripture(item as ScriptureScheduleItem)
                             }}
-                            title="Edit verses"
+                            title={t("all.editVerses")}
                           >
                             <PencilIcon className="size-3" />
                           </Button>
@@ -733,8 +737,8 @@ export function ScheduleAllTab({
                             }}
                             title={
                               (item as LexiconScheduleItem).cardData
-                                ? "Format the Lexical Summary"
-                                : "This card predates inline formatting"
+                                ? t("all.formatLexicalSummary")
+                                : t("all.lexicalSummaryLegacy")
                             }
                           >
                             <PencilIcon className="size-3" />
@@ -749,7 +753,7 @@ export function ScheduleAllTab({
                                 e.stopPropagation()
                                 onEditProperties(item)
                               }}
-                              title="Edit properties"
+                              title={t("actions.editProperties")}
                             >
                               <SettingsIcon className="size-3" />
                             </Button>
@@ -860,7 +864,7 @@ export function ScheduleAllTab({
                                 e.stopPropagation()
                                 void store.presentLive(index)
                               }}
-                              title="Send to live"
+                              title={t("all.sendToLive")}
                             >
                               <PlayIcon className="size-3" />
                             </Button>
@@ -873,9 +877,9 @@ export function ScheduleAllTab({
                               e.stopPropagation()
                               if (!activeScheduleId) return
                               store.removeItem(activeScheduleId, item.id)
-                              toast("Item removed")
+                              toast(t("toast.itemRemoved"))
                             }}
-                            title="Remove"
+                            title={t("actions.remove")}
                           >
                             <TrashIcon className="size-3" />
                           </Button>
@@ -888,7 +892,7 @@ export function ScheduleAllTab({
                                 e.stopPropagation()
                                 onEditScripture(item as ScriptureScheduleItem)
                               }}
-                              title="Edit verses"
+                              title={t("all.editVerses")}
                             >
                               <PencilIcon className="size-3" />
                             </Button>
@@ -904,8 +908,8 @@ export function ScheduleAllTab({
                               }}
                               title={
                                 (item as LexiconScheduleItem).cardData
-                                  ? "Format the Lexical Summary"
-                                  : "This card predates inline formatting"
+                                  ? t("all.formatLexicalSummary")
+                                  : t("all.lexicalSummaryLegacy")
                               }
                             >
                               <PencilIcon className="size-3" />
@@ -920,7 +924,7 @@ export function ScheduleAllTab({
                                   e.stopPropagation()
                                   onEditProperties(item)
                                 }}
-                                title="Edit properties"
+                                title={t("actions.editProperties")}
                               >
                                 <SettingsIcon className="size-3" />
                               </Button>
@@ -938,10 +942,12 @@ export function ScheduleAllTab({
                               toggleExpanded(item.id)
                             }}
                             title={
-                              isExpanded ? "Collapse slides" : "Expand slides"
+                              isExpanded
+                                ? t("all.collapseSlides")
+                                : t("all.expandSlides")
                             }
                           >
-                            {isExpanded ? "Collapse" : "Expand"}
+                            {isExpanded ? t("all.collapse") : t("all.expand")}
                             <ChevronRightIcon
                               className={cn(
                                 "size-3 transition-transform",
@@ -991,13 +997,13 @@ export function ScheduleAllTab({
 
           {activeSchedule && activeSchedule.items.length === 0 && (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              Add items using the buttons below
+              {t("all.addItemsHint")}
             </p>
           )}
 
           {!activeSchedule && (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              Select or create a schedule
+              {t("all.selectSchedule")}
             </p>
           )}
         </ScrollArea>
@@ -1007,7 +1013,7 @@ export function ScheduleAllTab({
       {activeSchedule && (
         <div className="border-t border-border">
           <div className="flex items-center gap-1 p-2">
-            {QUICK_ACTIONS.map((action) => (
+            {quickActions.map((action) => (
               <Button
                 key={action.id}
                 variant="ghost"
@@ -1025,7 +1031,7 @@ export function ScheduleAllTab({
               variant="ghost"
               size="icon-sm"
               onClick={() => store.prevItem()}
-              title="Previous item"
+              title={t("all.previousItem")}
             >
               <SkipBackIcon className="size-3.5" />
             </Button>
@@ -1037,7 +1043,7 @@ export function ScheduleAllTab({
               variant="ghost"
               size="icon-sm"
               onClick={() => store.nextItem()}
-              title="Next item"
+              title={t("all.nextItem")}
             >
               <SkipForwardIcon className="size-3.5" />
             </Button>
@@ -1046,7 +1052,7 @@ export function ScheduleAllTab({
               size="icon-sm"
               onClick={scrollToActiveItem}
               disabled={activeItemIndex === null}
-              title="Go to current item"
+              title={t("all.goToCurrentItem")}
             >
               <LocateIcon className="size-3.5" />
             </Button>
@@ -1057,15 +1063,16 @@ export function ScheduleAllTab({
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title="Clear all items"
-        description={`Remove all ${activeSchedule?.items.length ?? 0} item${
-          (activeSchedule?.items.length ?? 0) === 1 ? "" : "s"
-        } from "${activeSchedule?.name ?? ""}"? This cannot be undone.`}
-        confirmLabel="Clear all"
+        title={t("all.clearAllItems")}
+        description={t("all.clearDescription", {
+          count: activeSchedule?.items.length ?? 0,
+          name: activeSchedule?.name ?? "",
+        })}
+        confirmLabel={t("actions.clearAll")}
         onConfirm={() => {
           if (!activeScheduleId) return
           store.clearItems(activeScheduleId)
-          toast("Schedule cleared")
+          toast(t("toast.scheduleCleared"))
         }}
       />
     </div>

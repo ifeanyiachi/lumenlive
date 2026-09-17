@@ -11,8 +11,7 @@ import {
   type RewriteContext,
 } from "./media-refs"
 
-const WIN = (p: string) =>
-  `http://asset.localhost/${encodeURIComponent(p)}`
+const WIN = (p: string) => `http://asset.localhost/${encodeURIComponent(p)}`
 
 function imageEl(imageUrl: string): SlideImageElement {
   return {
@@ -59,7 +58,11 @@ describe("collectSurfaceRefs", () => {
     }
     const refs = collectSurfaceRefs(surface)
     expect(refs.assetIds).toEqual(["asset-1"])
-    expect(refs.localPaths).toEqual(["C:\\bg.png", "C:\\el.png", "C:\\clip.mp4"])
+    expect(refs.localPaths).toEqual([
+      "C:\\bg.png",
+      "C:\\el.png",
+      "C:\\clip.mp4",
+    ])
   })
 
   it("ignores data/remote urls and solid backgrounds", () => {
@@ -110,9 +113,7 @@ describe("rewriteSurface", () => {
       ],
     }
     const out = rewriteSurface(surface, ctx)
-    const urls = out.elements.map((e) =>
-      e.type === "image" ? e.imageUrl : ""
-    )
+    const urls = out.elements.map((e) => (e.type === "image" ? e.imageUrl : ""))
     expect(urls[0]).toBe("converted:///managed/el.png")
     expect(urls[1]).toBe(WIN("C:\\missing.png"))
     expect(urls[2]).toBe("data:image/png;base64,AA")

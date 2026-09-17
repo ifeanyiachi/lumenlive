@@ -56,7 +56,9 @@ export type LiveTransportSlice = Pick<
   | "setLiveSlide"
   | "setLiveMedia"
   | "updateLiveMediaFit"
+  | "updateLiveMediaPlayback"
   | "setLiveWeb"
+  | "updatePreviewWeb"
   | "clearLiveWeb"
   | "syncWebOutput"
   | "followManualSelection"
@@ -253,6 +255,22 @@ export const createLiveTransportSlice: StateCreator<
       // source (so video/audio keep playing from the current position).
       broadcastOutputEvent(get().outputs, BROADCAST_EVENTS.mediaFitUpdate, fit)
     },
+    updateLiveMediaPlayback: (playback) => {
+      const s = get()
+      if (!s.liveMedia) return
+      const patch: Partial<BroadcastState> = {
+        liveMedia: { ...s.liveMedia, ...playback },
+      }
+      if (s.previewMedia && s.previewMedia.filePath === s.liveMedia.filePath) {
+        patch.previewMedia = { ...s.previewMedia, ...playback }
+      }
+      set(patch)
+      broadcastOutputEvent(
+        get().outputs,
+        BROADCAST_EVENTS.mediaPlaybackConfigUpdate,
+        playback
+      )
+    },
     setLiveWeb: (web, source) => {
       // Stamp a fresh nonce so re-presenting the same video is a new identity —
       // the operator preview keys its iframe on it and remounts (replays from the
@@ -266,6 +284,14 @@ export const createLiveTransportSlice: StateCreator<
         previewSource: source ?? null,
         previewPending: true,
       })
+    },
+    updatePreviewWeb: (update) => {
+      const web = get().previewWeb
+      if (!web) return
+      // This is deliberately preview-only. The edited cue remains pending until
+      // the operator explicitly takes it, at which point takeToLive commits this
+      // exact object (including its revised start offset) to the output.
+      set({ previewWeb: { ...web, ...update }, previewPending: true })
     },
     clearLiveWeb: () => {
       set({ liveWeb: null, previewWeb: null, webTransport: null })

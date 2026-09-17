@@ -1,4 +1,5 @@
 import { XIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { formatTimecode } from "./shared"
 
@@ -15,6 +16,7 @@ export function TrimPoint({
   onSet: () => void
   onClear: () => void
 }) {
+  const { t } = useTranslation("schedule")
   return (
     <div className="flex items-center gap-1">
       <Button
@@ -22,9 +24,9 @@ export function TrimPoint({
         size="sm"
         className="h-6 flex-1 gap-1 px-2 text-[0.625rem]"
         onClick={onSet}
-        title={`Set ${label} point to current playhead`}
+        title={t("properties.setPointTitle", { label })}
       >
-        Set {label}
+        {t("properties.setPoint", { label })}
       </Button>
       <span className="min-w-[2.25rem] shrink-0 text-center text-[0.625rem] text-muted-foreground tabular-nums">
         {value != null ? formatTimecode(value) : fallback}
@@ -34,7 +36,7 @@ export function TrimPoint({
           type="button"
           className="shrink-0 text-muted-foreground hover:text-foreground"
           onClick={onClear}
-          title={`Clear ${label} point`}
+          title={t("properties.clearPointTitle", { label })}
         >
           <XIcon className="size-3" />
         </button>

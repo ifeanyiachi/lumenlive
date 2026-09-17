@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PlusIcon, TrashIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 export interface GradientStop {
   color: string
@@ -29,6 +30,7 @@ export function GradientControls({
   gradient: GradientValue
   onUpdate: (gradient: GradientValue) => void
 }) {
+  const { t } = useTranslation("shared")
   const updateGradient = (patch: Partial<GradientValue>) => {
     onUpdate({ ...gradient, ...patch })
   }
@@ -88,7 +90,7 @@ export function GradientControls({
       />
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">Style</label>
+        <label className="text-[0.6875rem] text-muted-foreground">{t("style")}</label>
         <Select
           value={gradient.type}
           onValueChange={(v) =>
@@ -99,8 +101,8 @@ export function GradientControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="linear">Linear</SelectItem>
-            <SelectItem value="radial">Radial</SelectItem>
+            <SelectItem value="linear">{t("linear")}</SelectItem>
+            <SelectItem value="radial">{t("radial")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -109,7 +111,7 @@ export function GradientControls({
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <label className="text-[0.6875rem] text-muted-foreground">
-              Angle
+              {t("angle")}
             </label>
             <span className="text-[0.6875rem] text-muted-foreground tabular-nums">
               {gradient.angle}&deg;
@@ -129,14 +131,14 @@ export function GradientControls({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <label className="text-[0.6875rem] text-muted-foreground">
-            Color Stops
+            {t("colorStops")}
           </label>
           <Button
             variant="ghost"
             size="icon-sm"
             className="size-5"
             onClick={addStop}
-            title="Add stop"
+            title={t("addStop")}
           >
             <PlusIcon className="size-3" />
           </Button>
@@ -163,7 +165,7 @@ export function GradientControls({
               className="h-6 w-14 text-[0.625rem]"
               min={0}
               max={100}
-              title="Position %"
+              title={t("position")}
             />
             {gradient.stops.length > 2 && (
               <Button
@@ -171,7 +173,7 @@ export function GradientControls({
                 size="icon-sm"
                 className="size-5 text-destructive"
                 onClick={() => removeStop(i)}
-                title="Remove stop"
+                title={t("removeStop")}
               >
                 <TrashIcon className="size-2.5" />
               </Button>

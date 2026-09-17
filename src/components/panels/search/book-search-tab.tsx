@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "react-i18next"
 import {
   Tooltip,
   TooltipContent,
@@ -80,6 +81,7 @@ export function BookSearchTab({
   onMultiPresent,
   onMultiClear,
 }: BookSearchTabProps) {
+  const { t } = useTranslation("panels")
   const verseDrag = useDragSource()
 
   return (
@@ -191,7 +193,7 @@ export function BookSearchTab({
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          aria-label="Edit verse formatting"
+                          aria-label={t("search.editVerseFormatting")}
                           className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation()
@@ -202,7 +204,7 @@ export function BookSearchTab({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="left">
-                        Edit verse formatting
+                        {t("search.editVerseFormatting")}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

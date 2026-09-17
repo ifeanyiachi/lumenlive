@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { PlayIcon, PauseIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -6,9 +7,10 @@ import { FieldGroup } from "@/components/ui/field-group"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useScheduleStore } from "@/stores/schedule-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import type { MediaScheduleItem, MediaEndAction } from "@/types/schedule"
 import type { MediaAsset } from "@/types/media"
-import { formatTimecode, END_ACTIONS } from "./shared"
+import { formatTimecode, END_ACTIONS, isScheduleItemLive } from "./shared"
 import { TrimPoint } from "./trim-point"
 
 export function MediaTrimEditor({
@@ -20,6 +22,7 @@ export function MediaTrimEditor({
   scheduleId: string
   asset: MediaAsset
 }) {
+  const { t } = useTranslation("schedule")
   const mediaRef = useRef<HTMLMediaElement | null>(null)
   const [duration, setDuration] = useState(0)
   const [current, setCurrent] = useState(0)
@@ -38,8 +41,24 @@ export function MediaTrimEditor({
   const update = useCallback(
     (updates: Partial<MediaScheduleItem>) => {
       useScheduleStore.getState().updateItem(scheduleId, item.id, updates)
+      if (isScheduleItemLive(item.id)) {
+        const latest = useScheduleStore
+          .getState()
+          .getActiveSchedule()
+          ?.items.find((scheduleItem) => scheduleItem.id === item.id)
+        const media = (latest as MediaScheduleItem | undefined) ?? item
+        useBroadcastStore.getState().updateLiveMediaPlayback({
+          trimStart: media.trimStart,
+          trimEnd: media.trimEnd,
+          loop: media.loop,
+          endAction: media.endAction,
+        })
+      }
     },
-    [scheduleId, item.id]
+    // `item` (not just its id) is a dependency: the live-update fallback reads
+    // `media.trimStart`/etc. off `item` when the schedule lookup misses, so the
+    // callback must close over the latest item, not a stale snapshot.
+    [scheduleId, item]
   )
 
   const handleLoaded = useCallback(() => {
@@ -83,7 +102,7 @@ export function MediaTrimEditor({
   }, [])
 
   return (
-    <FieldGroup label="Trim & Playback">
+    <FieldGroup label={t("properties.trimPlayback")}>
       <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-2">
         {isVideo ? (
           <video
@@ -114,7 +133,7 @@ export function MediaTrimEditor({
             variant="ghost"
             size="icon-sm"
             onClick={togglePlay}
-            title={playing ? "Pause" : "Play"}
+            title={playing ? t("properties.pause") : t("properties.play")}
           >
             {playing ? (
               <PauseIcon className="size-3.5" />
@@ -139,16 +158,16 @@ export function MediaTrimEditor({
         {/* In / Out trim */}
         <div className="grid grid-cols-2 gap-2">
           <TrimPoint
-            label="In"
+            label={t("properties.in")}
             value={item.trimStart}
             fallback="0:00"
             onSet={() => update({ trimStart: current })}
             onClear={() => update({ trimStart: undefined })}
           />
           <TrimPoint
-            label="Out"
+            label={t("properties.out")}
             value={item.trimEnd}
-            fallback="End"
+            fallback={t("properties.end")}
             onSet={() => update({ trimEnd: current })}
             onClear={() => update({ trimEnd: undefined })}
           />
@@ -157,7 +176,7 @@ export function MediaTrimEditor({
         {/* Loop + End action */}
         <label className="flex items-center justify-between">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-            Loop
+            {t("properties.loop")}
           </span>
           <Switch
             checked={item.loop ?? false}
@@ -166,7 +185,7 @@ export function MediaTrimEditor({
           />
         </label>
 
-        <FieldGroup label="When finished">
+        <FieldGroup label={t("properties.whenFinished")}>
           <select
             className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground disabled:opacity-50"
             value={item.endAction ?? "hold"}
@@ -184,7 +203,7 @@ export function MediaTrimEditor({
         </FieldGroup>
 
         {/* Cue markers */}
-        <FieldGroup label="Cue markers">
+        <FieldGroup label={t("properties.cueMarkers")}>
           <div className="flex flex-col gap-1.5">
             <Button
               variant="outline"
@@ -194,7 +213,7 @@ export function MediaTrimEditor({
                 const existing = item.markers ?? []
                 const marker = {
                   id: crypto.randomUUID(),
-                  label: `Cue ${existing.length + 1}`,
+                  label: t("properties.cueNumber", { count: existing.length + 1 }),
                   time: current,
                 }
                 update({
@@ -205,7 +224,7 @@ export function MediaTrimEditor({
               }}
             >
               <PlusIcon className="size-3.5" />
-              Add marker at {formatTimecode(current)}
+              {t("properties.addMarkerAt", { time: formatTimecode(current) })}
             </Button>
 
             {(item.markers ?? [])
@@ -217,7 +236,7 @@ export function MediaTrimEditor({
                     type="button"
                     className="shrink-0 rounded bg-muted px-1.5 py-1 text-[0.625rem] text-muted-foreground tabular-nums hover:text-foreground"
                     onClick={() => seek(m.time)}
-                    title="Jump to marker"
+                    title={t("properties.jumpToMarker")}
                   >
                     {formatTimecode(m.time)}
                   </button>
@@ -242,7 +261,7 @@ export function MediaTrimEditor({
                         ),
                       })
                     }
-                    title="Delete marker"
+                    title={t("properties.deleteMarker")}
                   >
                     <XIcon className="size-3.5" />
                   </button>

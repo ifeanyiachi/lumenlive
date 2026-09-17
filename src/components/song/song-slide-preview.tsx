@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { renderSlide, slideHasAnimatedBackground } from "@/lib/slide-renderer"
 import { getSlideImageCache } from "@/lib/slide-image-cache"
 import {
@@ -69,6 +70,7 @@ const SlideThumb = memo(function SlideThumb({ slide }: { slide: Slide }) {
  * the generator is pure, this recomputes only when the song or options change.
  */
 export function SongSlidePreview({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
   const defaults = useSettingsStore((s) => s.songSlideDefaults)
   const customThemes = useThemesStore((s) => s.customThemes)
 
@@ -95,17 +97,17 @@ export function SongSlidePreview({ song }: { song: Song }) {
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          Preview
+          {t("preview.title")}
         </span>
         <span className="text-[0.625rem] text-muted-foreground">
-          {slides.length} {slides.length === 1 ? "slide" : "slides"}
+          {t("preview.slideCount", { count: slides.length })}
           {arrangement ? ` · ${arrangement.name}` : ""}
         </span>
       </div>
 
       {slides.length === 0 ? (
         <p className="px-3 py-10 text-center text-sm text-muted-foreground">
-          Add lyrics and sections to the arrangement to preview slides.
+          {t("preview.empty")}
         </p>
       ) : (
         <div className="flex flex-col gap-3 px-3 pb-3">

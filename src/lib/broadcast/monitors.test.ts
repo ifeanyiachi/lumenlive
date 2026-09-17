@@ -119,11 +119,13 @@ describe("monitorLabel", () => {
 
 describe("monitorFingerprint", () => {
   it("captures name, position and size", () => {
-    expect(monitorFingerprint(mon("Optoma HD27", 1920, 1080, 1920, 0))).toEqual({
-      name: "Optoma HD27",
-      position: { x: 1920, y: 0 },
-      size: { width: 1920, height: 1080 },
-    })
+    expect(monitorFingerprint(mon("Optoma HD27", 1920, 1080, 1920, 0))).toEqual(
+      {
+        name: "Optoma HD27",
+        position: { x: 1920, y: 0 },
+        size: { width: 1920, height: 1080 },
+      }
+    )
   })
 
   it("normalizes a missing name to null", () => {
@@ -157,9 +159,9 @@ describe("resolveMonitorIndex", () => {
 
   it("falls back to geometry when the name is unhelpful (null)", () => {
     const fp = monitorFingerprint(mon(null, 1920, 1080, 1920, 0))
-    expect(resolveMonitorIndex(fp, [laptop, mon(null, 1920, 1080, 1920, 0)])).toBe(
-      1
-    )
+    expect(
+      resolveMonitorIndex(fp, [laptop, mon(null, 1920, 1080, 1920, 0)])
+    ).toBe(1)
   })
 
   it("ignores a matching Windows GDI slot name and uses geometry instead", () => {
@@ -238,9 +240,9 @@ describe("resolveOutputMonitor", () => {
   })
 
   it("degrades to the preferred external monitor with no hints", () => {
-    expect(resolveOutputMonitor(undefined, undefined, [laptop, projector])).toEqual(
-      { kind: "resolved", index: 1 }
-    )
+    expect(
+      resolveOutputMonitor(undefined, undefined, [laptop, projector])
+    ).toEqual({ kind: "resolved", index: 1 })
   })
 })
 
@@ -267,8 +269,8 @@ describe("resolveOutputMonitorIndex", () => {
   })
 
   it("falls back to the preferred external monitor with no hints", () => {
-    expect(resolveOutputMonitorIndex(undefined, undefined, [laptop, projector])).toBe(
-      1
-    )
+    expect(
+      resolveOutputMonitorIndex(undefined, undefined, [laptop, projector])
+    ).toBe(1)
   })
 })

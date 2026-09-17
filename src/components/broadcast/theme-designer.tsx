@@ -25,6 +25,7 @@ import { exportTheme } from "@/lib/theme-bundle/io"
 import type { Slide } from "@/types/slide"
 import type { Theme, ThemeType } from "@/types/theme"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 const uuid = () => crypto.randomUUID()
 const snapshotOf = (slide: Slide | undefined) =>
@@ -40,6 +41,7 @@ const snapshotOf = (slide: Slide | undefined) =>
  * single-slide draft back into a `Theme` via `slideToTheme`.
  */
 export function ThemeDesigner() {
+  const { t } = useTranslation("broadcast")
   const isDesignerOpen = useBroadcastStore((s) => s.isDesignerOpen)
   const session = usePresentationStore((s) => s.typedThemeSession)
   const draftName = usePresentationStore((s) => s.draftPresentation?.name ?? "")
@@ -147,7 +149,7 @@ export function ThemeDesigner() {
     if (!sess || !slide) return false
     const name = sess.identity.name.trim()
     if (!name) {
-      toast.error("Enter a theme name before saving")
+      toast.error(t("themeDesigner.enterName"))
       return false
     }
     // Names must be unique across the library (built-ins + customs), case-insensitive.
@@ -160,7 +162,7 @@ export function ThemeDesigner() {
           t.name.trim().toLowerCase() === name.toLowerCase()
       )
     if (nameTaken) {
-      toast.error(`A theme named “${name}” already exists`)
+      toast.error(t("themeDesigner.nameExists", { name }))
       return false
     }
     const theme = slideToTheme(slide, sess.identity, Date.now())
@@ -169,7 +171,7 @@ export function ThemeDesigner() {
       typedThemeSession: { ...sess, isNew: false },
     })
     markClean()
-    toast.success("Theme saved")
+    toast.success(t("themeDesigner.saved"))
     return true
   }
 
@@ -179,11 +181,11 @@ export function ThemeDesigner() {
       useSettingsStore.getState().setScriptureDefaultThemeId(themeId)
       // Apply to the Program output so the new default is live immediately.
       useBroadcastStore.getState().setActiveTheme(themeId)
-      toast.success("Set as default scripture theme")
+      toast.success(t("themeDesigner.defaultScripture"))
     } else if (type === "song") {
       const s = useSettingsStore.getState()
       s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId })
-      toast.success("Set as default song theme")
+      toast.success(t("themeDesigner.defaultSong"))
     }
   }
 
@@ -221,15 +223,13 @@ export function ThemeDesigner() {
       if (!saved) return
       if (missingMedia > 0) {
         toast.warning(
-          `Exported "${theme.name}" · ${missingMedia} media file${
-            missingMedia > 1 ? "s were" : " was"
-          } missing and couldn't be packaged`
+          t("themeDesigner.exportMissingMedia", { name: theme.name, count: missingMedia })
         )
       } else {
-        toast.success(`Exported "${theme.name}"`)
+        toast.success(t("themeDesigner.exported", { name: theme.name }))
       }
     } catch {
-      toast.error("Couldn't export that theme.")
+      toast.error(t("themeDesigner.exportFailed"))
     }
   }
 
@@ -262,7 +262,7 @@ export function ThemeDesigner() {
           aria-describedby={undefined}
         >
           <DialogPrimitive.Title className="sr-only">
-            Theme Designer
+            {t("themeDesigner.title")}
           </DialogPrimitive.Title>
 
           {/* Top bar — the single chrome for the embedded editor */}
@@ -275,11 +275,11 @@ export function ThemeDesigner() {
                   if (e.key === "Escape") e.stopPropagation()
                 }}
                 className="h-8 w-56 text-lg font-semibold"
-                placeholder="Theme name"
+                placeholder={t("themeDesigner.namePlaceholder")}
               />
             ) : (
               <span className="text-xl font-semibold text-foreground">
-                Theme Designer
+                {t("themeDesigner.title")}
               </span>
             )}
 
@@ -290,7 +290,7 @@ export function ThemeDesigner() {
                   size="icon-sm"
                   className="size-8"
                   onClick={() => usePresentationStore.getState().undo()}
-                  title="Undo (Ctrl+Z)"
+                  title={t("undo") + " (Ctrl+Z)"}
                 >
                   <Undo2Icon className="size-4" />
                 </Button>
@@ -299,7 +299,7 @@ export function ThemeDesigner() {
                   size="icon-sm"
                   className="size-8"
                   onClick={() => usePresentationStore.getState().redo()}
-                  title="Redo (Ctrl+Y)"
+                  title={t("redo") + " (Ctrl+Y)"}
                 >
                   <Redo2Icon className="size-4" />
                 </Button>
@@ -308,7 +308,7 @@ export function ThemeDesigner() {
                   size="icon-sm"
                   className="size-8"
                   onClick={() => setShowGrid((v) => !v)}
-                  title="Toggle grid"
+                  title={t("themeDesigner.toggleGrid")}
                 >
                   <GridIcon className="size-4" />
                 </Button>
@@ -321,42 +321,42 @@ export function ThemeDesigner() {
               <>
                 <Button variant="outline" onClick={handleDiscard}>
                   <TrashIcon className="size-4" />
-                  Discard
+                  {t("discard")}
                 </Button>
                 {isDefaultableTheme && (
                   <Button
                     variant="outline"
                     onClick={handleSaveAsDefault}
                     disabled={isCurrentDefault}
-                    title={`Save and set as the default ${sessionType} theme`}
+                    title={t("themeDesigner.saveAsDefault", { type: sessionType })}
                   >
                     <CheckCheckIcon className="size-4" />
                     {isCurrentDefault
-                      ? `Default ${sessionType}`
-                      : "Set as Default"}
+                      ? t("themeDesigner.defaultType", { type: sessionType })
+                      : t("themeDesigner.setAsDefault")}
                   </Button>
                 )}
                 <Button
                   variant="outline"
                   onClick={handleExport}
-                  title="Export this theme to a shareable .lumtheme file"
+                  title={t("themeDesigner.exportTitle")}
                 >
                   <Share2Icon className="size-4" />
-                  Export
+                  {t("export")}
                 </Button>
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/80"
                   onClick={handleSave}
                 >
                   <SaveIcon className="size-4" />
-                  Save Theme
+                  {t("themeDesigner.saveTheme")}
                 </Button>
               </>
             )}
 
             <Button variant="ghost" onClick={handleClose}>
               <XIcon strokeWidth={2} />
-              Close
+              {t("close")}
             </Button>
           </div>
 
@@ -391,11 +391,10 @@ export function ThemeDesigner() {
                 <PaletteIcon className="size-10 opacity-40" strokeWidth={1.5} />
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Select a theme to edit
+                    {t("themeDesigner.selectTheme")}
                   </p>
                   <p className="mt-1 text-xs">
-                    Pick a theme from the list, or create a new one to get
-                    started.
+                    {t("themeDesigner.selectThemeDescription")}
                   </p>
                 </div>
               </div>
@@ -408,11 +407,10 @@ export function ThemeDesigner() {
               <div className="w-full max-w-sm rounded-xl bg-popover p-6 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
                 <div className="flex flex-col gap-2">
                   <h3 className="font-heading leading-none font-medium">
-                    Discard unsaved changes?
+                    {t("themeDesigner.discardChanges")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    This theme has unsaved edits. Continuing will lose them.
-                    This action cannot be undone.
+                    {t("themeDesigner.discardChangesDescription")}
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
@@ -420,7 +418,7 @@ export function ThemeDesigner() {
                     variant="outline"
                     onClick={() => setPendingSwitch(null)}
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -429,7 +427,7 @@ export function ThemeDesigner() {
                       setPendingSwitch(null)
                     }}
                   >
-                    Discard &amp; Continue
+                    {t("themeDesigner.discardContinue")}
                   </Button>
                 </div>
               </div>

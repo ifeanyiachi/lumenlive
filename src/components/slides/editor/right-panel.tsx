@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   PlusIcon,
@@ -44,6 +45,7 @@ export function RightPanel({
   selectedElementId: string | null
   selectedElement: SlideElement | null
 }) {
+  const { t } = useTranslation("slides")
   const [rightTab, setRightTab] = useState<"layers" | "background">("layers")
   // When a type-first theme is being authored, the add-menu is curated to that
   // type and — with nothing selected — the panel shows the type-specific theme
@@ -66,7 +68,7 @@ export function RightPanel({
           onClick={() => setRightTab("layers")}
         >
           <LayersIcon className="size-3.5" />
-          Layers
+          {t("rightPanel.layers")}
         </button>
         <button
           type="button"
@@ -79,7 +81,7 @@ export function RightPanel({
           onClick={() => setRightTab("background")}
         >
           <ImageIcon className="size-3.5" />
-          Background
+          {t("rightPanel.background")}
         </button>
       </div>
 
@@ -96,7 +98,7 @@ export function RightPanel({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Bring to front"
+                    title={t("rightPanel.bringToFront")}
                     onClick={() =>
                       usePresentationStore
                         .getState()
@@ -108,7 +110,7 @@ export function RightPanel({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Move up"
+                    title={t("common.moveUp")}
                     onClick={() =>
                       usePresentationStore
                         .getState()
@@ -120,7 +122,7 @@ export function RightPanel({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Move down"
+                    title={t("common.moveDown")}
                     onClick={() =>
                       usePresentationStore
                         .getState()
@@ -132,7 +134,7 @@ export function RightPanel({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Send to back"
+                    title={t("rightPanel.sendToBack")}
                     onClick={() =>
                       usePresentationStore
                         .getState()
@@ -147,7 +149,11 @@ export function RightPanel({
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" title="Add element">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={t("rightPanel.addElement")}
+                >
                   <PlusIcon className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -156,7 +162,7 @@ export function RightPanel({
                   onClick={() => usePresentationStore.getState().addElement()}
                 >
                   <TypeIcon className="mr-2 size-3.5" />
-                  Text
+                  {t("rightPanel.text")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
@@ -164,7 +170,7 @@ export function RightPanel({
                   }
                 >
                   <ImageIcon className="mr-2 size-3.5" />
-                  Image
+                  {t("rightPanel.image")}
                 </DropdownMenuItem>
                 {(themeType === null || themeType === "scripture") && (
                   <DropdownMenuItem
@@ -173,7 +179,7 @@ export function RightPanel({
                     }
                   >
                     <BookOpenIcon className="mr-2 size-3.5" />
-                    Scripture
+                    {t("themeTypes.scripture")}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -182,7 +188,7 @@ export function RightPanel({
                   }
                 >
                   <SquareIcon className="mr-2 size-3.5" />
-                  Shape
+                  {t("rightPanel.shape")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
@@ -190,7 +196,7 @@ export function RightPanel({
                   }
                 >
                   <VideoIcon className="mr-2 size-3.5" />
-                  Video
+                  {t("rightPanel.video")}
                 </DropdownMenuItem>
                 {(themeType === null || themeType === "countdown") && (
                   <DropdownMenuItem
@@ -199,7 +205,7 @@ export function RightPanel({
                     }
                   >
                     <TimerIcon className="mr-2 size-3.5" />
-                    Timer
+                    {t("rightPanel.timer")}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -219,7 +225,7 @@ export function RightPanel({
             ) : (
               <div className="flex h-full items-center justify-center">
                 <p className="text-xs text-muted-foreground">
-                  Select an element
+                  {t("rightPanel.selectElement")}
                 </p>
               </div>
             )}

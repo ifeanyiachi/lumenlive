@@ -35,7 +35,9 @@ const ASSET_URL_PREFIXES = [
  * doesn't decode to something path-shaped. `null` means "leave this reference
  * untouched; it needs no bundling".
  */
-export function extractLocalPath(url: string | undefined | null): string | null {
+export function extractLocalPath(
+  url: string | undefined | null
+): string | null {
   if (!url) return null
 
   const prefix = ASSET_URL_PREFIXES.find((p) => url.startsWith(p))

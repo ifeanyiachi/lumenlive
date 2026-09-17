@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { FolderOpenIcon } from "lucide-react"
 import { useSettingsStore } from "@/stores"
+import { useTranslation } from "react-i18next"
 
 import { useMediaLibraryPath } from "../hooks/use-media-library-path"
 
 export function MediaLibrarySection() {
+  const { t } = useTranslation("settings")
   const mediaImportMode = useSettingsStore((s) => s.mediaImportMode)
   const setMediaImportMode = useSettingsStore((s) => s.setMediaImportMode)
 
@@ -16,7 +18,7 @@ export function MediaLibrarySection() {
       {/* Import storage mode */}
       <div className="flex flex-col gap-3">
         <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          When Importing Media
+          {t("mediaLibrary.whenImporting")}
         </label>
 
         <RadioGroup
@@ -35,13 +37,10 @@ export function MediaLibrarySection() {
             <RadioGroupItem value="reference" className="mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">
-                Reference originals
+                {t("mediaLibrary.reference.title")}
               </span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Keeps only a link to each file where it already lives. Uses no
-                extra disk space, but a clip stops working if you move, rename,
-                or delete the original — and the library can't move to another
-                computer on its own.
+                {t("mediaLibrary.reference.description")}
               </p>
             </div>
           </label>
@@ -57,21 +56,17 @@ export function MediaLibrarySection() {
             <RadioGroupItem value="copy" className="mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">
-                Copy into app library
+                {t("mediaLibrary.copy.title")}
               </span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Copies each imported file into a folder LumenLive manages, so
-                the library keeps working even if you move or delete the
-                originals. Uses more disk space. Removing a copied item from the
-                library deletes its copy.
+                {t("mediaLibrary.copy.description")}
               </p>
             </div>
           </label>
         </RadioGroup>
 
         <p className="text-[0.625rem] text-muted-foreground">
-          This applies to files imported from now on. Media already in your
-          library is left exactly as it is.
+          {t("mediaLibrary.appliesFromNow")}
         </p>
       </div>
 
@@ -79,7 +74,7 @@ export function MediaLibrarySection() {
       {libraryPath && (
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-            Library Folder
+            {t("mediaLibrary.folder")}
           </label>
           <div className="flex items-center gap-2">
             <code className="flex-1 truncate rounded-md border border-border bg-muted/40 px-2 py-1.5 text-[0.625rem] text-muted-foreground">
@@ -87,12 +82,11 @@ export function MediaLibrarySection() {
             </code>
             <Button variant="outline" size="sm" onClick={openFolder}>
               <FolderOpenIcon className="mr-1.5 size-3.5" />
-              Open
+              {t("mediaLibrary.open")}
             </Button>
           </div>
           <p className="text-[0.625rem] text-muted-foreground">
-            Where copied files are stored. Only used when "Copy into app
-            library" is selected.
+            {t("mediaLibrary.folderDescription")}
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   SearchIcon,
@@ -50,6 +51,7 @@ const PREVIEW_LINES = 26
  * the preview without a second round-trip.
  */
 export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation("song")
   const [query, setQuery] = useState("")
   const [searching, setSearching] = useState(false)
   const [hits, setHits] = useState<LyricsHit[] | null>(null)
@@ -74,7 +76,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
     searchSeq.current++
   }
 
-  const runSearch = async (raw: string) => {
+  const runSearch = useCallback(async (raw: string) => {
     const q = raw.trim()
     if (q.length < 2) {
       searchSeq.current++
@@ -99,13 +101,16 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
       }
     } catch (e) {
       if (seq === searchSeq.current) {
-        toast.error("Online search failed")
+        toast.error(t("online.searchFailed"))
         console.error(e)
       }
     } finally {
       if (seq === searchSeq.current) setSearching(false)
     }
-  }
+    // Stable across renders except when the UI language changes (only `t`, used
+    // for the failure toast, is a reactive dependency); refs and state setters
+    // are stable. This keeps the debounce effect below from re-firing per render.
+  }, [t])
 
   // Real-time search: debounce keystrokes (350ms) so a search fires as the user
   // types, without a button press. The cleanup cancels the pending timer, and
@@ -113,7 +118,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     const handle = setTimeout(() => void runSearch(query), 350)
     return () => clearTimeout(handle)
-  }, [query])
+  }, [query, runSearch])
 
   // Load the selected hit's full lyrics into the preview pane (cached per hit).
   // When there's no selection the preview isn't rendered (see `activeHit`), so
@@ -160,11 +165,11 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
       // Land on the song's detail page (selection drives the right pane);
       // deliberately NOT opening the full-screen editor.
       store.setSelectedSong(song.id)
-      toast.success(`Imported "${song.title}"`)
+      toast.success(t("online.imported", { title: song.title }))
       onOpenChange(false)
       reset()
     } catch (e) {
-      toast.error("Could not import those lyrics")
+      toast.error(t("online.importFailed"))
       console.error(e)
       setImporting(false)
     }
@@ -194,11 +199,10 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DownloadIcon className="size-4" />
-              Search Online Lyrics
+              {t("online.title")}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Search public lyric sources by title, artist, or a line of lyrics,
-              then import a result into your song library.
+              {t("online.description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -206,8 +210,8 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
             <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               autoFocus
-              placeholder="Search by title, artist, or a lyric line…"
-              aria-label="Search query"
+              placeholder={t("online.searchPlaceholder")}
+              aria-label={t("online.searchQuery")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-9 pr-9 pl-8"
@@ -217,9 +221,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
             )}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Searches LRCLIB and Genius as you type. Lyric-line phrases are
-            matched by Genius (add a Genius key in Settings → Songs) — the other
-            sources match title and artist only.
+            {t("online.searchHelp")}
           </p>
         </div>
 
@@ -229,15 +231,15 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
           <div className="w-2/5 min-w-[200px] overflow-y-auto border-r border-border">
             {searching ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Searching…
+                {t("online.searching")}
               </p>
             ) : !hits ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Search to see results.
+                {t("online.searchToSeeResults")}
               </p>
             ) : hits.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No results.
+                {t("online.noResults")}
               </p>
             ) : (
               <ul className="flex flex-col p-1.5">
@@ -255,7 +257,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                       </span>
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-xs text-muted-foreground">
-                          {hit.artist || "Unknown artist"}
+                          {hit.artist || t("online.unknownArtist")}
                         </span>
                         <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[0.625rem] tracking-wide text-muted-foreground uppercase">
                           {sourceLabel(hit.source)}
@@ -275,8 +277,8 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                 <MusicIcon className="size-9 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">
                   {hits && hits.length > 0
-                    ? "Select a result to preview its lyrics"
-                    : "Results appear here"}
+                    ? t("online.selectResult")
+                    : t("online.resultsAppear")}
                 </p>
               </div>
             ) : (
@@ -287,7 +289,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                       {activeHit.title}
                     </h2>
                     <p className="truncate text-sm text-muted-foreground">
-                      {activeHit.artist || "Unknown artist"}
+                      {activeHit.artist || t("online.unknownArtist")}
                       {activeHit.album ? ` · ${activeHit.album}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -296,7 +298,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                       </span>
                       {activeHit.hasSynced && (
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[0.625rem] tracking-wide text-muted-foreground uppercase">
-                          Synced
+                          {t("online.synced")}
                         </span>
                       )}
                     </div>
@@ -312,7 +314,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                     ) : (
                       <PlusIcon className="size-4" />
                     )}
-                    Import to Library
+                    {t("online.importToLibrary")}
                   </Button>
                 </div>
 
@@ -320,13 +322,15 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
                   {previewLoading ? (
                     <p className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2Icon className="size-4 animate-spin" />
-                      Loading lyrics…
+                      {t("online.loading")}
                     </p>
                   ) : previewError ? (
                     <p className="text-sm text-muted-foreground">
                       {importUnavailable
-                        ? `${sourceLabel(activeHit.source)} has no lyrics for this song — try another result.`
-                        : "Couldn't load a preview — you can still import it."}
+                        ? t("online.noLyrics", {
+                            source: sourceLabel(activeHit.source),
+                          })
+                        : t("online.previewFailed")}
                     </p>
                   ) : preview ? (
                     <PreviewBody content={preview} />
@@ -340,7 +344,7 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
         {/* Footer: result count */}
         {hits && hits.length > 0 && (
           <div className="border-t border-border px-5 py-2 text-center text-xs text-muted-foreground">
-            {hits.length} result{hits.length === 1 ? "" : "s"}
+            {t("online.resultCount", { count: hits.length })}
           </div>
         )}
       </DialogContent>
@@ -350,12 +354,11 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
 
 /** The lyrics preview: first `PREVIEW_LINES` lines, with a truncation note. */
 function PreviewBody({ content }: { content: LyricsContent }) {
+  const { t } = useTranslation("song")
   const text = content.plainLyrics.trim()
   if (!text) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No preview text — import to see the full result.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("online.noPreview")}</p>
     )
   }
   const lines = text.split("\n")
@@ -368,7 +371,7 @@ function PreviewBody({ content }: { content: LyricsContent }) {
       </pre>
       {remaining > 0 && (
         <p className="mt-3 text-xs text-muted-foreground">
-          + {remaining} more line{remaining === 1 ? "" : "s"}…
+          {t("online.remainingLines", { count: remaining })}
         </p>
       )}
     </>

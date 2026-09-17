@@ -1,8 +1,10 @@
-import { PlusIcon, LoaderIcon } from "lucide-react"
+import { LoaderIcon, UploadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useMediaImport, MEDIA_ACCEPT } from "@/hooks/use-media-import"
+import { useTranslation } from "react-i18next"
 
 export function MediaImportButton() {
+  const { t } = useTranslation("media")
   const {
     fileInputRef,
     isImporting,
@@ -14,17 +16,18 @@ export function MediaImportButton() {
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
+        className="h-7 gap-1 px-2 text-xs"
         onClick={startImport}
         disabled={isImporting}
       >
         {isImporting ? (
-          <LoaderIcon className="mr-1.5 size-3.5 animate-spin" />
+          <LoaderIcon className="size-3 animate-spin" />
         ) : (
-          <PlusIcon className="mr-1.5 size-3.5" />
+          <UploadIcon className="size-3" />
         )}
-        {isImporting ? "Importing..." : "Import"}
+        {isImporting ? t("importing") : t("import")}
       </Button>
       {needsFileInput && (
         <input

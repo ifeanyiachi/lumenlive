@@ -24,11 +24,12 @@ export type {
  */
 export function pullTranscriptionKey(
   token: string,
+  machineId: string
 ): Promise<TranscriptionResolution> {
   return v1<TranscriptionResolution>("/v1/transcription/key", {
     method: "POST",
     token,
-    body: {},
+    body: { machineId },
   })
 }
 
@@ -38,7 +39,7 @@ export function pullTranscriptionKey(
  */
 export function reportTranscriptionUsage(
   token: string,
-  seconds: number,
+  seconds: number
 ): Promise<TranscriptionStatus> {
   return v1<TranscriptionStatus>("/v1/transcription/usage", {
     method: "POST",

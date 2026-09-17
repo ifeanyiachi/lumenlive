@@ -120,7 +120,7 @@ export interface TrialRemaining {
  */
 export function trialRemaining(
   trialEndSecs: number,
-  nowMs: number = Date.now(),
+  nowMs: number = Date.now()
 ): TrialRemaining {
   const totalMs = trialEndSecs * 1000 - nowMs
   if (totalMs <= 0) {

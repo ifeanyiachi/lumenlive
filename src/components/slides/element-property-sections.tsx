@@ -3,6 +3,7 @@ import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { ColorSwatch } from "@/components/ui/color-swatch"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 
 /**
  * Shared property-panel sections for the slide/theme element editors. Extracted so
@@ -54,6 +55,7 @@ function SectionHeader({
   on: boolean
   onToggle: () => void
 }) {
+  const { t } = useTranslation("slides")
   return (
     <div className="flex items-center justify-between">
       <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
@@ -65,7 +67,7 @@ function SectionHeader({
         className="size-5 text-[0.5625rem]"
         onClick={onToggle}
       >
-        {on ? "On" : "Off"}
+        {on ? t("properties.on") : t("properties.off")}
       </Button>
     </div>
   )
@@ -78,8 +80,9 @@ function ColorRow({
   value: string
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation("slides")
   return (
-    <PropertyRow label="Color">
+    <PropertyRow label={t("properties.color")}>
       <div className="flex items-center gap-2">
         <ColorSwatch
           value={value.startsWith("rgba") ? "#000000" : value}
@@ -104,17 +107,18 @@ export function ShadowSection({
   shadow: ElementShadow | undefined
   onChange: (shadow: ElementShadow | undefined) => void
 }) {
+  const { t } = useTranslation("slides")
   const s = shadow ?? DEFAULT_SHADOW
   return (
     <div className="flex flex-col gap-2">
       <SectionHeader
-        label="Shadow"
+        label={t("properties.shadow")}
         on={!!shadow}
         onToggle={() => onChange(shadow ? undefined : DEFAULT_SHADOW)}
       />
       {shadow && (
         <>
-          <PropertyRow label="Offset X">
+          <PropertyRow label={t("properties.offsetX")}>
             <Slider
               value={[s.offsetX]}
               onValueChange={([v]) => onChange({ ...s, offsetX: v })}
@@ -123,7 +127,7 @@ export function ShadowSection({
               step={1}
             />
           </PropertyRow>
-          <PropertyRow label="Offset Y">
+          <PropertyRow label={t("properties.offsetY")}>
             <Slider
               value={[s.offsetY]}
               onValueChange={([v]) => onChange({ ...s, offsetY: v })}
@@ -132,7 +136,7 @@ export function ShadowSection({
               step={1}
             />
           </PropertyRow>
-          <PropertyRow label="Blur">
+          <PropertyRow label={t("properties.blur")}>
             <Slider
               value={[s.blur]}
               onValueChange={([v]) => onChange({ ...s, blur: v })}
@@ -159,18 +163,19 @@ export function OutlineSection({
   outline: ElementOutline | undefined
   onChange: (outline: ElementOutline | undefined) => void
 }) {
+  const { t } = useTranslation("slides")
   const on = !!outline && outline.width > 0
   const o = outline ?? DEFAULT_OUTLINE
   return (
     <div className="flex flex-col gap-2">
       <SectionHeader
-        label="Outline"
+        label={t("properties.outline")}
         on={on}
         onToggle={() => onChange(on ? undefined : DEFAULT_OUTLINE)}
       />
       {on && (
         <>
-          <PropertyRow label="Width">
+          <PropertyRow label={t("properties.width")}>
             <Slider
               value={[o.width]}
               onValueChange={([v]) => onChange({ ...o, width: v })}
@@ -209,10 +214,11 @@ function AlignmentGrid({
   rect: BoxRect
   onChange: (patch: Partial<BoxRect>) => void
 }) {
+  const { t } = useTranslation("slides")
   const round = (n: number) => Math.round(n * 10) / 10
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[0.625rem] text-muted-foreground">Align</span>
+      <span className="text-[0.625rem] text-muted-foreground">{t("properties.align")}</span>
       <div className="grid w-fit grid-cols-3 gap-1">
         {V_ALIGN.map((v) =>
           H_ALIGN.map((h) => {
@@ -224,7 +230,7 @@ function AlignmentGrid({
               <button
                 key={`${v.key}-${h.key}`}
                 type="button"
-                title={`${v.label} ${h.label}`}
+                title={t("properties.alignment", { vertical: t(`properties.${v.label}`), horizontal: t(`properties.${h.label}`) })}
                 onClick={() => onChange({ x: tx, y: ty })}
                 className={cn(
                   "flex size-6 items-center justify-center rounded border transition-colors",
@@ -256,6 +262,7 @@ export function PositionSizeSection({
   rect: BoxRect
   onChange: (patch: Partial<BoxRect>) => void
 }) {
+  const { t } = useTranslation("slides")
   const num = (key: keyof BoxRect, min: number) => (
     <Input
       type="number"
@@ -269,13 +276,13 @@ export function PositionSizeSection({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-        Position &amp; Size (%)
+        {t("properties.positionAndSize")}
       </span>
       <div className="grid grid-cols-2 gap-2">
-        <PropertyRow label="X">{num("x", 0)}</PropertyRow>
-        <PropertyRow label="Y">{num("y", 0)}</PropertyRow>
-        <PropertyRow label="W">{num("width", 1)}</PropertyRow>
-        <PropertyRow label="H">{num("height", 1)}</PropertyRow>
+        <PropertyRow label={t("properties.x")}>{num("x", 0)}</PropertyRow>
+        <PropertyRow label={t("properties.y")}>{num("y", 0)}</PropertyRow>
+        <PropertyRow label={t("properties.widthShort")}>{num("width", 1)}</PropertyRow>
+        <PropertyRow label={t("properties.height")}>{num("height", 1)}</PropertyRow>
       </div>
       <AlignmentGrid rect={rect} onChange={onChange} />
     </div>

@@ -1,4 +1,5 @@
 import { useState, type RefObject } from "react"
+import { useTranslation } from "react-i18next"
 
 import { MinusIcon, PlusIcon, MaximizeIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ export function EditorCanvas({
   canvasRef: RefObject<HTMLCanvasElement | null>
   showGrid: boolean
 }) {
+  const { t } = useTranslation("slides")
   const [zoomLevel, setZoomLevel] = useState(100)
 
   return (
@@ -52,7 +54,7 @@ export function EditorCanvas({
           variant="ghost"
           size="icon-sm"
           className="size-6"
-          title="Zoom out"
+          title={t("canvas.zoomOut")}
           onClick={() => setZoomLevel((z) => Math.max(25, Math.round(z * 0.9)))}
         >
           <MinusIcon className="size-3" />
@@ -64,7 +66,7 @@ export function EditorCanvas({
           variant="ghost"
           size="icon-sm"
           className="size-6"
-          title="Zoom in"
+          title={t("canvas.zoomIn")}
           onClick={() =>
             setZoomLevel((z) => Math.min(300, Math.round(z * 1.1)))
           }
@@ -75,7 +77,7 @@ export function EditorCanvas({
           variant="ghost"
           size="icon-sm"
           className="size-6"
-          title="Fit to view"
+          title={t("canvas.fitToView")}
           onClick={() => setZoomLevel(100)}
         >
           <MaximizeIcon className="size-3" />

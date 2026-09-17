@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { Editor } from "@tiptap/react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
@@ -122,6 +123,7 @@ export function MultiVerseEditModal({
   initialSegmentFor,
   onSave,
 }: MultiVerseEditModalProps) {
+  const { t } = useTranslation("verse-edit")
   const goLiveEnabled = useSettingsStore((s) => s.verseEditGoLive)
   const setGoLiveEnabled = useSettingsStore((s) => s.setVerseEditGoLive)
 
@@ -222,10 +224,10 @@ export function MultiVerseEditModal({
           segmentById
         )
         const ok = scheduleStore.addItem(activeScheduleId, item)
-        if (ok) toast.success(`Added ${verses.length} verses to schedule`)
-        else toast.info("Already in the schedule")
+        if (ok) toast.success(t("addedVersesToSchedule", { count: verses.length }))
+        else toast.info(t("alreadyInSchedule"))
       } else {
-        toast.info("No active schedule — select or create one first")
+        toast.info(t("noActiveSchedule"))
       }
     }
 
@@ -244,6 +246,7 @@ export function MultiVerseEditModal({
     onApplied,
     onOpenChange,
     onSave,
+    t,
   ])
 
   return (
@@ -251,7 +254,7 @@ export function MultiVerseEditModal({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Edit {verses.length} {verses.length === 1 ? "verse" : "verses"}
+            {t("editVerses", { count: verses.length })}
           </DialogTitle>
         </DialogHeader>
 
@@ -274,7 +277,7 @@ export function MultiVerseEditModal({
 
           {previewData && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">Preview</span>
+              <span className="text-xs text-muted-foreground">{t("preview")}</span>
               <ScripturePreview
                 themeId={activeThemeId}
                 verse={previewData}
@@ -287,7 +290,7 @@ export function MultiVerseEditModal({
 
         <DialogFooter className="flex-row items-center justify-between sm:justify-between">
           <Button variant="ghost" size="sm" onClick={handleResetAll}>
-            Reset to Original
+            {t("resetToOriginal")}
           </Button>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -295,7 +298,7 @@ export function MultiVerseEditModal({
                 htmlFor="multi-go-live"
                 className="text-xs text-muted-foreground"
               >
-                Go Live
+                {t("goLive")}
               </label>
               <Switch
                 id="multi-go-live"
@@ -304,7 +307,7 @@ export function MultiVerseEditModal({
               />
             </div>
             <Button onClick={handleApply}>
-              {onSave ? "Save" : "Add to Schedule"}
+              {onSave ? t("save") : t("addToSchedule")}
             </Button>
           </div>
         </DialogFooter>
@@ -339,7 +342,9 @@ function VerseSubEditor({
   // Preload the item's stored edit if one was passed, else the plain verse.
   // Computed once on mount.
   const initialContent = useMemo(() => {
-    return styledSegmentsToTiptapContent([initialSegment ?? baseSegmentFor(verse)])
+    return styledSegmentsToTiptapContent([
+      initialSegment ?? baseSegmentFor(verse),
+    ])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

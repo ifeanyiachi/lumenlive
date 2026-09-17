@@ -29,23 +29,22 @@ import { cn } from "@/lib/utils"
 import type { StageLayout } from "@/types/stage-layout"
 import { exportStageLayout, importThemeBundle } from "@/lib/theme-bundle/io"
 import { ThemeBundleParseError } from "@/lib/theme-bundle"
+import { useTranslation } from "react-i18next"
 
 /** Export one stage layout to a `.lumtheme` bundle, packaging its media, with a toast. */
-async function handleExportLayout(layout: StageLayout) {
+async function handleExportLayout(layout: StageLayout, t: (key: string, options?: Record<string, unknown>) => string) {
   try {
     const { saved, missingMedia } = await exportStageLayout(layout)
     if (!saved) return
     if (missingMedia > 0) {
       toast.warning(
-        `Exported "${layout.name}" · ${missingMedia} media file${
-          missingMedia > 1 ? "s were" : " was"
-        } missing and couldn't be packaged`
+        t("stageLibrary.exportMissingMedia", { name: layout.name, count: missingMedia })
       )
     } else {
-      toast.success(`Exported "${layout.name}"`)
+      toast.success(t("stageLibrary.exported", { name: layout.name }))
     }
   } catch {
-    toast.error("Couldn't export that layout.")
+    toast.error(t("stageLibrary.exportFailed"))
   }
 }
 
@@ -58,6 +57,7 @@ function LayoutCard({
   isEditing: boolean
   onSelect: () => void
 }) {
+  const { t } = useTranslation("broadcast")
   return (
     <div
       role="button"
@@ -83,7 +83,7 @@ function LayoutCard({
         </p>
         {layout.builtin && (
           <Badge variant="outline" className="shrink-0 text-[0.5rem]">
-            Built-in
+            {t("builtIn")}
           </Badge>
         )}
         <DropdownMenu>
@@ -91,7 +91,7 @@ function LayoutCard({
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="Layout options"
+              aria-label={t("stageLibrary.options")}
               className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
@@ -106,16 +106,16 @@ function LayoutCard({
               }}
             >
               <CopyIcon className="mr-2 size-3.5" />
-              Duplicate
+              {t("duplicate")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
-                void handleExportLayout(layout)
+                void handleExportLayout(layout, t)
               }}
             >
               <DownloadIcon className="mr-2 size-3.5" />
-              Export
+              {t("export")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -126,12 +126,12 @@ function LayoutCard({
               {layout.pinned ? (
                 <>
                   <PinOffIcon className="mr-2 size-3.5" />
-                  Unpin
+                  {t("unpin")}
                 </>
               ) : (
                 <>
                   <PinIcon className="mr-2 size-3.5" />
-                  Pin
+                  {t("pin")}
                 </>
               )}
             </DropdownMenuItem>
@@ -141,7 +141,7 @@ function LayoutCard({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation()
-                    const name = window.prompt("Rename layout:", layout.name)
+                    const name = window.prompt(t("stageLibrary.renamePrompt"), layout.name)
                     if (name?.trim()) {
                       useBroadcastStore
                         .getState()
@@ -150,7 +150,7 @@ function LayoutCard({
                   }}
                 >
                   <EditIcon className="mr-2 size-3.5" />
-                  Rename
+                  {t("rename")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
@@ -160,7 +160,7 @@ function LayoutCard({
                   }}
                 >
                   <Trash2Icon className="mr-2 size-3.5" />
-                  Delete
+                  {t("delete")}
                 </DropdownMenuItem>
               </>
             )}
@@ -172,6 +172,7 @@ function LayoutCard({
 }
 
 export function StageLayoutLibrary() {
+  const { t } = useTranslation("broadcast")
   const layouts = useBroadcastStore((s) => s.stageLayouts)
   const editingId = useBroadcastStore((s) => s.editingStageLayoutId)
   const [search, setSearch] = useState("")
@@ -192,14 +193,14 @@ export function StageLayoutLibrary() {
       if (!result) return
       toast.success(
         result.kind === "stage-layout"
-          ? `Imported "${result.name}"`
-          : `Imported theme "${result.name}"`
+          ? t("stageLibrary.imported", { name: result.name })
+          : t("stageLibrary.importedTheme", { name: result.name })
       )
     } catch (err) {
       toast.error(
         err instanceof ThemeBundleParseError
           ? err.message
-          : "Couldn't import that layout file."
+          : t("stageLibrary.importFailed")
       )
     }
   }
@@ -216,13 +217,13 @@ export function StageLayoutLibrary() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
-        <span className="text-lg font-semibold text-foreground">Layouts</span>
+        <span className="text-lg font-semibold text-foreground">{t("stageLibrary.title")}</span>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon"
-            title="Import layout (.lumtheme)"
-            aria-label="Import layout"
+            title={t("stageLibrary.importTitle")}
+            aria-label={t("stageLibrary.import")}
             onClick={handleImport}
           >
             <UploadIcon className="size-4" />
@@ -235,7 +236,7 @@ export function StageLayoutLibrary() {
             }
           >
             <PlusIcon className="size-4" />
-            New
+            {t("new")}
           </Button>
         </div>
       </div>
@@ -244,7 +245,7 @@ export function StageLayoutLibrary() {
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search layouts..."
+            placeholder={t("stageLibrary.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-7"
@@ -257,7 +258,7 @@ export function StageLayoutLibrary() {
           {builtins.length > 0 && (
             <>
               <p className="px-1.5 pt-2 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Built-in
+                {t("builtIn")}
               </p>
               {builtins.map((layout) => (
                 <LayoutCard
@@ -278,7 +279,7 @@ export function StageLayoutLibrary() {
           {customs.length > 0 && (
             <>
               <p className="px-1.5 pt-3 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Custom
+                {t("custom")}
               </p>
               {customs.map((layout) => (
                 <LayoutCard
@@ -298,7 +299,7 @@ export function StageLayoutLibrary() {
           )}
           {filtered.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
-              No layouts found
+              {t("stageLibrary.none")}
             </p>
           )}
         </div>
@@ -309,15 +310,15 @@ export function StageLayoutLibrary() {
           <div className="w-full max-w-sm rounded-xl bg-popover p-6 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
             <div className="flex flex-col gap-2">
               <h3 className="font-heading leading-none font-medium">
-                Discard unsaved changes?
+                {t("stageLibrary.discardChanges")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                This layout has unsaved edits. Switching now will lose them.
+                {t("stageLibrary.discardDescription")}
               </p>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setPendingSwitch(null)}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -326,7 +327,7 @@ export function StageLayoutLibrary() {
                   setPendingSwitch(null)
                 }}
               >
-                Discard &amp; Switch
+                {t("stageLibrary.discardSwitch")}
               </Button>
             </div>
           </div>

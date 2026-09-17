@@ -46,6 +46,7 @@ describe("transport", () => {
     expect(formatClock(600)).toBe("10:00")
     expect(formatClock(-5)).toBe("0:00")
     expect(formatClock(NaN)).toBe("0:00")
+    expect(formatClock(65, "ar-EG")).toBe("١:٠٥")
   })
 
   it("resolveMediaDisplay prefers the echoed transport except while dragging", () => {

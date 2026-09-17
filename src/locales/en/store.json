@@ -1,0 +1,103 @@
+{
+  "common": {
+    "refresh": "Refresh",
+    "import": "Import",
+    "dismiss": "Dismiss",
+    "cancel": "Cancel",
+    "done": "Done",
+    "optional": "optional",
+    "unknown": "unknown",
+    "install": "Install",
+    "installing": "Installing…",
+    "installed": "Installed",
+    "removing": "Removing…",
+    "download": "Download",
+    "downloading": "Downloading…",
+    "update": "Update",
+    "reinstall": "Reinstall",
+    "checking": "Checking…",
+    "comingSoon": "Coming soon"
+  },
+  "page": {
+    "title": "Resource Store",
+    "description": "Browse and install Bible versions and community song packs.",
+    "searchPlaceholder": "Search resources…",
+    "importBibleTitle": "Import a Bible translation file you're licensed to use"
+  },
+  "categories": {
+    "all": "All",
+    "templates": "Templates",
+    "titles": "Titles",
+    "songs": "Songs",
+    "backgrounds": "Backgrounds",
+    "videos": "Videos",
+    "bible": "Bible Versions"
+  },
+  "bibles": {
+    "filterLanguage": "Filter Bible versions by language",
+    "allLanguages": "All languages",
+    "loading": "Loading catalog…",
+    "empty": "No Bible versions found",
+    "emptyDescription": "Nothing matches your search, or the catalog couldn't be reached. Try refreshing."
+  },
+  "bibleCard": {
+    "imported": "Imported",
+    "verseCount_one": "{{count}} verse",
+    "verseCount_other": "{{count}} verses",
+    "remove": "Remove {{title}}"
+  },
+  "importBible": {
+    "title": "Import a Bible translation",
+    "descriptionStart": "Bring your own copy you're licensed to use. Choose a",
+    "descriptionEnd": "file — the name and code are filled in from the filename.",
+    "success": "Imported {{title}} ({{abbreviation}}): {{verses}} verses across {{books}} books",
+    "skipped_one": ", {{count}} row skipped",
+    "skipped_other": ", {{count}} rows skipped",
+    "availableNow": ". It's now in your translation picker.",
+    "changeFile": "Change file",
+    "chooseFile": "Choose file…",
+    "code": "Code / abbreviation",
+    "codePlaceholder": "NKJV",
+    "fromFilename": "from filename",
+    "titleLabel": "Title",
+    "titlePlaceholder": "New King James Version",
+    "language": "Language",
+    "codeOrName": "code or name",
+    "license": "License / source",
+    "personalCopy": "Personal copy",
+    "userProvidedLicense": "Imported (user-provided)"
+  },
+  "songPacks": {
+    "title": "Community Song Packs",
+    "description": "Install a whole public songbook in one click, then remove it just as easily. Lyrics may be under copyright — projecting them is your church's CCLI responsibility.",
+    "noSongs": "No songs found in \"{{name}}\"",
+    "installedFrom": "Installed {{count}} songs from \"{{name}}\"",
+    "installFailed": "Pack install failed",
+    "removedFrom": "Removed {{count}} songs from \"{{name}}\"",
+    "downloading": "Downloading… {{size}} MB",
+    "publicDomainTitle": "Public domain — safe to project",
+    "publicDomain": "Public domain",
+    "by": "by {{author}}",
+    "addedByUrl": "Added by URL",
+    "communityPack": "Community pack",
+    "installedCount": "{{count}} installed",
+    "remove": "Remove {{label}}",
+    "viewSource": "View source"
+  },
+  "update": {
+    "title": "Software Update",
+    "currentVersion": "Current version {{version}}",
+    "updateNow": "Update now",
+    "check": "Check for updates",
+    "updatingTo": "Updating to LumenLive {{version}}",
+    "available": "LumenLive {{version}} is available",
+    "viewReleaseLog": "View release log",
+    "dismissNotification": "Dismiss notification",
+    "checkFailed": "Couldn't check for updates. Check your connection and try again.",
+    "latest": "You're on the latest version.",
+    "checking": "Checking for updates…",
+    "checkDescription": "Check whether a newer version of LumenLive is available.",
+    "whatsNew": "What's new in LumenLive {{version}}",
+    "noReleaseNotes": "No release notes were provided for this version."
+  }
+}

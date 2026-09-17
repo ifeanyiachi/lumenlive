@@ -1,0 +1,22 @@
+{
+  "command": { "title": "Command Palette", "description": "Search for a command to run..." },
+  "actions": { "close": "Close", "confirm": "Confirm", "cancel": "Cancel", "tryAgain": "Try again" },
+  "accessibility": {
+    "breadcrumb": "Breadcrumb", "more": "More", "chooseColor": "Choose color",
+    "microphoneLevel": "Microphone level", "detectionConfidence": "Detection confidence {{value}}%",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "color": { "hex": "Hex" },
+  "live": { "active": "LIVE", "inactive": "OFF AIR" },
+  "verseCard": { "empty": "Select a verse to preview" },
+  "errorBoundary": {
+    "message": "Something went wrong{{location}}.", "location": " in the {{label}}",
+    "unexpected": "An unexpected error occurred."
+  },
+  "sidebar": { "title": "Sidebar", "mobileDescription": "Displays the mobile sidebar." },
+  "signInPrompt": {
+    "title": "Sign in to transcribe", "description": "Live transcription is included with your LumenLive account. Sign in to start listening — nothing else to set up.",
+    "signIn": "Sign in", "notNow": "Not now"
+  },
+  "transcriptionBlocked": { "openPortal": "Open account portal", "notNow": "Not now" }
+}

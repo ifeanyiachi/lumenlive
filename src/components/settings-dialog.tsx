@@ -17,12 +17,10 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { SettingsIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
 
-import {
-  SETTINGS_SECTIONS,
-  SETTINGS_SECTIONS_BY_ID,
-} from "@/components/settings/settings-sections"
+import { getSettingsSections } from "@/components/settings/settings-sections"
 
 /**
  * Settings shell: sidebar navigation + the active section body. All section
@@ -31,13 +29,16 @@ import {
  * the dialog store.
  */
 export function SettingsDialog() {
+  const { t } = useTranslation("settings")
   const open = useSettingsDialogStore((s) => s.isOpen)
   const activeSection = useSettingsDialogStore((s) => s.activeSection)
   const setActiveSection = useSettingsDialogStore((s) => s.setActiveSection)
   const openSettingsFn = useSettingsDialogStore((s) => s.openSettings)
   const closeSettings = useSettingsDialogStore((s) => s.closeSettings)
 
-  const section = SETTINGS_SECTIONS_BY_ID[activeSection]
+  const sections = getSettingsSections(t)
+  const section =
+    sections.find((candidate) => candidate.id === activeSection) ?? sections[0]
   const ActiveContent = section.Component
 
   return (
@@ -55,28 +56,28 @@ export function SettingsDialog() {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Settings"
-          title="Settings (Ctrl ,)"
+          aria-label={t("dialog.buttonLabel")}
+          title={t("dialog.buttonTitle")}
           data-tour="settings"
         >
           <SettingsIcon className="size-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="overflow-hidden p-0 md:max-h-[600px] md:max-w-[800px] lg:max-w-[900px]">
-        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogTitle className="sr-only">{t("dialog.title")}</DialogTitle>
         <DialogDescription className="sr-only">
-          Configure audio, display mode, and API keys.
+          {t("dialog.description")}
         </DialogDescription>
         <SidebarProvider className="items-start">
           <Sidebar collapsible="none" className="hidden md:flex">
             <div className="flex h-14 items-center border-r border-b border-border px-4">
-              Settings
+              {t("dialog.title")}
             </div>
             <SidebarContent className="border-r border-border">
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {SETTINGS_SECTIONS.map((item) => (
+                    {sections.map((item) => (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
                           isActive={item.id === activeSection}
