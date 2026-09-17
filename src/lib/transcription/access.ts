@@ -7,10 +7,7 @@
  * and the hook acts on it. Colocated tests cover every mode/reason.
  */
 
-import type {
-  BlockedReason,
-  TranscriptionResolution,
-} from "./types"
+import type { BlockedReason, TranscriptionResolution } from "./types"
 
 /** Human-readable copy for a blocked state, shown in the prompt dialog. */
 export interface BlockedCopy {
@@ -38,6 +35,12 @@ export function describeBlock(reason?: BlockedReason): BlockedCopy {
         message:
           "You've used your free transcription minutes. Add your own Deepgram key in the account portal, or upgrade, to keep transcribing.",
       }
+    case "no_subscription":
+      return {
+        title: "Upgrade your account for continued use",
+        message:
+          "Upgrade your account in the portal to continue transcribing.",
+      }
     case "byok_invalid":
       return {
         title: "Your Deepgram key was rejected",
@@ -61,7 +64,7 @@ export function describeBlock(reason?: BlockedReason): BlockedCopy {
  * yields a `blocked` decision with copy; otherwise `start` with the key to use.
  */
 export function decideTranscriptionStart(
-  resolution: TranscriptionResolution,
+  resolution: TranscriptionResolution
 ): StartDecision {
   if (resolution.mode === "blocked") {
     return {

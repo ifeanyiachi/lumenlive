@@ -26,8 +26,8 @@ pub mod reading_mode;
 
 pub use types::*;
 pub use error::*;
-pub use direct::cues::cue_precedes_book_name;
-pub use direct::detector::{DirectDetector, NavDirection, VerseCommand};
+pub use direct::cues::{citation_follows_book_name, cue_precedes_book_name};
+pub use direct::detector::{DirectDetector, NavDirection, SlideCommand, VerseCommand};
 pub use semantic::detector::SemanticDetector;
 pub use merger::{DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;

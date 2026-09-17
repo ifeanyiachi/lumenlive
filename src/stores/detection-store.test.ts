@@ -74,10 +74,7 @@ describe("detection store", () => {
     add([det("John 3:16", "semantic", 0.7)])
 
     const { detections } = useDetectionStore.getState()
-    expect(detections.map((d) => d.verse_ref)).toEqual([
-      "John 3:16",
-      "Rom 5:8",
-    ])
+    expect(detections.map((d) => d.verse_ref)).toEqual(["John 3:16", "Rom 5:8"])
     expect(detections[0].source).toBe("direct")
   })
 

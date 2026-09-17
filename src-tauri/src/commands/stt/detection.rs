@@ -69,12 +69,22 @@ pub(super) fn reset_detection_state(app: &AppHandle) {
 /// Stamp the Phase-3 narrative-mention flag on live DIRECT detections.
 ///
 /// A detection is a low-trust *narrative mention* when Reading Mode is actively
-/// tracking a DIFFERENT book and the utterance did not introduce the detected
-/// book with a citation cue ("turn to", "the book of", "look at <Book>"). This
-/// is the Obadiah case (aitrans §8): a book name spoken as a character during a
-/// verse-by-verse reading of 1 Kings 18. Flagged hits are excluded from
-/// auto-display frontend-side (they still queue for a deliberate send), and P4
-/// reuses the flag as its low-trust discriminator.
+/// tracking a DIFFERENT book and the utterance neither introduced the detected
+/// book with a citation cue ("turn to", "the book of", "look at <Book>") NOR
+/// named an explicit chapter:verse right after it ("Matthew 5:16", "John three
+/// sixteen"). This is the Obadiah case (aitrans §8): a book name spoken as a
+/// character during a verse-by-verse reading of 1 Kings 18. Flagged hits are
+/// excluded from auto-display frontend-side (they still queue for a deliberate
+/// send), and P4 reuses the flag as its low-trust discriminator.
+///
+/// The trailing-citation escape hatch ([`citation_follows_book_name`]) is what
+/// keeps a real cross-reference on the audience screen: field logs showed a
+/// preacher reading John who then quoted "Matthew 5:16", "Philippians 4:19",
+/// etc. without a "turn to" cue — every one was wrongly guarded as narrative and
+/// never displayed, even though an explicit `Book C:V` is unambiguously a
+/// deliberate citation, not prose. It keys off the CURRENT utterance's spoken
+/// words, so a full verse produced only by sticky cross-utterance context (the
+/// genuine Obadiah mechanism) is still guarded.
 ///
 /// When Reading Mode is idle nothing is flagged — a cleanly-spoken reference
 /// obeys the auto-display toggle unchanged (operator decision, aitrans §9 P3).
@@ -86,7 +96,9 @@ fn stamp_narrative_mentions(
     transcript: &str,
     results: &mut [crate::commands::detection::DetectionResult],
 ) {
-    use lumenlive_detection::{cue_precedes_book_name, ReadingMode};
+    use lumenlive_detection::{
+        citation_follows_book_name, cue_precedes_book_name, ReadingMode,
+    };
 
     let (rm_active, rm_book) = {
         let rm_state: State<'_, Mutex<ReadingMode>> = app.state();
@@ -101,6 +113,7 @@ fn stamp_narrative_mentions(
             && r.book_number > 0
             && r.book_number != rm_book
             && !cue_precedes_book_name(transcript, &r.book_name)
+            && !citation_follows_book_name(transcript, &r.book_name)
         {
             r.narrative_mention = true;
             log::info!(
@@ -982,4 +995,50 @@ pub(super) fn check_verse_command(app: &AppHandle, transcript: &str) {
 
     log::info!("[STT] Voice verse command: {payload:?}");
     let _ = app.emit("verse_command", payload);
+}
+
+/// Check for a spoken *slide* command — "next slide", "go back to the previous
+/// slide" — and emit `slide_command` with the intent.
+///
+/// The payload mirrors `verse_command`'s relative arm:
+/// `{ direction: "next" | "previous", count }`.
+///
+/// This drives the **schedule list** (its items and their sub-slides), not
+/// verses, and is kept fully separate from the verse-command path — the two are
+/// keyword-disjoint at the detector level (slide phrases require "slide"), so
+/// both classifiers run on the same final transcript without colliding. Like the
+/// verse commands, the payload carries only intent; the schedule store resolves
+/// the target against the currently active schedule item. Finals-only for the
+/// same reason: a step is not idempotent, so running on volatile partials would
+/// double-fire when the final repeats.
+pub(super) fn check_slide_command(app: &AppHandle, transcript: &str) {
+    use lumenlive_detection::{DirectDetector, NavDirection, SlideCommand};
+
+    #[derive(serde::Serialize, Clone, Debug)]
+    struct SlideCommandPayload {
+        direction: &'static str,
+        count: u32,
+    }
+
+    let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+    let command = {
+        let Ok(detector) = detector_state.lock() else {
+            return;
+        };
+        detector.detect_slide_command(transcript)
+    };
+    let Some(SlideCommand { direction, count }) = command else {
+        return;
+    };
+
+    let payload = SlideCommandPayload {
+        direction: match direction {
+            NavDirection::Next => "next",
+            NavDirection::Previous => "previous",
+        },
+        count,
+    };
+
+    log::info!("[STT] Voice slide command: {payload:?}");
+    let _ = app.emit("slide_command", payload);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ const SOURCE_COLORS: Record<
 }
 
 function SourceBadge({ source }: { source: string }) {
+  const { t } = useTranslation("panels")
   const style = SOURCE_COLORS[source] ?? {
     bg: "bg-muted",
     text: "text-muted-foreground",
@@ -38,12 +40,13 @@ function SourceBadge({ source }: { source: string }) {
     <span
       className={`rounded px-1.5 py-0.5 text-[0.5625rem] font-medium tracking-wider uppercase ${style.bg} ${style.text}`}
     >
-      {style.label}
+      {source in SOURCE_COLORS ? t(`detections.${source}`) : style.label}
     </span>
   )
 }
 
 function DetectionCard({ detection }: { detection: DetectionResult }) {
+  const { t } = useTranslation("panels")
   // Acting on a detection (Present / Preview / Queue) is a paid capability: Free
   // still SEES the detections stream but can't push them anywhere. The buttons
   // render disabled and a click anywhere on the row's action group raises the
@@ -86,7 +89,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           disabled={!canActions}
         >
           <PlayIcon className="size-3" />
-          Present
+          {t("detections.present")}
         </Button>
         <Button
           variant="outline"
@@ -96,7 +99,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           disabled={!canActions}
         >
           <EyeIcon className="size-3" />
-          Preview
+          {t("detections.preview")}
         </Button>
         <Button
           variant="outline"
@@ -125,7 +128,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           }}
         >
           <PlusIcon className="size-3" />
-          Queue
+          {t("detections.queue")}
         </Button>
       </div>
     </div>
@@ -133,6 +136,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
 }
 
 export function DetectionsPanel() {
+  const { t } = useTranslation("panels")
   const detections = useDetectionStore((s) => s.detections)
   const pendingCount = useDetectionStore((s) => s.pendingCount)
 
@@ -185,12 +189,12 @@ export function DetectionsPanel() {
       data-slot="detections-panel"
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title="Recent detections">
+      <PanelHeader title={t("detections.title")}>
         <button
           onClick={() => detectionActions.clearDetections()}
           className="text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
         >
-          Clear all
+          {t("detections.clearAll")}
         </button>
       </PanelHeader>
 
@@ -206,14 +210,13 @@ export function DetectionsPanel() {
             onClick={flushNow}
             className="sticky top-0 z-10 w-full border-b border-indigo-500/20 bg-indigo-500/15 px-3 py-1.5 text-center text-xs font-medium text-indigo-300 backdrop-blur-sm transition-colors hover:bg-indigo-500/25"
           >
-            {pendingCount} new {pendingCount === 1 ? "verse" : "verses"} detected
-            — click to update
+            {t("detections.pending", { count: pendingCount })}
           </button>
         )}
         <div className="flex flex-col gap-0">
           {detections.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
-              Verse detections will appear here during transcription
+              {t("detections.empty")}
             </p>
           )}
           {detections.map((detection, i) => (

@@ -86,6 +86,88 @@ pub fn cue_precedes_book_name(text: &str, book_name: &str) -> bool {
     false
 }
 
+/// Spoken number / citation-keyword words that, immediately after a book name,
+/// mark a deliberate chapter:verse citation ("John three sixteen", "Romans
+/// chapter eight", "Genesis verse one"). Digit forms ("5:16") are handled
+/// separately by a leading-digit test. Kept lowercase.
+const CITATION_LEAD_WORDS: &[&str] = &[
+    "chapter", "verse", "verses", //
+    // cardinals 1..=20
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+    "seventeen", "eighteen", "nineteen", "twenty", //
+    // tens + hundred
+    "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    "hundred", //
+    // ordinals ("the third verse")
+    "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+    "ninth", "tenth",
+];
+
+/// How many characters after the book name to inspect for an explicit citation.
+const CITATION_WINDOW_CHARS: usize = 24;
+
+/// Returns true when an explicit chapter:verse citation immediately FOLLOWS any
+/// spoken occurrence of `book_name` in `text` — e.g. "Matthew 5:16", "Romans
+/// chapter 8", "John three sixteen", "Genesis verse one".
+///
+/// This is the complement of [`cue_precedes_book_name`]. Where that spots a cue
+/// *introducing* the book, this spots the citation *trailing* it. The narrative
+/// guard uses either signal: a book name is a deliberate reference — not an
+/// Obadiah-style prose mention — when the speaker either turned to it OR named a
+/// chapter:verse right after it. Crucially, it keys off the CURRENT utterance's
+/// raw words, so a full verse produced only by sticky cross-utterance context
+/// (the actual Obadiah failure mode) is NOT mistaken for a spoken citation.
+///
+/// `text` is the **raw** transcript; `book_name` is the canonical book name. A
+/// spoken form that never appears verbatim simply returns false (the safe
+/// direction — an uncertain citation grants no extra display trust).
+pub fn citation_follows_book_name(text: &str, book_name: &str) -> bool {
+    if book_name.is_empty() {
+        return false;
+    }
+    let haystack = text.to_lowercase();
+    let needle = book_name.to_lowercase();
+
+    let mut search_from = 0;
+    while let Some(rel) = haystack[search_from..].find(&needle) {
+        let after_book = search_from + rel + needle.len();
+        if citation_in_window(&haystack, after_book) {
+            return true;
+        }
+        search_from = after_book;
+        if search_from >= haystack.len() {
+            break;
+        }
+    }
+    false
+}
+
+/// Check whether the window of text immediately after the book name (a char
+/// boundary into a lowercased string) begins with an explicit citation — a digit
+/// (chapter number) or a citation lead word.
+fn citation_in_window(haystack: &str, after_book: usize) -> bool {
+    if after_book >= haystack.len() {
+        return false;
+    }
+    let mut win_end = (after_book + CITATION_WINDOW_CHARS).min(haystack.len());
+    while win_end < haystack.len() && !haystack.is_char_boundary(win_end) {
+        win_end += 1;
+    }
+    // Trim the separator between the book name and what follows (space, ":", ",").
+    let window = haystack[after_book..win_end].trim_start_matches(|c: char| !c.is_alphanumeric());
+    // Digit form: "5:16", "119 105".
+    if window.starts_with(|c: char| c.is_ascii_digit()) {
+        return true;
+    }
+    // Spoken form: the first word is a chapter/verse keyword or a number word.
+    let first_word = window
+        .split(|c: char| !c.is_alphanumeric())
+        .next()
+        .unwrap_or("");
+    !first_word.is_empty() && CITATION_LEAD_WORDS.contains(&first_word)
+}
+
 /// Check whether the window of text immediately before `book_start` (already a
 /// char boundary into a lowercased string) ends with a cue phrase.
 fn cue_in_window(haystack: &str, book_start: usize) -> bool {
@@ -138,5 +220,47 @@ mod tests {
     #[test]
     fn case_insensitive() {
         assert!(cue_precedes_book_name("TURN TO ISAIAH", "Isaiah"));
+    }
+
+    // ── citation_follows_book_name ──────────────────────────────────────────
+
+    #[test]
+    fn citation_digit_form_follows() {
+        // The evidenced live case: explicit "Book C:V" spoken while Reading Mode
+        // tracks another book must read as a deliberate citation.
+        assert!(citation_follows_book_name("Matthew 5:16", "Matthew"));
+        assert!(citation_follows_book_name("No, Matthew 5:16.", "Matthew"));
+        assert!(citation_follows_book_name("Philippians 4:19.", "Philippians"));
+        assert!(citation_follows_book_name("Psalm 119 105", "Psalm"));
+    }
+
+    #[test]
+    fn citation_spoken_and_keyword_forms_follow() {
+        assert!(citation_follows_book_name("Matthew chapter 5, verse 16.", "Matthew"));
+        assert!(citation_follows_book_name("look at John three sixteen", "John"));
+        assert!(citation_follows_book_name("Genesis verse one", "Genesis"));
+        assert!(citation_follows_book_name("Romans chapter eight", "Romans"));
+    }
+
+    #[test]
+    fn no_citation_in_narrative_prose() {
+        // The Obadiah incident: a bare book name in prose, no chapter:verse after.
+        assert!(!citation_follows_book_name(
+            "Look at verse 6, and and Ahab said to Obadiah, go",
+            "Obadiah"
+        ));
+        assert!(!citation_follows_book_name("and Ahab said to Obadiah", "Obadiah"));
+        assert!(!citation_follows_book_name("Elijah spoke to James and John today", "James"));
+    }
+
+    #[test]
+    fn citation_missing_book_is_safe_false() {
+        assert!(!citation_follows_book_name("turn to the next slide", "Obadiah"));
+        assert!(!citation_follows_book_name("", "John"));
+    }
+
+    #[test]
+    fn citation_book_at_end_has_no_following_citation() {
+        assert!(!citation_follows_book_name("we were reading in Matthew", "Matthew"));
     }
 }

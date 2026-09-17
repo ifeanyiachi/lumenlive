@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useAuthStore } from "@/stores/auth-store"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useEntitlementsStore } from "@/stores/entitlements-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { trackServiceStarted } from "@/services/analytics-gateway"
 import {
@@ -11,7 +12,11 @@ import {
   reportKeyInvalid,
   reportTranscriptionUsage,
 } from "@/services/transcription-key-gateway"
-import { decideTranscriptionStart, describeBlock } from "@/lib/transcription/access"
+import {
+  decideTranscriptionStart,
+  describeBlock,
+} from "@/lib/transcription/access"
+import { describeTranscriptionStartError } from "@/lib/transcription/start-error"
 import type { BlockedCopy } from "@/lib/transcription/access"
 import type {
   SttProviderId,
@@ -63,7 +68,7 @@ let sessionMode: TranscriptionMode | null = null
 export const transcriptionActions = {
   async start(
     onSignInRequired?: () => void,
-    onBlocked?: (copy: BlockedCopy) => void,
+    onBlocked?: (copy: BlockedCopy) => void
   ): Promise<void> {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("connecting")
@@ -92,25 +97,30 @@ export const transcriptionActions = {
     // default to Deepgram, the current default, so this is safe to ship early.
     let provider: SttProviderId = "deepgram"
     try {
-      const resolution = await pullTranscriptionKey(token)
+      // The server binds each temporary key to an already-activated desktop.
+      // This is server-side attribution, not a client-side entitlement check.
+      const machineId = await useEntitlementsStore.getState().ensureMachineId()
+      const resolution = await pullTranscriptionKey(token, machineId)
       transcript.setRemainingMinutes(resolution.remainingMinutes)
       const decision = decideTranscriptionStart(resolution)
       if (decision.action === "blocked") {
         transcript.setConnectionStatus("disconnected")
         if (onBlocked) onBlocked(decision.copy)
-        else toast.error(decision.copy.title, { description: decision.copy.message })
+        else
+          toast.error(decision.copy.title, {
+            description: decision.copy.message,
+          })
         return
       }
       apiKey = decision.key
       sessionMode = decision.mode
       provider = resolution.provider ?? "deepgram"
-    } catch {
-      // Couldn't reach the backend (offline/refused). There's no local-key
-      // fallback anymore — transcription is platform-only — so surface it.
+    } catch (error) {
+      // Key retrieval can fail because of an expired session, a backend response,
+      // or the network. Keep those cases distinct for the operator.
       transcript.setConnectionStatus("error")
       toast.error("Could not start transcription", {
-        description:
-          "Couldn't reach your LumenLive account. Check your connection and try again.",
+        description: describeTranscriptionStartError(error),
       })
       return
     }
@@ -187,9 +197,8 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     }
   })
 
-  // Rust meters audio-seconds streamed to the STT provider and emits per-minute
-  // deltas. Report them for signed-in, platform-resolved sessions so free/trial
-  // allowances are enforced; anonymous BYO sessions (`sessionMode === null`) skip.
+  // Rust reports audio-seconds as UI telemetry only. Soniox usage logs, bound to
+  // the server-issued temporary key, are the authoritative trial meter.
   useTauriEvent<TranscriptionUsagePayload>("transcription_usage", (payload) => {
     if (sessionMode === null) return
     const token = useAuthStore.getState().token
@@ -198,7 +207,9 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     if (!shouldReportUsage(seconds)) return
     void reportTranscriptionUsage(token, seconds)
       .then((status) => {
-        useTranscriptStore.getState().setRemainingMinutes(status.remainingMinutes)
+        useTranscriptStore
+          .getState()
+          .setRemainingMinutes(status.remainingMinutes)
       })
       .catch(() => {})
   })

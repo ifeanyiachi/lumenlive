@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
+import { useTranslation } from "react-i18next"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import {
   useBroadcastStore,
   useTranscriptStore,
   useSettingsStore,
+  useScheduleStore,
 } from "@/stores"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
@@ -45,6 +47,15 @@ import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
 type VerseCommandPayload =
   | { kind: "relative"; direction: NavDirection; count: number }
   | { kind: "absolute"; verse: number }
+
+/**
+ * Payload of the backend `slide_command` event — a spoken command that steps the
+ * *schedule* ("next slide", "go back to the previous slide"). Mirrors the Rust
+ * `SlideCommand`: intent only (direction + count). The item to act on is resolved
+ * in the schedule store against the live selection, never here. Kept disjoint
+ * from `verse_command`: slide commands drive the schedule list, not verses.
+ */
+type SlideCommandPayload = { direction: "next" | "previous"; count: number }
 
 /**
  * Present a verse reached by spoken navigation: reflect it in the book panel and
@@ -216,6 +227,7 @@ function displayDirectVerse(hit: DetectionResult) {
 const INSTANT_STABILITY_PARTIALS = 1
 
 export function TranscriptPanel() {
+  const { t } = useTranslation("panels")
   const [showSignInPrompt, setShowSignInPrompt] = useState(false)
   const onSignInRequired = useCallback(() => setShowSignInPrompt(true), [])
   const [blockedCopy, setBlockedCopy] = useState<BlockedCopy | null>(null)
@@ -356,8 +368,12 @@ export function TranscriptPanel() {
   // detections are excluded (genuine guesses that need the full sentence); auto-
   // queue also stays finals-only.
   useTauriEvent<DetectionResult[]>("verse_detections_partial", (detections) => {
-    const { directAutoDisplay, directInstantDisplay, confidenceThreshold, cooldownMs } =
-      useSettingsStore.getState()
+    const {
+      directAutoDisplay,
+      directInstantDisplay,
+      confidenceThreshold,
+      cooldownMs,
+    } = useSettingsStore.getState()
     useDetectionStore
       .getState()
       .addDetections(panelDetections(detections, confidenceThreshold))
@@ -430,6 +446,20 @@ export function TranscriptPanel() {
     }
   })
 
+  // Spoken schedule commands ("next slide", "go back to the previous slide"):
+  // the backend classifies intent only (direction + count). The store anchors on
+  // the active schedule item/sub-slide and steps it, so this works no matter how
+  // that slide got there — an arrow key, a click, Go Live, or a prior command.
+  // The stepped slide is staged to Program preview, or pushed live when "Schedule
+  // voice navigation goes live" (scheduleNavAutoLive) is on. Independent of
+  // verse_command above — this drives the schedule list, not verses.
+  useTauriEvent<SlideCommandPayload>("slide_command", (payload) => {
+    const { scheduleNavAutoLive } = useSettingsStore.getState()
+    void useScheduleStore
+      .getState()
+      .stepSlideByVoice(payload.direction, payload.count, scheduleNavAutoLive)
+  })
+
   // Auto-scroll on segment additions. Partial-driven scrolling lives in
   // LivePartialLine so the panel doesn't re-render per audio tick.
   useEffect(() => {
@@ -444,7 +474,7 @@ export function TranscriptPanel() {
       className="flex flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
       <PanelHeader
-        title="Live transcript"
+        title={t("transcript.title")}
         icon={<MicIcon className="size-3" />}
       >
         <div className="flex items-end gap-2 pb-px">
@@ -473,7 +503,7 @@ export function TranscriptPanel() {
 
           {segments.length === 0 && !hasPartial && !isTranscribing && (
             <p className="text-sm text-muted-foreground">
-              Click "Start transcribing" to begin
+              {t("transcript.empty")}
             </p>
           )}
 
@@ -510,21 +540,31 @@ export function TranscriptPanel() {
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
-            title="Stop transcribing (T)"
+            title={t("transcript.stopTitle")}
             onClick={stopTranscription}
           >
             <MicOffIcon className="size-3" />
-            Stop transcribing
+            {t("transcript.stop")}
+          </Button>
+        ) : connectionStatus === "connecting" ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled
+            title={t("transcript.startingTitle")}
+          >
+            <MicIcon className="size-3" />
+            {t("transcript.starting")}
           </Button>
         ) : (
           <Button
             variant="ghost"
             size="sm"
-            title="Start transcribing (T)"
+            title={t("transcript.startTitle")}
             onClick={startTranscription}
           >
             <MicIcon className="size-3" />
-            Start transcribing
+            {t("transcript.start")}
           </Button>
         )}
       </div>

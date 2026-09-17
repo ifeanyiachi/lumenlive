@@ -355,6 +355,52 @@ pub enum VerseCommand {
 /// mishearing, so it is clamped away rather than trusted.
 const MAX_RELATIVE_STEP: i32 = 50;
 
+/// Phrases meaning "advance to the next slide" (step +1 in the schedule).
+///
+/// A spoken *slide* command drives the **schedule list** — the items on the
+/// service plan and the sub-slides inside a song/scripture deck — not a verse.
+/// It is deliberately keyword-disjoint from the verse commands: every slide
+/// phrase is gated on the whole word "slide"/"slides" (see
+/// [`DirectDetector::detect_slide_command`]), so "next verse" and "next slide"
+/// never collide and both classifiers can run on the same final transcript.
+const SLIDE_FORWARD_PHRASES: &[&str] = &[
+    "next slide",
+    "next one",
+    "go to the next slide",
+    "turn to the next slide",
+    "move to the next slide",
+    "on to the next slide",
+    "forward one slide",
+];
+
+/// Phrases meaning "go back to the previous slide" (step -1 in the schedule).
+const SLIDE_BACKWARD_PHRASES: &[&str] = &[
+    "previous slide",
+    "last slide",
+    "slide before",
+    "go back a slide",
+    "back one slide",
+    "back a slide",
+    "go back to the previous slide",
+];
+
+/// A spoken command that steps the **schedule** forward or backward.
+///
+/// Carries *intent only* — a direction and a step count — never a resolved
+/// target. The frontend/schedule store resolves the actual slide against the
+/// currently active schedule item (`activeItemIndex` / `activeSlideIndex`), so
+/// the command works no matter how the current item became active (arrow keys, a
+/// click, an earlier voice command, or a Go Live). This mirrors the
+/// [`VerseCommand::Relative`] contract but for schedule items and their
+/// sub-slides rather than verses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlideCommand {
+    /// Which way to step through the schedule.
+    pub direction: NavDirection,
+    /// How many slides to move (1 for a plain "next slide").
+    pub count: u32,
+}
+
 /// Whitespace-delimited whole-word membership test (so "back" does not match
 /// inside "background"). Trims surrounding punctuation from each word.
 fn contains_word(text: &str, word: &str) -> bool {
@@ -565,6 +611,67 @@ impl DirectDetector {
         }
 
         None
+    }
+
+    /// Classify a spoken *slide* command — "next slide", "go back to the
+    /// previous slide" — into a [`SlideCommand`].
+    ///
+    /// This is the schedule-navigation twin of [`Self::detect_verse_command`]:
+    /// same short-utterance discipline, but gated on the whole word
+    /// "slide"/"slides" instead of "verse" so the two never collide. Like the
+    /// verse classifier it returns *intent only* (direction + count); the
+    /// schedule store resolves the target against the currently active schedule
+    /// item, so the command works regardless of how that item became active.
+    ///
+    /// Returns `None` when the utterance is too long to be a bare command
+    /// (dominance guard), does not mention a slide, names a real book reference
+    /// (that's a jump the main detector owns), or names both directions at once.
+    pub fn detect_slide_command(&self, text: &str) -> Option<SlideCommand> {
+        let cleaned = clean_transcript(text);
+        let lower = cleaned.to_lowercase();
+
+        // Dominance guard: a command is a short, standalone utterance, not a
+        // sentence of preaching that happens to say "slide".
+        if lower.split_whitespace().count() > MAX_NAV_WORDS {
+            return None;
+        }
+        // Keyword-disjoint from verse commands: a slide command must name a
+        // slide. This is what keeps "next verse" and "next slide" from colliding.
+        if !contains_word(&lower, "slide") && !contains_word(&lower, "slides") {
+            return None;
+        }
+        // A real book reference is a jump the main detector owns.
+        if !self.matcher.find_books(&cleaned).is_empty() {
+            return None;
+        }
+
+        let forward = SLIDE_FORWARD_PHRASES.iter().any(|p| lower.contains(p));
+        let backward = SLIDE_BACKWARD_PHRASES.iter().any(|p| lower.contains(p));
+
+        // Both directions named — refuse rather than guess wrong.
+        if forward && backward {
+            return None;
+        }
+        if !forward && !backward {
+            return None;
+        }
+
+        let direction = if forward {
+            NavDirection::Next
+        } else {
+            NavDirection::Previous
+        };
+        let count = parser::first_number(&lower)
+            .filter(|n| (1..=MAX_RELATIVE_STEP).contains(n))
+            .unwrap_or(1);
+        #[allow(
+            clippy::cast_sign_loss,
+            reason = "count is filtered to 1..=MAX_RELATIVE_STEP, always positive"
+        )]
+        Some(SlideCommand {
+            direction,
+            count: count as u32,
+        })
     }
 
     /// Detect Bible references in the given transcript text.
@@ -1511,5 +1618,127 @@ mod tests {
         let d = DirectDetector::new();
         assert!(d.detect_verse_command("the weather is nice today").is_none());
         assert!(d.detect_verse_command("let us pray together").is_none());
+    }
+
+    // ========== Slide Command Tests ==========
+    //
+    // detect_slide_command drives the schedule list, not verses. It is gated on
+    // the whole word "slide"/"slides" so it is keyword-disjoint from the verse
+    // commands. Like them it returns intent only; the schedule store resolves the
+    // target against the currently active item.
+
+    #[test]
+    fn test_slide_forward_phrasings() {
+        let d = DirectDetector::new();
+        for cmd in [
+            "next slide",
+            "next one slide",
+            "go to the next slide",
+            "turn to the next slide",
+            "move to the next slide",
+            "on to the next slide",
+            "forward one slide",
+        ] {
+            assert_eq!(
+                d.detect_slide_command(cmd),
+                Some(SlideCommand {
+                    direction: NavDirection::Next,
+                    count: 1,
+                }),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_slide_backward_phrasings() {
+        let d = DirectDetector::new();
+        for cmd in [
+            "previous slide",
+            "last slide",
+            "the slide before",
+            "go back a slide",
+            "back one slide",
+            "back a slide",
+            "go back to the previous slide",
+        ] {
+            assert_eq!(
+                d.detect_slide_command(cmd),
+                Some(SlideCommand {
+                    direction: NavDirection::Previous,
+                    count: 1,
+                }),
+                "command: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_slide_count_parsing() {
+        // A count only applies when a direction phrase matches AND a number is
+        // present; "forward one slide" carries its own "one".
+        let d = DirectDetector::new();
+        assert_eq!(
+            d.detect_slide_command("forward one slide"),
+            Some(SlideCommand {
+                direction: NavDirection::Next,
+                count: 1,
+            })
+        );
+        // A number spoken alongside a matching phrase is honored.
+        assert_eq!(
+            d.detect_slide_command("next slide two"),
+            Some(SlideCommand {
+                direction: NavDirection::Next,
+                count: 2,
+            })
+        );
+        assert_eq!(
+            d.detect_slide_command("back one slide"),
+            Some(SlideCommand {
+                direction: NavDirection::Previous,
+                count: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn test_slide_ignores_prose() {
+        // Preaching that merely mentions a slide must not move the schedule.
+        let d = DirectDetector::new();
+        assert!(
+            d.detect_slide_command(
+                "and the next slide of his argument builds on the first",
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_slide_rejects_both_directions() {
+        let d = DirectDetector::new();
+        assert!(d.detect_slide_command("next slide or previous slide").is_none());
+    }
+
+    #[test]
+    fn test_slide_bails_on_book_reference() {
+        // A real book reference is a jump the main detector owns.
+        let d = DirectDetector::new();
+        assert!(d.detect_slide_command("John slide next").is_none());
+    }
+
+    #[test]
+    fn test_slide_requires_slide_keyword() {
+        // Keyword-disjoint: a verse command must NOT match the slide classifier.
+        let d = DirectDetector::new();
+        assert!(d.detect_slide_command("next verse").is_none());
+        assert!(d.detect_slide_command("previous verse").is_none());
+        assert!(d.detect_slide_command("next one").is_none());
+    }
+
+    #[test]
+    fn test_slide_no_command() {
+        let d = DirectDetector::new();
+        assert!(d.detect_slide_command("the weather is nice today").is_none());
     }
 }

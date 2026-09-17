@@ -40,11 +40,16 @@ async function loadModules() {
   const transcriptMod = await import("@/stores/transcript-store")
   const settingsMod = await import("@/stores/settings-store")
   const authMod = await import("@/stores/auth-store")
+  const entitlementsMod = await import("@/stores/entitlements-store")
   const hookMod = await import("./use-transcription")
+  // Key minting is now device-bound; keep unrelated start-flow tests focused on
+  // their stated behaviour instead of the native machine-ID bridge.
+  entitlementsMod.useEntitlementsStore.setState({ machineId: "machine-test" })
   return {
     useTranscriptStore: transcriptMod.useTranscriptStore,
     useSettingsStore: settingsMod.useSettingsStore,
     useAuthStore: authMod.useAuthStore,
+    useEntitlementsStore: entitlementsMod.useEntitlementsStore,
     transcriptionActions: hookMod.transcriptionActions,
   }
 }
@@ -79,15 +84,20 @@ describe("use-transcription", () => {
         usedMinutes: 180,
         byokPresent: false,
       })
-      const { useSettingsStore, useAuthStore, transcriptionActions } =
-        await loadModules()
+      const {
+        useSettingsStore,
+        useAuthStore,
+        useEntitlementsStore,
+        transcriptionActions,
+      } = await loadModules()
 
       signIn(useAuthStore)
+      useEntitlementsStore.setState({ machineId: "machine-1" })
       useSettingsStore.setState({ audioDeviceId: "dev-42", gain: 1.5 })
 
       await transcriptionActions.start()
 
-      expect(mockPullKey).toHaveBeenCalledWith("session-token")
+      expect(mockPullKey).toHaveBeenCalledWith("session-token", "machine-1")
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         apiKey: "dg-platform-key",
         provider: "deepgram",
@@ -211,7 +221,10 @@ describe("use-transcription", () => {
       expect(mockInvoke).not.toHaveBeenCalled()
       expect(mockToastError).toHaveBeenCalledWith(
         "Could not start transcription",
-        expect.objectContaining({ description: expect.any(String) })
+        {
+          description:
+            "LumenLive could not prepare transcription. Try again. If this keeps happening, contact support.",
+        }
       )
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })

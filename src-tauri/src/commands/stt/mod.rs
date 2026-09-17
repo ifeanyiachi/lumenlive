@@ -44,7 +44,8 @@ pub(super) fn truncate_safe(s: &str, max_bytes: usize) -> &str {
 ///
 /// 1. Opens the microphone via cpal (on a dedicated thread so the non-Send
 ///    `AudioCapture` never crosses thread boundaries).
-/// 2. Connects to the Deepgram STT provider.
+/// 2. Connects to the selected STT provider (Deepgram by default; Soniox when
+///    `provider` requests it).
 /// 3. Fans audio out to both the level meter (emits `audio_level` events) and STT.
 /// 4. Receives transcripts and emits `transcript_partial` / `transcript_final` events.
 /// 5. On final transcripts, runs the detection pipeline and emits `verse_detected` events.
@@ -53,6 +54,7 @@ pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, Mutex<AppState>>,
     api_key: String,
+    provider: Option<String>,
     device_id: Option<String>,
     gain: Option<f32>,
 ) -> Result<(), String> {
@@ -87,7 +89,10 @@ pub async fn start_transcription(
     }
 
     // ── 2. Build the STT provider ───────────────────────────────────────
-    let stt_provider = model::build_provider(api_key)?;
+    // Backend defaults to Deepgram; the frontend `provider` field (Phase 3)
+    // selects Soniox for the A/B trial.
+    let backend = model::parse_backend(provider.as_deref());
+    let stt_provider = model::build_provider(backend, api_key)?;
 
     stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);

@@ -11,14 +11,12 @@ import type { PlanTier } from "@/lib/entitlements"
 
 /** Which key the platform decided this client may use right now. */
 export type TranscriptionMode =
-  | "platform_paid"
-  | "platform_trial"
-  | "byok"
-  | "blocked"
+  "platform_paid" | "platform_trial" | "byok" | "blocked"
 
 /** Why transcription is blocked — only set when `mode === "blocked"`. */
 export type BlockedReason =
   | "allowance_exhausted"
+  | "no_subscription"
   | "platform_key_unset"
   | "byok_invalid"
 
@@ -56,7 +54,7 @@ export interface TranscriptionResolution {
    * don't). Informational — the desktop re-pulls on reconnect rather than
    * tracking expiry.
    */
-  expiresAt?: string
+  keyExpiresAt?: string
 }
 
 /**

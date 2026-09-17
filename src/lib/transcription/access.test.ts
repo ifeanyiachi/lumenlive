@@ -1,14 +1,10 @@
 import { describe, it, expect } from "vitest"
 
-import {
-  decideTranscriptionStart,
-  describeBlock,
-  isMetered,
-} from "./access"
+import { decideTranscriptionStart, describeBlock, isMetered } from "./access"
 import type { TranscriptionResolution } from "./types"
 
 function resolution(
-  over: Partial<TranscriptionResolution> = {},
+  over: Partial<TranscriptionResolution> = {}
 ): TranscriptionResolution {
   return {
     mode: "platform_trial",
@@ -41,7 +37,11 @@ describe("decideTranscriptionStart", () => {
 
   it("blocks with allowance copy when exhausted", () => {
     const d = decideTranscriptionStart(
-      resolution({ mode: "blocked", key: undefined, reason: "allowance_exhausted" }),
+      resolution({
+        mode: "blocked",
+        key: undefined,
+        reason: "allowance_exhausted",
+      })
     )
     expect(d.action).toBe("blocked")
     if (d.action === "blocked") {
@@ -52,21 +52,36 @@ describe("decideTranscriptionStart", () => {
 
   it("blocks for byok_invalid and platform_key_unset with distinct copy", () => {
     const invalid = decideTranscriptionStart(
-      resolution({ mode: "blocked", key: undefined, reason: "byok_invalid" }),
+      resolution({ mode: "blocked", key: undefined, reason: "byok_invalid" })
     )
     const unset = decideTranscriptionStart(
-      resolution({ mode: "blocked", key: undefined, reason: "platform_key_unset" }),
+      resolution({
+        mode: "blocked",
+        key: undefined,
+        reason: "platform_key_unset",
+      })
     )
     expect(invalid).toMatchObject({ action: "blocked", reason: "byok_invalid" })
-    expect(unset).toMatchObject({ action: "blocked", reason: "platform_key_unset" })
+    expect(unset).toMatchObject({
+      action: "blocked",
+      reason: "platform_key_unset",
+    })
     if (invalid.action === "blocked" && unset.action === "blocked") {
       expect(invalid.copy.title).not.toBe(unset.copy.title)
     }
   })
 
+  it("prompts a Free account to start a trial or upgrade", () => {
+    const d = decideTranscriptionStart(
+      resolution({ mode: "blocked", key: undefined, reason: "no_subscription" })
+    )
+    expect(d).toMatchObject({ action: "blocked", reason: "no_subscription" })
+    if (d.action === "blocked") expect(d.copy.title).toMatch(/trial|upgrade/i)
+  })
+
   it("blocks defensively when a non-blocked mode arrives without a key", () => {
     const d = decideTranscriptionStart(
-      resolution({ mode: "platform_paid", key: undefined }),
+      resolution({ mode: "platform_paid", key: undefined })
     )
     expect(d.action).toBe("blocked")
   })

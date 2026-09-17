@@ -20,8 +20,8 @@ use crate::events::{
 };
 
 use super::detection::{
-    check_reading_mode, check_translation_command, check_verse_command, run_direct_detection,
-    run_semantic_detection,
+    check_reading_mode, check_slide_command, check_translation_command, check_verse_command,
+    run_direct_detection, run_semantic_detection,
 };
 use super::truncate_safe;
 
@@ -266,6 +266,13 @@ pub(super) fn spawn_transcript_processing(
                         // volatile partials would double-fire when the final
                         // repeats the phrase.
                         check_verse_command(&event_app, &transcript);
+
+                        // Check for spoken schedule commands — "next slide",
+                        // "previous slide". Drives the schedule list, kept
+                        // separate from verse commands (keyword-disjoint at the
+                        // detector). Finals ONLY, same non-idempotency reason as
+                        // check_verse_command above.
+                        check_slide_command(&event_app, &transcript);
 
                         // A final closes the utterance: reset the partial-dedup
                         // guard so the next utterance's partials re-detect fresh.

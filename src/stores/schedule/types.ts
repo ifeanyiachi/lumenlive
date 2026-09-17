@@ -99,6 +99,19 @@ export interface ScheduleState {
    * expanded group row, mirroring {@link presentLive} for one sub-slide.
    */
   presentItemSlideLive: (index: number, slideIndex: number) => Promise<void>
+  /**
+   * Voice-driven schedule stepping. Steps the active item (and its sub-slides)
+   * `count` times in `direction`, anchored on the live selection like
+   * {@link nextItem}/{@link prevItem}. When `goLive`, pushes the newly active
+   * slide straight to the audience (settings' `scheduleNavAutoLive`); otherwise
+   * it only stages into Program preview. Kept separate from verse navigation —
+   * this drives the schedule list, not verses.
+   */
+  stepSlideByVoice: (
+    direction: "next" | "previous",
+    count: number,
+    goLive: boolean
+  ) => Promise<void>
   presentItem: (item: ScheduleItem) => Promise<void>
 
   getActiveSchedule: () => ServiceSchedule | undefined

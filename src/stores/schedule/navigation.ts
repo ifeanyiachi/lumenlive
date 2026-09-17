@@ -87,6 +87,7 @@ export type NavigationSlice = Pick<
   | "presentLive"
   | "presentItemSlideLive"
   | "presentItem"
+  | "stepSlideByVoice"
 >
 
 export const createNavigationSlice: StateCreator<
@@ -327,6 +328,32 @@ export const createNavigationSlice: StateCreator<
       }
       void get().goToItem(prev)
     }
+  },
+
+  stepSlideByVoice: async (direction, count, goLive) => {
+    const schedule = get().getActiveSchedule()
+    if (!schedule) return
+    // Anchor on the currently active item: nextItem()/prevItem() each resolve
+    // against activeItemIndex/activeSlideIndex, so the spoken "next slide" steps
+    // whatever is live regardless of how it became active (arrow key, click,
+    // Go Live, or a prior voice command). Rust carries intent only; the target
+    // is resolved here.
+    const steps = Math.max(1, Math.floor(count))
+    for (let i = 0; i < steps; i++) {
+      if (direction === "next") get().nextItem()
+      else get().prevItem()
+    }
+    if (!goLive) return
+    // nextItem()/prevItem() stage the active slide with a fire-and-forget
+    // presentItem(). Before pushing to the audience, re-stage the final active
+    // item and await it so the Program preview holds the correct slide — else
+    // takeToLive() could commit stale or still-in-flight staged content.
+    const idx = get().activeItemIndex
+    if (idx === null) return
+    const item = schedule.items[idx]
+    if (!item || item.type === "header") return
+    await get().presentItem(item)
+    useBroadcastStore.getState().takeToLive()
   },
 
   presentItem: async (item) => {
