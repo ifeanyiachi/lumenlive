@@ -12,7 +12,11 @@
  * mirrors `lumenbo/featurebase.md` / `entitlements.ts`.
  */
 
-export type PlanTier = "free" | "starter" | "pro"
+/**
+ * Tier slugs are admin-managed by LumenBO, so the desktop must accept custom
+ * values such as `admin-owned` in addition to the launch tiers.
+ */
+export type PlanTier = string
 
 /** Numeric entitlement caps. `-1` = unlimited. Mirrors LumenBO `PlanLimits`. */
 export interface Limits {
@@ -72,8 +76,9 @@ export function can(entitlement: Entitlement, key: string): boolean {
 }
 
 /**
- * The user-facing plan label for the current entitlement: `"Free"`,
- * `"Free trial"`, `"Starter"`, or `"Pro"`.
+ * The user-facing plan label for the current entitlement. Built-in tiers keep
+ * their familiar labels; custom admin-managed tiers are derived from their
+ * slug (for example, `admin-owned` becomes `Admin Owned`).
  *
  * A non-null `trialEnd` marks a *time-limited* grant of a paid tier (a gifted
  * trial), shown as "Free trial"; a perpetual paid subscription has `trialEnd`
@@ -84,7 +89,16 @@ export function can(entitlement: Entitlement, key: string): boolean {
 export function planLabel(entitlement: Entitlement): string {
   if (entitlement.tier === "free") return "Free"
   if (entitlement.trialEnd != null) return "Free trial"
-  return entitlement.tier === "pro" ? "Pro" : "Starter"
+  return tierLabel(entitlement.tier)
+}
+
+/** Convert an admin-managed tier slug into a readable label. */
+function tierLabel(tier: PlanTier): string {
+  return tier
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ")
 }
 
 /** The numeric cap for `key`. `-1` means unlimited (see {@link isUnlimited}). */

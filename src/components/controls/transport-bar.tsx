@@ -99,8 +99,8 @@ export function TransportBar() {
   const updateAvailable = useUpdateStore((s) =>
     shouldNotifyUpdate(s.available, s.dismissedVersion)
   )
-  // Current plan label — "Free" | "Free trial" | "Starter" | "Pro". Selecting
-  // the derived string keeps this a narrow (primitive) subscription.
+  // Current plan label — built-in and admin-managed tier names are both
+  // derived from the verified entitlement snapshot.
   const plan = useEntitlementsStore((s) => planLabel(s.entitlement))
   const viewButtons = getViewButtons(t)
 

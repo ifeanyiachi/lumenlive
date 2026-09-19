@@ -98,6 +98,10 @@ describe("planLabel", () => {
     expect(planLabel(mk("starter", null))).toBe("Starter")
     expect(planLabel(mk("pro", null))).toBe("Pro")
   })
+
+  it("preserves the label for an admin-managed custom tier", () => {
+    expect(planLabel(mk("admin-owned", null))).toBe("Admin Owned")
+  })
 })
 
 describe("trialRemaining", () => {
@@ -121,8 +125,8 @@ describe("trialRemaining", () => {
 })
 
 describe("FREE_ENTITLEMENT", () => {
-  it("has exactly the 9 free features and Free limits", () => {
-    expect(FREE_ENTITLEMENT.features).toHaveLength(9)
+  it("has exactly the 8 free features and Free limits", () => {
+    expect(FREE_ENTITLEMENT.features).toHaveLength(8)
     expect(FREE_ENTITLEMENT.tier).toBe("free")
     expect(FREE_ENTITLEMENT.trialEnd).toBeNull()
     expect(FREE_ENTITLEMENT.limits.maxTranscriptionMinutes).toBe(60)
