@@ -124,7 +124,9 @@ const ContextResultRow = memo(function ContextResultRow({
                 <PencilIcon className="size-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">{t("search.editVerseFormatting")}</TooltipContent>
+            <TooltipContent side="left">
+              {t("search.editVerseFormatting")}
+            </TooltipContent>
           </Tooltip>
           <ScheduleButton
             verse={verse}

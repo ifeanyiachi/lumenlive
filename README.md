@@ -62,7 +62,6 @@ LumenLive is a full live-production suite for worship services: build a run-of-s
   - **Semantic search** — local int8-quantized ONNX embeddings (bge-base-en-v1.5) with HNSW vector similarity for paraphrased or quoted scripture.
   - **FTS5 keyword search** — BM25 ranking fused with vector results; agreement boosts confidence.
   - **Quotation scoring** — archaic register and citation cues lift the confidence of an actual quotation so it outranks a loose allusion.
-  - **Reading mode** — locks onto a passage and auto-advances verse-by-verse as it's read aloud, refining chapter-only hits and following chapter changes.
 - **Voice commands** — the operator can drive scripture by voice: step forward/back N verses, jump to an absolute verse of the current chapter, or move to another chapter ("next verse", "back two verses", "verse three", "go to chapter seven").
 - **Preview before live** — send an AI-detected verse to Program preview to check it before committing it to the audience output.
 - **Tunable behavior** — confidence threshold, cooldown, auto-display, and paraphrase-detection toggles.

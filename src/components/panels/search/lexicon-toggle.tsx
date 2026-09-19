@@ -50,7 +50,9 @@ export function LexiconToggle({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">
-          {isHebrew ? t("search.hebrewInterlinear") : t("search.greekInterlinear")}
+          {isHebrew
+            ? t("search.hebrewInterlinear")
+            : t("search.greekInterlinear")}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

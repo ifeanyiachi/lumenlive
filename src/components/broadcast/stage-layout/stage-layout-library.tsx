@@ -32,13 +32,19 @@ import { ThemeBundleParseError } from "@/lib/theme-bundle"
 import { useTranslation } from "react-i18next"
 
 /** Export one stage layout to a `.lumtheme` bundle, packaging its media, with a toast. */
-async function handleExportLayout(layout: StageLayout, t: (key: string, options?: Record<string, unknown>) => string) {
+async function handleExportLayout(
+  layout: StageLayout,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
   try {
     const { saved, missingMedia } = await exportStageLayout(layout)
     if (!saved) return
     if (missingMedia > 0) {
       toast.warning(
-        t("stageLibrary.exportMissingMedia", { name: layout.name, count: missingMedia })
+        t("stageLibrary.exportMissingMedia", {
+          name: layout.name,
+          count: missingMedia,
+        })
       )
     } else {
       toast.success(t("stageLibrary.exported", { name: layout.name }))
@@ -141,7 +147,10 @@ function LayoutCard({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation()
-                    const name = window.prompt(t("stageLibrary.renamePrompt"), layout.name)
+                    const name = window.prompt(
+                      t("stageLibrary.renamePrompt"),
+                      layout.name
+                    )
                     if (name?.trim()) {
                       useBroadcastStore
                         .getState()
@@ -217,7 +226,9 @@ export function StageLayoutLibrary() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
-        <span className="text-lg font-semibold text-foreground">{t("stageLibrary.title")}</span>
+        <span className="text-lg font-semibold text-foreground">
+          {t("stageLibrary.title")}
+        </span>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"

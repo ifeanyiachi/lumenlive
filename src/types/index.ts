@@ -17,7 +17,6 @@ export type { LexiconCardData, LexiconField } from "./lexicon"
 export type {
   DetectionResult,
   DetectionStatus,
-  ReadingAdvance,
   SemanticSearchResult,
 } from "./detection"
 export type {

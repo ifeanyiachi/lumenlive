@@ -52,10 +52,9 @@ export function ReloadButton() {
             {t("reload.title")}
           </DialogTitle>
           <DialogDescription>
-            {t("reload.description")} {" "}
+            {t("reload.description")}{" "}
             {isLive && `${t("reload.liveOutputRestored")} `}
-            {isTranscribing &&
-              `${t("reload.transcriptionStops")} `}
+            {isTranscribing && `${t("reload.transcriptionStops")} `}
             {t("reload.workPreserved")}
           </DialogDescription>
         </DialogHeader>

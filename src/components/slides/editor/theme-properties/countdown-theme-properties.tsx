@@ -64,7 +64,9 @@ export function CountdownThemeProperties({
                 <SelectContent>
                   <SelectItem value="mm:ss">MM:SS</SelectItem>
                   <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
-                  <SelectItem value="minutes">{t("timerProperties.minutes")}</SelectItem>
+                  <SelectItem value="minutes">
+                    {t("timerProperties.minutes")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>

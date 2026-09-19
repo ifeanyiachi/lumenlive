@@ -477,7 +477,9 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
 
       {(prop.type === "text" || prop.type === "marquee") && (
         <>
-          <FieldGroup label={prop.type === "marquee" ? t("message") : t("text")}>
+          <FieldGroup
+            label={prop.type === "marquee" ? t("message") : t("text")}
+          >
             <Input
               className="h-7 text-xs"
               value={prop.text ?? ""}
@@ -487,7 +489,9 @@ function PropEditor({ prop }: { prop: BroadcastProp }) {
 
           {prop.type === "marquee" && (
             <div className="grid grid-cols-2 gap-3">
-              <FieldGroup label={t("speed", { value: prop.scrollSpeed ?? 120 })}>
+              <FieldGroup
+                label={t("speed", { value: prop.scrollSpeed ?? 120 })}
+              >
                 <Slider
                   value={[prop.scrollSpeed ?? 120]}
                   onValueChange={([v]) => update({ scrollSpeed: v })}

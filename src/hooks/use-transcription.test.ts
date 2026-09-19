@@ -6,7 +6,6 @@ const mockToastWarning = vi.fn()
 const mockToastSuccess = vi.fn()
 const mockPullKey = vi.fn()
 const mockReportUsage = vi.fn()
-const mockReportKeyInvalid = vi.fn()
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
@@ -15,7 +14,6 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@/services/transcription-key-gateway", () => ({
   pullTranscriptionKey: (...args: unknown[]) => mockPullKey(...args),
   reportTranscriptionUsage: (...args: unknown[]) => mockReportUsage(...args),
-  reportKeyInvalid: (...args: unknown[]) => mockReportKeyInvalid(...args),
 }))
 
 vi.mock("@/services/analytics-gateway", () => ({
@@ -62,7 +60,6 @@ describe("use-transcription", () => {
     mockToastSuccess.mockReset()
     mockPullKey.mockReset()
     mockReportUsage.mockReset()
-    mockReportKeyInvalid.mockReset()
   })
 
   /** A ready-to-use signed-in session for the platform-key path. */
@@ -77,12 +74,11 @@ describe("use-transcription", () => {
       mockInvoke.mockResolvedValue(undefined)
       mockPullKey.mockResolvedValue({
         mode: "platform_trial",
-        key: "dg-platform-key",
+        key: "snx-platform-key",
         remainingMinutes: 120,
         tier: "free",
         allowanceMinutes: 300,
         usedMinutes: 180,
-        byokPresent: false,
       })
       const {
         useSettingsStore,
@@ -99,7 +95,7 @@ describe("use-transcription", () => {
 
       expect(mockPullKey).toHaveBeenCalledWith("session-token", "machine-1")
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
-        apiKey: "dg-platform-key",
+        apiKey: "snx-platform-key",
         provider: "deepgram",
         deviceId: "dev-42",
         gain: 1.5,
@@ -108,7 +104,7 @@ describe("use-transcription", () => {
 
     it("defaults provider to deepgram when the resolution omits it", async () => {
       mockInvoke.mockResolvedValue(undefined)
-      // Pre-Phase-4 lumenbo: no `provider` field in the resolution.
+      // Older lumenbo: no `provider` field in the resolution.
       mockPullKey.mockResolvedValue({
         mode: "platform_trial",
         key: "dg-platform-key",
@@ -116,7 +112,6 @@ describe("use-transcription", () => {
         tier: "free",
         allowanceMinutes: 300,
         usedMinutes: 180,
-        byokPresent: false,
       })
       const { useAuthStore, transcriptionActions } = await loadModules()
 
@@ -135,12 +130,10 @@ describe("use-transcription", () => {
         mode: "platform_trial",
         key: "snx-temp-key",
         provider: "soniox",
-        expiresAt: "2026-09-14T12:00:00Z",
         remainingMinutes: 120,
         tier: "free",
         allowanceMinutes: 300,
         usedMinutes: 180,
-        byokPresent: false,
       })
       const { useSettingsStore, useAuthStore, transcriptionActions } =
         await loadModules()
@@ -194,7 +187,6 @@ describe("use-transcription", () => {
         tier: "free",
         allowanceMinutes: 60,
         usedMinutes: 60,
-        byokPresent: false,
       })
       const { useTranscriptStore, useAuthStore, transcriptionActions } =
         await loadModules()
@@ -237,7 +229,6 @@ describe("use-transcription", () => {
         tier: "free",
         allowanceMinutes: 300,
         usedMinutes: 180,
-        byokPresent: false,
       })
       let resolveInvoke: () => void = () => {}
       mockInvoke.mockReturnValue(
@@ -270,7 +261,6 @@ describe("use-transcription", () => {
         tier: "free",
         allowanceMinutes: 300,
         usedMinutes: 180,
-        byokPresent: false,
       })
       mockInvoke.mockRejectedValue("WebSocket handshake failed")
       const { useTranscriptStore, useAuthStore, transcriptionActions } =

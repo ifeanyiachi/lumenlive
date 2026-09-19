@@ -8,6 +8,7 @@ use super::automaton::{BookMatch, BookMatcher};
 use super::context::ReferenceContext;
 use super::fuzzy;
 use super::parser;
+use super::versification;
 use crate::types::{Detection, VerseRef};
 
 /// Translation command patterns — maps spoken phrases to translation abbreviations.
@@ -494,7 +495,7 @@ impl DirectDetector {
     /// direction, NOT a target verse. The *anchor* — the verse to step from — is
     /// owned by the frontend, which knows the verse currently on the program
     /// screen regardless of how it got there (spoken reference, manual book-panel
-    /// selection, queue take, reading mode). Resolving the target here against
+    /// selection, or queue take). Resolving the target here against
     /// the last *detected* verse would ignore all of those non-voice paths, so
     /// the step (and chapter-boundary roll-over) is done frontend-side against
     /// the live selection instead.
@@ -542,7 +543,7 @@ impl DirectDetector {
     /// Returns `None` when the utterance is too long to be a bare command
     /// (dominance guard), contains a real book reference (that's a jump the main
     /// detector owns), or mentions a chapter (chapter navigation belongs to
-    /// reading mode).
+    /// the current verse selection).
     pub fn detect_verse_command(&self, text: &str) -> Option<VerseCommand> {
         let cleaned = clean_transcript(text);
         let lower = cleaned.to_lowercase();
@@ -556,7 +557,7 @@ impl DirectDetector {
         if !self.matcher.find_books(&cleaned).is_empty() {
             return None;
         }
-        // Chapter navigation is reading mode's lane, not ours.
+        // Chapter navigation is not a verse-step command.
         if contains_word(&lower, "chapter") {
             return None;
         }
@@ -798,6 +799,26 @@ impl DirectDetector {
                         chapter_is_default: !has_explicit_chapter,
                     });
                     self.context.update(&resolved);
+                    continue;
+                }
+
+                // Skip impossible verses — a concrete verse past the end of its
+                // chapter (e.g. "Revelation 20:22"; Rev 20 ends at 15). The flat
+                // 1..=176 parse guard accepts any number for any book+chapter, so
+                // per-(book,chapter) validation is what rejects a misheard number
+                // that lands on a nonexistent verse. Union-max across bundled
+                // translations; the app layer drops verses missing from the
+                // *active* translation.
+                if !versification::is_valid_verse(
+                    resolved.book_number,
+                    resolved.chapter,
+                    resolved.verse_start,
+                ) {
+                    log::debug!(
+                        "[DET-DIRECT] Rejected impossible verse {} {}:{}",
+                        resolved.book_name, resolved.chapter, resolved.verse_start
+                    );
+                    self.context.update(&verse_ref);
                     continue;
                 }
 
@@ -1385,6 +1406,66 @@ mod tests {
     }
 
     #[test]
+    fn test_impossible_verse_rejected() {
+        // B3 (versification port): a concrete verse past the end of its chapter
+        // must not emit. Revelation 20 ends at verse 15, so "Revelation 20:22"
+        // — a misheard/misspoken number — is dropped even though 22 <= 176.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("as we see in Revelation 20:22 today");
+        assert!(
+            results.is_empty(),
+            "impossible verse Revelation 20:22 must not emit"
+        );
+    }
+
+    #[test]
+    fn test_possible_verse_still_emits() {
+        // Guard the above doesn't over-reject: the last real verse still emits.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("read Revelation 20:15 with me");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Revelation");
+        assert_eq!(results[0].verse_ref.chapter, 20);
+        assert_eq!(results[0].verse_ref.verse_start, 15);
+    }
+
+    #[test]
+    fn test_no_book_fanout_single_spoken_reference() {
+        // B3 (sonioxprose): a single spoken "Ecclesiastes 9:11" must yield
+        // Ecclesiastes ONLY — never fan out onto other books that share the
+        // chapter:verse numbers (Isaiah/Song of Solomon/Revelation in the field
+        // report). The direct pipeline binds every reference to the one book the
+        // automaton matched; there is no many-books-per-number expansion. This
+        // guards that property so it can't regress.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("as it says in Ecclesiastes 9:11 today");
+        assert_eq!(results.len(), 1, "exactly one book, no fan-out");
+        assert_eq!(results[0].verse_ref.book_name, "Ecclesiastes");
+        assert_eq!(results[0].verse_ref.chapter, 9);
+        assert_eq!(results[0].verse_ref.verse_start, 11);
+        // Explicitly assert none of the phantom books surfaced.
+        for phantom in ["Isaiah", "Song of Solomon", "Revelation"] {
+            assert!(
+                results.iter().all(|r| r.verse_ref.book_name != phantom),
+                "{phantom} must not appear for a spoken Ecclesiastes reference"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bare_chapter_verse_without_book_never_fans_out() {
+        // A bare "9:11" with no book named and no prior context must emit
+        // nothing — it cannot attach a number to any book on its own, let alone
+        // several. (The automaton finds no book; the parser needs a book match.)
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("and then at 9:11 in the morning");
+        assert!(
+            results.is_empty(),
+            "a bookless chapter:verse must not fabricate any reference"
+        );
+    }
+
+    #[test]
     fn test_collapse_spaced_digits_psalm() {
         assert_eq!(collapse_spaced_digits("Psalm 1 1 9"), "Psalm 119");
     }
@@ -1602,7 +1683,7 @@ mod tests {
 
     #[test]
     fn test_verse_ignores_chapter_navigation() {
-        // "chapter" belongs to reading mode.
+        // Chapter navigation is handled by direct-reference detection.
         let d = DirectDetector::new();
         assert!(d.detect_verse_command("go to chapter 3 verse 5").is_none());
     }

@@ -87,7 +87,9 @@ export function ScheduleButton({
               <CheckIcon className="size-4 text-ai-direct" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("search.alreadyInSchedule")}</TooltipContent>
+          <TooltipContent side="left">
+            {t("search.alreadyInSchedule")}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )

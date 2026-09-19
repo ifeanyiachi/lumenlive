@@ -97,9 +97,7 @@ export function ScheduleSongsTab({
           <div className="flex flex-col gap-0.5 p-1.5">
             {songRows.length === 0 ? (
               <p className="p-4 text-center text-xs text-muted-foreground">
-                {activeSchedule
-                  ? t("songs.empty")
-                  : t("songs.selectSchedule")}
+                {activeSchedule ? t("songs.empty") : t("songs.selectSchedule")}
               </p>
             ) : (
               songRows.map(({ item, index }) => (
@@ -135,7 +133,9 @@ export function ScheduleSongsTab({
         open={confirmClear}
         onOpenChange={setConfirmClear}
         title={t("confirm.clearSongsTitle")}
-        description={t("confirm.clearSongsDescription", { count: songRows.length })}
+        description={t("confirm.clearSongsDescription", {
+          count: songRows.length,
+        })}
         confirmLabel={t("actions.clearAll")}
         onConfirm={() => {
           if (!activeScheduleId) return

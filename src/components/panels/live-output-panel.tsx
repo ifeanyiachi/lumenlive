@@ -244,9 +244,7 @@ export function LiveOutputPanel() {
                 useBroadcastStore.getState().setBroadcastMuted(!broadcastMuted)
               }
               title={
-                broadcastMuted
-                  ? t("live.unmuteAudio")
-                  : t("live.muteAudio")
+                broadcastMuted ? t("live.unmuteAudio") : t("live.muteAudio")
               }
               className={cn(broadcastMuted && "text-red-400")}
             >
@@ -404,7 +402,9 @@ export function LiveOutputPanel() {
         {mediaLayer?.active && (
           <div className="absolute right-4 bottom-4 z-20 flex items-center gap-1 rounded bg-blue-500/70 px-1.5 py-0.5">
             <ImageIcon className="size-2.5 text-white" />
-            <span className="text-[0.5rem] font-medium text-white">{t("live.background")}</span>
+            <span className="text-[0.5rem] font-medium text-white">
+              {t("live.background")}
+            </span>
           </div>
         )}
         {/* Audience-hidden indicator — priority Black > Logo > Clear. */}

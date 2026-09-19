@@ -64,7 +64,9 @@ export function NdiSettings({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{t("resolution")}</label>
+          <label className="text-xs text-muted-foreground">
+            {t("resolution")}
+          </label>
           <Select
             value={ndiResolution}
             onValueChange={(v) => setNdiResolution(v as NdiResolution)}
@@ -83,7 +85,9 @@ export function NdiSettings({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{t("frameRate")}</label>
+          <label className="text-xs text-muted-foreground">
+            {t("frameRate")}
+          </label>
           <Select
             value={ndiFrameRate}
             onValueChange={(v) => setNdiFrameRate(v as NdiFrameRate)}
@@ -103,7 +107,9 @@ export function NdiSettings({
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">{t("alphaChannel")}</label>
+        <label className="text-xs text-muted-foreground">
+          {t("alphaChannel")}
+        </label>
         <Select
           value={ndiAlphaMode}
           onValueChange={(v) => setNdiAlphaMode(v as NdiAlphaMode)}
@@ -122,7 +128,9 @@ export function NdiSettings({
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">{t("sourceName")}</label>
+        <label className="text-xs text-muted-foreground">
+          {t("sourceName")}
+        </label>
         <Input
           value={ndiSourceName}
           onChange={(e) => setNdiSourceName(e.target.value)}

@@ -1,13 +1,23 @@
 {
   "display": {
     "detectionBehavior": "Comportamiento de detección",
-    "directVerseAutoDisplay": {
-      "title": "Mostrar versículos directos automáticamente",
-      "description": "Cuando se pronuncia una referencia como «Juan 3:16», muéstrala automáticamente en pantalla. Al desactivarlo, solo aparecerá en la cola."
-    },
-    "instantDirectDisplay": {
-      "title": "Mostrar referencia directa al instante",
-      "description": "Muestra una referencia pronunciada en cuanto se reconoce, en lugar de esperar a que termine la frase (elimina la pausa aproximada de 1 a 2 s). Solo se aplica a referencias directas; el versículo se confirma mientras sigues hablando."
+    "directVerseDestination": {
+      "title": "Destino del versículo detectado",
+      "description": "Elige qué ocurre automáticamente cuando se detecta una referencia bíblica clara como «Juan 3:16».",
+      "options": {
+        "live": {
+          "title": "Salida en directo",
+          "description": "Enviarlo directamente al público."
+        },
+        "preview": {
+          "title": "Vista previa del programa",
+          "description": "Prepararlo para revisarlo y mostrarlo."
+        },
+        "detection": {
+          "title": "Solo panel de detecciones",
+          "description": "Mantenerlo en Detecciones, sin preparar, enviar ni añadirlo automáticamente a la cola."
+        }
+      }
     },
     "voiceNavigationGoesLive": {
       "title": "La navegación por voz pasa al directo",

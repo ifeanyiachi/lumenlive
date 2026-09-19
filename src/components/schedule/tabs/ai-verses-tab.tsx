@@ -185,7 +185,9 @@ export function AIVersesTab() {
         open={confirmClear}
         onOpenChange={setConfirmClear}
         title={t("confirm.clearVersesTitle")}
-        description={t("confirm.clearVersesDescription", { count: items.length })}
+        description={t("confirm.clearVersesDescription", {
+          count: items.length,
+        })}
         confirmLabel={t("actions.clearAll")}
         onConfirm={() => {
           useQueueStore.getState().clearQueue()

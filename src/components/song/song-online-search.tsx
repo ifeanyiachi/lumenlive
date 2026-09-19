@@ -76,41 +76,44 @@ export function SongOnlineSearchDialog({ open, onOpenChange }: Props) {
     searchSeq.current++
   }
 
-  const runSearch = useCallback(async (raw: string) => {
-    const q = raw.trim()
-    if (q.length < 2) {
-      searchSeq.current++
-      setSearching(false)
-      setHits(null)
-      setSelected(null)
-      return
-    }
-    const seq = ++searchSeq.current
-    setSearching(true)
-    cache.current.clear()
-    try {
-      // Genius search needs an access key; read it at call time (not subscribed)
-      // so a key added mid-session takes effect on the next keystroke.
-      const geniusToken = useSettingsStore.getState().geniusApiKey
-      const res = await searchOnlineLyrics(q, undefined, geniusToken)
-      if (seq !== searchSeq.current) return // a newer search superseded this one
-      setHits(res.hits)
-      setSelected(res.hits.length > 0 ? 0 : null)
-      for (const err of res.errors) {
-        console.warn(`[lyrics] ${err.source}: ${err.message}`)
+  const runSearch = useCallback(
+    async (raw: string) => {
+      const q = raw.trim()
+      if (q.length < 2) {
+        searchSeq.current++
+        setSearching(false)
+        setHits(null)
+        setSelected(null)
+        return
       }
-    } catch (e) {
-      if (seq === searchSeq.current) {
-        toast.error(t("online.searchFailed"))
-        console.error(e)
+      const seq = ++searchSeq.current
+      setSearching(true)
+      cache.current.clear()
+      try {
+        // Genius search needs an access key; read it at call time (not subscribed)
+        // so a key added mid-session takes effect on the next keystroke.
+        const geniusToken = useSettingsStore.getState().geniusApiKey
+        const res = await searchOnlineLyrics(q, undefined, geniusToken)
+        if (seq !== searchSeq.current) return // a newer search superseded this one
+        setHits(res.hits)
+        setSelected(res.hits.length > 0 ? 0 : null)
+        for (const err of res.errors) {
+          console.warn(`[lyrics] ${err.source}: ${err.message}`)
+        }
+      } catch (e) {
+        if (seq === searchSeq.current) {
+          toast.error(t("online.searchFailed"))
+          console.error(e)
+        }
+      } finally {
+        if (seq === searchSeq.current) setSearching(false)
       }
-    } finally {
-      if (seq === searchSeq.current) setSearching(false)
-    }
-    // Stable across renders except when the UI language changes (only `t`, used
-    // for the failure toast, is a reactive dependency); refs and state setters
-    // are stable. This keeps the debounce effect below from re-firing per render.
-  }, [t])
+      // Stable across renders except when the UI language changes (only `t`, used
+      // for the failure toast, is a reactive dependency); refs and state setters
+      // are stable. This keeps the debounce effect below from re-firing per render.
+    },
+    [t]
+  )
 
   // Real-time search: debounce keystrokes (350ms) so a search fires as the user
   // types, without a button press. The cleanup cancels the pending timer, and

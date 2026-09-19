@@ -108,7 +108,9 @@ export function SlideBackgroundProperties() {
       </span>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">{t("background.type")}</label>
+        <label className="text-[0.6875rem] text-muted-foreground">
+          {t("background.type")}
+        </label>
         <Select
           value={bg.type}
           onValueChange={(v) => setType(v as SlideBackground["type"])}
@@ -122,7 +124,9 @@ export function SlideBackgroundProperties() {
             <SelectItem value="image">{t("rightPanel.image")}</SelectItem>
             <SelectItem value="video">{t("rightPanel.video")}</SelectItem>
             <SelectItem value="animated">{t("background.animated")}</SelectItem>
-            <SelectItem value="transparent">{t("background.transparent")}</SelectItem>
+            <SelectItem value="transparent">
+              {t("background.transparent")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -230,7 +234,9 @@ function AnimatedControls({
     <div className="flex flex-col gap-3">
       {/* Style */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">{t("background.style")}</label>
+        <label className="text-[0.6875rem] text-muted-foreground">
+          {t("background.style")}
+        </label>
         <Select
           value={anim.preset}
           onValueChange={(v) =>
@@ -243,8 +249,15 @@ function AnimatedControls({
           <SelectContent>
             {(
               [
-                "aurora", "bokeh", "embers", "starfield", "snow", "godrays",
-                "gradient-drift", "confetti", "plasma",
+                "aurora",
+                "bokeh",
+                "embers",
+                "starfield",
+                "snow",
+                "godrays",
+                "gradient-drift",
+                "confetti",
+                "plasma",
               ] as AnimatedBackgroundPreset[]
             ).map((value) => (
               <SelectItem key={value} value={value} className="text-xs">
@@ -257,7 +270,9 @@ function AnimatedControls({
 
       {/* Palette */}
       <div className="flex flex-col gap-1">
-        <label className="text-[0.6875rem] text-muted-foreground">{t("background.colors")}</label>
+        <label className="text-[0.6875rem] text-muted-foreground">
+          {t("background.colors")}
+        </label>
         <div className="flex flex-wrap items-center gap-1.5">
           {anim.palette.map((color, i) => (
             <div key={i} className="group relative">

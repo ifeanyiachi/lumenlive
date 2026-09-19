@@ -92,7 +92,23 @@ function TextToolbar({ element }: { element: SlideTextElement }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(["thin", "extraLight", "light", "regular", "medium", "semibold", "bold", "extraBold", "black"] as const).map((weight, i) => <SelectItem key={weight} value={String((i + 1) * 100)}>{t(`format.${weight}`)}</SelectItem>)}
+          {(
+            [
+              "thin",
+              "extraLight",
+              "light",
+              "regular",
+              "medium",
+              "semibold",
+              "bold",
+              "extraBold",
+              "black",
+            ] as const
+          ).map((weight, i) => (
+            <SelectItem key={weight} value={String((i + 1) * 100)}>
+              {t(`format.${weight}`)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -285,7 +301,20 @@ function ScriptureToolbar({ element }: { element: SlideScriptureElement }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(["light", "regular", "medium", "semibold", "bold", "extraBold"] as const).map((weight, i) => <SelectItem key={weight} value={String((i + 3) * 100)}>{t(`format.${weight}`)}</SelectItem>)}
+          {(
+            [
+              "light",
+              "regular",
+              "medium",
+              "semibold",
+              "bold",
+              "extraBold",
+            ] as const
+          ).map((weight, i) => (
+            <SelectItem key={weight} value={String((i + 3) * 100)}>
+              {t(`format.${weight}`)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -391,7 +420,9 @@ function ImageToolbar({ element }: { element: SlideImageElement }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="contain">{t("videoProperties.contain")}</SelectItem>
+          <SelectItem value="contain">
+            {t("videoProperties.contain")}
+          </SelectItem>
           <SelectItem value="cover">{t("videoProperties.cover")}</SelectItem>
           <SelectItem value="fill">{t("videoProperties.fill")}</SelectItem>
         </SelectContent>
@@ -400,7 +431,9 @@ function ImageToolbar({ element }: { element: SlideImageElement }) {
       <ToolbarDivider />
 
       {/* Opacity */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.opacity")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
       <div className="w-24">
         <Slider
           value={[element.opacity]}
@@ -414,7 +447,9 @@ function ImageToolbar({ element }: { element: SlideImageElement }) {
       <ToolbarDivider />
 
       {/* Border radius */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.radius")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.radius")}
+      </span>
       <div className="w-24">
         <Slider
           value={[element.borderRadius]}
@@ -448,7 +483,9 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="rectangle">{t("format.rectangle")}</SelectItem>
-          <SelectItem value="rounded-rect">{t("format.roundedRect")}</SelectItem>
+          <SelectItem value="rounded-rect">
+            {t("format.roundedRect")}
+          </SelectItem>
           <SelectItem value="circle">{t("format.circle")}</SelectItem>
         </SelectContent>
       </Select>
@@ -456,7 +493,9 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
       <ToolbarDivider />
 
       {/* Fill color */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("shapeProperties.fill")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("shapeProperties.fill")}
+      </span>
       <ColorSwatch
         value={
           element.fillColor.startsWith("rgba") ? "#ffffff" : element.fillColor
@@ -469,7 +508,9 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
       <ToolbarDivider />
 
       {/* Stroke color */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("shapeProperties.stroke")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("shapeProperties.stroke")}
+      </span>
       <ColorSwatch
         value={element.strokeColor}
         onChange={(strokeColor) => update({ strokeColor })}
@@ -491,7 +532,9 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
       <ToolbarDivider />
 
       {/* Opacity */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.opacity")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
       <div className="w-24">
         <Slider
           value={[element.opacity]}
@@ -505,7 +548,9 @@ function ShapeToolbar({ element }: { element: SlideShapeElement }) {
       {element.shapeType === "rounded-rect" && (
         <>
           <ToolbarDivider />
-          <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.radius")}</span>
+          <span className="text-[0.6875rem] text-muted-foreground">
+            {t("videoProperties.radius")}
+          </span>
           <div className="w-24">
             <Slider
               value={[element.borderRadius]}
@@ -541,7 +586,9 @@ function VideoToolbar({ element }: { element: SlideVideoElement }) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="cover">{t("videoProperties.cover")}</SelectItem>
-          <SelectItem value="contain">{t("videoProperties.contain")}</SelectItem>
+          <SelectItem value="contain">
+            {t("videoProperties.contain")}
+          </SelectItem>
           <SelectItem value="fill">{t("videoProperties.fill")}</SelectItem>
         </SelectContent>
       </Select>
@@ -549,7 +596,9 @@ function VideoToolbar({ element }: { element: SlideVideoElement }) {
       <ToolbarDivider />
 
       {/* Opacity */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.opacity")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
       <div className="w-24">
         <Slider
           value={[element.opacity]}
@@ -563,7 +612,9 @@ function VideoToolbar({ element }: { element: SlideVideoElement }) {
       <ToolbarDivider />
 
       {/* Border radius */}
-      <span className="text-[0.6875rem] text-muted-foreground">{t("videoProperties.radius")}</span>
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.radius")}
+      </span>
       <div className="w-24">
         <Slider
           value={[element.borderRadius]}

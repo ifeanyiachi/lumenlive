@@ -271,7 +271,9 @@ export function SlideScriptureProperties({
                 <SelectContent>
                   {FONT_WEIGHTS.map((weight) => (
                     <SelectItem key={weight} value={String(weight)}>
-                      {t(`format.${({ 300: "light", 400: "regular", 500: "medium", 600: "semibold", 700: "bold", 800: "extraBold" } as const)[weight]}`)}
+                      {t(
+                        `format.${({ 300: "light", 400: "regular", 500: "medium", 600: "semibold", 700: "bold", 800: "extraBold" } as const)[weight]}`
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -292,7 +294,9 @@ export function SlideScriptureProperties({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="left">{t("properties.left")}</SelectItem>
-                  <SelectItem value="center">{t("properties.center")}</SelectItem>
+                  <SelectItem value="center">
+                    {t("properties.center")}
+                  </SelectItem>
                   <SelectItem value="right">{t("properties.right")}</SelectItem>
                 </SelectContent>
               </Select>
@@ -310,7 +314,9 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{t("scriptureProperties.normal")}</SelectItem>
+                  <SelectItem value="none">
+                    {t("scriptureProperties.normal")}
+                  </SelectItem>
                   <SelectItem value="uppercase">UPPERCASE</SelectItem>
                   <SelectItem value="lowercase">lowercase</SelectItem>
                 </SelectContent>
@@ -370,9 +376,15 @@ export function SlideScriptureProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="above">{t("scriptureProperties.aboveVerse")}</SelectItem>
-                  <SelectItem value="below">{t("scriptureProperties.belowVerse")}</SelectItem>
-                  <SelectItem value="inline">{t("scriptureProperties.inline")}</SelectItem>
+                  <SelectItem value="above">
+                    {t("scriptureProperties.aboveVerse")}
+                  </SelectItem>
+                  <SelectItem value="below">
+                    {t("scriptureProperties.belowVerse")}
+                  </SelectItem>
+                  <SelectItem value="inline">
+                    {t("scriptureProperties.inline")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>

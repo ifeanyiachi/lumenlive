@@ -143,7 +143,9 @@ export function SearchPanel() {
   useEffect(() => {
     bibleActions.loadTranslations().catch((err) => {
       console.error(err)
-      toast.error(t("search.loadTranslationsFailed"), { description: String(err) })
+      toast.error(t("search.loadTranslationsFailed"), {
+        description: String(err),
+      })
     })
     bibleActions
       .loadBooks()

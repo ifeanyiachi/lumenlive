@@ -6,6 +6,14 @@ pub struct BookInfo {
     pub aliases: &'static [&'static str],
 }
 
+/// NOTE: two-letter aliases that are also ordinary English words (`Is`, `So`,
+/// `Am`, `Re`, `La`, `Ho`, `Na`, `Mr`, `Co`) are deliberately absent. This is a
+/// live-speech detector: those tokens never occur as spoken book references
+/// ("Is 53", "Am 5" are written-page abbreviations only), but they occur
+/// constantly as plain words. Registering them let a stray "so"/"is" in prose
+/// become a phantom book match that then stole the real reference's chapter:verse
+/// (the Isaiah-9:11 fan-out). Keep them out; the full names and the safe
+/// non-word abbreviations below cover every spoken form.
 pub const BOOKS: &[BookInfo] = &[
     // Old Testament
     BookInfo { number: 1, name: "Genesis", abbreviation: "Gen", aliases: &["Gen", "Ge", "Gn"] },
@@ -47,19 +55,19 @@ pub const BOOKS: &[BookInfo] = &[
     BookInfo { number: 19, name: "Psalms", abbreviation: "Ps", aliases: &["Psalm", "Psalms", "Ps", "Psa", "Psm", "Pss"] },
     BookInfo { number: 20, name: "Proverbs", abbreviation: "Prov", aliases: &["Prov", "Pro", "Prv", "Pr"] },
     BookInfo { number: 21, name: "Ecclesiastes", abbreviation: "Eccl", aliases: &["Eccl", "Ecc", "Ec", "Qoh"] },
-    BookInfo { number: 22, name: "Song of Solomon", abbreviation: "Song", aliases: &["Song", "Song of Solomon", "Song of Songs", "SOS", "So", "Cant"] },
-    BookInfo { number: 23, name: "Isaiah", abbreviation: "Isa", aliases: &["Isa", "Is"] },
+    BookInfo { number: 22, name: "Song of Solomon", abbreviation: "Song", aliases: &["Song", "Song of Solomon", "Song of Songs", "SOS", "Cant"] },
+    BookInfo { number: 23, name: "Isaiah", abbreviation: "Isa", aliases: &["Isa"] },
     BookInfo { number: 24, name: "Jeremiah", abbreviation: "Jer", aliases: &["Jer", "Je", "Jr"] },
-    BookInfo { number: 25, name: "Lamentations", abbreviation: "Lam", aliases: &["Lam", "La"] },
+    BookInfo { number: 25, name: "Lamentations", abbreviation: "Lam", aliases: &["Lam"] },
     BookInfo { number: 26, name: "Ezekiel", abbreviation: "Ezek", aliases: &["Ezek", "Eze", "Ezk"] },
     BookInfo { number: 27, name: "Daniel", abbreviation: "Dan", aliases: &["Dan", "Da", "Dn"] },
-    BookInfo { number: 28, name: "Hosea", abbreviation: "Hos", aliases: &["Hos", "Ho"] },
+    BookInfo { number: 28, name: "Hosea", abbreviation: "Hos", aliases: &["Hos"] },
     BookInfo { number: 29, name: "Joel", abbreviation: "Joel", aliases: &["Joel", "Jl"] },
-    BookInfo { number: 30, name: "Amos", abbreviation: "Amos", aliases: &["Amos", "Am"] },
+    BookInfo { number: 30, name: "Amos", abbreviation: "Amos", aliases: &["Amos"] },
     BookInfo { number: 31, name: "Obadiah", abbreviation: "Obad", aliases: &["Obad", "Ob"] },
     BookInfo { number: 32, name: "Jonah", abbreviation: "Jonah", aliases: &["Jonah", "Jnh", "Jon"] },
     BookInfo { number: 33, name: "Micah", abbreviation: "Mic", aliases: &["Mic", "Mc"] },
-    BookInfo { number: 34, name: "Nahum", abbreviation: "Nah", aliases: &["Nah", "Na"] },
+    BookInfo { number: 34, name: "Nahum", abbreviation: "Nah", aliases: &["Nah"] },
     BookInfo { number: 35, name: "Habakkuk", abbreviation: "Hab", aliases: &["Hab", "Hb"] },
     BookInfo { number: 36, name: "Zephaniah", abbreviation: "Zeph", aliases: &["Zeph", "Zep", "Zp"] },
     BookInfo { number: 37, name: "Haggai", abbreviation: "Hag", aliases: &["Hag", "Hg"] },
@@ -68,7 +76,7 @@ pub const BOOKS: &[BookInfo] = &[
 
     // New Testament
     BookInfo { number: 40, name: "Matthew", abbreviation: "Matt", aliases: &["Matt", "Mat", "Mt"] },
-    BookInfo { number: 41, name: "Mark", abbreviation: "Mark", aliases: &["Mark", "Mrk", "Mk", "Mr"] },
+    BookInfo { number: 41, name: "Mark", abbreviation: "Mark", aliases: &["Mark", "Mrk", "Mk"] },
     BookInfo { number: 42, name: "Luke", abbreviation: "Luke", aliases: &["Luke", "Luk", "Lk"] },
     BookInfo { number: 43, name: "John", abbreviation: "John", aliases: &["John", "Joh", "Jhn", "Jn"] },
     BookInfo { number: 44, name: "Acts", abbreviation: "Acts", aliases: &["Acts", "Act", "Ac"] },
@@ -84,7 +92,7 @@ pub const BOOKS: &[BookInfo] = &[
     BookInfo { number: 48, name: "Galatians", abbreviation: "Gal", aliases: &["Gal", "Ga"] },
     BookInfo { number: 49, name: "Ephesians", abbreviation: "Eph", aliases: &["Eph", "Ephes"] },
     BookInfo { number: 50, name: "Philippians", abbreviation: "Phil", aliases: &["Phil", "Php", "Pp"] },
-    BookInfo { number: 51, name: "Colossians", abbreviation: "Col", aliases: &["Col", "Co"] },
+    BookInfo { number: 51, name: "Colossians", abbreviation: "Col", aliases: &["Col"] },
     BookInfo {
         number: 52, name: "1 Thessalonians", abbreviation: "1 Thess",
         aliases: &["1 Thess", "1 Th", "1Thess", "1Th", "First Thessalonians", "1st Thessalonians", "I Thessalonians"],
@@ -126,5 +134,5 @@ pub const BOOKS: &[BookInfo] = &[
         aliases: &["3 John", "3 Jn", "3John", "3Jn", "Third John", "3rd John", "III John"],
     },
     BookInfo { number: 65, name: "Jude", abbreviation: "Jude", aliases: &["Jude", "Jud", "Jd"] },
-    BookInfo { number: 66, name: "Revelation", abbreviation: "Rev", aliases: &["Rev", "Re", "Rv", "Apocalypse"] },
+    BookInfo { number: 66, name: "Revelation", abbreviation: "Rev", aliases: &["Rev", "Rv", "Apocalypse"] },
 ];

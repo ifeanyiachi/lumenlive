@@ -49,6 +49,14 @@ use crate::types::{SonioxConfig, TranscriptEvent, Word};
 const WS_URL: &str = "wss://stt-rt.soniox.com/transcribe-websocket";
 /// Soniox's endpoint-detection boundary marker token (assumption — see module docs).
 const ENDPOINT_MARKER: &str = "<end>";
+/// Common sermon phrases that Soniox should preserve as ordinary prose rather
+/// than biasing toward Bible ordinals such as "second".
+const SERMON_PHRASE_TERMS: &[&str] = &[
+    "set time",
+    "a set time",
+    "appointed time",
+    "this is my time",
+];
 
 // Reconnect/latency knobs mirror the Deepgram client so operator-facing failure
 // behaviour is identical across backends.
@@ -85,7 +93,10 @@ impl SonioxClient {
     /// audio format, and the full Bible `context` (no 100-term cap — Soniox
     /// allows ~8k tokens, so the entire keyterm list ships).
     fn build_config_message(&self) -> String {
-        let terms = bible_keyterms();
+        let terms = bible_keyterms()
+            .into_iter()
+            .chain(SERMON_PHRASE_TERMS.iter().copied().map(str::to_owned))
+            .collect::<Vec<_>>();
         let context = serde_json::json!({
             "general": [
                 { "key": "domain", "value": "Christian church service" },
@@ -93,7 +104,10 @@ impl SonioxClient {
             ],
             "text": "Live church service. Speakers announce Bible references such \
                      as 'John 3:16', 'First Corinthians 13:4', 'Psalm 23'. Prefer \
-                     digit form for chapter and verse numbers.",
+                     digit form for chapter and verse numbers. Preserve ordinary \
+                     sermon phrases such as 'set time' and 'appointed time'; do \
+                     not change them to 'second time' unless the audio clearly says \
+                     'second'.",
             "terms": terms,
         });
         serde_json::json!({
@@ -189,7 +203,9 @@ impl SonioxClient {
         // surfaced later as an error frame, not an HTTP 401 on the handshake).
         let config_msg = self.build_config_message();
         if let Err(e) = write.send(Message::Text(config_msg.into())).await {
-            return Err(SttError::ConnectionFailed(format!("config send failed: {e}")));
+            return Err(SttError::ConnectionFailed(format!(
+                "config send failed: {e}"
+            )));
         }
         let _ = event_tx.send(TranscriptEvent::Connected).await;
 
@@ -643,7 +659,10 @@ mod tests {
             ]
         }));
 
-        assert_eq!(tags(&events), ["SpeechStarted", "Partial", "Final", "UtteranceEnd"]);
+        assert_eq!(
+            tags(&events),
+            ["SpeechStarted", "Partial", "Final", "UtteranceEnd"]
+        );
         assert_eq!(partial_text(&events[1]), "John 3:16");
         let (text, conf, speech_final) = final_of(&events);
         assert_eq!(text, "John 3:16");
@@ -723,7 +742,9 @@ mod tests {
     #[test]
     fn empty_or_tokenless_frame_yields_nothing() {
         let mut agg = SonioxAggregator::default();
-        assert!(agg.ingest(&json!({ "final_audio_proc_ms": 100 })).is_empty());
+        assert!(agg
+            .ingest(&json!({ "final_audio_proc_ms": 100 }))
+            .is_empty());
         assert!(agg.ingest(&json!({ "tokens": [] })).is_empty());
     }
 
@@ -731,7 +752,31 @@ mod tests {
     fn auth_error_detection() {
         assert!(is_auth_error(&json!({ "error_code": 401 })));
         assert!(is_auth_error(&json!({ "error_code": "unauthorized" })));
-        assert!(is_auth_error(&json!({ "error_message": "Invalid API key" })));
-        assert!(!is_auth_error(&json!({ "error_code": 500, "error_message": "internal" })));
+        assert!(is_auth_error(
+            &json!({ "error_message": "Invalid API key" })
+        ));
+        assert!(!is_auth_error(
+            &json!({ "error_code": 500, "error_message": "internal" })
+        ));
+    }
+
+    #[test]
+    fn config_preserves_sermon_time_phrases() {
+        let client = SonioxClient::new(SonioxConfig {
+            api_key: "test-key".to_string(),
+            ..SonioxConfig::default()
+        });
+        let config: serde_json::Value =
+            serde_json::from_str(&client.build_config_message()).expect("valid config JSON");
+        let terms = config["context"]["terms"]
+            .as_array()
+            .expect("context terms array");
+
+        assert!(terms.iter().any(|term| term == "set time"));
+        assert!(terms.iter().any(|term| term == "appointed time"));
+        assert!(config["context"]["text"]
+            .as_str()
+            .expect("context text")
+            .contains("do not change them to 'second time'"));
     }
 }

@@ -27,8 +27,8 @@ export type VerseStep =
  * Compute the verse one step away from `selected` within `currentChapter`.
  *
  * The anchor is the currently-selected verse — whatever is on the program
- * screen, regardless of how it got there (spoken reference, manual pick, queue
- * take, reading mode) — so voice navigation follows the live selection rather
+ * screen, regardless of how it got there (spoken reference, manual pick, or queue
+ * take) — so voice navigation follows the live selection rather
  * than the last thing the detector *heard*.
  *
  * Matching is by book/chapter/verse coordinates, never by `id`: verses

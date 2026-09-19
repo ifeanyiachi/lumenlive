@@ -52,14 +52,18 @@ export function StageConfigPanel({
 
       {/* Stage Layout preset picker — switches instantly, non-destructive. */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">{t("stageLayout")}</label>
+        <label className="text-xs text-muted-foreground">
+          {t("stageLayout")}
+        </label>
         <div className="flex items-center gap-1.5">
           <Select value={selectedLayoutId} onValueChange={handleLayoutChange}>
             <SelectTrigger className="h-8 flex-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={CLASSIC_LAYOUT}>{t("classicSettings")}</SelectItem>
+              <SelectItem value={CLASSIC_LAYOUT}>
+                {t("classicSettings")}
+              </SelectItem>
               {stageLayouts.map((l) => (
                 <SelectItem key={l.id} value={l.id}>
                   {l.name}
@@ -94,7 +98,9 @@ export function StageConfigPanel({
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{t("layout")}</label>
+              <label className="text-xs text-muted-foreground">
+                {t("layout")}
+              </label>
               <Select
                 value={config.layout}
                 onValueChange={(v) =>

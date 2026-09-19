@@ -34,6 +34,13 @@ pub struct TranscriptRecorder {
     /// Path of the active file — kept for the "recording to …" start log and so
     /// callers/tests can locate the artifact.
     path: Option<PathBuf>,
+    /// Body of the most recently WRITTEN detection line (B6). Detection runs on
+    /// every interim partial, so one utterance re-emits the same verse across
+    /// dozens of successive frames; collapsing a run of identical `DETECT` lines
+    /// to one keeps the transcript readable. Only an *immediate* repeat is
+    /// suppressed — the same verse detected again after any other detection logs
+    /// afresh. Reset per session in [`Self::finish`] (which [`Self::begin`] calls).
+    last_detection: Option<String>,
 }
 
 impl TranscriptRecorder {
@@ -98,8 +105,24 @@ impl TranscriptRecorder {
 
     /// Record a detection the pipeline emitted. `source` is e.g. `"direct"`,
     /// `"direct-partial"`, or `"semantic"`; `detail` is the reference + score.
+    ///
+    /// B6: consecutive identical detections are collapsed to a single line. The
+    /// same verse re-fires on every partial of an utterance (same source, score
+    /// and auto-queue flag ⇒ identical body), which otherwise floods the log; the
+    /// authoritative `"direct"` final differs from its `"direct-partial"` frames
+    /// (different source, and `auto_q` may flip), so it still records distinctly.
     pub fn detection(&mut self, source: &str, detail: &str) {
-        self.write_line("DETECT", &format!("[{source}] {detail}"));
+        let body = format!("[{source}] {detail}");
+        if self.last_detection.as_deref() == Some(body.as_str()) {
+            return;
+        }
+        self.write_line("DETECT", &body);
+        // Only remember it as the dedup key if the write actually landed (a
+        // broken writer clears itself in write_line); otherwise leave the key so
+        // no state diverges from what's on disk.
+        if self.writer.is_some() {
+            self.last_detection = Some(body);
+        }
     }
 
     /// Flush and close the active session file, if any. Idempotent.
@@ -113,6 +136,9 @@ impl TranscriptRecorder {
             let _ = w.flush();
         }
         self.path = None;
+        // A fresh session must not inherit the previous one's dedup key, or its
+        // first detection could be wrongly suppressed.
+        self.last_detection = None;
     }
 
     /// Write one timestamped `kind` line and flush immediately so an unclean
@@ -186,6 +212,50 @@ mod tests {
         );
         assert!(contents.contains("John 3:16"), "detection recorded");
         assert!(contents.contains("session ended"), "footer written on finish");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collapses_consecutive_identical_detections() {
+        // B6: the same verse re-emitted on successive partials must record once,
+        // but a distinct detection between two identical ones re-opens logging.
+        let dir = std::env::temp_dir().join(format!(
+            "ll-transcript-rec-dedup-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+
+        let mut r = TranscriptRecorder::default();
+        r.begin(&dir);
+        let path = r.path.clone().expect("session file open");
+
+        // Five successive partials of one utterance → collapse to a single line.
+        for _ in 0..5 {
+            r.detection("direct-partial", "Isaiah 9:11 (95%) auto_q=false");
+        }
+        // The authoritative final differs (source + auto_q) → its own line.
+        r.detection("direct", "Isaiah 9:11 (100%) auto_q=true");
+        // The same partial body again, now that another detection intervened →
+        // logged afresh rather than suppressed.
+        r.detection("direct-partial", "Isaiah 9:11 (95%) auto_q=false");
+        r.finish();
+
+        let contents = fs::read_to_string(&path).expect("read back transcript");
+        let partial_lines = contents
+            .lines()
+            .filter(|l| l.contains("[direct-partial] Isaiah 9:11 (95%) auto_q=false"))
+            .count();
+        assert_eq!(
+            partial_lines, 2,
+            "5 consecutive partials collapse to 1, then re-log once after the final"
+        );
+        let final_lines = contents
+            .lines()
+            .filter(|l| l.contains("[direct] Isaiah 9:11 (100%) auto_q=true"))
+            .count();
+        assert_eq!(final_lines, 1, "the authoritative final records distinctly");
 
         let _ = fs::remove_dir_all(&dir);
     }

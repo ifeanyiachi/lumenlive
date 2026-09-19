@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import type { DetectionResult } from "@/types/detection"
 import {
-  MIN_DIRECT_LIVE_CONFIDENCE,
+  MIN_DIRECT_PREVIEW_CONFIDENCE,
+  autoPreviewCandidates,
   panelDetections,
   passesPanelFloor,
-  shouldAutoDisplayLive,
+  shouldAutoStagePreview,
   shouldAutoQueue,
 } from "./detection-routing"
 
@@ -22,7 +23,6 @@ function det(overrides: Partial<DetectionResult> = {}): DetectionResult {
     auto_queued: false,
     transcript_snippet: "",
     is_chapter_only: false,
-    narrative_mention: false,
     ...overrides,
   }
 }
@@ -75,38 +75,74 @@ describe("shouldAutoQueue", () => {
   })
 })
 
-describe("shouldAutoDisplayLive", () => {
-  it("displays a high-confidence direct reference", () => {
-    expect(shouldAutoDisplayLive(det({ confidence: 0.95 }))).toBe(true)
+describe("shouldAutoStagePreview", () => {
+  it("stages a high-confidence direct reference", () => {
+    expect(shouldAutoStagePreview(det({ confidence: 0.95 }))).toBe(true)
   })
 
-  it("never displays a semantic hit, no matter how confident", () => {
+  it("never stages a semantic hit, no matter how confident", () => {
     expect(
-      shouldAutoDisplayLive(det({ source: "semantic", confidence: 1 }))
+      shouldAutoStagePreview(det({ source: "semantic", confidence: 1 }))
     ).toBe(false)
   })
 
-  it("blocks direct hits below the live-confidence guard", () => {
+  it("blocks direct hits below the preview-confidence guard", () => {
     expect(
-      shouldAutoDisplayLive(
-        det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE - 0.01 })
+      shouldAutoStagePreview(
+        det({ confidence: MIN_DIRECT_PREVIEW_CONFIDENCE - 0.01 })
       )
     ).toBe(false)
     expect(
-      shouldAutoDisplayLive(det({ confidence: MIN_DIRECT_LIVE_CONFIDENCE }))
+      shouldAutoStagePreview(det({ confidence: MIN_DIRECT_PREVIEW_CONFIDENCE }))
     ).toBe(true)
   })
 
-  it("excludes chapter-only stubs and narrative mentions", () => {
-    expect(shouldAutoDisplayLive(det({ is_chapter_only: true }))).toBe(false)
-    expect(shouldAutoDisplayLive(det({ narrative_mention: true }))).toBe(false)
+  it("excludes chapter-only stubs", () => {
+    expect(shouldAutoStagePreview(det({ is_chapter_only: true }))).toBe(false)
   })
 
   it("excludes unresolved references (book_number 0)", () => {
-    expect(shouldAutoDisplayLive(det({ book_number: 0 }))).toBe(false)
+    expect(shouldAutoStagePreview(det({ book_number: 0 }))).toBe(false)
   })
 
   it("honours a caller-supplied confidence floor", () => {
-    expect(shouldAutoDisplayLive(det({ confidence: 0.85 }), 0.8)).toBe(true)
+    expect(shouldAutoStagePreview(det({ confidence: 0.85 }), 0.8)).toBe(true)
+  })
+})
+
+describe("autoPreviewCandidates", () => {
+  it("returns every eligible direct reference", () => {
+    expect(
+      autoPreviewCandidates([
+        det({ verse_ref: "John 3:16" }),
+        det({ verse_ref: "Romans 8:28" }),
+      ])
+    ).toEqual([
+      expect.objectContaining({ verse_ref: "John 3:16" }),
+      expect.objectContaining({ verse_ref: "Romans 8:28" }),
+    ])
+  })
+
+  it("deduplicates repeated references using the highest confidence hit", () => {
+    expect(
+      autoPreviewCandidates([
+        det({ verse_ref: "John 3:16", confidence: 0.91 }),
+        det({ verse_ref: "John 3:16", confidence: 0.99 }),
+      ])
+    ).toEqual([
+      expect.objectContaining({ verse_ref: "John 3:16", confidence: 0.99 }),
+    ])
+  })
+
+  it("keeps direct references regardless of spoken phrasing", () => {
+    expect(
+      autoPreviewCandidates([
+        det({ verse_ref: "Isaiah 9:11" }),
+        det({ verse_ref: "Ecclesiastes 9:11" }),
+      ])
+    ).toEqual([
+      expect.objectContaining({ verse_ref: "Isaiah 9:11" }),
+      expect.objectContaining({ verse_ref: "Ecclesiastes 9:11" }),
+    ])
   })
 })

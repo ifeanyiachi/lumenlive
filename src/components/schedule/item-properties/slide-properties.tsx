@@ -96,7 +96,8 @@ export function SlideProperties({
           <option value="">{t("properties.selectPresentation")}</option>
           {presentations.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({t("properties.slidesCount", { count: p.slides.length })})
+              {p.name} (
+              {t("properties.slidesCount", { count: p.slides.length })})
             </option>
           ))}
         </select>
@@ -116,7 +117,9 @@ export function SlideProperties({
                 )}
                 onClick={() => setAddMode("individual")}
               >
-                {t("properties.individual", { count: selectedPresentation.slides.length })}
+                {t("properties.individual", {
+                  count: selectedPresentation.slides.length,
+                })}
               </Button>
               <Button
                 variant={addMode === "group" ? "secondary" : "outline"}
@@ -132,7 +135,9 @@ export function SlideProperties({
             </div>
             <p className="text-[0.625rem] text-muted-foreground">
               {addMode === "individual"
-                ? t("properties.individualHelp", { count: selectedPresentation.slides.length })
+                ? t("properties.individualHelp", {
+                    count: selectedPresentation.slides.length,
+                  })
                 : t("properties.groupHelp")}
             </p>
           </FieldGroup>

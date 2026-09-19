@@ -224,7 +224,8 @@ export function MultiVerseEditModal({
           segmentById
         )
         const ok = scheduleStore.addItem(activeScheduleId, item)
-        if (ok) toast.success(t("addedVersesToSchedule", { count: verses.length }))
+        if (ok)
+          toast.success(t("addedVersesToSchedule", { count: verses.length }))
         else toast.info(t("alreadyInSchedule"))
       } else {
         toast.info(t("noActiveSchedule"))
@@ -253,9 +254,7 @@ export function MultiVerseEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {t("editVerses", { count: verses.length })}
-          </DialogTitle>
+          <DialogTitle>{t("editVerses", { count: verses.length })}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -277,7 +276,9 @@ export function MultiVerseEditModal({
 
           {previewData && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">{t("preview")}</span>
+              <span className="text-xs text-muted-foreground">
+                {t("preview")}
+              </span>
               <ScripturePreview
                 themeId={activeThemeId}
                 verse={previewData}

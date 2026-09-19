@@ -8,7 +8,7 @@
 //!   - [`audio`] — the `!Send` cpal capture + fan-out thread
 //!   - [`supervisor`] — provider supervision + disconnect surfacing
 //!   - [`events`] — transcript-event consumer + background detection workers
-//!   - [`detection`] — the live direct/semantic/reading/translation detection
+//!   - [`detection`] — the live direct/semantic/translation detection
 
 mod audio;
 mod detection;

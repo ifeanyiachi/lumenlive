@@ -1,6 +1,6 @@
 //! Live verse detection off the transcript stream: instant direct (pattern)
-//! detection, hybrid semantic (vector + FTS5) detection, reading-mode tracking,
-//! and voice translation commands. These run inside `spawn_blocking` workers so
+//! detection, hybrid semantic (vector + FTS5) detection, and voice translation
+//! commands. These run inside `spawn_blocking` workers so
 //! their mutex locks / ONNX / DB I/O never touch the async runtime.
 //!
 //! NOTE: this is the *live* path. The on-demand batch equivalent lives in
@@ -12,11 +12,6 @@
 //! The detector states are kept under **separate** mutexes on purpose: direct
 //! detection locks only `DirectDetector`/`DetectionMerger` so it never blocks on
 //! the semantic worker's ONNX under `DetectionPipeline`. When two locks must be
-//! held together (only reading mode does this), the order is **`ReadingMode` →
-//! `BibleState`**, never the reverse — `run_direct_detection` takes `BibleState`
-//! alone, so no `bible → rm` path exists to deadlock against. Reading-mode
-//! decide→read→act runs inside a single `ReadingMode` critical section so the UI's
-//! `stop_reading_mode` can't interleave between the decision and the start.
 
 use std::sync::Mutex;
 
@@ -26,30 +21,18 @@ use crate::bible_state::BibleState;
 
 use super::truncate_safe;
 
-/// Confidence assigned to any direct (Aho-Corasick) reference match. Direct
-/// detections are treated as uniformly high-trust, so this is a fixed
-/// placeholder rather than a per-match score. It is deliberately >=
-/// [`HIGH_CONFIDENCE_THRESHOLD`], so a direct match always clears the
-/// high-confidence gate below.
-const DIRECT_DETECTION_CONFIDENCE: f64 = 0.95;
-
-/// Minimum confidence for a detection to count as an explicit, high-trust
-/// reference — e.g. gating whether a new book restarts reading mode versus
-/// being treated as a low-confidence false positive.
-const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.90;
-
 /// Reset all long-lived detector state at the start of a transcription session.
 ///
-/// The detectors (`DirectDetector`, `DetectionMerger`, `ReadingMode`) are
+/// The detectors (`DirectDetector`, `DetectionMerger`) are
 /// process-lifetime managed singletons (`lib.rs`) that are never dropped, so
 /// without this a new service inherits the previous run's accumulated held
-/// references, 60-second sticky book/chapter context, auto-display cooldown, and
-/// reading-mode passage — the structural cause of detection "degrading over
-/// time" (aitrans §2, Phase 1). Thresholds on the merger are configuration and
+/// references, 60-second sticky book/chapter context, and auto-display cooldown
+/// — the structural cause of detection "degrading over time" (aitrans §2,
+/// Phase 1). Thresholds on the merger are configuration and
 /// are intentionally preserved. Best-effort: a poisoned lock is logged and
 /// skipped rather than aborting the start.
 pub(super) fn reset_detection_state(app: &AppHandle) {
-    use lumenlive_detection::{DetectionMerger, DirectDetector, ReadingMode};
+    use lumenlive_detection::{DetectionMerger, DirectDetector};
 
     match app.state::<Mutex<DirectDetector>>().lock() {
         Ok(mut d) => d.reset(),
@@ -59,75 +42,14 @@ pub(super) fn reset_detection_state(app: &AppHandle) {
         Ok(mut m) => m.reset(),
         Err(e) => log::error!("[DET] DetectionMerger reset skipped (lock poisoned): {e}"),
     }
-    match app.state::<Mutex<ReadingMode>>().lock() {
-        Ok(mut rm) => rm.deactivate(),
-        Err(e) => log::error!("[DET] ReadingMode reset skipped (lock poisoned): {e}"),
-    }
     log::info!("[DET] Detector state reset for new transcription session");
-}
-
-/// Stamp the Phase-3 narrative-mention flag on live DIRECT detections.
-///
-/// A detection is a low-trust *narrative mention* when Reading Mode is actively
-/// tracking a DIFFERENT book and the utterance neither introduced the detected
-/// book with a citation cue ("turn to", "the book of", "look at <Book>") NOR
-/// named an explicit chapter:verse right after it ("Matthew 5:16", "John three
-/// sixteen"). This is the Obadiah case (aitrans §8): a book name spoken as a
-/// character during a verse-by-verse reading of 1 Kings 18. Flagged hits are
-/// excluded from auto-display frontend-side (they still queue for a deliberate
-/// send), and P4 reuses the flag as its low-trust discriminator.
-///
-/// The trailing-citation escape hatch ([`citation_follows_book_name`]) is what
-/// keeps a real cross-reference on the audience screen: field logs showed a
-/// preacher reading John who then quoted "Matthew 5:16", "Philippians 4:19",
-/// etc. without a "turn to" cue — every one was wrongly guarded as narrative and
-/// never displayed, even though an explicit `Book C:V` is unambiguously a
-/// deliberate citation, not prose. It keys off the CURRENT utterance's spoken
-/// words, so a full verse produced only by sticky cross-utterance context (the
-/// genuine Obadiah mechanism) is still guarded.
-///
-/// When Reading Mode is idle nothing is flagged — a cleanly-spoken reference
-/// obeys the auto-display toggle unchanged (operator decision, aitrans §9 P3).
-/// Reads the raw `transcript` (not the cleaned form) so filler-stripped cues
-/// like "the book of" are still visible. Best-effort: a poisoned Reading-Mode
-/// lock leaves every flag false.
-fn stamp_narrative_mentions(
-    app: &AppHandle,
-    transcript: &str,
-    results: &mut [crate::commands::detection::DetectionResult],
-) {
-    use lumenlive_detection::{
-        citation_follows_book_name, cue_precedes_book_name, ReadingMode,
-    };
-
-    let (rm_active, rm_book) = {
-        let rm_state: State<'_, Mutex<ReadingMode>> = app.state();
-        let Ok(rm) = rm_state.lock() else { return };
-        (rm.is_active(), rm.current_book())
-    };
-    if !rm_active {
-        return;
-    }
-    for r in results.iter_mut() {
-        if r.source == "direct"
-            && r.book_number > 0
-            && r.book_number != rm_book
-            && !cue_precedes_book_name(transcript, &r.book_name)
-            && !citation_follows_book_name(transcript, &r.book_name)
-        {
-            r.narrative_mention = true;
-            log::info!(
-                "[DET-DIRECT] narrative mention guarded: {} (reading book {rm_book}, no cue)",
-                r.verse_ref
-            );
-        }
-    }
 }
 
 /// Record every emitted detection into the durable per-session transcript file
 /// (see [`super::TranscriptRecorder`]), tagged with its `source` (`"direct"`,
-/// `"direct-partial"`, `"semantic"`). Best-effort: a poisoned lock is skipped so
-/// recording never disturbs detection. No-op between transcription sessions.
+/// `"direct-partial"`, `"semantic-partial"`, or `"semantic"`). Best-effort: a
+/// poisoned lock is skipped so recording never disturbs detection. No-op between
+/// transcription sessions.
 fn record_detections(
     app: &AppHandle,
     source: &str,
@@ -138,11 +60,10 @@ fn record_detections(
         return;
     };
     for r in results {
-        let flag = if r.narrative_mention { " [narrative]" } else { "" };
         rec.detection(
             source,
             &format!(
-                "{} ({:.0}%) auto_q={}{flag}",
+                "{} ({:.0}%) auto_q={}",
                 r.verse_ref,
                 r.confidence * 100.0,
                 r.auto_queued
@@ -156,7 +77,7 @@ fn record_detections(
 /// worker's ONNX under the pipeline lock) but merges through the SHARED
 /// `Mutex<DetectionMerger>` — the same instance the semantic worker uses — so
 /// the anti-flood cooldown coordinates across both channels.
-/// Returns true if high-confidence results were found (>= 0.90).
+/// Runs direct detection and emits any resolved references.
 ///
 /// `is_final` splits two paths:
 /// - **partial** (`false`): a spoken reference detected mid-utterance. Resolves
@@ -169,7 +90,7 @@ fn record_detections(
 /// - **final** (`true`): the full pipeline — merge (auto-queue + cooldown) and
 ///   emit `verse_detections`, byte-identical to the pre-partials behaviour.
 #[expect(clippy::similar_names, reason = "merger and merged are naturally named")]
-pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: bool) -> bool {
+pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: bool) {
     use lumenlive_detection::{DirectDetector, DetectionMerger, MergedDetection};
 
     let t0 = std::time::Instant::now();
@@ -178,18 +99,15 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         Ok(d) => d,
         Err(e) => {
             log::error!("Failed to lock DirectDetector: {e}");
-            return false;
+            return;
         }
     };
     let direct_results = detector.detect(transcript);
     drop(detector); // Release immediately
 
     if direct_results.is_empty() {
-        return false;
+        return;
     }
-
-    // Check if any result has high confidence before merging
-    let has_high_confidence = direct_results.iter().any(|d| d.confidence >= HIGH_CONFIDENCE_THRESHOLD);
 
     // Partial path: panel-only display, merger bypassed (see fn doc). Wrap each
     // raw detection as a non-auto-queued MergedDetection purely so the existing
@@ -198,9 +116,9 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         let bible_managed: State<'_, Mutex<BibleState>> = app.state();
         let Ok(bible) = bible_managed.lock() else {
             log::error!("[DET-DIRECT] BibleState lock poisoned (partial)");
-            return has_high_confidence;
+            return;
         };
-        let mut results: Vec<crate::commands::detection::DetectionResult> = direct_results
+        let results: Vec<crate::commands::detection::DetectionResult> = direct_results
             .into_iter()
             .filter_map(|d| {
                 crate::commands::detection::to_result(
@@ -210,7 +128,6 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
             })
             .collect();
         drop(bible);
-        stamp_narrative_mentions(app, transcript, &mut results);
         if !results.is_empty() {
             record_detections(app, "direct-partial", &results);
             let _ = app.emit("verse_detections_partial", &results);
@@ -225,7 +142,7 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
                 t0.elapsed()
             );
         }
-        return has_high_confidence;
+        return;
     }
 
     // Merge using the managed merger (persists cooldown state across calls,
@@ -235,13 +152,13 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
         Ok(m) => m,
         Err(e) => {
             log::error!("Failed to lock DetectionMerger: {e}");
-            return false;
+            return;
         }
     };
     let merged = merger.merge(direct_results, vec![]);
     drop(merger);
     if merged.is_empty() {
-        return false;
+        return;
     }
 
     // Resolve verse info from the dedicated Bible DB lock. A blocking lock is
@@ -252,22 +169,19 @@ pub(super) fn run_direct_detection(app: &AppHandle, transcript: &str, is_final: 
     let bible_managed: State<'_, Mutex<BibleState>> = app.state();
     let Ok(bible) = bible_managed.lock() else {
         log::error!("[DET-DIRECT] BibleState lock poisoned");
-        return false;
+        return;
     };
-    let mut results: Vec<crate::commands::detection::DetectionResult> = merged
+    let results: Vec<crate::commands::detection::DetectionResult> = merged
         .iter()
         .filter_map(|m| crate::commands::detection::to_result(&bible, m))
         .collect();
     drop(bible);
-    stamp_narrative_mentions(app, transcript, &mut results);
-
     for r in &results {
         log::info!("[DET-DIRECT] Found: {} ({:.0}%)", r.verse_ref, r.confidence * 100.0);
     }
     record_detections(app, "direct", &results);
     let _ = app.emit("verse_detections", &results);
     log::info!("[DET-DIRECT] Detection took {:?} for {:?}", t0.elapsed(), truncate_safe(transcript, 50));
-    has_high_confidence
 }
 
 /// Minimum words before vector embedding search is worthwhile (short text
@@ -300,6 +214,19 @@ const MAX_FUSED_CONFIDENCE: f64 = 0.98;
 /// keeps the preview from surfacing a rotating keyword guess every utterance.
 const SEMANTIC_PREVIEW_MIN_QUOTATION: f64 = 0.5;
 
+/// Minimum transcript quotation likelihood for the *final* (authoritative)
+/// semantic path to run at all. The vector search returns its nearest verses for
+/// ANY 5+word utterance, so without this every line of ordinary preaching
+/// surfaced up to [`SEMANTIC_MAX_RESULTS`] rotating guesses in the panel. Gating
+/// on the same quotation signal and threshold as the preview
+/// ([`SEMANTIC_PREVIEW_MIN_QUOTATION`]) means the two paths agree on what "looks
+/// like a scripture quotation" is — archaic register or a citation cue — so the
+/// panel stays quiet during exposition. Deliberate recall tradeoff: a purely
+/// modern-language paraphrase with no quotation markers no longer auto-surfaces
+/// (explicit references are unaffected — that is the direct path — and the
+/// operator can still find a verse by manual search).
+const SEMANTIC_FINAL_MIN_QUOTATION: f64 = SEMANTIC_PREVIEW_MIN_QUOTATION;
+
 /// How many FTS5 candidates the preview considers. The top keyword hit is the
 /// quoted verse in the common case; the floor ([`FTS_ONLY_FLOOR`]) trims the tail.
 const SEMANTIC_PREVIEW_FTS_K: usize = 5;
@@ -308,8 +235,9 @@ const SEMANTIC_PREVIEW_FTS_K: usize = 5;
 /// (top 10) and FTS (top 10) searches fuse into as many as ~20 candidates; the
 /// merger sorts them by confidence descending and drops sub-threshold hits, so
 /// taking the first N keeps only the strongest few and discards the long tail
-/// of weak matches. Mirrors the preview cap ([`SEMANTIC_PREVIEW_FTS_K`]).
-const SEMANTIC_MAX_RESULTS: usize = 5;
+/// of weak matches. Kept small (winner + a couple of alternates) so one utterance
+/// contributes a tight ranked shortlist, not a wide spread of books, to the panel.
+const SEMANTIC_MAX_RESULTS: usize = 3;
 
 /// Optimistic keyword preview for the AI Detections panel. When an utterance
 /// *looks like a scripture quotation* (archaic register or a citation cue), run
@@ -413,6 +341,71 @@ fn emit_semantic_preview(app: &AppHandle, transcript: &str) {
     }
 }
 
+/// Run the panel-only semantic path on an interim transcript.
+///
+/// This deliberately does not use the quotation gate or the shared merger. The
+/// final semantic path remains quotation-gated and authoritative; this path is
+/// only an early suggestion stream, filtered by the operator's frontend floor.
+/// It uses vector similarity rather than FTS so modern-language paraphrases can
+/// surface before the speaker reaches an utterance boundary.
+pub(super) fn run_semantic_partial_detection(app: &AppHandle, transcript: &str) {
+    use lumenlive_detection::{Detection, MergedDetection};
+
+    let vector_hits: Vec<(i64, f64)> = {
+        let pipeline_state: State<'_, Mutex<lumenlive_detection::DetectionPipeline>> =
+            app.state();
+        let Ok(mut pipeline) = pipeline_state.lock() else {
+            log::error!("[DET-SEMANTIC-PARTIAL] Failed to lock DetectionPipeline");
+            return;
+        };
+        pipeline.semantic_search(transcript, 5)
+    };
+
+    if vector_hits.is_empty() {
+        log::debug!("[DET-SEMANTIC-PARTIAL] No vector candidates");
+        return;
+    }
+
+    let snippet = truncate_safe(transcript, 100).to_string();
+    let managed: State<'_, Mutex<BibleState>> = app.state();
+    let Ok(bible) = managed.lock() else {
+        log::error!("[DET-SEMANTIC-PARTIAL] Failed to lock BibleState");
+        return;
+    };
+
+    let results: Vec<crate::commands::detection::DetectionResult> = vector_hits
+        .into_iter()
+        .take(3)
+        .filter_map(|(verse_id, similarity)| {
+            let detection = Detection::semantic(
+                verse_id,
+                similarity,
+                snippet.clone(),
+                Detection::now_millis(),
+            );
+            crate::commands::detection::to_result(
+                &bible,
+                &MergedDetection {
+                    detection,
+                    auto_queued: false,
+                },
+            )
+        })
+        .collect();
+    drop(bible);
+
+    if results.is_empty() {
+        return;
+    }
+
+    record_detections(app, "semantic-partial", &results);
+    let _ = app.emit("verse_detections_partial", &results);
+    log::debug!(
+        "[DET-SEMANTIC-PARTIAL] emitted {} vector candidate(s)",
+        results.len()
+    );
+}
+
 /// Run hybrid semantic detection with score fusion: real ONNX vector search is
 /// the primary signal, FTS5 BM25 keyword search is a supporting one.
 ///
@@ -460,6 +453,18 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     //    below adds its ~300-600ms. Panel-only + merger-bypassing (see fn doc);
     //    the authoritative emit further down is unchanged.
     emit_semantic_preview(app, transcript);
+
+    // 0b. Quotation gate: the vector search below always returns its nearest
+    //     verses for any 5+word utterance, so run the authoritative path only
+    //     when the utterance actually looks like a scripture quotation (archaic
+    //     register or a citation cue). This keeps ordinary preaching from
+    //     surfacing a rotating shortlist of guesses in the panel, and skips the
+    //     ONNX embed entirely on non-quotation speech. See
+    //     SEMANTIC_FINAL_MIN_QUOTATION for the deliberate recall tradeoff.
+    if quotation::quotation_score(transcript, None) < SEMANTIC_FINAL_MIN_QUOTATION {
+        log::debug!("[DET-SEMANTIC] skipped: below quotation gate");
+        return;
+    }
 
     // 1. Vector search (real cosine similarities). Empty when the index is not
     //    loaded or the text is too short for a meaningful embedding.
@@ -663,252 +668,6 @@ pub(super) fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     record_detections(app, "semantic", &results);
     let _ = app.emit("verse_detections", &results);
     log::info!("[DET-SEMANTIC] Total: {:?}", t0.elapsed());
-}
-
-/// Check reading mode: if active, test transcript against expected verse.
-/// If direct detection just found a new verse, start/restart reading mode.
-/// Returns `true` when reading mode handled the transcript (suppresses semantic).
-///
-/// Split into three sequential steps (start / chapter-nav / advance) that run in
-/// order; each preserves the original single-flow control exactly.
-pub(super) fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> bool {
-    // Step 1: a fresh explicit reference may start/restart reading mode. Only
-    // aborts (Some(false)) on a poisoned BibleState lock.
-    if let Some(early) = maybe_start_reading_mode(app, transcript, direct_found) {
-        return early;
-    }
-
-    // Step 2: an explicit "go to chapter N" command. Some(_) = handled/errored.
-    if let Some(result) = handle_chapter_nav(app, transcript) {
-        return result;
-    }
-
-    // Step 3: natural verse advancement within the tracked chapter.
-    handle_advance(app, transcript)
-}
-
-/// Step 1 of [`check_reading_mode`]: if direct detection found a verse, consider
-/// starting/restarting reading mode. Returns `Some(false)` only when a Bible DB
-/// lock is poisoned (the original aborted the whole flow with `false`); `None`
-/// means "continue to the next step".
-fn maybe_start_reading_mode(
-    app: &AppHandle,
-    transcript: &str,
-    direct_found: bool,
-) -> Option<bool> {
-    use lumenlive_detection::ReadingMode;
-
-    // If direct detection found a verse, consider starting/restarting reading mode.
-    // BUT: if reading mode is already active on a book/chapter, do NOT restart
-    // on a different book — false positives from bare numbers (e.g., "verse 5"
-    // getting matched as "Job 3:5") would hijack the reading session.
-    if !direct_found {
-        return None;
-    }
-
-    let verse_info = {
-        let detector_state: State<'_, Mutex<lumenlive_detection::DirectDetector>> = app.state();
-        let Ok(detector) = detector_state.lock() else { return None };
-        detector.recent_detections().front().cloned()
-    };
-
-    let recent = verse_info?;
-
-    // Get the confidence of the detection to distinguish explicit refs from false positives
-    let detection_confidence = {
-        let detector_state: State<'_, Mutex<lumenlive_detection::DirectDetector>> = app.state();
-        detector_state.lock().ok()
-            .and_then(|d| d.recent_detections().front().map(|_| DIRECT_DETECTION_CONFIDENCE))
-            .unwrap_or(0.0)
-    };
-
-    // ── Single ReadingMode critical section (fixes R2 TOCTOU) ──────────────
-    // Decide (should_start), then — WITHOUT releasing rm — read the chapter from
-    // the Bible DB and act (rm.start). Holding rm across decide→read→act closes
-    // the race where the operator's `stop_reading_mode` could deactivate between
-    // the decision and the start. Lock order is rm → bible (never the reverse).
-    let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
-    let Ok(mut rm) = rm_managed.lock() else { return None };
-
-    let should_start = if !rm.is_active() && !rm.has_verses() {
-        true // Not active, no verses loaded — start fresh
-    } else if !rm.is_active() && rm.has_verses() {
-        // Paused — restart on any new explicit reference
-        true
-    } else if rm.current_book() == recent.book_number && rm.current_chapter() == recent.chapter {
-        false // Same book+chapter — already tracking this
-    } else if rm.current_book() != recent.book_number
-        && detection_confidence >= HIGH_CONFIDENCE_THRESHOLD
-        && lumenlive_detection::cue_precedes_book_name(transcript, &recent.book_name)
-    {
-        // Different book with high confidence AND an explicit citation cue —
-        // the speaker deliberately turned to a new reference (e.g. "turn to
-        // John chapter 1" after reading Exodus). Restart onto it.
-        //
-        // PHASE 3: without the cue this is a narrative mention — a book name
-        // spoken as a proper noun inside the current passage's prose ("…said to
-        // Obadiah…" while reading 1 Kings 18). Do NOT restart Reading Mode onto
-        // it, or the passage tracker retargets onto the false book (aitrans §8).
-        true
-    } else if rm.current_book() == recent.book_number {
-        // Same book, different chapter — natural progression
-        true
-    } else {
-        // Different book, low confidence — likely false positive
-        false
-    };
-
-    if should_start {
-        let chapter_data = {
-            let t_db = std::time::Instant::now();
-            let bible_managed: State<'_, Mutex<BibleState>> = app.state();
-            // Blocking lock is OK — we're inside spawn_blocking, not on the async runtime.
-            let Ok(bible) = bible_managed.lock() else {
-                log::error!("[READING] BibleState lock poisoned");
-                return Some(false);
-            };
-            let result = match &bible.db {
-                Some(db) => db.get_chapter(bible.active_translation_id, recent.book_number, recent.chapter).ok(),
-                None => None,
-            };
-            log::info!("[READING] get_chapter took {:?}", t_db.elapsed());
-            result
-        };
-
-        if let Some(chapter_verses) = chapter_data {
-            let verses: Vec<(i32, String)> = chapter_verses
-                .into_iter()
-                .map(|v| (v.verse, v.text))
-                .collect();
-
-            rm.start(
-                recent.book_number,
-                &recent.book_name,
-                recent.chapter,
-                recent.verse_start,
-                verses,
-            );
-
-            // Check if transcript contains "chapter" keyword - if so, expect chapter number next
-            // This handles "Genesis chapter" → pause → "5" → go to chapter 5
-            let lower = transcript.to_lowercase();
-            if lower.contains("chapter") && !lower.contains("next") && !lower.contains("previous") {
-                rm.set_expecting_chapter();
-            }
-        }
-    }
-
-    None
-}
-
-/// Step 2 of [`check_reading_mode`]: handle an explicit chapter-navigation
-/// command (e.g. "let's go to chapter seven"). `Some(true)` = handled + emitted;
-/// `Some(false)` = a lock error aborted the flow; `None` = no command, continue.
-fn handle_chapter_nav(app: &AppHandle, transcript: &str) -> Option<bool> {
-    use lumenlive_detection::ReadingMode;
-
-    // Single ReadingMode critical section (fixes R2 TOCTOU): decide the chapter
-    // change, read the chapter from the Bible DB, and act (rm.start) all while
-    // holding rm — so `stop_reading_mode` can't interleave between decide and
-    // act. rm is released (drop) before the emit. Lock order rm → bible.
-    let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
-    let Ok(mut rm) = rm_managed.lock() else { return Some(false) };
-
-    let chapter_change = if !rm.is_active() && !rm.has_verses() {
-        None
-    } else {
-        log::info!("[READING] Checking chapter command for: {transcript:?}");
-        rm.check_chapter_command(transcript)
-    };
-
-    let change = chapter_change?;
-
-    let chapter_data = {
-        let t_db = std::time::Instant::now();
-        let bible_managed: State<'_, Mutex<BibleState>> = app.state();
-        // Blocking lock is OK — we're inside spawn_blocking, not on the async runtime.
-        let Ok(bible) = bible_managed.lock() else {
-            log::error!("[READING] BibleState lock poisoned (chapter nav)");
-            return Some(false);
-        };
-        let result = match &bible.db {
-            Some(db) => db.get_chapter(
-                bible.active_translation_id,
-                change.book_number,
-                change.new_chapter,
-            ).ok(),
-            None => None,
-        };
-        log::info!("[READING] get_chapter (nav) took {:?}", t_db.elapsed());
-        result
-    };
-
-    if let Some(chapter_verses) = chapter_data {
-        if !chapter_verses.is_empty() {
-            let start_verse = change.start_verse.unwrap_or(1);
-
-            // Find the text for the starting verse
-            let start_verse_text = chapter_verses
-                .iter()
-                .find(|v| v.verse == start_verse).map_or_else(|| chapter_verses[0].text.clone(), |v| v.text.clone());
-
-            let verses: Vec<(i32, String)> = chapter_verses
-                .into_iter()
-                .map(|v| (v.verse, v.text))
-                .collect();
-
-            rm.start(
-                change.book_number,
-                &change.book_name,
-                change.new_chapter,
-                start_verse,
-                verses,
-            );
-            drop(rm); // release before emitting (IPC), matching the original
-
-            // Emit the starting verse of the new chapter
-            let reference = format!("{} {}:{}", change.book_name, change.new_chapter, start_verse);
-            let advance = lumenlive_detection::ReadingAdvance {
-                book_number: change.book_number,
-                book_name: change.book_name.clone(),
-                chapter: change.new_chapter,
-                verse: start_verse,
-                verse_text: start_verse_text.clone(),
-                reference: reference.clone(),
-                confidence: 1.0,
-            };
-            let _ = app.emit("reading_mode_verse", &advance);
-
-            return Some(true);
-        }
-    }
-
-    None
-}
-
-/// Step 3 of [`check_reading_mode`]: natural verse advancement within the
-/// tracked chapter. Allowed even when paused (`has_verses` but `!active`) so a
-/// "verse N" command can re-activate reading mode after a timeout. Returns
-/// `true` when it advanced + emitted.
-fn handle_advance(app: &AppHandle, transcript: &str) -> bool {
-    use lumenlive_detection::ReadingMode;
-
-    let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
-
-    let advance = {
-        let Ok(mut rm) = rm_managed.lock() else { return false };
-        if !rm.is_active() && !rm.has_verses() {
-            return false;
-        }
-        rm.check_transcript(transcript)
-    };
-
-    if let Some(advance) = advance {
-        let _ = app.emit("reading_mode_verse", &advance);
-        return true;
-    }
-
-    false
 }
 
 /// Check for voice translation commands like "read in KJV", "read in Spanish".

@@ -154,10 +154,22 @@ fn tokenize(text: &str) -> Vec<Token> {
     tokens
 }
 
+/// A colon reference ("3:16") must sit within this many tokens of the book
+/// name. In a real citation the numbers follow the book immediately ("John
+/// 3:16"), give or take a filler word or two. Without this cap the scan would
+/// run to the end of the segment, letting a book match reach across a whole
+/// sentence and claim an unrelated reference's `N:M` — e.g. "Job was faithful,
+/// so turn to Psalm 23:1" made *Job* 23:1. The spoken chapter/verse forms have
+/// their own forward-scan limits; this bound is specific to the literal colon
+/// form, which is always tight against the book name.
+const MAX_COLON_TOKEN_OFFSET: usize = 4;
+
 /// Try to parse "N:M" or "N : M" or "N:M-E" patterns.
 fn try_colon_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRef> {
-    // Look for: Number Colon Number [Dash Number]
-    for i in 0..tokens.len() {
+    // Look for: Number Colon Number [Dash Number], but only near the book name
+    // (see MAX_COLON_TOKEN_OFFSET) so a distant reference can't be stolen.
+    let scan_limit = MAX_COLON_TOKEN_OFFSET.min(tokens.len());
+    for i in 0..scan_limit {
         if let Token::Number(chapter) = &tokens[i] {
             if i + 2 < tokens.len()
                 && matches!(&tokens[i + 1], Token::Colon)
@@ -895,6 +907,34 @@ mod tests {
         assert_eq!(result.chapter, 3);
         assert_eq!(result.verse_start, 16);
         assert!(result.verse_end.is_none());
+    }
+
+    #[test]
+    fn test_colon_pattern_does_not_steal_distant_reference() {
+        // A book spoken in prose must not reach across the sentence to claim a
+        // later reference's colon numbers. "Job" here is >4 tokens from "23:1",
+        // so try_colon_pattern must not turn it into Job 23:1.
+        let bm = make_book_match("Job", 18, 3);
+        let text = "Job was faithful so let us now turn to Psalm 23:1";
+        // No colon pattern is reachable; parse falls through to chapter-only or
+        // nothing — the key assertion is it is NOT the stolen 23:1.
+        if let Some(r) = parse_reference(text, &bm) {
+            assert!(
+                !(r.chapter == 23 && r.verse_start == 1),
+                "Job must not steal the distant 23:1"
+            );
+        }
+    }
+
+    #[test]
+    fn test_colon_pattern_allows_nearby_filler() {
+        // A filler word or two between the book and the colon reference is still
+        // fine — the number sits within MAX_COLON_TOKEN_OFFSET.
+        let bm = make_book_match("John", 43, 4);
+        let text = "John uh 3:16";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 3);
+        assert_eq!(result.verse_start, 16);
     }
 
     #[test]

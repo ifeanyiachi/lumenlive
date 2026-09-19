@@ -22,16 +22,13 @@ pub mod semantic;
 pub mod merger;
 pub mod pipeline;
 pub mod quotation;
-pub mod reading_mode;
 
 pub use types::*;
 pub use error::*;
-pub use direct::cues::{citation_follows_book_name, cue_precedes_book_name};
 pub use direct::detector::{DirectDetector, NavDirection, SlideCommand, VerseCommand};
 pub use semantic::detector::SemanticDetector;
 pub use merger::{DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;
-pub use reading_mode::{ReadingMode, ReadingAdvance, ChapterChange};
 
 #[cfg(feature = "onnx")]
 pub use semantic::onnx_embedder::OnnxEmbedder;

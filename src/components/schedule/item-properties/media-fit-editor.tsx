@@ -26,15 +26,18 @@ const FIT_OPTIONS: { value: MediaFit; labelKey: string; hintKey: string }[] = [
   { value: "cover", labelKey: "cover", hintKey: "coverHint" },
   {
     value: "contain",
-    labelKey: "contain", hintKey: "containHint",
+    labelKey: "contain",
+    hintKey: "containHint",
   },
   {
     value: "fill",
-    labelKey: "stretch", hintKey: "stretchHint",
+    labelKey: "stretch",
+    hintKey: "stretchHint",
   },
   {
     value: "zoom",
-    labelKey: "zoom", hintKey: "zoomHint",
+    labelKey: "zoom",
+    hintKey: "zoomHint",
   },
 ]
 
@@ -207,7 +210,7 @@ export function MediaFitEditor({
             >
               {CONTAIN_BG_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                {t(`mediaFit.${o.labelKey}`)}
+                  {t(`mediaFit.${o.labelKey}`)}
                 </option>
               ))}
             </select>
@@ -243,7 +246,14 @@ export function MediaFitEditor({
                         ? "border-primary bg-primary"
                         : "border-border bg-background hover:border-muted-foreground/50"
                     )}
-                    title={t("mediaFit.focusPosition", { horizontal: t(`mediaFit.${p.x === 0 ? "left" : p.x === 1 ? "right" : "center"}`), vertical: t(`mediaFit.${p.y === 0 ? "top" : p.y === 1 ? "bottom" : "middle"}`) })}
+                    title={t("mediaFit.focusPosition", {
+                      horizontal: t(
+                        `mediaFit.${p.x === 0 ? "left" : p.x === 1 ? "right" : "center"}`
+                      ),
+                      vertical: t(
+                        `mediaFit.${p.y === 0 ? "top" : p.y === 1 ? "bottom" : "middle"}`
+                      ),
+                    })}
                     onClick={() => applyFit({ focalX: p.x, focalY: p.y })}
                   />
                 )

@@ -155,8 +155,10 @@ export function StageMonitorControls({
     effTarget.kind === "all"
       ? "all"
       : effTarget.kind === "group"
-      ? (groups.find((g) => g.id === effTarget.id)?.name ?? t("stageControls.group"))
-        : (stageOutputs.find((o) => o.id === effTarget.id)?.name ?? t("stageControls.monitor"))
+        ? (groups.find((g) => g.id === effTarget.id)?.name ??
+          t("stageControls.group"))
+        : (stageOutputs.find((o) => o.id === effTarget.id)?.name ??
+          t("stageControls.monitor"))
 
   const selectTarget = (value: string) => {
     const t = parseTarget(value)
@@ -320,7 +322,8 @@ export function StageMonitorControls({
           onClick={submit}
         >
           <SendIcon className="size-3" />
-          {targetHasLive ? t("update") : t("stageControls.sendTo")} {targetLabel}
+          {targetHasLive ? t("update") : t("stageControls.sendTo")}{" "}
+          {targetLabel}
         </Button>
         {targetHasLive && (
           <Button

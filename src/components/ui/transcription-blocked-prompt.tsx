@@ -13,10 +13,9 @@ import {
 
 /**
  * Shown when the platform blocks transcription for a signed-in user (portalplan
- * D2-06): allowance spent, BYO key rejected, or the platform key unset. Points
- * the operator at the account portal, where they add/rotate their own Deepgram
- * key or upgrade. Distinct from `SignInPrompt`, which handles the anonymous
- * "not signed in yet" case.
+ * D2-06): allowance spent or the platform key unset. Points the operator at the
+ * account portal, where they upgrade or manage their plan. Distinct from
+ * `SignInPrompt`, which handles the anonymous "not signed in yet" case.
  */
 
 /**

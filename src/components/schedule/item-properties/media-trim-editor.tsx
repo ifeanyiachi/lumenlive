@@ -213,7 +213,9 @@ export function MediaTrimEditor({
                 const existing = item.markers ?? []
                 const marker = {
                   id: crypto.randomUUID(),
-                  label: t("properties.cueNumber", { count: existing.length + 1 }),
+                  label: t("properties.cueNumber", {
+                    count: existing.length + 1,
+                  }),
                   time: current,
                 }
                 update({

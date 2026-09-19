@@ -208,7 +208,7 @@ export function TimerEditor({
       ) : (
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
-          {t("editor.targetTime")}
+            {t("editor.targetTime")}
           </span>
           <Input
             type="time"
@@ -267,11 +267,21 @@ export function TimerEditor({
                 </SelectItem>
                 <SelectItem value="center">{t("editor.center")}</SelectItem>
                 <SelectItem value="top-left">{t("editor.topLeft")}</SelectItem>
-                <SelectItem value="top-center">{t("editor.topCenter")}</SelectItem>
-                <SelectItem value="top-right">{t("editor.topRight")}</SelectItem>
-                <SelectItem value="bottom-left">{t("editor.bottomLeft")}</SelectItem>
-                <SelectItem value="bottom-center">{t("editor.bottomCenter")}</SelectItem>
-                <SelectItem value="bottom-right">{t("editor.bottomRight")}</SelectItem>
+                <SelectItem value="top-center">
+                  {t("editor.topCenter")}
+                </SelectItem>
+                <SelectItem value="top-right">
+                  {t("editor.topRight")}
+                </SelectItem>
+                <SelectItem value="bottom-left">
+                  {t("editor.bottomLeft")}
+                </SelectItem>
+                <SelectItem value="bottom-center">
+                  {t("editor.bottomCenter")}
+                </SelectItem>
+                <SelectItem value="bottom-right">
+                  {t("editor.bottomRight")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

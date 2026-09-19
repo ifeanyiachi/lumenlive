@@ -95,11 +95,31 @@ export function MediaGrid() {
 
   const checkedCount = checkedIds.size
   const hasChecked = checkedCount > 0
-  const filters: { label: string; value: MediaType | "all"; icon: React.ReactNode }[] = [
-    { label: t("filters.all"), value: "all", icon: <LayoutGridIcon className="size-3" /> },
-    { label: t("filters.images"), value: "image", icon: <ImageIcon className="size-3" /> },
-    { label: t("filters.videos"), value: "video", icon: <FilmIcon className="size-3" /> },
-    { label: t("filters.audio"), value: "audio", icon: <MusicIcon className="size-3" /> },
+  const filters: {
+    label: string
+    value: MediaType | "all"
+    icon: React.ReactNode
+  }[] = [
+    {
+      label: t("filters.all"),
+      value: "all",
+      icon: <LayoutGridIcon className="size-3" />,
+    },
+    {
+      label: t("filters.images"),
+      value: "image",
+      icon: <ImageIcon className="size-3" />,
+    },
+    {
+      label: t("filters.videos"),
+      value: "video",
+      icon: <FilmIcon className="size-3" />,
+    },
+    {
+      label: t("filters.audio"),
+      value: "audio",
+      icon: <MusicIcon className="size-3" />,
+    },
   ]
 
   const handleDeleteChecked = () => {
@@ -126,9 +146,7 @@ export function MediaGrid() {
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-emerald-500/10">
           <div className="flex flex-col items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
             <UploadIcon className="size-7" />
-            <span className="text-sm font-medium">
-              {t("dropFiles")}
-            </span>
+            <span className="text-sm font-medium">{t("dropFiles")}</span>
           </div>
         </div>
       )}
@@ -238,7 +256,9 @@ export function MediaGrid() {
               >
                 <FolderIcon className="size-3" />
                 <span className="max-w-[100px] truncate">
-                  {activeCollection ? activeCollection.name : t("allCollections")}
+                  {activeCollection
+                    ? activeCollection.name
+                    : t("allCollections")}
                 </span>
                 <ChevronDownIcon className="size-3" />
               </Button>

@@ -10,21 +10,17 @@
 import type { PlanTier } from "@/lib/entitlements"
 
 /** Which key the platform decided this client may use right now. */
-export type TranscriptionMode =
-  "platform_paid" | "platform_trial" | "byok" | "blocked"
+export type TranscriptionMode = "platform_paid" | "platform_trial" | "blocked"
 
 /** Why transcription is blocked — only set when `mode === "blocked"`. */
 export type BlockedReason =
-  | "allowance_exhausted"
-  | "no_subscription"
-  | "platform_key_unset"
-  | "byok_invalid"
+  "allowance_exhausted" | "no_subscription" | "platform_key_unset"
 
 /**
  * Which STT backend the resolved key targets. Server-authoritative: lumenbo mints
  * the key and names the provider so the desktop builds the matching client (a
- * Soniox client with a Deepgram key would fail auth). Absent on pre-Phase-4
- * lumenbo responses — callers default to `"deepgram"`.
+ * Soniox client with a Deepgram key would fail auth). Absent on older lumenbo
+ * responses — callers default to `"deepgram"`.
  */
 export type SttProviderId = "deepgram" | "soniox"
 
@@ -43,16 +39,14 @@ export interface TranscriptionResolution {
   usedMinutes: number
   /** Remaining free/trial minutes; `null` when unlimited or on a paid plan. */
   remainingMinutes: number | null
-  byokPresent: boolean
   /**
    * The STT backend this key targets, chosen by the church admin in lumenbo.
-   * Absent on pre-Phase-4 responses; callers default to `"deepgram"`.
+   * Absent on older responses; callers default to `"deepgram"`.
    */
   provider?: SttProviderId
   /**
-   * ISO-8601 expiry of a temporary key (Soniox temp keys expire; Deepgram keys
-   * don't). Informational — the desktop re-pulls on reconnect rather than
-   * tracking expiry.
+   * ISO-8601 expiry of the temporary key. Informational — the desktop
+   * re-pulls on reconnect rather than tracking expiry.
    */
   keyExpiresAt?: string
 }
@@ -69,8 +63,4 @@ export interface TranscriptionStatus {
   allowanceMinutes: number
   usedMinutes: number
   remainingMinutes: number | null
-  byokRequired: boolean
-  byokConfigured: boolean
-  byokLast4: string | null
-  byokInvalid: boolean
 }

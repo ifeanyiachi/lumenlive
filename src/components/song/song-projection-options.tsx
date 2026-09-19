@@ -143,7 +143,9 @@ export function SongProjectionOptions({ song }: { song: Song }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={DEFAULT_THEME_SENTINEL} className="text-xs">
-              {t("editor.defaultTheme", { theme: defaultThemeName ? ` (${defaultThemeName})` : "" })}
+              {t("editor.defaultTheme", {
+                theme: defaultThemeName ? ` (${defaultThemeName})` : "",
+              })}
             </SelectItem>
             {songThemes.map((t) => (
               <SelectItem key={t.id} value={t.id} className="text-xs">
@@ -166,7 +168,11 @@ export function SongProjectionOptions({ song }: { song: Song }) {
             )}
           </div>
 
-          <Field label={t("editor.style")} overridden={false} onReset={() => {}}>
+          <Field
+            label={t("editor.style")}
+            overridden={false}
+            onReset={() => {}}
+          >
             <Select
               value={effAnim.preset}
               onValueChange={(v) =>

@@ -224,9 +224,9 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
             update({ animation: e.target.value as AlertAnimation })
           }
         >
-            <option value="fade">{t("manager.fade")}</option>
-            <option value="slide">{t("manager.slide")}</option>
-            <option value="none">{t("manager.none")}</option>
+          <option value="fade">{t("manager.fade")}</option>
+          <option value="slide">{t("manager.slide")}</option>
+          <option value="none">{t("manager.none")}</option>
         </select>
       </FieldGroup>
 
@@ -271,7 +271,9 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
                 })
               }
             />
-            <span className="text-[0.625rem] text-muted-foreground">{t("manager.blur")}</span>
+            <span className="text-[0.625rem] text-muted-foreground">
+              {t("manager.blur")}
+            </span>
             <div className="w-20">
               <Slider
                 value={[template.textShadow?.blur ?? 0]}
@@ -320,7 +322,9 @@ function TemplateEditor({ template }: { template: AlertTemplate }) {
               })
             }
           />
-          <span className="text-[0.625rem] text-muted-foreground">{t("manager.width")}</span>
+          <span className="text-[0.625rem] text-muted-foreground">
+            {t("manager.width")}
+          </span>
           <div className="w-20">
             <Slider
               value={[template.outline?.width ?? 0]}

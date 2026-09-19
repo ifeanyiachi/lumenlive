@@ -11,8 +11,8 @@ import type { ApiKeyField as ApiKeyFieldState } from "../hooks/use-api-key-field
 /**
  * Password-style API key input with a "Key configured" badge, a Save button
  * that flashes a check on success, a dashed "how to get a key" instructions
- * box, and a help line. Shared by the Speech (Deepgram) and Songs (Genius)
- * sections; the `field` comes from {@link useApiKeyField}.
+ * box, and a help line. Used by the Songs (Genius) section; the `field` comes
+ * from {@link useApiKeyField}.
  */
 export function ApiKeyField({
   label,

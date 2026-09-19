@@ -21,22 +21,17 @@ import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
 import { fetchChapter } from "@/services/bible-search-gateway"
 import { trackFeatureUsed } from "@/services/analytics-gateway"
 import { stepVerseBy, type NavDirection } from "@/lib/search/verse-navigation"
+import { liveVerseAnchor } from "@/lib/voice/live-verse-anchor"
 import {
-  evaluateInstantDisplay,
-  initialInstantDisplayState,
-  wasRecentlyDisplayed,
-} from "@/lib/detection/instant-display"
-import { aiMayTakeLive } from "@/lib/detection/manual-live-guard"
-import {
-  MIN_DIRECT_LIVE_CONFIDENCE,
+  autoPreviewCandidates,
   panelDetections,
-  shouldAutoDisplayLive,
   shouldAutoQueue,
 } from "@/lib/detection/detection-routing"
-import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
+import type { DetectionResult, Verse } from "@/types"
 
 /**
  * Payload of the backend `verse_command` event — a spoken command that changes
@@ -75,14 +70,9 @@ function presentNavVerse(verse: Verse) {
     bible.translations.find((t) => t.id === verse.translation_id)
       ?.abbreviation ?? "KJV"
   const bs = useBroadcastStore.getState()
-  // Stamp source "ai" so the manual-live guard can tell this from operator-placed
-  // content (aitrans Phase 4). A voice command is a deliberate, high-trust call,
-  // so it is allowed to override even operator-placed live (decision D).
+  // Stamp voice-navigation content as AI-originated before taking it live.
   bs.setLiveVerse(toVerseRenderData(verse, translation), "ai")
-  if (
-    useSettingsStore.getState().navAutoLive &&
-    aiMayTakeLive(bs.broadcastSource, false)
-  ) {
+  if (useSettingsStore.getState().navAutoLive) {
     bs.takeToLive()
   }
 }
@@ -92,9 +82,42 @@ function presentNavVerse(verse: Verse) {
  * jumping to that verse number within the loaded chapter. No-op when the chapter
  * has no such verse (a mishearing, or a number past the chapter's length).
  */
-function presentVerseAbsolute(verseNumber: number) {
-  const { currentChapter } = useBibleStore.getState()
-  const target = currentChapter.find((v) => v.verse === verseNumber)
+async function presentVerseAbsolute(verseNumber: number) {
+  const bible = useBibleStore.getState()
+  const anchor = liveVerseAnchor(
+    useBroadcastStore.getState().liveVerse,
+    bible.books,
+    bible.activeTranslationId
+  )
+  if (!anchor) return
+
+  let chapter = bible.currentChapter
+  if (
+    !chapter.some(
+      (verse) =>
+        verse.book_number === anchor.book_number &&
+        verse.chapter === anchor.chapter
+    )
+  ) {
+    try {
+      chapter = await fetchChapter(
+        bible.activeTranslationId,
+        anchor.book_number,
+        anchor.chapter
+      )
+      useBibleStore.getState().setCurrentChapter(chapter)
+    } catch (err) {
+      console.error("[VOICE] absolute verse chapter load failed", err)
+      return
+    }
+  }
+
+  const target = chapter.find(
+    (verse) =>
+      verse.book_number === anchor.book_number &&
+      verse.chapter === anchor.chapter &&
+      verse.verse === verseNumber
+  )
   if (target) presentNavVerse(target)
 }
 
@@ -105,10 +128,36 @@ function presentVerseAbsolute(verseNumber: number) {
  * the first target that lands, or silently when it runs off the end of the book.
  */
 async function presentVerseRelative(direction: NavDirection, count: number) {
-  const { selectedVerse, currentChapter, activeTranslationId } =
-    useBibleStore.getState()
+  const bible = useBibleStore.getState()
+  const anchor = liveVerseAnchor(
+    useBroadcastStore.getState().liveVerse,
+    bible.books,
+    bible.activeTranslationId
+  )
+  if (!anchor) return
 
-  let step = stepVerseBy(selectedVerse, currentChapter, direction, count)
+  let currentChapter = bible.currentChapter
+  if (
+    !currentChapter.some(
+      (verse) =>
+        verse.book_number === anchor.book_number &&
+        verse.chapter === anchor.chapter
+    )
+  ) {
+    try {
+      currentChapter = await fetchChapter(
+        bible.activeTranslationId,
+        anchor.book_number,
+        anchor.chapter
+      )
+      useBibleStore.getState().setCurrentChapter(currentChapter)
+    } catch (err) {
+      console.error("[VOICE] live verse chapter load failed", err)
+      return
+    }
+  }
+
+  let step = stepVerseBy(anchor, currentChapter, direction, count)
 
   // Follow chapter boundaries: land on the edge verse of each adjacent chapter,
   // then continue stepping the remainder from there.
@@ -116,7 +165,7 @@ async function presentVerseRelative(direction: NavDirection, count: number) {
     let verses: Verse[]
     try {
       verses = await fetchChapter(
-        activeTranslationId,
+        bible.activeTranslationId,
         step.bookNumber,
         step.chapter
       )
@@ -175,16 +224,10 @@ function LivePartialLine({
   )
 }
 
-/**
- * Push a detected DIRECT verse reference to the audience: reflect it in the book
- * search (releasing any prior pin, without grabbing the arrow keys) and commit
- * it live. Shared by the finals handler and the instant (partial) path so both
- * display identically.
- */
-function displayDirectVerse(hit: DetectionResult) {
-  const verse: Verse = {
+function detectionToVerse(hit: DetectionResult, translationId: number): Verse {
+  return {
     id: 0,
-    translation_id: useBibleStore.getState().activeTranslationId,
+    translation_id: translationId,
     book_number: hit.book_number,
     book_name: hit.book_name,
     book_abbreviation: "",
@@ -192,39 +235,75 @@ function displayDirectVerse(hit: DetectionResult) {
     verse: hit.verse,
     text: hit.verse_text,
   }
-  bibleActions.selectVerse(verse)
-  useBibleStore.getState().setPendingNavigation({
-    bookNumber: hit.book_number,
-    chapter: hit.chapter,
-    verse: hit.verse,
-    focusPanel: false,
-  })
+}
+
+function directVerseRenderData(
+  hits: DetectionResult[],
+  translationId: number,
+  translation: string
+) {
+  const verses = hits.map((hit) => detectionToVerse(hit, translationId))
+  return verses.length === 1
+    ? toVerseRenderData(verses[0], translation)
+    : toMultiVerseRenderData(verses, translation)
+}
+
+/** Stage finalized direct verse references in Program Preview. */
+function stageDirectVerses(hits: DetectionResult[]) {
+  // Never replace a preview the operator is already auditioning. The detection
+  // still appears in the panel and can be queued manually for deliberate selection.
+  if (useBroadcastStore.getState().previewPending) return
+
+  const bible = useBibleStore.getState()
+  const first = hits[0]
+  if (!first) return
   const translation =
-    useBibleStore
-      .getState()
-      .translations.find((t) => t.id === verse.translation_id)?.abbreviation ??
-    "KJV"
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
   const bs = useBroadcastStore.getState()
-  // Stamp source "ai" so the manual-live guard distinguishes an AI take from an
-  // operator take (aitrans Phase 4). The finals/instant callers already exclude
-  // narrative mentions upstream, so a hit reaching here is high-trust and takes;
-  // the guard is defence-in-depth so a low-trust hit could never clobber
-  // operator-placed live (decision D).
-  bs.setLiveVerse(toVerseRenderData(verse, translation), "ai")
-  if (aiMayTakeLive(bs.broadcastSource, hit.narrative_mention === true)) {
-    bs.takeToLive()
+  bs.setLiveVerse(
+    directVerseRenderData(hits, bible.activeTranslationId, translation),
+    "queue"
+  )
+  if (first.book_number > 0) {
+    bible.setPendingNavigation({
+      bookNumber: first.book_number,
+      chapter: first.chapter,
+      verse: first.verse,
+      focusPanel: false,
+    })
   }
 }
 
 /**
- * Consecutive interim transcripts a direct reference must appear in before the
- * "instant direct display" path puts it live. 1 = fire on the first complete
- * detection (truly instant). A partial reference like "John 3" is already
- * excluded upstream (it's chapter-only), so the intermediate never flashes; the
- * only residual risk is a mid-word number revision (rare), which the final
- * reconciles.
+ * Push a finalized direct verse reference straight to Live ("Direct verse to
+ * live" is selected. `autoPreviewCandidates` has already screened the
+ * references to high-confidence direct hits. The references still auto-queue
+ * below when automatic queueing is enabled.
  */
-const INSTANT_STABILITY_PARTIALS = 1
+function takeDirectVersesLive(hits: DetectionResult[]) {
+  const bible = useBibleStore.getState()
+  const first = hits[0]
+  if (!first) return
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  bibleActions.selectVerse(detectionToVerse(first, bible.activeTranslationId))
+  if (first.book_number > 0) {
+    bible.setPendingNavigation({
+      bookNumber: first.book_number,
+      chapter: first.chapter,
+      verse: first.verse,
+      focusPanel: false,
+    })
+  }
+  const bs = useBroadcastStore.getState()
+  bs.setLiveVerse(
+    directVerseRenderData(hits, bible.activeTranslationId, translation),
+    "ai"
+  )
+  bs.takeToLive()
+}
 
 export function TranscriptPanel() {
   const { t } = useTranslation("panels")
@@ -241,12 +320,6 @@ export function TranscriptPanel() {
   } = useTranscription({ onSignInRequired, onBlocked })
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Stability + cooldown bookkeeping for the instant (partial) direct-display
-  // path. Held in a ref so it persists across transcript events without
-  // re-rendering; the finals handler reads it to avoid re-taking a verse the
-  // partial path already put live.
-  const instantRef = useRef(initialInstantDisplayState())
-
   useTauriEvent<{ rms: number; peak: number }>("audio_level", (payload) => {
     useAudioStore.getState().setLevel(payload)
   })
@@ -264,7 +337,7 @@ export function TranscriptPanel() {
   // into the panel (dedup by verse_ref, re-rank re-detected verses to the top),
   // never replacing wholesale; it also buffers while the operator interacts.
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
-    const { directAutoDisplay, confidenceThreshold, cooldownMs } =
+    const { directVerseDestination, confidenceThreshold } =
       useSettingsStore.getState()
 
     // The AI Detections panel shows every DIRECT reference, plus SEMANTIC
@@ -279,24 +352,14 @@ export function TranscriptPanel() {
     // session (deduped in the gateway, so this per-utterance path is cheap).
     if (detections.length > 0) trackFeatureUsed("verse_detection")
 
-    // "Direct verse auto-display" gates whether a spoken reference is pushed to
-    // the audience automatically. Only DIRECT references qualify — semantic
-    // meaning-matches are panel-only and must never take the screen on their own
-    // (`shouldAutoDisplayLive` also excludes chapter-only stubs and narrative
-    // mentions). Its live-confidence guard is fixed and independent of the panel
-    // slider, so surfacing more low-confidence suggestions can never weaken it.
-    const directHit = detections.find((d) => shouldAutoDisplayLive(d))
-    if (directAutoDisplay && directHit) {
-      // Reconcile with the instant (partial) path: if that already put this
-      // exact verse live from an interim, don't re-take it (would replay the
-      // take). A genuinely revised reference (different verse) still displays.
-      const alreadyLive = wasRecentlyDisplayed(
-        instantRef.current,
-        directHit.verse_ref,
-        Date.now(),
-        cooldownMs
-      )
-      if (!alreadyLive) displayDirectVerse(directHit)
+    // Finalized direct detections route the full eligible batch by the selected
+    // destination: Live sends to the audience, Preview stages for a deliberate
+    // take, and Detection leaves the result in the Detections panel only.
+    const directHits = autoPreviewCandidates(detections)
+    if (directHits.length > 0) {
+      if (directVerseDestination === "live") takeDirectVersesLive(directHits)
+      else if (directVerseDestination === "preview")
+        stageDirectVerses(directHits)
     }
 
     // Auto-queue detections based on per-source settings
@@ -320,10 +383,11 @@ export function TranscriptPanel() {
 
       // Auto-queue DIRECT references the backend marked auto-queueable (their
       // confidence cleared the auto-queue threshold) so they are staged and
-      // ready to send even when auto-display is off. SEMANTIC hits are
+      // ready to send even when auto-preview is off. SEMANTIC hits are
       // panel-only suggestions — they never auto-queue; the operator sends them
-      // deliberately from the panel.
-      if (shouldAutoQueue(d)) {
+      // deliberately from the panel. Detection-panel-only mode applies the same
+      // no-automatic-side-effects rule to direct references.
+      if (directVerseDestination !== "detection" && shouldAutoQueue(d)) {
         const queue = useQueueStore.getState()
         const dupIdx = d.is_chapter_only
           ? queue.items.findIndex(
@@ -360,87 +424,32 @@ export function TranscriptPanel() {
     }
   })
 
-  // Partial detections: a spoken reference detected mid-utterance (before the
-  // transcript's final arrives). Always populate the AI Detections panel early
-  // so the verse is available seconds sooner. Additionally, when "Instant direct
-  // display" is on, put a COMPLETE + STABLE *direct* reference live straight from
-  // the interim stream — removing the ~1-2s wait for the final. Semantic
-  // detections are excluded (genuine guesses that need the full sentence); auto-
-  // queue also stays finals-only.
+  // Partial detections populate the AI Detections panel early, but never stage
+  // Program Preview or affect Live output. Semantic previews remain useful as
+  // panel-only suggestions, but direct partials are intentionally excluded:
+  // Soniox may revise `John 3:1` into `John 3:11`, and both would otherwise be
+  // retained as separate direct history entries. Final direct detections still
+  // arrive through the authoritative `verse_detections` event above.
   useTauriEvent<DetectionResult[]>("verse_detections_partial", (detections) => {
-    const {
-      directAutoDisplay,
-      directInstantDisplay,
-      confidenceThreshold,
-      cooldownMs,
-    } = useSettingsStore.getState()
+    const { confidenceThreshold } = useSettingsStore.getState()
+    const semanticPreviews = detections.filter(
+      (detection) => detection.source === "semantic"
+    )
     useDetectionStore
       .getState()
-      .addDetections(panelDetections(detections, confidenceThreshold))
-    // PHASE 3: narrative mentions never drive the instant display either (the
-    // Obadiah hit actually fired from a partial). They still populate the panel
-    // via addDetections above.
-    const directHit = detections.find(
-      (d) =>
-        d.source === "direct" &&
-        !d.is_chapter_only &&
-        d.book_number > 0 &&
-        !d.narrative_mention
-    )
-    if (!directHit) return
-
-    const decision = evaluateInstantDisplay(
-      instantRef.current,
-      directHit.verse_ref,
-      directHit.confidence,
-      {
-        enabled: directAutoDisplay && directInstantDisplay,
-        // Fixed live-output guard, not the panel slider: a spoken reference
-        // only goes live when the parse is genuinely confident, regardless of
-        // how low the operator sets the panel's suggestion floor.
-        confidenceThreshold: MIN_DIRECT_LIVE_CONFIDENCE,
-        cooldownMs,
-        stabilityCount: INSTANT_STABILITY_PARTIALS,
-        now: Date.now(),
-      }
-    )
-    instantRef.current = decision.state
-    if (decision.display) displayDirectVerse(directHit)
-  })
-
-  // Reading mode navigation: auto-navigate book panel when reading mode
-  // advances to a new verse (chapter commands, verse commands, text matching).
-  // Does NOT add to queue — only direct/semantic feed the queue.
-  useTauriEvent<ReadingAdvance>("reading_mode_verse", (advance) => {
-    if (advance.book_number > 0) {
-      bibleActions.selectVerse({
-        id: 0,
-        translation_id: useBibleStore.getState().activeTranslationId,
-        book_number: advance.book_number,
-        book_name: advance.book_name,
-        book_abbreviation: "",
-        chapter: advance.chapter,
-        verse: advance.verse,
-        text: advance.verse_text,
-      })
-      useBibleStore.getState().setPendingNavigation({
-        bookNumber: advance.book_number,
-        chapter: advance.chapter,
-        verse: advance.verse,
-      })
-    }
+      .addDetections(panelDetections(semanticPreviews, confidenceThreshold))
   })
 
   // Spoken verse commands ("next verse", "skip the next two verses", "go to the
   // third verse", "verse 5"): the backend classifies only the *intent* — a
   // relative step or an absolute verse number. The anchor is the verse currently
   // selected on the program screen, so this works no matter how that verse got
-  // there — a spoken reference, a manual book-panel pick, a queue take, or
-  // reading mode. The resolved verse is staged to Program preview, or pushed
+  // there — a spoken reference, a manual book-panel pick, or a queue take. The
+  // resolved verse is staged to Program preview, or pushed
   // live when "Voice navigation goes live" (navAutoLive) is on.
   useTauriEvent<VerseCommandPayload>("verse_command", (payload) => {
     if (payload.kind === "absolute") {
-      presentVerseAbsolute(payload.verse)
+      void presentVerseAbsolute(payload.verse)
     } else {
       void presentVerseRelative(payload.direction, payload.count)
     }

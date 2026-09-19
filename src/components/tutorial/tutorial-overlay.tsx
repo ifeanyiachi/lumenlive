@@ -53,18 +53,21 @@ export function TutorialOverlay() {
     }
   }, [isHydrated, onboardingComplete])
 
-  const handleEvent = useCallback((data: EventData) => {
-    if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
-      useTutorialStore.getState().stopTutorial()
-      persistOnboardingComplete()
+  const handleEvent = useCallback(
+    (data: EventData) => {
+      if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
+        useTutorialStore.getState().stopTutorial()
+        persistOnboardingComplete()
 
-      if (data.status === STATUS.SKIPPED) {
-        toast.info(t("toast.skipped"), {
-          description: t("toast.restart"),
-        })
+        if (data.status === STATUS.SKIPPED) {
+          toast.info(t("toast.skipped"), {
+            description: t("toast.restart"),
+          })
+        }
       }
-    }
-  }, [t])
+    },
+    [t]
+  )
 
   if (!isHydrated) return null
 

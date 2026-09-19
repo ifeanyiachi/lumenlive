@@ -128,7 +128,9 @@ export function SongArrangementBuilder({ song }: { song: Song }) {
               size="icon-sm"
               aria-label={t("library.setDefaultArrangement")}
               title={
-                active.isDefault ? t("editor.defaultArrangement") : t("library.setDefaultArrangement")
+                active.isDefault
+                  ? t("editor.defaultArrangement")
+                  : t("library.setDefaultArrangement")
               }
               disabled={active.isDefault}
               onClick={() =>

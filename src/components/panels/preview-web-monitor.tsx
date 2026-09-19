@@ -92,12 +92,16 @@ export function PreviewWebMonitor({
       </div>
       {!isReady && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black">
-          <span className="text-[0.625rem] text-white/60">{t("webPreview.loading")}</span>
+          <span className="text-[0.625rem] text-white/60">
+            {t("webPreview.loading")}
+          </span>
         </div>
       )}
       <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5">
         <GlobeIcon className="size-2.5 text-white/70" />
-        <span className="text-[0.5rem] text-white/70">{t("webPreview.youtube")}</span>
+        <span className="text-[0.5rem] text-white/70">
+          {t("webPreview.youtube")}
+        </span>
       </div>
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pt-6 pb-2">
         {(markers.length > 0 || isLive) && (
@@ -108,7 +112,9 @@ export function PreviewWebMonitor({
                 type="button"
                 onClick={() => commitSeek(marker.time)}
                 className="rounded bg-white/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-white transition-colors hover:bg-white/25"
-                title={t("webPreview.cueForLive", { time: formatClock(marker.time) })}
+                title={t("webPreview.cueForLive", {
+                  time: formatClock(marker.time),
+                })}
               >
                 {marker.label}
               </button>
@@ -138,7 +144,9 @@ export function PreviewWebMonitor({
             onClick={togglePlay}
             disabled={!isReady}
             className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white/90 text-black transition-colors hover:bg-white disabled:opacity-50"
-            title={state.isPlaying ? t("webPreview.pause") : t("webPreview.play")}
+            title={
+              state.isPlaying ? t("webPreview.pause") : t("webPreview.play")
+            }
           >
             {state.isPlaying ? (
               <PauseIcon className="size-3" />
@@ -185,7 +193,8 @@ export function PreviewWebMonitor({
             +
           </button>
           <span className="shrink-0 text-[0.625rem] text-white/80 tabular-nums">
-            {formatClock(position)} / {isLive ? t("webPreview.live") : formatClock(duration)}
+            {formatClock(position)} /{" "}
+            {isLive ? t("webPreview.live") : formatClock(duration)}
           </span>
         </div>
       </div>

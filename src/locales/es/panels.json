@@ -77,16 +77,20 @@
     "loadChapterFailed": "No se pudo cargar el capítulo"
   },
   "detections": {
-    "title": "Detecciones recientes",
+    "title": "Detecciones",
+    "all": "Todas",
     "direct": "Directo",
     "semantic": "Semántico",
+    "filterLabel": "Filtrar detecciones por origen",
+    "filterBy": "Mostrar detecciones {{source}}",
     "present": "Presentar",
     "preview": "Vista previa",
     "queue": "Cola",
     "clearAll": "Borrar todo",
     "pending_one": "{{count}} versículo nuevo detectado: haz clic para actualizar",
     "pending_other": "{{count}} versículos nuevos detectados: haz clic para actualizar",
-    "empty": "Las detecciones de versículos aparecerán aquí durante la transcripción"
+    "empty": "Las detecciones de versículos aparecerán aquí durante la transcripción",
+    "emptyFiltered": "Aún no hay detecciones {{source}}"
   },
   "webPreview": {
     "frameTitle": "Vista previa web",

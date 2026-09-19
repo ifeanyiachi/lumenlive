@@ -22,8 +22,7 @@ export type StartDecision =
 
 const GENERIC_BLOCK: BlockedCopy = {
   title: "Transcription unavailable",
-  message:
-    "Transcription can't start right now. Check your account, or add your own Deepgram key in the portal.",
+  message: "Transcription can't start right now. Check your account.",
 }
 
 /** Map a blocked reason to operator-facing copy. */
@@ -33,19 +32,12 @@ export function describeBlock(reason?: BlockedReason): BlockedCopy {
       return {
         title: "Transcription minutes used up",
         message:
-          "You've used your free transcription minutes. Add your own Deepgram key in the account portal, or upgrade, to keep transcribing.",
+          "You've used your free transcription minutes. Upgrade in the account portal to keep transcribing.",
       }
     case "no_subscription":
       return {
         title: "Upgrade your account for continued use",
-        message:
-          "Upgrade your account in the portal to continue transcribing.",
-      }
-    case "byok_invalid":
-      return {
-        title: "Your Deepgram key was rejected",
-        message:
-          "The Deepgram key on your account was rejected. Update it in the account portal to keep transcribing.",
+        message: "Upgrade your account in the portal to continue transcribing.",
       }
     case "platform_key_unset":
       return {

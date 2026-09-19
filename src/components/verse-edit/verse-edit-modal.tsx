@@ -203,7 +203,9 @@ export function VerseEditModal({
 
           {previewData && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">{t("preview")}</span>
+              <span className="text-xs text-muted-foreground">
+                {t("preview")}
+              </span>
               <ScripturePreview
                 themeId={activeThemeId}
                 verse={previewData}

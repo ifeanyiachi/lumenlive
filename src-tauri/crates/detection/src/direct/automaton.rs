@@ -164,4 +164,29 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].book_name, "1 Corinthians");
     }
+
+    #[test]
+    fn test_common_words_are_not_book_matches() {
+        // The 2-letter aliases that are ordinary English words ("is", "so",
+        // "am", "re", ...) were removed — plain prose full of them must yield
+        // no book matches. This is the source of the Isaiah-9:11 fan-out.
+        let matcher = BookMatcher::new();
+        assert!(matcher
+            .find_books("for God so loved the world that whoever believes")
+            .is_empty());
+        assert!(matcher
+            .find_books("this is what I am asking us to do right now")
+            .is_empty());
+    }
+
+    #[test]
+    fn test_single_reference_yields_single_match() {
+        // "John 3:16 for God so loved" used to produce John + Song-of-Solomon
+        // (from "so"), each grabbing 3:16. With the common-word aliases gone,
+        // only John matches.
+        let matcher = BookMatcher::new();
+        let found = matcher.find_books("Jesus said in John 3:16 for God so loved the world");
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].book_name, "John");
+    }
 }

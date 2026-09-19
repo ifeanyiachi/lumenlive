@@ -47,7 +47,9 @@ function CommandDialog({
     <Dialog {...props}>
       <DialogHeader className="sr-only">
         <DialogTitle>{title ?? t("command.title")}</DialogTitle>
-        <DialogDescription>{description ?? t("command.description")}</DialogDescription>
+        <DialogDescription>
+          {description ?? t("command.description")}
+        </DialogDescription>
       </DialogHeader>
       <DialogContent
         className={cn(

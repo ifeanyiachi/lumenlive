@@ -207,20 +207,26 @@ export function LexiconEditModal({
 
   // Add the current card to the active schedule. Returns false (with a toast) if
   // there is no active schedule so callers can bail before also previewing.
-  const addToSchedule = useCallback((data: LexiconCardData): boolean => {
-    const scheduleStore = useScheduleStore.getState()
-    const scheduleId = scheduleStore.activeScheduleId
-    if (!scheduleId) {
-      toast.error(t("selectOrCreateSchedule"))
-      return false
-    }
-    const order = scheduleStore.getActiveSchedule()?.items.length ?? 0
-    const item = buildLexiconScheduleItemFromData(data, order)
-    const added = scheduleStore.addItem(scheduleId, item)
-    if (added) toast.success(t("addedReferenceToSchedule", { reference: item.reference }))
-    else toast.info(t("alreadyInSchedule"))
-    return true
-  }, [t])
+  const addToSchedule = useCallback(
+    (data: LexiconCardData): boolean => {
+      const scheduleStore = useScheduleStore.getState()
+      const scheduleId = scheduleStore.activeScheduleId
+      if (!scheduleId) {
+        toast.error(t("selectOrCreateSchedule"))
+        return false
+      }
+      const order = scheduleStore.getActiveSchedule()?.items.length ?? 0
+      const item = buildLexiconScheduleItemFromData(data, order)
+      const added = scheduleStore.addItem(scheduleId, item)
+      if (added)
+        toast.success(
+          t("addedReferenceToSchedule", { reference: item.reference })
+        )
+      else toast.info(t("alreadyInSchedule"))
+      return true
+    },
+    [t]
+  )
 
   const handlePreview = useCallback(() => {
     const data = collect()
@@ -263,12 +269,16 @@ export function LexiconEditModal({
         onPointerDown={(e) => e.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle>{t("lexicalSummary", { reference: card.reference })}</DialogTitle>
+          <DialogTitle>
+            {t("lexicalSummary", { reference: card.reference })}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted-foreground">{t("preview")}</span>
+            <span className="text-xs text-muted-foreground">
+              {t("preview")}
+            </span>
             <canvas
               ref={previewCanvasRef}
               className="aspect-video w-full rounded-lg border border-border bg-[#f8fafc]"

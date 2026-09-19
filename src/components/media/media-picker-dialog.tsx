@@ -289,7 +289,9 @@ export function MediaPickerDialog({
             disabled={selectedCount === 0}
             onClick={handleConfirm}
           >
-            {selectedCount > 1 ? t("picker.selectCount", { count: selectedCount }) : t("picker.select")}
+            {selectedCount > 1
+              ? t("picker.selectCount", { count: selectedCount })
+              : t("picker.select")}
           </Button>
         </DialogFooter>
       </DialogContent>

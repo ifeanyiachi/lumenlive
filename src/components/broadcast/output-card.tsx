@@ -48,7 +48,9 @@ function OutputDisplaySettings({ output }: { output: BroadcastOutput }) {
   return (
     <div className="space-y-2.5 rounded-md border border-border/60 p-2.5">
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">{t("displaySize")}</label>
+        <label className="text-xs text-muted-foreground">
+          {t("displaySize")}
+        </label>
         <Select
           value={displayMode}
           onValueChange={(v) =>
@@ -273,7 +275,9 @@ export function OutputCard({
 
       {/* Output type toggle */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">{t("outputType")}</label>
+        <label className="text-xs text-muted-foreground">
+          {t("outputType")}
+        </label>
         <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={() => c.setOutputType("display")}
@@ -337,8 +341,8 @@ export function OutputCard({
                     !isTauri
                       ? t("desktopAppRequired")
                       : monitors.length === 0
-                          ? t("noMonitorsDetected")
-                          : t("selectMonitor")
+                        ? t("noMonitorsDetected")
+                        : t("selectMonitor")
                   }
                 />
               </SelectTrigger>

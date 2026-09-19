@@ -1,13 +1,23 @@
 {
   "display": {
     "detectionBehavior": "Detection Behavior",
-    "directVerseAutoDisplay": {
-      "title": "Direct verse auto-display",
-      "description": "When a verse reference like \"John 3:16\" is spoken, automatically display it on screen. When off, it only appears in the queue."
-    },
-    "instantDirectDisplay": {
-      "title": "Instant direct display",
-      "description": "Display a spoken reference the moment it's recognized, instead of waiting for the sentence to finish (removes the ~1-2s pause). Applies only to direct references; the verse is confirmed as you keep speaking."
+    "directVerseDestination": {
+      "title": "Detected verse destination",
+      "description": "Choose what happens automatically when a clear Bible reference like \"John 3:16\" is detected.",
+      "options": {
+        "live": {
+          "title": "Live output",
+          "description": "Send it straight to the audience."
+        },
+        "preview": {
+          "title": "Program Preview",
+          "description": "Stage it for your review and take."
+        },
+        "detection": {
+          "title": "Detection panel only",
+          "description": "Keep it in Detections. Do not stage, send, or queue it automatically."
+        }
+      }
     },
     "voiceNavigationGoesLive": {
       "title": "Voice navigation goes live",
@@ -248,18 +258,54 @@
     "restoreFailed": "Couldn't restore that backup."
   },
   "sections": {
-    "account": { "name": "Account", "title": "Account & License" },
-    "audio": { "name": "Audio", "title": "Audio" },
-    "bible": { "name": "Bible", "title": "Bible Translation" },
-    "display": { "name": "Display Mode", "title": "Display Mode" },
-    "schedule": { "name": "Schedule", "title": "Schedule" },
-    "media": { "name": "Media Library", "title": "Media Library" },
-    "songs": { "name": "Songs", "title": "Songs" },
-    "remote": { "name": "Remote Control", "title": "Remote Control" },
-    "backup": { "name": "Backup & Restore", "title": "Backup & Restore" },
-    "privacy": { "name": "Privacy", "title": "Privacy" },
-    "help": { "name": "Help", "title": "Help" },
-    "language": { "name": "Language", "title": "Language" }
+    "account": {
+      "name": "Account",
+      "title": "Account & License"
+    },
+    "audio": {
+      "name": "Audio",
+      "title": "Audio"
+    },
+    "bible": {
+      "name": "Bible",
+      "title": "Bible Translation"
+    },
+    "display": {
+      "name": "Display Mode",
+      "title": "Display Mode"
+    },
+    "schedule": {
+      "name": "Schedule",
+      "title": "Schedule"
+    },
+    "media": {
+      "name": "Media Library",
+      "title": "Media Library"
+    },
+    "songs": {
+      "name": "Songs",
+      "title": "Songs"
+    },
+    "remote": {
+      "name": "Remote Control",
+      "title": "Remote Control"
+    },
+    "backup": {
+      "name": "Backup & Restore",
+      "title": "Backup & Restore"
+    },
+    "privacy": {
+      "name": "Privacy",
+      "title": "Privacy"
+    },
+    "help": {
+      "name": "Help",
+      "title": "Help"
+    },
+    "language": {
+      "name": "Language",
+      "title": "Language"
+    }
   },
   "dialog": {
     "title": "Settings",

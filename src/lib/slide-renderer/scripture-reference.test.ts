@@ -3,9 +3,7 @@ import { formatScriptureReference } from "./scripture-reference"
 
 describe("formatScriptureReference", () => {
   it("appends the translation abbreviation in parentheses", () => {
-    expect(formatScriptureReference("John 3:16", "KJV")).toBe(
-      "John 3:16 (KJV)"
-    )
+    expect(formatScriptureReference("John 3:16", "KJV")).toBe("John 3:16 (KJV)")
   })
 
   it("returns the bare reference when no translation is given", () => {
@@ -19,9 +17,7 @@ describe("formatScriptureReference", () => {
   })
 
   it("trims surrounding whitespace from the abbreviation", () => {
-    expect(formatScriptureReference("Rom 8:28", " ESV ")).toBe(
-      "Rom 8:28 (ESV)"
-    )
+    expect(formatScriptureReference("Rom 8:28", " ESV ")).toBe("Rom 8:28 (ESV)")
   })
 
   it("preserves multi-verse and range references", () => {

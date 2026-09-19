@@ -167,7 +167,9 @@ export function OutputRow({
 
           {/* Theme */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{t("theme")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("theme")}
+            </label>
             <Select
               value={output.themeId}
               onValueChange={(v) => onThemeChange(output.id, v)}
@@ -303,9 +305,13 @@ export function OutputRow({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="independent">{t("fullProgram")}</SelectItem>
+                  <SelectItem value="independent">
+                    {t("fullProgram")}
+                  </SelectItem>
                   <SelectItem value="mirror">{t("mirrorOutput")}</SelectItem>
-                  <SelectItem value="layer-filter">{t("layerFilter")}</SelectItem>
+                  <SelectItem value="layer-filter">
+                    {t("layerFilter")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
 

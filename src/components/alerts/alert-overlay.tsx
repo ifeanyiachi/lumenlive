@@ -38,7 +38,8 @@ export function AlertOverlay() {
             />
             <div className="flex min-w-0 flex-col">
               <span className="text-[0.625rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                {t("overlay.live")} · {template?.name ?? t("overlay.fallbackName")}
+                {t("overlay.live")} ·{" "}
+                {template?.name ?? t("overlay.fallbackName")}
               </span>
               <span className="truncate text-sm font-medium text-foreground">
                 {alert.message}

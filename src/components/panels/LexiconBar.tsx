@@ -231,7 +231,9 @@ function WordChip({ word, isHebrew, reference, fetchEntry }: WordChipProps) {
               {t("lexicon.noStrongsNumber")}
             </p>
           ) : entry === undefined ? (
-            <p className="text-xs text-muted-foreground">{t("lexicon.loading")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("lexicon.loading")}
+            </p>
           ) : !entry ? (
             <p className="text-xs text-muted-foreground">
               {t("lexicon.noDefinition", { number: word.strong_number })}

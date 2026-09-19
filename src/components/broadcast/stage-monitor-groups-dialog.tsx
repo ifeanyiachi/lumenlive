@@ -52,14 +52,14 @@ export function StageMonitorGroupsDialog({
       <DialogContent className="max-h-[85vh] gap-4 overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("stageGroups.title")}</DialogTitle>
-          <DialogDescription>
-            {t("stageGroups.description")}
-          </DialogDescription>
+          <DialogDescription>{t("stageGroups.description")}</DialogDescription>
         </DialogHeader>
 
         {stageOutputs.length === 0 ? (
           <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            {t("stageGroups.none")} <span className="font-medium">{t("stage")}</span> {t("stageGroups.noneEnd")}
+            {t("stageGroups.none")}{" "}
+            <span className="font-medium">{t("stage")}</span>{" "}
+            {t("stageGroups.noneEnd")}
           </p>
         ) : (
           <div className="flex flex-col gap-3">

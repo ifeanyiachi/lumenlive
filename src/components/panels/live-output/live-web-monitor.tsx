@@ -72,12 +72,16 @@ export function LiveWebMonitor({
       </div>
       {!state.isReady && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black">
-          <span className="text-[0.625rem] text-white/60">{t("liveWeb.loadingPlayer")}</span>
+          <span className="text-[0.625rem] text-white/60">
+            {t("liveWeb.loadingPlayer")}
+          </span>
         </div>
       )}
       <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5">
         <GlobeIcon className="size-2.5 text-white/70" />
-        <span className="text-[0.5rem] text-white/70">{t("liveWeb.youtube")}</span>
+        <span className="text-[0.5rem] text-white/70">
+          {t("liveWeb.youtube")}
+        </span>
       </div>
       <button
         type="button"

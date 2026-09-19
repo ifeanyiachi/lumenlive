@@ -9,13 +9,9 @@ import { useTranscriptStore } from "@/stores/transcript-store"
 import { trackServiceStarted } from "@/services/analytics-gateway"
 import {
   pullTranscriptionKey,
-  reportKeyInvalid,
   reportTranscriptionUsage,
 } from "@/services/transcription-key-gateway"
-import {
-  decideTranscriptionStart,
-  describeBlock,
-} from "@/lib/transcription/access"
+import { decideTranscriptionStart } from "@/lib/transcription/access"
 import { describeTranscriptionStartError } from "@/lib/transcription/start-error"
 import type { BlockedCopy } from "@/lib/transcription/access"
 import type {
@@ -48,8 +44,8 @@ interface UseTranscriptionOptions {
   onSignInRequired?: () => void
   /**
    * Called when the platform blocks transcription for a signed-in user (allowance
-   * spent, BYO key rejected, platform key unset). Panels show the reason + a link
-   * to the account portal.
+   * spent, platform key unset). Panels show the reason + a link to the account
+   * portal.
    */
   onBlocked?: (copy: BlockedCopy) => void
 }
@@ -59,9 +55,8 @@ const NOT_RUNNING_ERROR = "Transcription is not running"
 /**
  * The mode of the current session, retained at module scope (one live session at
  * a time) so the usage/unauthorized event handlers know how to react. Always a
- * platform-resolved mode while a session is live — usage is metered, and a 401 on
- * a `byok` session means the church's own (portal-configured) key is invalid.
- * `null` between sessions.
+ * platform-resolved mode while a session is live — usage is metered against the
+ * server-issued temporary key. `null` between sessions.
  */
 let sessionMode: TranscriptionMode | null = null
 
@@ -92,9 +87,8 @@ export const transcriptionActions = {
     }
 
     let apiKey: string
-    // Provider is server-authoritative: lumenbo names the backend its minted key
-    // targets so Rust builds the matching client. Pre-Phase-4 responses omit it —
-    // default to Deepgram, the current default, so this is safe to ship early.
+    // Server-authoritative backend choice; lumenbo names the provider the minted
+    // key targets. Absent on older responses → default to Deepgram.
     let provider: SttProviderId = "deepgram"
     try {
       // The server binds each temporary key to an already-activated desktop.
@@ -113,8 +107,8 @@ export const transcriptionActions = {
         return
       }
       apiKey = decision.key
-      sessionMode = decision.mode
       provider = resolution.provider ?? "deepgram"
+      sessionMode = decision.mode
     } catch (error) {
       // Key retrieval can fail because of an expired session, a backend response,
       // or the network. Keep those cases distinct for the operator.
@@ -175,26 +169,17 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     toast.error("Transcription error", { description: msg })
   })
 
-  // The STT service rejected the API key (HTTP 401). Distinct from a generic
-  // error: on a BYO session it means the church's own key is bad, so tell the
-  // backend (flags it + fires the "key needs attention" email) and prompt a fix.
+  // The STT service rejected the API key (HTTP 401). The key is server-issued
+  // and short-lived, so a rejection is transient — surface it and let the
+  // operator re-start, which re-pulls a fresh key.
   useTauriEvent("stt_unauthorized", () => {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("error")
     transcript.setTranscribing(false)
-    const wasByok = sessionMode === "byok"
     sessionMode = null
-    const token = useAuthStore.getState().token
-    if (wasByok && token) {
-      void reportKeyInvalid(token).catch(() => {})
-      const copy = describeBlock("byok_invalid")
-      if (options?.onBlocked) options.onBlocked(copy)
-      else toast.error(copy.title, { description: copy.message })
-    } else {
-      toast.error("Transcription key rejected", {
-        description: "The transcription service rejected the API key.",
-      })
-    }
+    toast.error("Transcription key rejected", {
+      description: "The transcription service rejected the API key.",
+    })
   })
 
   // Rust reports audio-seconds as UI telemetry only. Soniox usage logs, bound to

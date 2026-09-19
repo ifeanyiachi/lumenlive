@@ -90,7 +90,9 @@ export function GradientControls({
       />
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[0.6875rem] text-muted-foreground">{t("style")}</label>
+        <label className="text-[0.6875rem] text-muted-foreground">
+          {t("style")}
+        </label>
         <Select
           value={gradient.type}
           onValueChange={(v) =>

@@ -218,7 +218,9 @@ function AlignmentGrid({
   const round = (n: number) => Math.round(n * 10) / 10
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[0.625rem] text-muted-foreground">{t("properties.align")}</span>
+      <span className="text-[0.625rem] text-muted-foreground">
+        {t("properties.align")}
+      </span>
       <div className="grid w-fit grid-cols-3 gap-1">
         {V_ALIGN.map((v) =>
           H_ALIGN.map((h) => {
@@ -230,7 +232,10 @@ function AlignmentGrid({
               <button
                 key={`${v.key}-${h.key}`}
                 type="button"
-                title={t("properties.alignment", { vertical: t(`properties.${v.label}`), horizontal: t(`properties.${h.label}`) })}
+                title={t("properties.alignment", {
+                  vertical: t(`properties.${v.label}`),
+                  horizontal: t(`properties.${h.label}`),
+                })}
                 onClick={() => onChange({ x: tx, y: ty })}
                 className={cn(
                   "flex size-6 items-center justify-center rounded border transition-colors",
@@ -281,8 +286,12 @@ export function PositionSizeSection({
       <div className="grid grid-cols-2 gap-2">
         <PropertyRow label={t("properties.x")}>{num("x", 0)}</PropertyRow>
         <PropertyRow label={t("properties.y")}>{num("y", 0)}</PropertyRow>
-        <PropertyRow label={t("properties.widthShort")}>{num("width", 1)}</PropertyRow>
-        <PropertyRow label={t("properties.height")}>{num("height", 1)}</PropertyRow>
+        <PropertyRow label={t("properties.widthShort")}>
+          {num("width", 1)}
+        </PropertyRow>
+        <PropertyRow label={t("properties.height")}>
+          {num("height", 1)}
+        </PropertyRow>
       </div>
       <AlignmentGrid rect={rect} onChange={onChange} />
     </div>

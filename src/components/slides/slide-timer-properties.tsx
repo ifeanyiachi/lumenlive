@@ -71,8 +71,12 @@ export function SlideTimerProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="duration">{t("timerProperties.duration")}</SelectItem>
-                  <SelectItem value="clock">{t("timerProperties.timeOfDay")}</SelectItem>
+                  <SelectItem value="duration">
+                    {t("timerProperties.duration")}
+                  </SelectItem>
+                  <SelectItem value="clock">
+                    {t("timerProperties.timeOfDay")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
@@ -111,7 +115,9 @@ export function SlideTimerProperties({
                 <SelectContent>
                   <SelectItem value="mm:ss">MM:SS</SelectItem>
                   <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
-                  <SelectItem value="minutes">{t("timerProperties.minutes")}</SelectItem>
+                  <SelectItem value="minutes">
+                    {t("timerProperties.minutes")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
@@ -198,10 +204,18 @@ export function SlideTimerProperties({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="400">{t("timerProperties.regular")}</SelectItem>
-                  <SelectItem value="600">{t("timerProperties.semibold")}</SelectItem>
-                  <SelectItem value="700">{t("timerProperties.bold")}</SelectItem>
-                  <SelectItem value="900">{t("timerProperties.black")}</SelectItem>
+                  <SelectItem value="400">
+                    {t("timerProperties.regular")}
+                  </SelectItem>
+                  <SelectItem value="600">
+                    {t("timerProperties.semibold")}
+                  </SelectItem>
+                  <SelectItem value="700">
+                    {t("timerProperties.bold")}
+                  </SelectItem>
+                  <SelectItem value="900">
+                    {t("timerProperties.black")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </PropertyRow>
@@ -219,7 +233,9 @@ export function SlideTimerProperties({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="left">{t("properties.left")}</SelectItem>
-                  <SelectItem value="center">{t("properties.center")}</SelectItem>
+                  <SelectItem value="center">
+                    {t("properties.center")}
+                  </SelectItem>
                   <SelectItem value="right">{t("properties.right")}</SelectItem>
                 </SelectContent>
               </Select>

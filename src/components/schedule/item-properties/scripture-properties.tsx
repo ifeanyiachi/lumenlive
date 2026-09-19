@@ -74,7 +74,9 @@ export function ScriptureProperties({
     <>
       <div className="flex items-center gap-2 rounded-md bg-blue-500/10 p-2">
         <BookOpenIcon className="size-3.5 text-blue-400" />
-        <span className="text-xs font-medium text-blue-400">{t("properties.scripture")}</span>
+        <span className="text-xs font-medium text-blue-400">
+          {t("properties.scripture")}
+        </span>
       </div>
 
       <FieldGroup label={t("properties.translation")}>

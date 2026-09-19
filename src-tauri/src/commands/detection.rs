@@ -7,7 +7,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 use lumenlive_bible::{BibleDb, Verse};
-use lumenlive_detection::{DetectionPipeline, MergedDetection, ReadingMode};
+use lumenlive_detection::{DetectionPipeline, MergedDetection};
 
 use crate::bible_state::BibleState;
 
@@ -35,14 +35,6 @@ pub struct DetectionResult {
     pub transcript_snippet: String,
     /// True when detected from a chapter-only reference (verse defaults to 1, may be refined).
     pub is_chapter_only: bool,
-    /// True when this is a low-trust NARRATIVE mention: a book name spoken in
-    /// prose (no citation cue) while Reading Mode is actively tracking a
-    /// *different* book — e.g. "Obadiah" named as a character during a reading
-    /// of 1 Kings 18 (aitrans Phase 3). Such hits must NOT auto-display; they
-    /// still surface in the AI Detections panel/queue for a deliberate send.
-    /// Computed by the live direct worker; defaults false everywhere else.
-    #[serde(default)]
-    pub narrative_mention: bool,
 }
 
 fn source_to_string(source: &lumenlive_detection::DetectionSource) -> String {
@@ -144,10 +136,6 @@ pub fn to_result(bible: &BibleState, merged: &MergedDetection) -> Option<Detecti
         auto_queued: merged.auto_queued,
         transcript_snippet: merged.detection.transcript_snippet.clone(),
         is_chapter_only: merged.detection.is_chapter_only,
-        // Narrative classification needs Reading-Mode context the shared resolver
-        // does not have; the live direct worker stamps it after this call. Every
-        // other path (on-demand `detect_verses`, semantic) leaves it false.
-        narrative_mention: false,
     })
 }
 
@@ -362,34 +350,6 @@ pub fn semantic_search(
     );
 
     Ok(results)
-}
-
-/// Get reading mode status
-#[tauri::command]
-pub fn reading_mode_status(
-    state: State<'_, Mutex<ReadingMode>>,
-) -> Result<ReadingModeStatus, String> {
-    let rm = state.lock().map_err(|e| e.to_string())?;
-    Ok(ReadingModeStatus {
-        active: rm.is_active(),
-        current_verse: rm.current_verse(),
-    })
-}
-
-#[derive(Serialize)]
-pub struct ReadingModeStatus {
-    pub active: bool,
-    pub current_verse: Option<i32>,
-}
-
-/// Stop reading mode
-#[tauri::command]
-pub fn stop_reading_mode(
-    state: State<'_, Mutex<ReadingMode>>,
-) -> Result<(), String> {
-    let mut rm = state.lock().map_err(|e| e.to_string())?;
-    rm.deactivate();
-    Ok(())
 }
 
 /// Sync detection settings from the frontend to the shared backend merger.

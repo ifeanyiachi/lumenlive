@@ -20,14 +20,14 @@ import type { DetectionResult } from "@/types/detection"
  */
 
 /**
- * Minimum confidence for a DIRECT reference to auto-display to the audience.
+ * Minimum confidence for a DIRECT reference to auto-stage in Program Preview.
  *
  * Fixed and deliberately independent of the panel slider: lowering the slider
  * to surface more low-confidence *suggestions* must never weaken the live-output
- * guard. Direct references parse at ~1.0, so this only screens out genuinely
- * shaky parses.
+ * guard. Direct references parse at ~1.0, so this screens out genuinely shaky
+ * parses before they can replace a preview.
  */
-export const MIN_DIRECT_LIVE_CONFIDENCE = 0.9
+export const MIN_DIRECT_PREVIEW_CONFIDENCE = 0.9
 
 /**
  * Whether a detection should appear in the AI Detections panel.
@@ -60,22 +60,42 @@ export function shouldAutoQueue(d: DetectionResult): boolean {
 }
 
 /**
- * Whether a detection may auto-display to the audience/program output.
+ * Whether a finalized detection may auto-stage into Program Preview.
  *
  * ONLY direct references clear this gate, and only when they are a real,
- * high-confidence reference: not a chapter-only stub, not a low-trust narrative
- * mention (a book named in prose while Reading Mode tracks a different book).
- * Semantic hits are excluded outright.
+ * high-confidence reference rather than a chapter-only stub. Semantic hits are
+ * excluded outright.
  */
-export function shouldAutoDisplayLive(
+export function shouldAutoStagePreview(
   d: DetectionResult,
-  minConfidence: number = MIN_DIRECT_LIVE_CONFIDENCE
+  minConfidence: number = MIN_DIRECT_PREVIEW_CONFIDENCE
 ): boolean {
   return (
     d.source === "direct" &&
     !d.is_chapter_only &&
-    d.narrative_mention !== true &&
     d.book_number > 0 &&
     d.confidence >= minConfidence
   )
+}
+
+/**
+ * Return all safe automatic-preview candidates from one finalized detection batch.
+ *
+ * Multiple direct references from one utterance are grouped by the caller into
+ * one multi-verse render. Deduplicate repeated references in the batch while
+ * retaining the highest-confidence result for each reference.
+ */
+export function autoPreviewCandidates(
+  detections: DetectionResult[]
+): DetectionResult[] {
+  const unique = new Map<string, DetectionResult>()
+  for (const detection of detections) {
+    if (!shouldAutoStagePreview(detection)) continue
+    const previous = unique.get(detection.verse_ref)
+    if (!previous || detection.confidence > previous.confidence) {
+      unique.set(detection.verse_ref, detection)
+    }
+  }
+
+  return [...unique.values()]
 }

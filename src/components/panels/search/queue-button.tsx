@@ -75,7 +75,9 @@ export function QueueButton({
               <CheckIcon className="size-4 text-ai-direct" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("search.alreadyInQueue")}</TooltipContent>
+          <TooltipContent side="left">
+            {t("search.alreadyInQueue")}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )

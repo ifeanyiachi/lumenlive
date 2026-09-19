@@ -6,10 +6,11 @@ import type {
 
 /**
  * Gateway for the desktop transcription-key contract (portalplan D2-06;
- * `docs/desktop-transcription-contract.md`). The desktop talks to Deepgram
- * directly, but the platform decides which key it may use and meters free/trial
- * minutes. All three endpoints are bearer-authed with the same session token as
- * `/v1/licenses/*`; the raw key must not be persisted beyond the current session.
+ * `docs/desktop-transcription-contract.md`). The desktop talks to the STT
+ * provider directly, but the platform decides which key it may use and meters
+ * free/trial minutes. Both endpoints are bearer-authed with the same session
+ * token as `/v1/licenses/*`; the raw key must not be persisted beyond the
+ * current session.
  */
 
 export type {
@@ -45,17 +46,5 @@ export function reportTranscriptionUsage(
     method: "POST",
     token,
     body: { seconds },
-  })
-}
-
-/**
- * Report that the STT service rejected the church's BYO key, so the backend can
- * flag it (the portal then prompts a fix) and fire the "key needs attention" email.
- */
-export function reportKeyInvalid(token: string): Promise<{ ok: boolean }> {
-  return v1<{ ok: boolean }>("/v1/transcription/key-invalid", {
-    method: "POST",
-    token,
-    body: {},
   })
 }

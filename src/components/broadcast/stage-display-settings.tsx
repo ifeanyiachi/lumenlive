@@ -47,7 +47,9 @@ export function StageDisplaySettings() {
         <div className="space-y-3 rounded-md border border-border/50 bg-muted/30 p-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{t("layout")}</label>
+              <label className="text-xs text-muted-foreground">
+                {t("layout")}
+              </label>
               <Select
                 value={config.layout}
                 onValueChange={(v) =>

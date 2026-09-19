@@ -63,12 +63,20 @@ export function SermonThemeProperties({
       icon={<MegaphoneIcon className="size-3.5" />}
     >
       {title ? (
-        <TextRoleSection label={t("themeProperties.title")} element={title} maxSize={160} />
+        <TextRoleSection
+          label={t("themeProperties.title")}
+          element={title}
+          maxSize={160}
+        />
       ) : (
         <MissingPlaceholder what={t("themeProperties.titlePlaceholder")} />
       )}
       {points ? (
-        <TextRoleSection label={t("themeProperties.points")} element={points} maxSize={120} />
+        <TextRoleSection
+          label={t("themeProperties.points")}
+          element={points}
+          maxSize={120}
+        />
       ) : (
         <MissingPlaceholder what={t("themeProperties.pointsPlaceholder")} />
       )}

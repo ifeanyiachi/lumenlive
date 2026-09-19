@@ -223,7 +223,10 @@ export function ThemeDesigner() {
       if (!saved) return
       if (missingMedia > 0) {
         toast.warning(
-          t("themeDesigner.exportMissingMedia", { name: theme.name, count: missingMedia })
+          t("themeDesigner.exportMissingMedia", {
+            name: theme.name,
+            count: missingMedia,
+          })
         )
       } else {
         toast.success(t("themeDesigner.exported", { name: theme.name }))
@@ -328,7 +331,9 @@ export function ThemeDesigner() {
                     variant="outline"
                     onClick={handleSaveAsDefault}
                     disabled={isCurrentDefault}
-                    title={t("themeDesigner.saveAsDefault", { type: sessionType })}
+                    title={t("themeDesigner.saveAsDefault", {
+                      type: sessionType,
+                    })}
                   >
                     <CheckCheckIcon className="size-4" />
                     {isCurrentDefault

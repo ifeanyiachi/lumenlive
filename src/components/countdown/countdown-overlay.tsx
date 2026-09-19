@@ -59,7 +59,11 @@ function CountdownDisplay({ countdownId }: { countdownId: string }) {
   return (
     <div
       role="timer"
-      aria-label={t("overlay.aria", { label: timer.label, time: timeText, paused: paused ? `, ${t("overlay.paused")}` : "" })}
+      aria-label={t("overlay.aria", {
+        label: timer.label,
+        time: timeText,
+        paused: paused ? `, ${t("overlay.paused")}` : "",
+      })}
       className="pointer-events-auto flex items-center gap-2 rounded-lg px-3 py-1.5"
       style={{
         backgroundColor: bgColor,

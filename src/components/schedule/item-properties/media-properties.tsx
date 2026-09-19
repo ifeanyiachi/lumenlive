@@ -420,7 +420,9 @@ export function MediaProperties({
                       : "text-muted-foreground"
                   )}
                 >
-                  {fileDragOver ? t("media.dropFilesHere") : t("media.dragDropFilesHere")}
+                  {fileDragOver
+                    ? t("media.dropFilesHere")
+                    : t("media.dragDropFilesHere")}
                 </p>
                 <p className="text-[0.625rem] text-muted-foreground/60">
                   or click to browse

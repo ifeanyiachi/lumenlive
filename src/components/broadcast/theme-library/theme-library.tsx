@@ -45,7 +45,10 @@ const TYPE_META: Record<ThemeType, { labelKey: string; icon: LucideIcon }> = {
   countdown: { labelKey: "themeLibrary.types.countdown", icon: TimerIcon },
   sermon: { labelKey: "themeLibrary.types.sermon", icon: PresentationIcon },
   overlay: { labelKey: "themeLibrary.types.overlay", icon: LayersIcon },
-  announcement: { labelKey: "themeLibrary.types.announcement", icon: MegaphoneIcon },
+  announcement: {
+    labelKey: "themeLibrary.types.announcement",
+    icon: MegaphoneIcon,
+  },
 }
 
 type FilterTab = "all" | "pinned"
@@ -116,7 +119,8 @@ export function ThemeLibrary({
   const handleImport = async () => {
     try {
       const result = await importThemeBundle()
-      if (result) toast.success(t("themeLibrary.imported", { name: result.name }))
+      if (result)
+        toast.success(t("themeLibrary.imported", { name: result.name }))
     } catch (err) {
       toast.error(
         err instanceof ThemeBundleParseError
@@ -130,7 +134,9 @@ export function ThemeLibrary({
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-card">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
-        <span className="text-lg font-semibold text-foreground">{t("themeLibrary.title")}</span>
+        <span className="text-lg font-semibold text-foreground">
+          {t("themeLibrary.title")}
+        </span>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
@@ -149,7 +155,9 @@ export function ThemeLibrary({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>{t("themeLibrary.newTheme")}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {t("themeLibrary.newTheme")}
+              </DropdownMenuLabel>
               {THEME_TYPES.map((type) => {
                 const { labelKey, icon: Icon } = TYPE_META[type]
                 return (

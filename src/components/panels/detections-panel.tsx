@@ -1,14 +1,15 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
-import { EyeIcon, PlayIcon, PlusIcon } from "lucide-react"
+import { EyeIcon, PlayIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { detectionActions } from "@/hooks/use-detection"
 import { useQueueStore, useBibleStore, useDetectionStore } from "@/stores"
 import { presentDetectionLive, previewDetection } from "@/hooks/use-broadcast"
 import { useCan } from "@/stores/entitlements-store"
 import { requireFeature } from "@/components/entitlements/require-feature"
+import { cn } from "@/lib/utils"
 import type { DetectionResult } from "@/types"
 
 // While the operator interacts with the panel it pauses (buffers) updates so
@@ -26,6 +27,26 @@ const SOURCE_COLORS: Record<
     bg: "bg-indigo-500/15",
     text: "text-indigo-300",
     label: "Semantic",
+  },
+}
+
+type DetectionFilter = "all" | DetectionResult["source"]
+
+const DETECTION_FILTERS: readonly DetectionFilter[] = [
+  "all",
+  "direct",
+  "semantic",
+]
+
+const FILTER_STYLES: Record<DetectionFilter, { active: string }> = {
+  all: {
+    active: "bg-background text-foreground shadow-sm",
+  },
+  direct: {
+    active: "bg-green-500/15 text-green-500 shadow-sm",
+  },
+  semantic: {
+    active: "bg-indigo-500/15 text-indigo-300 shadow-sm",
   },
 }
 
@@ -139,6 +160,12 @@ export function DetectionsPanel() {
   const { t } = useTranslation("panels")
   const detections = useDetectionStore((s) => s.detections)
   const pendingCount = useDetectionStore((s) => s.pendingCount)
+  const [activeFilter, setActiveFilter] = useState<DetectionFilter>("all")
+
+  const visibleDetections =
+    activeFilter === "all"
+      ? detections
+      : detections.filter((detection) => detection.source === activeFilter)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -189,13 +216,47 @@ export function DetectionsPanel() {
       data-slot="detections-panel"
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <PanelHeader title={t("detections.title")}>
-        <button
-          onClick={() => detectionActions.clearDetections()}
-          className="text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
+      <PanelHeader title={t("detections.title")} className="gap-2">
+        <div
+          aria-label={t("detections.filterLabel")}
+          className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5"
+          role="group"
         >
-          {t("detections.clearAll")}
-        </button>
+          {DETECTION_FILTERS.map((filter) => {
+            const style = FILTER_STYLES[filter]
+            const label =
+              filter === "all" ? t("detections.all") : t(`detections.${filter}`)
+
+            return (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={activeFilter === filter}
+                aria-label={t("detections.filterBy", { source: label })}
+                className={cn(
+                  "rounded px-1.5 py-1 text-[0.5625rem] font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  activeFilter === filter
+                    ? style.active
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setActiveFilter(filter)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => detectionActions.clearDetections()}
+          aria-label={t("detections.clearAll")}
+          title={t("detections.clearAll")}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Trash2Icon className="size-3.5" />
+        </Button>
       </PanelHeader>
 
       <div
@@ -214,12 +275,19 @@ export function DetectionsPanel() {
           </button>
         )}
         <div className="flex flex-col gap-0">
-          {detections.length === 0 && (
+          {visibleDetections.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
-              {t("detections.empty")}
+              {detections.length === 0
+                ? t("detections.empty")
+                : t("detections.emptyFiltered", {
+                    source:
+                      activeFilter === "all"
+                        ? t("detections.all")
+                        : t(`detections.${activeFilter}`),
+                  })}
             </p>
           )}
-          {detections.map((detection, i) => (
+          {visibleDetections.map((detection, i) => (
             <DetectionCard
               key={`${detection.verse_ref}-${i}`}
               detection={detection}

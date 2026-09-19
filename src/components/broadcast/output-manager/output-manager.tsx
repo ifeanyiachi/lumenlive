@@ -240,9 +240,7 @@ export function OutputManager({
       >
         <DialogHeader>
           <DialogTitle>{t("outputManager")}</DialogTitle>
-          <DialogDescription>
-            {t("configureOutputs")}
-          </DialogDescription>
+          <DialogDescription>{t("configureOutputs")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">

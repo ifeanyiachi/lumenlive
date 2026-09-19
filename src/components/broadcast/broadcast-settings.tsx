@@ -125,9 +125,7 @@ function BaseBackgroundSection() {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="output">
-            {t("outputTheme")}
-          </SelectItem>
+          <SelectItem value="output">{t("outputTheme")}</SelectItem>
           <SelectItem value="solid">{t("solidColor")}</SelectItem>
           <SelectItem value="gradient">{t("gradient")}</SelectItem>
           <SelectItem value="image">{t("imageHoldingSlide")}</SelectItem>
@@ -335,7 +333,7 @@ export function BroadcastSettings({
             {/* Reserve room on the right so the "Manage Outputs" button clears
                 the dialog's absolute top-4 right-4 close (X) button. */}
             <div className="flex items-center justify-between pr-10">
-            <DialogTitle>{t("title")}</DialogTitle>
+              <DialogTitle>{t("title")}</DialogTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -346,9 +344,7 @@ export function BroadcastSettings({
                 {t("manageOutputs")}
               </Button>
             </div>
-            <DialogDescription>
-              {t("configureOutputs")}
-            </DialogDescription>
+            <DialogDescription>{t("configureOutputs")}</DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-4">

@@ -13,7 +13,6 @@ function resolution(
     allowanceMinutes: 60,
     usedMinutes: 10,
     remainingMinutes: 50,
-    byokPresent: false,
     ...over,
   }
 }
@@ -28,11 +27,15 @@ describe("decideTranscriptionStart", () => {
     })
   })
 
-  it("starts for platform_paid and byok too", () => {
-    for (const mode of ["platform_paid", "byok"] as const) {
-      const d = decideTranscriptionStart(resolution({ mode, key: "dg_x" }))
-      expect(d).toMatchObject({ action: "start", key: "dg_x", mode })
-    }
+  it("starts for platform_paid too", () => {
+    const d = decideTranscriptionStart(
+      resolution({ mode: "platform_paid", key: "dg_x" })
+    )
+    expect(d).toMatchObject({
+      action: "start",
+      key: "dg_x",
+      mode: "platform_paid",
+    })
   })
 
   it("blocks with allowance copy when exhausted", () => {
@@ -50,10 +53,7 @@ describe("decideTranscriptionStart", () => {
     }
   })
 
-  it("blocks for byok_invalid and platform_key_unset with distinct copy", () => {
-    const invalid = decideTranscriptionStart(
-      resolution({ mode: "blocked", key: undefined, reason: "byok_invalid" })
-    )
+  it("blocks for platform_key_unset with distinct copy", () => {
     const unset = decideTranscriptionStart(
       resolution({
         mode: "blocked",
@@ -61,13 +61,12 @@ describe("decideTranscriptionStart", () => {
         reason: "platform_key_unset",
       })
     )
-    expect(invalid).toMatchObject({ action: "blocked", reason: "byok_invalid" })
     expect(unset).toMatchObject({
       action: "blocked",
       reason: "platform_key_unset",
     })
-    if (invalid.action === "blocked" && unset.action === "blocked") {
-      expect(invalid.copy.title).not.toBe(unset.copy.title)
+    if (unset.action === "blocked") {
+      expect(unset.copy.title).not.toBe(describeBlock(undefined).title)
     }
   })
 

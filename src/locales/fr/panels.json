@@ -77,16 +77,20 @@
     "loadChapterFailed": "Impossible de charger le chapitre"
   },
   "detections": {
-    "title": "Détections récentes",
+    "title": "Détections",
+    "all": "Toutes",
     "direct": "Direct",
     "semantic": "Sémantique",
+    "filterLabel": "Filtrer les détections par source",
+    "filterBy": "Afficher les détections {{source}}",
     "present": "Présenter",
     "preview": "Aperçu",
     "queue": "File",
     "clearAll": "Tout effacer",
     "pending_one": "{{count}} nouveau verset détecté — cliquez pour mettre à jour",
     "pending_other": "{{count}} nouveaux versets détectés — cliquez pour mettre à jour",
-    "empty": "Les détections de versets apparaîtront ici pendant la transcription"
+    "empty": "Les détections de versets apparaîtront ici pendant la transcription",
+    "emptyFiltered": "Aucune détection {{source}} pour le moment"
   },
   "webPreview": {
     "frameTitle": "Aperçu web",

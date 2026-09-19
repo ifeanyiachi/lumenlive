@@ -184,7 +184,9 @@ function Sidebar({
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{t("sidebar.title")}</SheetTitle>
-            <SheetDescription>{t("sidebar.mobileDescription")}</SheetDescription>
+            <SheetDescription>
+              {t("sidebar.mobileDescription")}
+            </SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>

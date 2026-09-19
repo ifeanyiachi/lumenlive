@@ -24,10 +24,19 @@ function AnimationSection({
 }) {
   const { t } = useTranslation("slides")
   const animationTypes: { value: ElementAnimationType; label: string }[] = [
-    { value: "none", label: t("properties.none") }, { value: "fade", label: t("properties.fade") }, { value: "slide-left", label: t("properties.slideLeft") }, { value: "slide-right", label: t("properties.slideRight") }, { value: "slide-up", label: t("properties.slideUp") }, { value: "slide-down", label: t("properties.slideDown") }, { value: "scale", label: t("properties.scale") },
+    { value: "none", label: t("properties.none") },
+    { value: "fade", label: t("properties.fade") },
+    { value: "slide-left", label: t("properties.slideLeft") },
+    { value: "slide-right", label: t("properties.slideRight") },
+    { value: "slide-up", label: t("properties.slideUp") },
+    { value: "slide-down", label: t("properties.slideDown") },
+    { value: "scale", label: t("properties.scale") },
   ]
   const easingOptions = [
-    { value: "ease-out", label: t("properties.easeOut") }, { value: "ease-in", label: t("properties.easeIn") }, { value: "ease-in-out", label: t("properties.easeInOut") }, { value: "linear", label: t("properties.linear") },
+    { value: "ease-out", label: t("properties.easeOut") },
+    { value: "ease-in", label: t("properties.easeIn") },
+    { value: "ease-in-out", label: t("properties.easeInOut") },
+    { value: "linear", label: t("properties.linear") },
   ]
   const current: ElementAnimation = anim ?? {
     type: "none",
@@ -342,7 +351,10 @@ export function ShapeMaskProperties({
           <option value="">{t("properties.noneDrawNormally")}</option>
           {maskableElements.map((el) => (
             <option key={el.id} value={el.id}>
-              {el.type === "image" ? t("properties.image") : t("properties.video")} — {el.id.slice(0, 8)}
+              {el.type === "image"
+                ? t("properties.image")
+                : t("properties.video")}{" "}
+              — {el.id.slice(0, 8)}
             </option>
           ))}
         </select>

@@ -1,13 +1,23 @@
 {
   "display": {
     "detectionBehavior": "Comportement de détection",
-    "directVerseAutoDisplay": {
-      "title": "Affichage automatique des versets directs",
-      "description": "Lorsqu’une référence telle que « Jean 3:16 » est prononcée, affichez-la automatiquement à l’écran. Lorsqu’elle est désactivée, elle apparaît uniquement dans la file d’attente."
-    },
-    "instantDirectDisplay": {
-      "title": "Affichage direct instantané",
-      "description": "Affichez une référence prononcée dès qu’elle est reconnue, au lieu d’attendre la fin de la phrase (supprime la pause d’environ 1 à 2 s). S’applique uniquement aux références directes ; le verset est confirmé pendant que vous continuez à parler."
+    "directVerseDestination": {
+      "title": "Destination du verset détecté",
+      "description": "Choisissez ce qui se passe automatiquement lorsqu’une référence biblique claire comme « Jean 3:16 » est détectée.",
+      "options": {
+        "live": {
+          "title": "Sortie en direct",
+          "description": "Envoyer directement au public."
+        },
+        "preview": {
+          "title": "Aperçu du programme",
+          "description": "Préparer le verset pour vérification et diffusion."
+        },
+        "detection": {
+          "title": "Panneau Détections uniquement",
+          "description": "Garder dans Détections, sans préparation, diffusion ou ajout automatique à la file."
+        }
+      }
     },
     "voiceNavigationGoesLive": {
       "title": "La navigation vocale passe en direct",

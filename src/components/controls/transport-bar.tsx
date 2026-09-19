@@ -46,20 +46,36 @@ function getViewButtons(t: (key: string) => string): {
   icon: React.ReactNode
 }[] {
   return [
-    { view: "live", label: t("views.live"), icon: <RadioIcon className="size-3.5" /> },
+    {
+      view: "live",
+      label: t("views.live"),
+      icon: <RadioIcon className="size-3.5" />,
+    },
     {
       view: "slide",
       label: t("views.slides"),
       icon: <PresentationIcon className="size-3.5" />,
     },
-    { view: "media", label: t("views.media"), icon: <ImageIcon className="size-3.5" /> },
-    { view: "song", label: t("views.songs"), icon: <MusicIcon className="size-3.5" /> },
+    {
+      view: "media",
+      label: t("views.media"),
+      icon: <ImageIcon className="size-3.5" />,
+    },
+    {
+      view: "song",
+      label: t("views.songs"),
+      icon: <MusicIcon className="size-3.5" />,
+    },
     {
       view: "youtube",
       label: t("views.youtube"),
       icon: <PlayIcon className="size-3.5" />,
     },
-    { view: "store", label: t("views.store"), icon: <StoreIcon className="size-3.5" /> },
+    {
+      view: "store",
+      label: t("views.store"),
+      icon: <StoreIcon className="size-3.5" />,
+    },
   ]
 }
 

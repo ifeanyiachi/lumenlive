@@ -1,13 +1,13 @@
 //! Transcript-event processing: consumes `TranscriptEvent`s from the STT
 //! provider, emits `transcript_partial`/`transcript_final` to the frontend, and
-//! fans finals out to the background detection workers (direct + reading mode,
-//! and semantic) without ever blocking transcript delivery.
+//! fans transcripts out to the background detection workers (direct and semantic)
+//! without ever blocking transcript delivery.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -20,13 +20,13 @@ use crate::events::{
 };
 
 use super::detection::{
-    check_reading_mode, check_slide_command, check_translation_command, check_verse_command,
-    run_direct_detection, run_semantic_detection,
+    check_slide_command, check_translation_command, check_verse_command, run_direct_detection,
+    run_semantic_detection, run_semantic_partial_detection,
 };
 use super::truncate_safe;
 
 /// Spawn the transcript-processing task set: two background detection workers
-/// (semantic, and direct+reading) plus the event consumer that drives them. All
+/// (semantic, and direct) plus the event consumer that drives them. All
 /// three run on the tokio runtime; detection work uses `spawn_blocking` so mutex
 /// locks / ONNX inference / DB I/O never starve the async runtime (WebSocket
 /// readers, event emitters).
@@ -44,12 +44,17 @@ pub(super) fn spawn_transcript_processing(
     let evt_active = stt_active.clone();
     let event_app = app.clone();
 
-    // Background semantic detection channel — non-blocking, drops if busy
+    // Final semantic detection channel — non-blocking, drops if busy.
     let (semantic_tx, mut semantic_rx) = tokio::sync::mpsc::channel::<String>(4);
 
-    // Background detection channel — direct + reading mode, non-blocking. The
-    // bool is `is_final`: partials run direct detection only (panel display),
-    // finals run the full pipeline (merge, auto-queue, reading mode).
+    // Interim semantic detection channel — one queued suggestion is enough;
+    // final semantic work is prioritized by the worker below.
+    let (semantic_partial_tx, mut semantic_partial_rx) =
+        tokio::sync::mpsc::channel::<String>(1);
+
+    // Background direct-detection channel, non-blocking. The bool is
+    // `is_final`: partials populate the panel only, while finals run the full
+    // merge and auto-queue path.
     let (detect_tx, mut detect_rx) = tokio::sync::mpsc::channel::<(String, bool)>(16);
 
     // [DIAG] Counters so we can see whether transcripts are being dropped
@@ -65,30 +70,36 @@ pub(super) fn spawn_transcript_processing(
     // (WebSocket readers, event emitters, etc.).
     let sem_app = app.clone();
     tauri::async_runtime::spawn(async move {
-        while let Some(text) = semantic_rx.recv().await {
-            let app_clone = sem_app.clone();
-            let _ = tokio::task::spawn_blocking(move || {
-                run_semantic_detection(&app_clone, &text);
-            })
-            .await;
+        loop {
+            tokio::select! {
+                biased;
+                Some(text) = semantic_rx.recv() => {
+                    let app_clone = sem_app.clone();
+                    let _ = tokio::task::spawn_blocking(move || {
+                        run_semantic_detection(&app_clone, &text);
+                    })
+                    .await;
+                }
+                Some(text) = semantic_partial_rx.recv() => {
+                    let app_clone = sem_app.clone();
+                    let _ = tokio::task::spawn_blocking(move || {
+                        run_semantic_partial_detection(&app_clone, &text);
+                    })
+                    .await;
+                }
+                else => break,
+            }
         }
     });
 
-    // Spawn detection worker (runs direct detection + reading mode without blocking
-    // transcript delivery). Uses spawn_blocking so mutex locks and DB I/O don't
-    // starve the tokio runtime.
+    // Spawn the direct-detection worker without blocking transcript delivery.
+    // Uses spawn_blocking so mutex locks and DB I/O don't starve the tokio runtime.
     let det_app = app.clone();
     tauri::async_runtime::spawn(async move {
         while let Some((transcript, is_final)) = detect_rx.recv().await {
             let app_clone = det_app.clone();
             let _ = tokio::task::spawn_blocking(move || {
-                let direct_found = run_direct_detection(&app_clone, &transcript, is_final);
-                // Reading-mode advancement fires on finals only: advancing on a
-                // volatile partial could jump the reader forward on text that
-                // Deepgram later revises.
-                if is_final {
-                    check_reading_mode(&app_clone, &transcript, direct_found);
-                }
+                run_direct_detection(&app_clone, &transcript, is_final);
             })
             .await;
         }
@@ -113,9 +124,14 @@ pub(super) fn spawn_transcript_processing(
         // interim ~1x/sec; skipping unchanged repeats avoids redundant detect()
         // passes. Cleared on each final so the next utterance re-detects.
         let mut last_partial_detect = String::new();
+        let mut last_semantic_partial = String::new();
+        let mut last_semantic_partial_at: Option<Instant> = None;
 
-        // Semantic dispatch is gated to utterance boundaries so ONNX
-        // (~300-600ms) runs at most once per utterance, not per fragment. Two
+        const SEMANTIC_PARTIAL_MIN_WORDS: usize = 8;
+        const SEMANTIC_PARTIAL_INTERVAL: Duration = Duration::from_millis(1200);
+
+        // Final semantic dispatch is gated to utterance boundaries so ONNX
+        // (~300-600ms) runs once per final utterance. Two
         // boundary signals feed it: `speech_final` (fast, ~endpointing latency)
         // when Deepgram attaches it, and `UtteranceEnd` (reliable,
         // ~utterance_end_ms) as the fallback for utterances where Deepgram never
@@ -205,6 +221,21 @@ pub(super) fn spawn_transcript_processing(
                                 rec.partial(&transcript);
                             }
                             let _ = detect_tx.try_send((transcript.clone(), false));
+
+                            // Semantic partials are panel-only suggestions. Keep
+                            // them sparse because each update may run ONNX, and
+                            // let the final semantic job take priority.
+                            let partial_due = transcript.split_whitespace().count()
+                                >= SEMANTIC_PARTIAL_MIN_WORDS
+                                && transcript != last_semantic_partial
+                                && last_semantic_partial_at.map_or(true, |last| {
+                                    last.elapsed() >= SEMANTIC_PARTIAL_INTERVAL
+                                });
+                            if partial_due {
+                                last_semantic_partial.clone_from(&transcript);
+                                last_semantic_partial_at = Some(Instant::now());
+                                let _ = semantic_partial_tx.try_send(transcript.clone());
+                            }
                         }
                         log::debug!("[EVT] Partial processed in {:?}", t0.elapsed());
                     }
@@ -277,6 +308,8 @@ pub(super) fn spawn_transcript_processing(
                         // A final closes the utterance: reset the partial-dedup
                         // guard so the next utterance's partials re-detect fresh.
                         last_partial_detect.clear();
+                        last_semantic_partial.clear();
+                        last_semantic_partial_at = None;
 
                         // Fire-and-forget: detection runs in background thread pool.
                         // Event consumer proceeds immediately to next transcript.

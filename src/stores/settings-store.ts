@@ -13,6 +13,15 @@ import {
 
 type MediaImportMode = "reference" | "copy"
 
+/** Automatic destination for finalized, directly spoken verse references. */
+export type DirectVerseDestination = "live" | "preview" | "detection"
+
+function isDirectVerseDestination(
+  value: unknown
+): value is DirectVerseDestination {
+  return value === "live" || value === "preview" || value === "detection"
+}
+
 /** Schedule "All" tab layout: flat list vs. thumbnail grid. */
 export type ScheduleViewMode = "list" | "thumbnail"
 
@@ -26,23 +35,19 @@ interface SettingsState {
   confidenceThreshold: number
   cooldownMs: number
   onboardingComplete: boolean
-  directAutoDisplay: boolean
   /**
-   * When `directAutoDisplay` is on, also auto-display a spoken *direct* verse
-   * reference the moment it's fully recognized in the interim (partial)
-   * transcript — instead of waiting for the STT final (~1-2s later, once the
-   * speaker pauses). Applies only to complete, stable direct references; the
-   * final reconciles. No effect on semantic/paraphrase detections (those stay
-   * finals-only). Ignored entirely when `directAutoDisplay` is off.
+   * Where finalized direct verse references are routed automatically.
+   * Detection mode keeps the result in the AI Detections panel so the operator
+   * can choose Present, Preview, or Queue for each result.
    */
-  directInstantDisplay: boolean
+  directVerseDestination: DirectVerseDestination
   semanticAutoQueue: boolean
   /**
    * Where a spoken navigation command ("turn to the next verse", "go back one
    * verse") sends its target verse. `false` (default) stages it to Program
    * preview for the operator to take deliberately — safe against a misheard
    * command flipping the audience screen. `true` pushes it straight to the
-   * audience, hands-free. Independent of `directAutoDisplay`, which governs
+   * audience, hands-free. Independent of `directVerseDestination`, which governs
    * spoken *references* rather than navigation.
    */
   navAutoLive: boolean
@@ -122,8 +127,7 @@ interface SettingsState {
   setConfidenceThreshold: (threshold: number) => void
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
-  setDirectAutoDisplay: (enabled: boolean) => void
-  setDirectInstantDisplay: (enabled: boolean) => void
+  setDirectVerseDestination: (destination: DirectVerseDestination) => void
   setSemanticAutoQueue: (enabled: boolean) => void
   setNavAutoLive: (enabled: boolean) => void
   setScheduleNavAutoLive: (enabled: boolean) => void
@@ -147,8 +151,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   confidenceThreshold: 0.65,
   cooldownMs: 2500,
   onboardingComplete: false,
-  directAutoDisplay: true,
-  directInstantDisplay: true,
+  directVerseDestination: "preview",
   semanticAutoQueue: false,
   navAutoLive: false,
   scheduleNavAutoLive: true,
@@ -170,9 +173,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
-  setDirectAutoDisplay: (directAutoDisplay) => set({ directAutoDisplay }),
-  setDirectInstantDisplay: (directInstantDisplay) =>
-    set({ directInstantDisplay }),
+  setDirectVerseDestination: (directVerseDestination) =>
+    set({ directVerseDestination }),
   setSemanticAutoQueue: (semanticAutoQueue) => set({ semanticAutoQueue }),
   setNavAutoLive: (navAutoLive) => set({ navAutoLive }),
   setScheduleNavAutoLive: (scheduleNavAutoLive) => set({ scheduleNavAutoLive }),
@@ -198,8 +200,7 @@ const PERSISTED_KEYS = [
   "confidenceThreshold",
   "cooldownMs",
   "onboardingComplete",
-  "directAutoDisplay",
-  "directInstantDisplay",
+  "directVerseDestination",
   "semanticAutoQueue",
   "navAutoLive",
   "scheduleNavAutoLive",
@@ -236,6 +237,25 @@ export function hydrateSettings(): Promise<void> {
         const value = await store.get(key)
         if (value !== undefined && value !== null) {
           ;(patch as Record<string, unknown>)[key] = value
+        }
+      }
+
+      // Migrate the former boolean setting without changing the behavior
+      // existing users selected: true was Live, false was Program Preview.
+      const persistedDestination = patch.directVerseDestination
+      if (!isDirectVerseDestination(persistedDestination)) {
+        const legacyDirectVerseToLive = await store.get("directVerseToLive")
+        if (typeof legacyDirectVerseToLive === "boolean") {
+          patch.directVerseDestination = legacyDirectVerseToLive
+            ? "live"
+            : "preview"
+          await store.set(
+            "directVerseDestination",
+            patch.directVerseDestination
+          )
+          await store.save()
+        } else if (persistedDestination !== undefined) {
+          delete patch.directVerseDestination
         }
       }
 

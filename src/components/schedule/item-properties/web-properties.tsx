@@ -77,7 +77,9 @@ function WebPlaybackEditor({
           {!isReady && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-[0.625rem] text-muted-foreground">
-                {isLoading ? t("properties.loadingPlayer") : t("properties.noVideo")}
+                {isLoading
+                  ? t("properties.loadingPlayer")
+                  : t("properties.noVideo")}
               </span>
             </div>
           )}
@@ -95,9 +97,7 @@ function WebPlaybackEditor({
           />
         </label>
         <p className="-mt-1 text-[0.625rem] text-muted-foreground">
-          {isLive
-            ? t("properties.liveStreamHelp")
-            : t("properties.vodHelp")}
+          {isLive ? t("properties.liveStreamHelp") : t("properties.vodHelp")}
         </p>
 
         {/* Transport */}
@@ -182,7 +182,9 @@ function WebPlaybackEditor({
 
         {/* Cue markers */}
         <FieldGroup
-          label={isLive ? t("properties.cueMarkersDvr") : t("properties.cueMarkers")}
+          label={
+            isLive ? t("properties.cueMarkersDvr") : t("properties.cueMarkers")
+          }
         >
           <div className="flex flex-col gap-1.5">
             <Button
@@ -194,7 +196,9 @@ function WebPlaybackEditor({
                 const existing = item.markers ?? []
                 const marker = {
                   id: crypto.randomUUID(),
-                  label: t("properties.cueNumber", { count: existing.length + 1 }),
+                  label: t("properties.cueNumber", {
+                    count: existing.length + 1,
+                  }),
                   time: currentTime,
                 }
                 update({
@@ -205,7 +209,9 @@ function WebPlaybackEditor({
               }}
             >
               <PlusIcon className="size-3.5" />
-              {t("properties.addMarkerAt", { time: formatTimecode(currentTime) })}
+              {t("properties.addMarkerAt", {
+                time: formatTimecode(currentTime),
+              })}
             </Button>
 
             {(item.markers ?? [])
@@ -299,7 +305,9 @@ export function WebProperties({
       <div className="flex items-center gap-2 rounded-md bg-sky-500/10 p-2">
         <GlobeIcon className="size-3.5 text-sky-400" />
         <span className="text-xs font-medium text-sky-400">
-          {item.isYouTube ? t("properties.youtubeVideo") : t("properties.webPage")}
+          {item.isYouTube
+            ? t("properties.youtubeVideo")
+            : t("properties.webPage")}
         </span>
       </div>
 

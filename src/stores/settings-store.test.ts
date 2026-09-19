@@ -77,7 +77,20 @@ describe("settings store", () => {
     const after = useSettingsStore.getState()
 
     expect(after.gain).toBe(before.gain)
-    expect(after.directAutoDisplay).toBe(before.directAutoDisplay)
+    expect(after.directVerseDestination).toBe(before.directVerseDestination)
+  })
+
+  it("migrates the former direct-to-live toggle to its matching destination", async () => {
+    mockGet.mockImplementation(async (key: string) =>
+      key === "directVerseToLive" ? true : null
+    )
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    expect(useSettingsStore.getState().directVerseDestination).toBe("live")
+    expect(mockSet).toHaveBeenCalledWith("directVerseDestination", "live")
   })
 
   it("seeds and persists a supported OS language on first run", async () => {
@@ -198,7 +211,9 @@ describe("settings store", () => {
     mockSave.mockReset()
     mockSave.mockRejectedValue(new Error("disk error"))
 
-    useSettingsStore.getState().setDirectAutoDisplay(false)
+    // Flip to a value that actually changes (default is preview), or the
+    // subscribe listener sees no change and never attempts a save.
+    useSettingsStore.getState().setDirectVerseDestination("live")
     await flushSave()
 
     expect(warnSpy).toHaveBeenCalledWith(

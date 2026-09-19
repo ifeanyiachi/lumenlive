@@ -74,7 +74,6 @@ pub fn run() {
         .manage(Mutex::new(lumenlive_broadcast::ndi::NdiRuntime::default()))
         .manage(Mutex::new(lumenlive_detection::DirectDetector::new()))
         .manage(Mutex::new(lumenlive_detection::DetectionMerger::new()))
-        .manage(Mutex::new(lumenlive_detection::ReadingMode::new()))
         // Per-session transcript recorder: writes every partial/final +
         // detection to its own durable file. See commands::stt::TranscriptRecorder.
         .manage(Mutex::new(commands::stt::TranscriptRecorder::default()))
@@ -105,8 +104,6 @@ pub fn run() {
             commands::detection::detection_status,
             commands::detection::semantic_search,
             commands::detection::toggle_paraphrase_detection,
-            commands::detection::reading_mode_status,
-            commands::detection::stop_reading_mode,
             commands::detection::update_detection_settings,
             commands::detection::set_embedding_model,
             commands::audio::get_audio_devices,
