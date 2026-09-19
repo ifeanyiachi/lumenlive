@@ -10,9 +10,9 @@ import { invoke } from "@tauri-apps/api/core"
  * licensing gateway above it deals only in typed domain calls.
  */
 
-/** Base URL of the LumenBO API. Dev defaults to the local backend. */
+/** Base URL of the LumenBO API. Override only for local development. */
 const BASE_URL = (
-  import.meta.env.VITE_LUMENBO_URL ?? "http://localhost:3016"
+  import.meta.env.VITE_LUMENBO_URL ?? "https://app.lumenlive.xyz"
 ).replace(/\/+$/, "")
 
 /**

@@ -182,9 +182,23 @@ jobs:
       - name: Build signed installer
         shell: bash
         env:
+          VITE_LUMENBO_URL: https://app.lumenlive.xyz
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run tauri build --bundles nsis
+
+      # The API base is compiled into the Vite bundle. Fail the release if a
+      # production installer accidentally contains the local development URL.
+      - name: Validate production API URL
+        shell: powershell
+        run: |
+          $bundles = Get-ChildItem -Path build -Recurse -Filter *.js -File
+          if (-not $bundles) { Write-Host "::error::No frontend JavaScript bundles found"; exit 1 }
+          $local = $bundles | Select-String -SimpleMatch 'http://localhost:3016'
+          if ($local) { Write-Host "::error::Production bundle contains http://localhost:3016"; exit 1 }
+          $prod = $bundles | Select-String -SimpleMatch 'https://app.lumenlive.xyz'
+          if (-not $prod) { Write-Host "::error::Production API URL was not found in the frontend bundle"; exit 1 }
+          Write-Host "Production API URL validation passed."
 
       # Assemble the Tauri v2 update manifest ourselves (tauri-action only emits
       # it when publishing a GitHub Release, which we don't). Read version from
