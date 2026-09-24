@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { ColorSwatch } from "@/components/ui/color-swatch"
+import { ColorMenu } from "@/components/ui/color-picker"
 import {
   BoldIcon,
   ItalicIcon,
@@ -15,90 +15,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
-
-const TEXT_COLORS = [
-  "#ffffff",
-  "#ef4444",
-  "#f59e0b",
-  "#22c55e",
-  "#3b82f6",
-  "#f97316",
-  "#a855f7",
-  "#ec4899",
-]
-
-const HIGHLIGHT_COLORS = [
-  "#facc15",
-  "#fb923c",
-  "#4ade80",
-  "#60a5fa",
-  "#f472b6",
-  "#c084fc",
-  "#f87171",
-  "#2dd4bf",
-]
 
 interface VerseEditToolbarProps {
   editor: Editor | null
-}
-
-function ColorGrid({
-  colors,
-  activeColor,
-  onSelect,
-  onClear,
-}: {
-  colors: string[]
-  activeColor: string | undefined
-  onSelect: (color: string) => void
-  onClear: () => void
-}) {
-  const { t } = useTranslation("verse-edit")
-  return (
-    <div className="flex flex-col gap-2 p-2">
-      <div
-        className="grid grid-cols-4 gap-1.5"
-        role="listbox"
-        aria-label={t("colorOptions")}
-      >
-        {colors.map((color) => (
-          <button
-            key={color}
-            role="option"
-            aria-selected={activeColor === color}
-            aria-label={color}
-            className={cn(
-              "size-7 rounded-md border-2 transition-transform hover:scale-110",
-              activeColor === color
-                ? "border-primary ring-1 ring-primary"
-                : "border-transparent"
-            )}
-            style={{ backgroundColor: color }}
-            onClick={() => onSelect(color)}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <label className="flex flex-1 items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">{t("custom")}</span>
-          <ColorSwatch
-            value={activeColor || "#ffffff"}
-            onChange={onSelect}
-            className="h-6 w-8 bg-transparent"
-          />
-        </label>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 text-xs"
-          onClick={onClear}
-        >
-          {t("clear")}
-        </Button>
-      </div>
-    </div>
-  )
 }
 
 export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
@@ -168,9 +87,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <ColorGrid
-            colors={TEXT_COLORS}
-            activeColor={activeTextColor}
+          <ColorMenu
+            value={activeTextColor || "#ffffff"}
             onSelect={(color) => editor.chain().focus().setColor(color).run()}
             onClear={() => editor.chain().focus().unsetColor().run()}
           />
@@ -194,9 +112,8 @@ export function VerseEditToolbar({ editor }: VerseEditToolbarProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <ColorGrid
-            colors={HIGHLIGHT_COLORS}
-            activeColor={activeHighlight}
+          <ColorMenu
+            value={activeHighlight || "#facc15"}
             onSelect={(color) =>
               editor.chain().focus().toggleHighlight({ color }).run()
             }

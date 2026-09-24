@@ -39,4 +39,32 @@ describe("transcript store", () => {
     expect(useTranscriptStore.getState().segments).toEqual([])
     expect(useTranscriptStore.getState().currentPartial).toBe("")
   })
+
+  it("reset clears live transcription and server usage state", () => {
+    useTranscriptStore.setState({
+      segments: [seg(1)],
+      currentPartial: "partial",
+      isTranscribing: true,
+      connectionStatus: "connected",
+      remainingMinutes: 12,
+      transcriptionStatus: {
+        mode: "team_byok",
+        tier: "free",
+        allowanceMinutes: -1,
+        usedMinutes: 4,
+        remainingMinutes: null,
+      },
+    })
+
+    useTranscriptStore.getState().reset()
+
+    expect(useTranscriptStore.getState()).toMatchObject({
+      segments: [],
+      currentPartial: "",
+      isTranscribing: false,
+      connectionStatus: "disconnected",
+      remainingMinutes: null,
+      transcriptionStatus: null,
+    })
+  })
 })

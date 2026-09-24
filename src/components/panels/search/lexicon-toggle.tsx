@@ -37,7 +37,7 @@ export function LexiconToggle({
             className={cn(
               "shrink-0 font-mono text-[10px] transition-opacity",
               open
-                ? "bg-lime-500/20 text-lime-400"
+                ? "bg-primary/20 text-primary"
                 : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground",
               className
             )}

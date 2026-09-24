@@ -7,6 +7,14 @@
     "toggleSidebar": "Toggle sidebar"
   },
   "color": { "hex": "Hex" },
+  "colorPalette": {
+    "standardColors": "Standard Colors",
+    "recentColors": "Recent Colors",
+    "moreColors": "More Colors…",
+    "palette": "Palette",
+    "clear": "Clear",
+    "selectColor": "Select {{color}}"
+  },
   "live": { "active": "LIVE", "inactive": "OFF AIR" },
   "verseCard": { "empty": "Select a verse to preview" },
   "errorBoundary": {

@@ -22,13 +22,17 @@ import { hydrateSchedules } from "@/stores/schedule-store"
 import { hydrateAlertTemplates } from "@/stores/alert-store"
 import { hydrateCountdownTimers } from "@/stores/countdown-store"
 import { hydrateWebBookmarks } from "@/stores/web-store"
-import { initUpdateNotifier } from "@/stores/update-store"
+import { initUpdateNotifier, useUpdateStore } from "@/stores/update-store"
 import {
   bootstrapLicensing,
   startRevalidationLoop,
 } from "@/stores/licensing-actions"
 import { trackAppLaunched } from "@/services/analytics-gateway"
 import { i18n, initializeI18n } from "@/lib/i18n/config"
+import { disableNativeContextMenu } from "@/lib/disable-native-context-menu"
+import { initializeDesktopAuthCallbackBridge } from "@/services/desktop-auth-callback-gateway"
+
+disableNativeContextMenu()
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
 // left running from the previous webview session still has
@@ -89,6 +93,12 @@ invoke("stop_transcription")
       hydrateAlertTemplates(),
       hydrateCountdownTimers(),
       hydrateWebBookmarks(),
+      // Install the native browser-login callback before React mounts so a
+      // callback cannot race the account UI during startup.
+      initializeDesktopAuthCallbackBridge(),
+      // Resolve the mandatory-update policy before mounting the application so
+      // blocked builds never start dashboard or broadcast hooks.
+      initUpdateNotifier(),
       // Restore the account session + license offline, then background-revalidate
       // if due. Never blocks boot — the app defaults to Free on any failure.
       bootstrapLicensing(),
@@ -106,14 +116,13 @@ invoke("stop_transcription")
         </I18nextProvider>
       </StrictMode>
     )
-    // Check for app updates after first paint — fire-and-forget so a slow or
-    // offline endpoint never delays the UI. Populates the Store banner + nav dot.
-    void initUpdateNotifier()
-    // Weekly background license re-validation for the app's lifetime. A full
-    // webview reload recreates this module, so the interval never stacks.
-    startRevalidationLoop()
-    // Anonymous launch heartbeat. Fired after hydration so the opt-out has
-    // already been applied to the analytics gateway; no-ops when opted out or
-    // outside Tauri. This is what makes an install count as an active church.
-    trackAppLaunched()
+    if (useUpdateStore.getState().policyStatus !== "blocked") {
+      // Weekly background license re-validation for the app's lifetime. A full
+      // webview reload recreates this module, so the interval never stacks.
+      startRevalidationLoop()
+      // Anonymous launch heartbeat. Fired after hydration so the opt-out has
+      // already been applied to the analytics gateway; no-ops when opted out or
+      // outside Tauri. This is what makes an install count as an active church.
+      trackAppLaunched()
+    }
   })

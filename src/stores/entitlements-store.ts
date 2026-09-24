@@ -41,10 +41,19 @@ interface EntitlementsState {
    * validation time (set when the token came from activate/validate).
    */
   applyToken: (token: string, markValidated?: boolean) => Promise<string>
+  /** Restore a previously valid snapshot when a team switch fails locally. */
+  restore: (snapshot: EntitlementSnapshot) => Promise<void>
   /** Load the persisted token from disk and verify it offline (startup). */
   hydrate: () => Promise<void>
   /** Drop the license entirely and fall back to Free (sign-out). */
   clear: () => Promise<void>
+}
+
+export interface EntitlementSnapshot {
+  entitlement: Entitlement
+  reason: string
+  licenseToken: string | null
+  lastValidatedAt: number | null
 }
 
 async function persistLicense(
@@ -84,7 +93,11 @@ export const useEntitlementsStore = create<EntitlementsState>((set, get) => ({
   applyToken: async (token, markValidated = false) => {
     const machineId = await get().ensureMachineId()
     const result = await verifyLicense(token, machineId)
-    const lastValidatedAt = markValidated ? Date.now() : get().lastValidatedAt
+    // Only a locally verified token counts as a successful online validation.
+    // Invalid responses must remain eligible for another retry rather than
+    // suppressing the weekly revalidation loop.
+    const lastValidatedAt =
+      markValidated && result.valid ? Date.now() : get().lastValidatedAt
 
     if (result.valid && result.claims) {
       const c = result.claims
@@ -115,6 +128,11 @@ export const useEntitlementsStore = create<EntitlementsState>((set, get) => ({
       await persistLicense(keep ? token : null, keep ? lastValidatedAt : null)
     }
     return result.reason
+  },
+
+  restore: async (snapshot) => {
+    set(snapshot)
+    await persistLicense(snapshot.licenseToken, snapshot.lastValidatedAt)
   },
 
   hydrate: async () => {

@@ -1,4 +1,4 @@
-import { openSettings } from "@/lib/settings-dialog"
+import { openAccountMenu } from "@/lib/account-menu"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,19 +12,24 @@ import {
 
 /**
  * Shown when an anonymous (signed-out) user tries to start transcription.
- * Transcription runs strictly on platform-managed keys, which require a
- * LumenLive account, so there's nothing to configure locally — the user just
- * needs to sign in. Points them at the in-app Account settings, where the
- * sign-in form lives. Distinct from `TranscriptionBlockedPrompt`, which handles
+ * Transcription uses server-authorized keys, including team-managed BYOK keys,
+ * which require a LumenLive account, so there's nothing to configure locally —
+ * the user just needs to sign in. Starts the shared browser-login flow. Distinct from
+ * `TranscriptionBlockedPrompt`, which handles
  * a *signed-in* user whose allowance is spent or whose account key is rejected.
  */
 
 interface SignInPromptProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSignIn?: () => void
 }
 
-export function SignInPrompt({ open, onOpenChange }: SignInPromptProps) {
+export function SignInPrompt({
+  open,
+  onOpenChange,
+  onSignIn,
+}: SignInPromptProps) {
   const { t } = useTranslation("ui")
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -45,9 +50,8 @@ export function SignInPrompt({ open, onOpenChange }: SignInPromptProps) {
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
               onOpenChange(false)
-              window.setTimeout(() => {
-                openSettings("account")
-              }, 120)
+              if (onSignIn) onSignIn()
+              else window.setTimeout(openAccountMenu, 120)
             }}
           >
             {t("signInPrompt.signIn")}

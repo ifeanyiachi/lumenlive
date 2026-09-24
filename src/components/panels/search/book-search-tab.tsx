@@ -158,7 +158,7 @@ export function BookSearchTab({
                   isMultiSelected
                     ? "border border-sky-500/50 bg-sky-500/10"
                     : verse.id === effectiveSelectedVerseId
-                      ? "border border-lime-500/50 bg-lime-500/10"
+                      ? "border border-primary/50 bg-primary/10"
                       : "border border-transparent hover:bg-muted/50"
                 )}
               >
@@ -220,7 +220,7 @@ export function BookSearchTab({
                     )}
                     addClassName={
                       verse.id === effectiveSelectedVerseId
-                        ? "hover:bg-lime-500/20 hover:text-lime-500"
+                        ? "hover:bg-primary/20 hover:text-primary"
                         : "bg-primary/40! text-primary-foreground hover:bg-primary!"
                     }
                   />

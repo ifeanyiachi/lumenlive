@@ -3,15 +3,11 @@ import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   BookOpen,
-  Clapperboard,
-  Image as ImageIcon,
-  LayoutTemplate,
   Loader2,
   Music,
   Package,
   RefreshCw,
   Search,
-  Type,
   Upload,
 } from "lucide-react"
 import { useResourceStore } from "@/stores/resource-store"
@@ -36,23 +32,19 @@ import { cn } from "@/lib/utils"
 /**
  * The full-page resource store (the "Store" tab). Browses and installs Bible
  * versions — the only resource kind the backend serves today. The other
- * categories are shown, disabled, to preview what's coming; they carry no
- * catalog yet.
+ * categories without a catalog are intentionally omitted from the filter row
+ * until they have content to show.
  *
  * Catalog load and the progress-event subscription are wired on mount; the
  * subscription's disposer runs on unmount so the listener is never orphaned.
  * Handlers are read via `getState()` so the effects don't re-bind.
  */
 
-/** Category filter chips. Only "bible" has a live catalog; the rest preview. */
+/** Category filter chips. Keep the row limited to catalogs users can browse. */
 const CATEGORIES = [
-  { id: "all", icon: Package, enabled: true },
-  { id: "templates", icon: LayoutTemplate, enabled: false },
-  { id: "titles", icon: Type, enabled: false },
-  { id: "songs", icon: Music, enabled: true },
-  { id: "backgrounds", icon: ImageIcon, enabled: false },
-  { id: "videos", icon: Clapperboard, enabled: false },
-  { id: "bible", icon: BookOpen, enabled: true },
+  { id: "all", icon: Package },
+  { id: "songs", icon: Music },
+  { id: "bible", icon: BookOpen },
 ] as const
 
 type CategoryId = (typeof CATEGORIES)[number]["id"]
@@ -200,16 +192,12 @@ export function ResourceStorePage() {
             <button
               key={c.id}
               type="button"
-              disabled={!c.enabled}
-              title={c.enabled ? undefined : t("common.comingSoon")}
               onClick={() => setCategory(c.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 active
                   ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-                !c.enabled &&
-                  "cursor-not-allowed opacity-40 hover:text-muted-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Icon className="size-3.5" />

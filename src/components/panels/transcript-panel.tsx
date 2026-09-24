@@ -26,6 +26,7 @@ import { fetchChapter } from "@/services/bible-search-gateway"
 import { trackFeatureUsed } from "@/services/analytics-gateway"
 import { stepVerseBy, type NavDirection } from "@/lib/search/verse-navigation"
 import { liveVerseAnchor } from "@/lib/voice/live-verse-anchor"
+import { startBrowserSignIn } from "@/services/desktop-auth-flow"
 import {
   autoPreviewCandidates,
   panelDetections,
@@ -51,6 +52,19 @@ type VerseCommandPayload =
  * from `verse_command`: slide commands drive the schedule list, not verses.
  */
 type SlideCommandPayload = { direction: "next" | "previous"; count: number }
+
+const TRANSCRIPT_RECENCY_CLASSES = [
+  "text-foreground/80",
+  "text-foreground/60",
+  "text-foreground/40",
+  "text-foreground/25",
+] as const
+
+function transcriptTextClass(distanceFromEnd: number) {
+  const recencyIndex =
+    distanceFromEnd === 0 ? 0 : Math.min(distanceFromEnd, 3)
+  return TRANSCRIPT_RECENCY_CLASSES[recencyIndex]
+}
 
 /**
  * Present a verse reached by spoken navigation: reflect it in the book panel and
@@ -320,6 +334,7 @@ export function TranscriptPanel() {
   } = useTranscription({ onSignInRequired, onBlocked })
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const connectionLabel = t(`transcript.connection.${connectionStatus}`)
   useTauriEvent<{ rms: number; peak: number }>("audio_level", (payload) => {
     useAudioStore.getState().setLevel(payload)
   })
@@ -489,6 +504,8 @@ export function TranscriptPanel() {
         <div className="flex items-end gap-2 pb-px">
           {isTranscribing && (
             <span
+              role="status"
+              aria-label={connectionLabel}
               className={`mb-1 size-1.5 rounded-full ${
                 connectionStatus === "connected"
                   ? "bg-emerald-500"
@@ -498,7 +515,7 @@ export function TranscriptPanel() {
                       ? "bg-red-500"
                       : "bg-muted-foreground/40"
               }`}
-              title={connectionStatus}
+              title={connectionLabel}
             />
           )}
           <AudioLevelMeter />
@@ -519,18 +536,10 @@ export function TranscriptPanel() {
           {/* Final segments — recent ones brighter, older ones fade */}
           {segments.map((seg, idx) => {
             const distFromEnd = segments.length - 1 - idx
-            const opacity =
-              distFromEnd === 0
-                ? "text-foreground/80"
-                : distFromEnd === 1
-                  ? "text-foreground/60"
-                  : distFromEnd <= 3
-                    ? "text-foreground/40"
-                    : "text-foreground/25"
             return (
               <p
                 key={seg.id}
-                className={`text-sm leading-relaxed transition-colors duration-300 ${opacity}`}
+                className={`text-sm leading-relaxed transition-colors duration-300 ${transcriptTextClass(distFromEnd)}`}
               >
                 {seg.text}
               </p>
@@ -581,6 +590,12 @@ export function TranscriptPanel() {
       <SignInPrompt
         open={showSignInPrompt}
         onOpenChange={setShowSignInPrompt}
+        onSignIn={() =>
+          void startBrowserSignIn({
+            pendingAction: "start-transcription",
+            onActivated: () => void startTranscription(),
+          }).catch(() => {})
+        }
       />
 
       <TranscriptionBlockedPrompt

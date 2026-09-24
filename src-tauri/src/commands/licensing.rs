@@ -12,7 +12,7 @@
 use lumenlive_licensing::VerifyResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Device metadata used to name a device on activation and shown in Account
 /// settings. `os` + `version` + `arch` compose the `osInfo` string LumenBO
@@ -95,7 +95,14 @@ pub async fn licensing_request(
     let method = reqwest::Method::from_bytes(req.method.to_uppercase().as_bytes())
         .map_err(|e| e.to_string())?;
 
-    let mut builder = reqwest::Client::new().request(method, &req.url);
+    // Update policy is checked before the frontend mounts, so every request
+    // must have a finite timeout or an unavailable server could prevent the
+    // desktop shell from ever reaching its retry screen.
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let mut builder = client.request(method, &req.url);
     if let Some(token) = req.token {
         builder = builder.bearer_auth(token);
     }

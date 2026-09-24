@@ -168,7 +168,11 @@ export function PresentationGrid() {
           className="h-7 gap-1 px-2 text-xs"
           disabled={importing}
           onClick={() => {
-            if (requireFeature("pptx_import", t("grid.powerPointImport")))
+            if (
+              requireFeature("pptx_import", t("grid.powerPointImport"), () =>
+                fileInputRef.current?.click()
+              )
+            )
               fileInputRef.current?.click()
           }}
           title={t("grid.importPowerPointTitle")}

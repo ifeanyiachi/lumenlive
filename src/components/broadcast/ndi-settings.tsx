@@ -148,7 +148,7 @@ export function NdiSettings({
         )}
         onClick={() => {
           // Allow stopping regardless; gate only the start (ndi_output is Pro).
-          if (ndiActive || requireFeature("ndi_output", "NDI output"))
+          if (ndiActive || requireFeature("ndi_output", "NDI output", toggleNdi))
             toggleNdi()
         }}
       >

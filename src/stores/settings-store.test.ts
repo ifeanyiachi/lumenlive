@@ -78,6 +78,7 @@ describe("settings store", () => {
 
     expect(after.gain).toBe(before.gain)
     expect(after.directVerseDestination).toBe(before.directVerseDestination)
+    expect(after.telemetryEnabled).toBe(true)
   })
 
   it("migrates the former direct-to-live toggle to its matching destination", async () => {

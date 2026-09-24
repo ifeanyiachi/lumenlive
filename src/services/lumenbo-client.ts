@@ -25,11 +25,14 @@ const DESKTOP_ORIGIN = "https://tauri.localhost"
 /** Error codes the desktop flow branches on (mirrors LumenBO `ErrorCode`). */
 export type LicensingErrorCode =
   | "UNAUTHORIZED"
+  | "ORG_AMBIGUOUS"
+  | "NO_SEAT"
   | "DEVICE_LIMIT_REACHED"
   | "NOT_FOUND"
   | "VALIDATION_ERROR"
   | "SERVICE_UNAVAILABLE"
   | "INTERNAL"
+  | "LICENSE_INVALID"
   | "NETWORK"
   | "UNKNOWN"
   | string
@@ -132,6 +135,28 @@ export interface SignInResult {
   user: { id: string; email: string; name: string; emailVerified: boolean }
 }
 
+export interface DesktopAuthExchangeInput {
+  code: string
+  state: string
+  codeVerifier: string
+  redirectUri: string
+}
+
+export interface DesktopTeam {
+  id: string
+  name: string
+  role: string
+  seat: boolean
+  status: "active" | "suspended"
+  createdAt: string
+}
+
+export interface DesktopTeamList {
+  teams: DesktopTeam[]
+  showSwitcher: boolean
+  defaultOrganizationId: string | null
+}
+
 /**
  * Sign in via better-auth's `/api/auth/sign-in/email`. The bearer plugin returns
  * the session token in the `set-auth-token` response header (not the body).
@@ -161,6 +186,43 @@ export async function signIn(
     throw new LicensingError(
       "UNKNOWN",
       json?.message ?? `Sign-in failed (HTTP ${res.status})`,
+      res.status
+    )
+  }
+  return { token, user: json.user }
+}
+
+/**
+ * Exchange the one-time desktop authorization code for the existing bearer
+ * session contract. The code and PKCE verifier are sent only over the native
+ * HTTP path; neither a bearer token nor a license is placed in the callback URL.
+ */
+export async function exchangeDesktopAuthorizationCode(
+  input: DesktopAuthExchangeInput
+): Promise<SignInResult> {
+  const res = await raw("/api/auth/desktop/exchange", {
+    method: "POST",
+    body: input,
+  })
+  const json = parseJson(res.body) as {
+    user?: { id: string; email: string; name: string; emailVerified: boolean }
+    token?: string
+    message?: string
+  } | null
+
+  if (res.status === 400 || res.status === 401 || res.status === 403) {
+    throw new LicensingError(
+      "UNAUTHORIZED",
+      json?.message ?? "Desktop sign-in could not be completed",
+      res.status
+    )
+  }
+
+  const token = res.headers["set-auth-token"] ?? json?.token
+  if (res.status < 200 || res.status >= 300 || !token || !json?.user) {
+    throw new LicensingError(
+      "UNKNOWN",
+      json?.message ?? `Desktop sign-in exchange failed (HTTP ${res.status})`,
       res.status
     )
   }

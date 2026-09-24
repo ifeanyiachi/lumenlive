@@ -166,7 +166,13 @@ export function AIVersesTab() {
                       onClick={(e) => {
                         e.stopPropagation()
                         // Verse formatting is a Starter capability (verse_editing).
-                        if (requireFeature("verse_editing", "Verse editing"))
+                        if (
+                          requireFeature(
+                            "verse_editing",
+                            "Verse editing",
+                            () => setEditVerse(item)
+                          )
+                        )
                           setEditVerse(item)
                       }}
                       title={t("aiVerses.editFormatting")}

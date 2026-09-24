@@ -1,12 +1,21 @@
 {
   "preview": {
     "title": "Prévia da programação",
+    "badge": "Prévia da programação",
     "takeLive": "Enviar o item visualizado ao público (Enter)",
+    "goLive": "Ir ao vivo",
     "monitorAudio": "Monitorar áudio",
-    "muteMonitorAudio": "Silenciar áudio de monitoramento"
+    "muteMonitorAudio": "Silenciar áudio de monitoramento",
+    "interlinearToggle": "Alternar transliterações interlineares em {{language}}",
+    "interlinearHebrew": "hebraico",
+    "interlinearGreek": "grego",
+    "interlinearHebrewShort": "He",
+    "interlinearGreekShort": "Gr"
   },
   "live": {
     "title": "Exibição ao vivo",
+    "badge": "Exibição ao vivo",
+    "offAir": "Exibição ao vivo",
     "goLive": "Ir ao vivo",
     "live": "Ao vivo",
     "props": "Adereços / Sobreposições",
@@ -15,6 +24,7 @@
     "unmuteAudio": "Ativar áudio da transmissão",
     "previousPage": "Página anterior (←)",
     "nextPage": "Próxima página (→)",
+    "pageOf": "Página {{current}} / {{total}}",
     "blackHidden": "Preto · oculto",
     "logo": "Logotipo",
     "clearHidden": "Limpar · texto oculto",
@@ -142,6 +152,7 @@
     "startingTitle": "Iniciando transcrição",
     "starting": "Iniciando…",
     "startTitle": "Iniciar transcrição (T)",
-    "start": "Iniciar transcrição"
+    "start": "Iniciar transcrição",
+    "connection": { "connected": "Transcrição conectada", "connecting": "Conectando à transcrição", "disconnected": "Transcrição desconectada", "error": "Erro de conexão da transcrição" }
   }
 }

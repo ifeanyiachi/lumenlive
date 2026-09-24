@@ -88,7 +88,7 @@ LumenLive is a full live-production suite for worship services: build a run-of-s
 
 ### Updates & privacy
 
-- **In-app updater** — checks for a newer signed release at launch and surfaces a Software Update panel; downloads with a progress bar, verifies the signature, and relaunches. A failed or offline check never blocks startup, and a dismissed version stays dismissed.
+- **In-app updater** — checks for a newer signed release before launch and surfaces a Software Update panel; downloads with a progress bar, verifies the signature, and relaunches. Add `minimumSupportedVersion` to the updater manifest to make a release mandatory; unsupported builds show an update-only screen and cannot continue into the app. A previously received mandatory policy is enforced offline.
 - **Privacy-respecting telemetry** — optional anonymous usage analytics (fixed event names and small closed enums only — no scripture text, church or service names, media paths, or free-form strings), with a one-switch opt-out in Privacy settings.
 
 ## Prerequisites

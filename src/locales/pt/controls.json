@@ -14,6 +14,11 @@
   "themeDesignerFeature": "Designer de temas",
   "stageDisplayFeature": "Ecrã de palco",
   "keyboardShortcuts": "Atalhos de teclado (?)",
+  "groups": {
+    "serviceTools": "Ferramentas do serviço",
+    "designTools": "Ferramentas de design e saída",
+    "appControls": "Controlos da aplicação"
+  },
   "reload": {
     "button": "Recarregar aplicação",
     "title": "Recarregar a aplicação?",

@@ -19,6 +19,14 @@ import {
 import { SettingsIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
+import type { SettingsSection } from "@/lib/settings-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { getSettingsSections } from "@/components/settings/settings-sections"
 
@@ -63,12 +71,12 @@ export function SettingsDialog() {
           <SettingsIcon className="size-3.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="overflow-hidden p-0 md:max-h-[600px] md:max-w-[800px] lg:max-w-[900px]">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-hidden p-0 md:max-h-[600px] md:max-w-[800px] lg:max-w-[900px]">
         <DialogTitle className="sr-only">{t("dialog.title")}</DialogTitle>
         <DialogDescription className="sr-only">
           {t("dialog.description")}
         </DialogDescription>
-        <SidebarProvider className="items-start">
+        <SidebarProvider className="min-h-0 items-start">
           <Sidebar collapsible="none" className="hidden md:flex">
             <div className="flex h-14 items-center border-r border-b border-border px-4">
               {t("dialog.title")}
@@ -93,13 +101,36 @@ export function SettingsDialog() {
               </SidebarGroup>
             </SidebarContent>
           </Sidebar>
-          <main className="flex h-[580px] flex-1 flex-col overflow-hidden">
+          <main className="flex h-[min(580px,calc(100dvh-1rem))] min-h-0 flex-1 flex-col overflow-hidden">
             <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border">
-              <div className="flex items-center gap-2 px-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:hidden">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  {t("dialog.title")}
+                </span>
+                <span className="text-muted-foreground/50">/</span>
+                <Select
+                  value={activeSection}
+                  onValueChange={(value) =>
+                    setActiveSection(value as SettingsSection)
+                  }
+                >
+                  <SelectTrigger className="h-8 min-w-0 flex-1 border-0 bg-transparent px-2 text-xs font-medium shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sections.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="hidden items-center gap-2 px-4 md:flex">
                 {section.title}
               </div>
             </header>
-            <div className="flex flex-1 flex-col overflow-y-auto p-4">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
               <ActiveContent />
             </div>
           </main>

@@ -119,17 +119,42 @@
       "description": "O LumenLive é gratuito — não é necessária uma conta. Entre para ativar sua assinatura neste dispositivo.",
       "action": "Entrar"
     },
+    "browser": {
+      "description": "Continue no navegador para entrar com segurança e ativar este dispositivo.",
+      "action": "Entrar pelo navegador",
+      "pending": "O login no navegador está aberto. Conclua-o e volte aqui.",
+      "pendingAction": "Aguardando o navegador",
+      "cancel": "Cancelar login",
+      "cancelled": "O login no navegador foi cancelado.",
+      "timedOut": "A janela de login expirou. Tente novamente.",
+      "offline": "O LumenLive não conseguiu acessar o servidor. Verifique sua conexão e tente novamente."
+    },
     "email": "E-mail",
     "password": "Senha",
     "signingIn": "Entrando…",
     "newToLumenLive": "Novo no LumenLive?",
     "registerChurch": "Registrar uma igreja",
     "unknownDevice": "Dispositivo desconhecido",
+    "activation": {
+      "required": "A conta está conectada, mas este dispositivo ainda precisa ser ativado antes que os recursos da conta e a transcrição estejam disponíveis.",
+      "activating": "A ativação do dispositivo ainda está em andamento.",
+      "failed": "Não foi possível ativar este dispositivo.",
+      "deviceLimit": "Esta conta atingiu o limite de dispositivos. Desative outro dispositivo e tente novamente.",
+      "noSeat": "Esta conta não tem mais uma vaga para desktop na equipe selecionada.",
+      "sessionExpired": "Sua sessão expirou. Entre novamente para ativar este dispositivo.",
+      "offline": "Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.",
+      "retry": "Tentar ativar novamente",
+      "retrying": "Ativando…",
+      "signInAgain": "Entrar novamente"
+    },
     "reason": {
       "trial_ended": "Sua avaliação gratuita terminou. Assine um plano para restaurar o acesso completo.",
       "expired": "Não conseguimos confirmar seu plano recentemente. Conecte-se à Internet e valide-o novamente abaixo.",
       "machine_mismatch": "Este plano está ativo em outro dispositivo. Entre aqui para movê-lo para este dispositivo.",
-      "signature": "Seu plano precisa de uma rápida atualização neste dispositivo. Valide-o novamente abaixo para atualizá-lo."
+      "signature": "Seu plano precisa de uma rápida atualização neste dispositivo. Valide-o novamente abaixo para atualizá-lo.",
+      "malformed": "A licença salva do dispositivo não pode ser lida. Valide-a novamente para obter uma nova.",
+      "issuer": "A licença salva veio de um emissor não confiável. Valide-a novamente para obter uma nova.",
+      "audience": "A licença salva não é desta aplicação. Valide-a novamente para obter uma nova."
     },
     "refreshFailed": "Não foi possível atualizar seu plano agora: {{message}}",
     "revalidatedNow": "Tudo certo — seu plano agora é {{plan}}.",
@@ -145,14 +170,26 @@
     "signOut": "Sair",
     "accessPeriod": "Período de acesso",
     "accessEnded": "Acesso encerrado",
-    "transcriptionUsage": "Transcrição",
+    "transcriptionUsage": "Transcrição este mês",
     "transcriptionUsageProgress": "{{used}} min de {{allowance}} min usados",
     "transcriptionUsageRemaining": "{{minutes}} min restantes",
+    "transcriptionUsageUnlimited": "Ilimitada",
+    "transcriptionUsageTeamKey": "Gerenciado pela equipe",
+    "transcriptionUsageTeamKeyDescription": "O uso é fornecido pela chave configurada por esta equipe.",
+    "transcriptionUsageUsed": "{{minutes}} min usados",
     "days_one": "{{count}} dia",
     "days_other": "{{count}} dias",
     "hours_one": "{{count}} hora",
     "hours_other": "{{count}} horas",
-    "accessRemaining": "Restam {{days}} {{hours}}"
+    "accessRemaining": "Restam {{days}} {{hours}}",
+    "team": {
+      "label": "Equipe",
+      "choose": "Escolha uma equipe",
+      "chooseTitle": "Escolha sua equipe",
+      "chooseDescription": "Esta conta tem acesso a mais de uma equipe. Escolha qual equipe usar neste dispositivo.",
+      "activating": "Ativando…",
+      "continue": "Continuar"
+    }
   },
   "songs": {
     "apiKeyLabel": "Chave de API do Genius",

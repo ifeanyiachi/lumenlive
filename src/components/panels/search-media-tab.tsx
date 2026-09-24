@@ -269,7 +269,7 @@ export function SearchMediaTab() {
               className={cn(
                 "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
                 filter === f
-                  ? "bg-lime-500/15 text-lime-300"
+                  ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >

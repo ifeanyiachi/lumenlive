@@ -119,17 +119,42 @@
       "description": "LumenLive est gratuit — aucun compte n’est nécessaire. Connectez-vous pour activer votre abonnement sur cet appareil.",
       "action": "Se connecter"
     },
+    "browser": {
+      "description": "Continuez dans votre navigateur pour vous connecter en toute sécurité et activer cet appareil.",
+      "action": "Se connecter dans le navigateur",
+      "pending": "La connexion dans le navigateur est ouverte. Terminez-la, puis revenez ici.",
+      "pendingAction": "En attente du navigateur",
+      "cancel": "Annuler la connexion",
+      "cancelled": "La connexion dans le navigateur a été annulée.",
+      "timedOut": "La fenêtre de connexion a expiré. Réessayez.",
+      "offline": "LumenLive n’a pas pu joindre le serveur. Vérifiez votre connexion, puis réessayez."
+    },
     "email": "E-mail",
     "password": "Mot de passe",
     "signingIn": "Connexion…",
     "newToLumenLive": "Nouveau sur LumenLive ?",
     "registerChurch": "Enregistrer une église",
     "unknownDevice": "Appareil inconnu",
+    "activation": {
+      "required": "Ce compte est connecté, mais cet appareil doit encore être activé avant d’utiliser les fonctions du compte et la transcription.",
+      "activating": "L’activation de l’appareil est toujours en cours.",
+      "failed": "Cet appareil n’a pas pu être activé.",
+      "deviceLimit": "Ce compte a atteint sa limite d’appareils. Désactivez un autre appareil, puis réessayez.",
+      "noSeat": "Ce compte n’a plus de siège de bureau pour l’équipe sélectionnée.",
+      "sessionExpired": "Votre session a expiré. Connectez-vous de nouveau pour activer cet appareil.",
+      "offline": "Le serveur est inaccessible. Vérifiez votre connexion, puis réessayez.",
+      "retry": "Réessayer l’activation",
+      "retrying": "Activation…",
+      "signInAgain": "Se connecter de nouveau"
+    },
     "reason": {
       "trial_ended": "Votre essai gratuit est terminé. Abonnez-vous à une offre pour rétablir l’accès complet.",
       "expired": "Nous n’avons pas pu confirmer votre offre récemment. Connectez-vous à Internet, puis validez-la de nouveau ci-dessous.",
       "machine_mismatch": "Cette offre est active sur un autre appareil. Connectez-vous ici pour la transférer sur celui-ci.",
-      "signature": "Votre offre a besoin d’une courte actualisation sur cet appareil. Validez-la de nouveau ci-dessous pour la mettre à jour."
+      "signature": "Votre offre a besoin d’une courte actualisation sur cet appareil. Validez-la de nouveau ci-dessous pour la mettre à jour.",
+      "malformed": "La licence enregistrée de l’appareil est illisible. Validez-la de nouveau pour en obtenir une nouvelle.",
+      "issuer": "La licence enregistrée provient d’un émetteur non fiable. Validez-la de nouveau pour en obtenir une nouvelle.",
+      "audience": "La licence enregistrée n’est pas destinée à cette application. Validez-la de nouveau pour en obtenir une nouvelle."
     },
     "refreshFailed": "Nous n’avons pas pu actualiser votre offre pour le moment : {{message}}",
     "revalidatedNow": "Tout est prêt — votre offre est maintenant {{plan}}.",
@@ -145,14 +170,26 @@
     "signOut": "Se déconnecter",
     "accessPeriod": "Période d’accès",
     "accessEnded": "Accès terminé",
-    "transcriptionUsage": "Transcription",
+    "transcriptionUsage": "Transcription ce mois-ci",
     "transcriptionUsageProgress": "{{used}} min sur {{allowance}} min utilisées",
     "transcriptionUsageRemaining": "{{minutes}} min restantes",
+    "transcriptionUsageUnlimited": "Illimitée",
+    "transcriptionUsageTeamKey": "Géré par l’équipe",
+    "transcriptionUsageTeamKeyDescription": "L’utilisation est fournie par la clé configurée par cette équipe.",
+    "transcriptionUsageUsed": "{{minutes}} min utilisées",
     "days_one": "{{count}} jour",
     "days_other": "{{count}} jours",
     "hours_one": "{{count}} heure",
     "hours_other": "{{count}} heures",
-    "accessRemaining": "{{days}} {{hours}} restants"
+    "accessRemaining": "{{days}} {{hours}} restants",
+    "team": {
+      "label": "Équipe",
+      "choose": "Choisir une équipe",
+      "chooseTitle": "Choisissez votre équipe",
+      "chooseDescription": "Ce compte a accès à plusieurs équipes. Choisissez l’équipe à utiliser sur cet appareil.",
+      "activating": "Activation…",
+      "continue": "Continuer"
+    }
   },
   "songs": {
     "apiKeyLabel": "Clé API Genius",

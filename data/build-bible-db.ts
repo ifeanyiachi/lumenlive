@@ -256,10 +256,14 @@ function main() {
     for (let bookIdx = 0; bookIdx < data.books.length; bookIdx++) {
       const book = data.books[bookIdx]
       const bookNumber = bookIdx + 1
-      const abbrev = BOOK_ABBREVS[book.name] || book.name.substring(0, 4)
+      // Source files are not authoritative for book identity. Normalize the
+      // final book to the app's display name even when the source says
+      // "Revelation of John".
+      const bookName = bookNumber === 66 ? "Revelation" : book.name
+      const abbrev = BOOK_ABBREVS[bookName] || bookName.substring(0, 4)
       const testament = bookNumber <= 39 ? "OT" : "NT"
 
-      insertBook.run(tId, bookNumber, book.name, abbrev, testament)
+      insertBook.run(tId, bookNumber, bookName, abbrev, testament)
       const bookResult = db.query("SELECT last_insert_rowid() as id").get() as {
         id: number
       }
@@ -271,7 +275,7 @@ function main() {
             tId,
             bookId,
             bookNumber,
-            book.name,
+            bookName,
             abbrev,
             chapter.chapter,
             verse.verse,

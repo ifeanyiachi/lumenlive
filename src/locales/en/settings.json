@@ -139,19 +139,44 @@
     "signIn": {
       "title": "Sign in to LumenLive",
       "description": "LumenLive is free to use — no account needed. Sign in to activate your subscription on this device.",
-      "action": "Sign in"
-    },
+    "action": "Sign in"
+  },
+  "browser": {
+    "description": "Continue in your browser to sign in securely, then activate this device.",
+    "action": "Sign in in browser",
+    "pending": "Browser sign-in is open. Complete sign-in in your browser, then return here.",
+    "pendingAction": "Waiting for browser",
+    "cancel": "Cancel sign-in",
+    "cancelled": "Browser sign-in was cancelled.",
+    "timedOut": "The browser sign-in window expired. Start again.",
+    "offline": "LumenLive could not reach the server. Check your connection and try again."
+  },
     "email": "Email",
     "password": "Password",
     "signingIn": "Signing in…",
     "newToLumenLive": "New to LumenLive?",
     "registerChurch": "Register a church",
     "unknownDevice": "Unknown device",
+    "activation": {
+      "required": "This account is signed in, but this device still needs activation before account features and transcription are available.",
+      "activating": "Device activation is still in progress.",
+      "failed": "This device could not be activated.",
+      "deviceLimit": "This account has reached its device limit. Deactivate another device, then try again.",
+      "noSeat": "This account no longer has a desktop seat for the selected team.",
+      "sessionExpired": "Your sign-in session expired. Sign in again to activate this device.",
+      "offline": "The server could not be reached. Check your connection and try again.",
+      "retry": "Try activation again",
+      "retrying": "Activating…",
+      "signInAgain": "Sign in again"
+    },
     "reason": {
       "trial_ended": "Your free trial has ended. Subscribe to a plan to restore full access.",
       "expired": "We haven't been able to confirm your plan lately. Connect to the internet, then re-validate below.",
       "machine_mismatch": "This plan is active on another device. Sign in here to move it to this one.",
-      "signature": "Your plan needs a quick refresh on this device. Re-validate below to update it."
+      "signature": "Your plan needs a quick refresh on this device. Re-validate below to update it.",
+      "malformed": "The stored device license is unreadable. Re-validate to obtain a fresh license.",
+      "issuer": "The stored device license came from an untrusted issuer. Re-validate to obtain a fresh license.",
+      "audience": "The stored device license is not for this app. Re-validate to obtain a fresh license."
     },
     "refreshFailed": "We couldn't refresh your plan right now: {{message}}",
     "revalidatedNow": "You're all set — your plan is now {{plan}}.",
@@ -167,14 +192,26 @@
     "signOut": "Sign out",
     "accessPeriod": "Access period",
     "accessEnded": "Access ended",
-    "transcriptionUsage": "Transcription",
+    "transcriptionUsage": "Transcription this month",
     "transcriptionUsageProgress": "{{used}} min of {{allowance}} min used",
     "transcriptionUsageRemaining": "{{minutes}} min remaining",
+    "transcriptionUsageUnlimited": "Unlimited",
+    "transcriptionUsageTeamKey": "Managed by Team",
+    "transcriptionUsageTeamKeyDescription": "Usage is provided by this team’s configured key.",
+    "transcriptionUsageUsed": "{{minutes}} min used",
     "days_one": "{{count}} day",
     "days_other": "{{count}} days",
     "hours_one": "{{count}} hour",
     "hours_other": "{{count}} hours",
-    "accessRemaining": "{{days}} {{hours}} remaining"
+    "accessRemaining": "{{days}} {{hours}} remaining",
+    "team": {
+      "label": "Team",
+      "choose": "Choose a team",
+      "chooseTitle": "Choose your team",
+      "chooseDescription": "This account has access to more than one team. Choose which team to use on this device.",
+      "activating": "Activating…",
+      "continue": "Continue"
+    }
   },
   "remote": {
     "featureName": "Remote control",

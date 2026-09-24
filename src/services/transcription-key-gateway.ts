@@ -40,11 +40,12 @@ export function pullTranscriptionKey(
  */
 export function reportTranscriptionUsage(
   token: string,
+  machineId: string,
   seconds: number
 ): Promise<TranscriptionStatus> {
   return v1<TranscriptionStatus>("/v1/transcription/usage", {
     method: "POST",
     token,
-    body: { seconds },
+    body: { machineId, seconds },
   })
 }

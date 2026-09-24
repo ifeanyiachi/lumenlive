@@ -25,9 +25,9 @@ import { requireFeature } from "@/components/entitlements/require-feature"
  * this wrapper turns that into the operator-facing toast. Route the interactive
  * "Go Live" / Take affordances through here so a blocked take explains itself.
  */
-export function takeToLiveOrPrompt(): void {
+export function takeToLiveOrPrompt(onActivated?: () => void): void {
   const blocked = useBroadcastStore.getState().takeToLive()
-  if (blocked) requireFeature(blocked, liveFeatureLabel(blocked))
+  if (blocked) requireFeature(blocked, liveFeatureLabel(blocked), onActivated)
 }
 
 export function toVerseRenderData(

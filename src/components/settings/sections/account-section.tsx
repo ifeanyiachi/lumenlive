@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { useTranslation } from "react-i18next"
+import { Building2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 
 import { useAuthStore } from "@/stores/auth-store"
 import { useEntitlementsStore } from "@/stores/entitlements-store"
+import { useTranscriptStore } from "@/stores/transcript-store"
 import {
+  activatePendingTeam,
   revalidate,
-  signInAndActivate,
+  retryActivation,
   signOut,
+  switchTeam as switchActiveTeam,
+  type PendingTeamActivation,
   type RevalidateResult,
 } from "@/stores/licensing-actions"
 import { LicensingError } from "@/services/lumenbo-client"
@@ -18,7 +22,24 @@ import { openExternalUrl } from "@/services/external-link-gateway"
 import { planLabel, trialRemaining } from "@/lib/entitlements"
 import { appUrl } from "@/lib/app-urls"
 import type { TranscriptionStatus } from "@/lib/transcription/types"
-import { reportTranscriptionUsage } from "@/services/transcription-key-gateway"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useTeamStore } from "@/stores/team-store"
+import {
+  cancelDesktopLogin,
+  getDesktopAuthSnapshot,
+  subscribeDesktopAuth,
+} from "@/services/desktop-auth-service"
+import {
+  clearPendingBrowserAction,
+  resumePendingBrowserAction,
+  startBrowserSignIn,
+} from "@/services/desktop-auth-flow"
 
 // The sign-up page is served by the lumenbo app (app.lumenlive.xyz/signup), not
 // the marketing site.
@@ -29,53 +50,58 @@ const REASON_KEYS = new Set([
   "expired",
   "machine_mismatch",
   "signature",
+  "malformed",
+  "issuer",
+  "audience",
 ])
 
-export function AccountSection() {
+/**
+ * Account content shown by the transport-bar account menu.
+ */
+export function AccountContent() {
   const status = useAuthStore((s) => s.status)
+  const pendingTeams = useAuthStore((s) => s.pendingTeams)
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
 
-  return (
-    <div className="flex flex-col gap-6">
-      {status === "authenticated" ? <SignedIn /> : <SignedOut />}
-    </div>
-  )
+  if (status !== "authenticated") return <SignedOut />
+  if (pendingTeams && token && user) {
+    return (
+      <AuthenticatedTeamSelection
+        pending={{ token, user, teams: pendingTeams }}
+      />
+    )
+  }
+  return <SignedIn />
 }
 
 // ── Signed-out: sign in + register ──────────────────────────────────────────
 
 function SignedOut() {
   const { t } = useTranslation("settings")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [devices, setDevices] = useState<string[] | null>(null)
+  const browserAuth = useSyncExternalStore(
+    subscribeDesktopAuth,
+    getDesktopAuthSnapshot,
+    getDesktopAuthSnapshot
+  )
+  const pending = browserAuth.status === "pending"
+  const terminalMessage =
+    browserAuth.status === "cancelled"
+      ? t("account.browser.cancelled")
+      : browserAuth.status === "timed-out"
+        ? t("account.browser.timedOut")
+        : browserAuth.error?.code === "OFFLINE"
+          ? t("account.browser.offline")
+          : browserAuth.error?.message
 
-  async function handleSignIn() {
-    if (!email || !password || busy) return
-    setBusy(true)
-    setError(null)
-    setDevices(null)
-    try {
-      await signInAndActivate(email.trim(), password)
-    } catch (err) {
-      if (err instanceof LicensingError) {
-        setError(err.message)
-        if (err.code === "DEVICE_LIMIT_REACHED") {
-          const detail = err.details as
-            { devices?: { machineName?: string }[] } | undefined
-          setDevices(
-            detail?.devices?.map(
-              (d) => d.machineName ?? t("account.unknownDevice")
-            ) ?? []
-          )
-        }
-      } else {
-        setError(String(err))
-      }
-    } finally {
-      setBusy(false)
-    }
+  function handleBrowserSignIn() {
+    if (pending) return
+    void startBrowserSignIn().catch(() => {})
+  }
+
+  function handleCancelBrowserSignIn() {
+    clearPendingBrowserAction()
+    cancelDesktopLogin()
   }
 
   return (
@@ -85,66 +111,42 @@ function SignedOut() {
           {t("account.signIn.title")}
         </h3>
         <p className="text-[0.6875rem] text-muted-foreground">
-          {t("account.signIn.description")}
+          {t("account.browser.description")}
         </p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void handleSignIn()
-        }}
-        className="flex flex-col gap-3"
-      >
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">
-            {t("account.email")}
-          </label>
-          <Input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-8 text-xs"
-            disabled={busy}
-          />
+      {pending && (
+        <div className="border-t border-border pt-3">
+          <p className="text-[0.6875rem] text-muted-foreground">
+            {t("account.browser.pending")}
+          </p>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">
-            {t("account.password")}
-          </label>
-          <Input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-8 text-xs"
-            disabled={busy}
-          />
+      )}
+      {terminalMessage && !pending && (
+        <div className="border-t border-red-500/40 pt-3">
+          <p className="text-[0.6875rem] text-red-500">{terminalMessage}</p>
         </div>
-
-        {error && (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-2.5">
-            <p className="text-[0.6875rem] text-red-500">{error}</p>
-            {devices && devices.length > 0 && (
-              <ul className="mt-1.5 list-disc pl-4 text-[0.625rem] text-muted-foreground">
-                {devices.map((d, i) => (
-                  <li key={i}>{d}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
+      )}
+      <div className="flex flex-col gap-2">
         <Button
-          type="submit"
           size="sm"
           className="text-xs"
-          disabled={busy || !email || !password}
+          disabled={pending}
+          onClick={handleBrowserSignIn}
         >
-          {busy ? t("account.signingIn") : t("account.signIn.action")}
+          {pending ? t("account.browser.pendingAction") : t("account.browser.action")}
         </Button>
-      </form>
+        {pending && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={handleCancelBrowserSignIn}
+          >
+            {t("account.browser.cancel")}
+          </Button>
+        )}
+      </div>
 
       <div className="flex items-center justify-between border-t border-border pt-4">
         <p className="text-[0.6875rem] text-muted-foreground">
@@ -168,32 +170,21 @@ function SignedOut() {
 function SignedIn() {
   const { t } = useTranslation("settings")
   const user = useAuthStore((s) => s.user)
-  const token = useAuthStore((s) => s.token)
+  const activationStatus = useAuthStore((s) => s.activationStatus)
+  const activationError = useAuthStore((s) => s.activationError)
+  const activationErrorCode = useAuthStore((s) => s.activationErrorCode)
   const entitlement = useEntitlementsStore((s) => s.entitlement)
   const reason = useEntitlementsStore((s) => s.reason)
   const machineId = useEntitlementsStore((s) => s.machineId)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<RevalidateResult | null>(null)
-  const [transcription, setTranscription] =
-    useState<TranscriptionStatus | null>(null)
-
-  useEffect(() => {
-    if (!token) return
-    let active = true
-    // A zero-second report is a read-only status refresh: LumenBO accepts it
-    // and returns the same customer-facing meter used in the account portal.
-    void reportTranscriptionUsage(token, 0)
-      .then((status) => {
-        if (active) setTranscription(status)
-      })
-      .catch(() => {
-        // Account settings remain useful offline; usage simply is not shown
-        // until the next successful refresh.
-      })
-    return () => {
-      active = false
-    }
-  }, [token])
+  const cachedTranscription = useTranscriptStore((s) => s.transcriptionStatus)
+  const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
+  const transcriptionConnection = useTranscriptStore((s) => s.connectionStatus)
+  const teams = useTeamStore((s) => s.teams)
+  const selectedOrganizationId = useTeamStore((s) => s.selectedOrganizationId)
+  const [switchingTeam, setSwitchingTeam] = useState(false)
+  const [teamError, setTeamError] = useState<string | null>(null)
 
   async function handleRevalidate() {
     setBusy(true)
@@ -201,6 +192,38 @@ function SignedIn() {
       setResult(await revalidate())
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function handleRetryActivation() {
+    if (busy) return
+    setBusy(true)
+    try {
+      await retryActivation()
+    } catch {
+      // The auth store retains the distinct activation failure for the next
+      // render, including device-limit, seat, offline, and session errors.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleTeamChange(organizationId: string) {
+    if (
+      organizationId === selectedOrganizationId ||
+      switchingTeam ||
+      isTranscribing ||
+      transcriptionConnection === "connecting"
+    )
+      return
+    setSwitchingTeam(true)
+    setTeamError(null)
+    try {
+      await switchActiveTeam(organizationId)
+    } catch (err) {
+      setTeamError(err instanceof LicensingError ? err.message : String(err))
+    } finally {
+      setSwitchingTeam(false)
     }
   }
 
@@ -225,18 +248,101 @@ function SignedIn() {
         </Badge>
       </div>
 
+      {teams.length > 1 && (
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <div className="flex items-center gap-1.5 text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+            <Building2Icon className="size-3" />
+            <span>{t("account.team.label")}</span>
+          </div>
+          <Select
+            value={selectedOrganizationId ?? undefined}
+            onValueChange={(value) => void handleTeamChange(value)}
+            disabled={
+              switchingTeam ||
+              isTranscribing ||
+              transcriptionConnection === "connecting"
+            }
+          >
+            <SelectTrigger className="h-8 w-full text-xs">
+              <SelectValue placeholder={t("account.team.choose")} />
+            </SelectTrigger>
+            <SelectContent>
+              {teams.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {teamError && (
+            <p className="text-[0.6875rem] text-red-500">{teamError}</p>
+          )}
+        </div>
+      )}
+
+      {(activationError || activationStatus === "activating") && (
+        <div className="border-t border-red-500/40 pt-3">
+          <p className="text-xs font-medium text-red-500">
+            {activationStatus === "activating"
+              ? t("account.activation.activating")
+              : activationErrorCode === "DEVICE_LIMIT_REACHED"
+                ? t("account.activation.deviceLimit")
+                : activationErrorCode === "NO_SEAT"
+                  ? t("account.activation.noSeat")
+                  : activationErrorCode === "UNAUTHORIZED"
+                    ? t("account.activation.sessionExpired")
+                    : activationErrorCode === "NETWORK"
+                      ? t("account.activation.offline")
+                      : t("account.activation.failed")}
+          </p>
+          {activationError && (
+            <p className="text-[0.6875rem] text-red-500">{activationError}</p>
+          )}
+          {activationStatus === "activating" ? null : activationErrorCode ===
+              "UNAUTHORIZED" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 text-xs"
+              disabled={busy}
+              onClick={() => void startBrowserSignIn().catch(() => {})}
+            >
+              {t("account.activation.signInAgain")}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 text-xs"
+              disabled={busy}
+              onClick={() => void handleRetryActivation()}
+            >
+              {busy
+                ? t("account.activation.retrying")
+                : t("account.activation.retry")}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {activationStatus === "inactive" && !activationError && (
+        <div className="border-t border-amber-500/40 pt-3">
+          <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400">
+            {t("account.activation.required")}
+          </p>
+        </div>
+      )}
+
       {entitlement.trialEnd != null && (
         <TrialCountdown trialEnd={entitlement.trialEnd} />
       )}
 
-      {transcription !== null &&
-        transcription.remainingMinutes !== null &&
-        transcription.allowanceMinutes >= 0 && (
-          <TranscriptionUsage status={transcription} />
-        )}
+      {cachedTranscription !== null && (
+        <TranscriptionUsage status={cachedTranscription} />
+      )}
 
       {note && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5">
+        <div className="border-t border-amber-500/40 pt-3">
           <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400">
             {note}
           </p>
@@ -244,7 +350,7 @@ function SignedIn() {
       )}
 
       {result && !result.ok && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-2.5">
+        <div className="border-t border-red-500/40 pt-3">
           <p className="text-[0.6875rem] text-red-500">
             {t("account.refreshFailed", { message: result.message })}
           </p>
@@ -255,7 +361,7 @@ function SignedIn() {
       )}
 
       {result?.ok && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+        <div className="border-t border-emerald-500/40 pt-3">
           <p className="text-[0.6875rem] text-emerald-600 dark:text-emerald-400">
             {result.reason === "ok"
               ? t("account.revalidatedNow", { plan: planLabel(entitlement) })
@@ -264,7 +370,7 @@ function SignedIn() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex flex-col gap-2 border-t border-border pt-4">
         <label className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
           {t("account.thisDevice")}
         </label>
@@ -307,32 +413,119 @@ function SignedIn() {
   )
 }
 
+function AuthenticatedTeamSelection({
+  pending,
+}: {
+  pending: PendingTeamActivation
+}) {
+  const { t } = useTranslation("settings")
+  const [selectedTeamId, setSelectedTeamId] = useState(
+    pending.teams[0]?.id ?? ""
+  )
+  const [busy, setBusy] = useState(false)
+  const activationError = useAuthStore((s) => s.activationError)
+
+  async function onConfirm() {
+    if (!selectedTeamId || busy) return
+    setBusy(true)
+    try {
+      await activatePendingTeam(pending, selectedTeamId)
+      resumePendingBrowserAction()
+    } catch {
+      // The shared auth store retains the activation error across rerenders.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium text-foreground">
+          {t("account.team.chooseTitle")}
+        </h3>
+        <p className="text-[0.6875rem] text-muted-foreground">
+          {t("account.team.chooseDescription")}
+        </p>
+      </div>
+      <Select
+        value={selectedTeamId}
+        onValueChange={setSelectedTeamId}
+        disabled={busy}
+      >
+        <SelectTrigger className="h-8 w-full text-xs">
+          <SelectValue placeholder={t("account.team.choose")} />
+        </SelectTrigger>
+        <SelectContent>
+          {pending.teams.map((team) => (
+            <SelectItem key={team.id} value={team.id}>
+              {team.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {activationError && (
+        <p className="text-[0.6875rem] text-red-500">{activationError}</p>
+      )}
+      <Button
+        size="sm"
+        className="text-xs"
+        disabled={busy || !selectedTeamId}
+        onClick={() => void onConfirm()}
+      >
+        {busy ? t("account.team.activating") : t("account.team.continue")}
+      </Button>
+    </div>
+  )
+}
+
 function TranscriptionUsage({ status }: { status: TranscriptionStatus }) {
   const { t } = useTranslation("settings")
   const used = Math.round(status.usedMinutes)
+  const teamKey = status.mode === "team_byok"
+  const unlimited =
+    status.mode !== "blocked" && !teamKey && status.remainingMinutes === null
   const allowance = Math.round(status.allowanceMinutes)
   const remaining = Math.max(0, Math.round(status.remainingMinutes ?? 0))
   const progress = allowance > 0 ? Math.min(100, (used / allowance) * 100) : 0
 
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3">
+    <div className="border-t border-border pt-4">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
           {t("account.transcriptionUsage")}
         </p>
         <span className="text-[0.625rem] font-medium text-foreground tabular-nums">
-          {t("account.transcriptionUsageRemaining", { minutes: remaining })}
+          {teamKey
+            ? t("account.transcriptionUsageTeamKey")
+            : unlimited
+              ? t("account.transcriptionUsageUnlimited")
+              : t("account.transcriptionUsageRemaining", {
+                  minutes: remaining,
+                })}
         </span>
       </div>
-      <p className="mt-1 text-xs text-foreground tabular-nums">
-        {t("account.transcriptionUsageProgress", { used, allowance })}
-      </p>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      {teamKey ? (
+        <p className="mt-1 text-xs text-foreground">
+          {t("account.transcriptionUsageTeamKeyDescription")}
+        </p>
+      ) : unlimited ? (
+        <p className="mt-1 text-xs text-foreground tabular-nums">
+          {t("account.transcriptionUsageUsed", { minutes: used })}
+        </p>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-foreground tabular-nums">
+            {t("account.transcriptionUsageProgress", { used, allowance })}
+          </p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -348,7 +541,7 @@ function TrialCountdown({ trialEnd }: { trialEnd: number }) {
 
   const rem = trialRemaining(trialEnd, now)
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3">
+    <div className="border-t border-border pt-4">
       <p className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
         {t("account.accessPeriod")}
       </p>

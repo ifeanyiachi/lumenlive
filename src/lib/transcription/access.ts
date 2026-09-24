@@ -17,7 +17,11 @@ export interface BlockedCopy {
 
 /** The desktop's next move after pulling a key. */
 export type StartDecision =
-  | { action: "start"; key: string; mode: TranscriptionResolution["mode"] }
+  | {
+      action: "start"
+      key: string
+      mode: Exclude<TranscriptionResolution["mode"], "blocked">
+    }
   | { action: "blocked"; reason?: BlockedReason; copy: BlockedCopy }
 
 const GENERIC_BLOCK: BlockedCopy = {
@@ -44,6 +48,23 @@ export function describeBlock(reason?: BlockedReason): BlockedCopy {
         title: "Transcription not configured",
         message:
           "The platform transcription service isn't set up yet. Please contact support.",
+      }
+    case "transcription_not_included":
+      return {
+        title: "Transcription isn't included",
+        message: "Upgrade your account in the portal to continue transcribing.",
+      }
+    case "team_key_unset":
+      return {
+        title: "Team transcription not configured",
+        message:
+          "This team's transcription key isn't configured yet. Please contact a team administrator.",
+      }
+    case "platform_disabled":
+      return {
+        title: "Platform transcription unavailable",
+        message:
+          "Platform transcription is disabled for this team. Configure a team key or contact support.",
       }
     default:
       return GENERIC_BLOCK
@@ -73,7 +94,7 @@ export function decideTranscriptionStart(
 
 /**
  * Whether this session's minutes are metered against a finite allowance — i.e.
- * usage reporting actually matters. Paid/unlimited plans report `null` remaining.
+ * usage reporting actually matters. Paid/team-key paths report `null` remaining.
  */
 export function isMetered(resolution: {
   remainingMinutes: number | null

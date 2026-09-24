@@ -119,17 +119,42 @@
       "description": "LumenLive es gratuito; no necesitas una cuenta. Inicia sesión para activar tu suscripción en este dispositivo.",
       "action": "Iniciar sesión"
     },
+    "browser": {
+      "description": "Continúa en tu navegador para iniciar sesión de forma segura y activar este dispositivo.",
+      "action": "Iniciar sesión en el navegador",
+      "pending": "El inicio de sesión en el navegador está abierto. Complétalo y vuelve aquí.",
+      "pendingAction": "Esperando al navegador",
+      "cancel": "Cancelar inicio de sesión",
+      "cancelled": "Se canceló el inicio de sesión en el navegador.",
+      "timedOut": "La ventana de inicio de sesión expiró. Inténtalo de nuevo.",
+      "offline": "LumenLive no pudo conectarse al servidor. Comprueba tu conexión e inténtalo de nuevo."
+    },
     "email": "Correo electrónico",
     "password": "Contraseña",
     "signingIn": "Iniciando sesión…",
     "newToLumenLive": "¿Eres nuevo en LumenLive?",
     "registerChurch": "Registrar una iglesia",
     "unknownDevice": "Dispositivo desconocido",
+    "activation": {
+      "required": "La cuenta está iniciada, pero este dispositivo aún debe activarse antes de usar las funciones de la cuenta y la transcripción.",
+      "activating": "La activación del dispositivo sigue en curso.",
+      "failed": "No se pudo activar este dispositivo.",
+      "deviceLimit": "Esta cuenta ha alcanzado el límite de dispositivos. Desactiva otro dispositivo y vuelve a intentarlo.",
+      "noSeat": "Esta cuenta ya no tiene un puesto de escritorio para el equipo seleccionado.",
+      "sessionExpired": "Tu sesión ha expirado. Inicia sesión de nuevo para activar este dispositivo.",
+      "offline": "No se pudo conectar con el servidor. Comprueba tu conexión y vuelve a intentarlo.",
+      "retry": "Intentar activar de nuevo",
+      "retrying": "Activando…",
+      "signInAgain": "Iniciar sesión de nuevo"
+    },
     "reason": {
       "trial_ended": "Tu prueba gratuita ha terminado. Suscríbete a un plan para recuperar el acceso completo.",
       "expired": "Últimamente no hemos podido confirmar tu plan. Conéctate a Internet y vuelve a validarlo a continuación.",
       "machine_mismatch": "Este plan está activo en otro dispositivo. Inicia sesión aquí para trasladarlo a este.",
-      "signature": "Tu plan necesita una actualización rápida en este dispositivo. Vuelve a validarlo a continuación para actualizarlo."
+      "signature": "Tu plan necesita una actualización rápida en este dispositivo. Vuelve a validarlo a continuación para actualizarlo.",
+      "malformed": "La licencia guardada del dispositivo no se puede leer. Vuelve a validarla para obtener una nueva.",
+      "issuer": "La licencia guardada procede de un emisor no fiable. Vuelve a validarla para obtener una nueva.",
+      "audience": "La licencia guardada no corresponde a esta aplicación. Vuelve a validarla para obtener una nueva."
     },
     "refreshFailed": "No hemos podido actualizar tu plan ahora mismo: {{message}}",
     "revalidatedNow": "Todo listo: tu plan ahora es {{plan}}.",
@@ -145,14 +170,26 @@
     "signOut": "Cerrar sesión",
     "accessPeriod": "Periodo de acceso",
     "accessEnded": "Acceso finalizado",
-    "transcriptionUsage": "Transcripción",
+    "transcriptionUsage": "Transcripción este mes",
     "transcriptionUsageProgress": "{{used}} min de {{allowance}} min usados",
     "transcriptionUsageRemaining": "{{minutes}} min restantes",
+    "transcriptionUsageUnlimited": "Ilimitada",
+    "transcriptionUsageTeamKey": "Gestionado por el equipo",
+    "transcriptionUsageTeamKeyDescription": "El uso lo proporciona la clave configurada por este equipo.",
+    "transcriptionUsageUsed": "{{minutes}} min usados",
     "days_one": "{{count}} día",
     "days_other": "{{count}} días",
     "hours_one": "{{count}} hora",
     "hours_other": "{{count}} horas",
-    "accessRemaining": "Quedan {{days}} {{hours}}"
+    "accessRemaining": "Quedan {{days}} {{hours}}",
+    "team": {
+      "label": "Equipo",
+      "choose": "Elige un equipo",
+      "chooseTitle": "Elige tu equipo",
+      "chooseDescription": "Esta cuenta tiene acceso a más de un equipo. Elige qué equipo usar en este dispositivo.",
+      "activating": "Activando…",
+      "continue": "Continuar"
+    }
   },
   "songs": {
     "apiKeyLabel": "Clave de API de Genius",

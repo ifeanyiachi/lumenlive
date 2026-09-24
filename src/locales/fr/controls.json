@@ -14,6 +14,11 @@
   "themeDesignerFeature": "Concepteur de thèmes",
   "stageDisplayFeature": "Écran de scène",
   "keyboardShortcuts": "Raccourcis clavier (?)",
+  "groups": {
+    "serviceTools": "Outils du service",
+    "designTools": "Outils de conception et de sortie",
+    "appControls": "Contrôles de l’application"
+  },
   "reload": {
     "button": "Recharger l’application",
     "title": "Recharger l’application ?",

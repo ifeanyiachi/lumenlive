@@ -12,6 +12,7 @@ type NdiDestroyFn = unsafe extern "C" fn();
 type NdiSendCreateFn = unsafe extern "C" fn(*const NdiSendCreate) -> NdiSendInstance;
 type NdiSendDestroyFn = unsafe extern "C" fn(NdiSendInstance);
 type NdiSendVideoV2Fn = unsafe extern "C" fn(NdiSendInstance, *const NdiVideoFrameV2);
+type NdiSendVideoV2AsyncFn = unsafe extern "C" fn(NdiSendInstance, *const NdiVideoFrameV2);
 
 #[repr(C)]
 struct NdiSendCreate {
@@ -148,6 +149,7 @@ struct NdiLibrary {
     send_create: NdiSendCreateFn,
     send_destroy: NdiSendDestroyFn,
     send_video: NdiSendVideoV2Fn,
+    send_video_async: Option<NdiSendVideoV2AsyncFn>,
     ndi_destroy: NdiDestroyFn,
 }
 
@@ -172,6 +174,15 @@ impl NdiLibrary {
         let send_destroy = *load_symbol::<NdiSendDestroyFn>(&library, b"NDIlib_send_destroy\0", "NDIlib_send_destroy")?;
         let send_video =
             *load_symbol::<NdiSendVideoV2Fn>(&library, b"NDIlib_send_send_video_v2\0", "NDIlib_send_send_video_v2")?;
+        let send_video_async = load_optional_symbol::<NdiSendVideoV2AsyncFn>(
+            &library,
+            b"NDIlib_send_send_video_async_v2\0",
+        );
+        if send_video_async.is_none() {
+            log::warn!(
+                "NDI async video API is unavailable; falling back to synchronous frame sending"
+            );
+        }
 
         // SAFETY: initialize is a valid function pointer loaded from the NDI library.
         if !unsafe { initialize() } {
@@ -183,6 +194,7 @@ impl NdiLibrary {
             send_create,
             send_destroy,
             send_video,
+            send_video_async,
             ndi_destroy,
         })
     }
@@ -301,7 +313,10 @@ struct ActiveNdiSession {
     sender: NdiSendInstance,
     info: NdiSessionInfo,
     frame_count: u64,
-    frame_buffer: Vec<u8>,
+    /// Two buffers keep the last submitted async frame alive while the next
+    /// frame is being converted and submitted.
+    frame_buffers: [Vec<u8>; 2],
+    next_frame_buffer: usize,
 }
 
 // SAFETY: ActiveNdiSession is only accessed behind a Mutex in app state.
@@ -355,7 +370,11 @@ impl ActiveNdiSession {
                 height,
                 fps,
             },
-            frame_buffer: vec![0; (width * height * 4) as usize],
+            frame_buffers: [
+                vec![0; (width * height * 4) as usize],
+                vec![0; (width * height * 4) as usize],
+            ],
+            next_frame_buffer: 0,
             frame_count: 0,
         })
     }
@@ -374,11 +393,16 @@ impl ActiveNdiSession {
             rgba_data.len(),
         )?;
 
-        if self.frame_buffer.len() != rgba_data.len() {
-            self.frame_buffer.resize(rgba_data.len(), 0);
-        }
+        let buffer_index = self.next_frame_buffer;
+        let (buffer_ptr, buffer_len) = {
+            let frame_buffer = &mut self.frame_buffers[buffer_index];
+            if frame_buffer.len() != rgba_data.len() {
+                frame_buffer.resize(rgba_data.len(), 0);
+            }
 
-        rgba_to_bgra(&mut self.frame_buffer, rgba_data, self.info.alpha_mode);
+            rgba_to_bgra(frame_buffer, rgba_data, self.info.alpha_mode);
+            (frame_buffer.as_mut_ptr(), frame_buffer.len())
+        };
 
         let (frame_rate_n, frame_rate_d) = ndi_frame_rate(self.info.fps);
 
@@ -399,22 +423,29 @@ impl ActiveNdiSession {
             picture_aspect_ratio: (width as f32) / (height as f32),
             frame_format_type: 1, // NDIlib_frame_format_type_progressive
             timecode: i64::MAX, // NDIlib_send_timecode_synthesize
-            p_data: self.frame_buffer.as_mut_ptr(),
+            p_data: buffer_ptr,
             line_stride_in_bytes: (width * 4) as i32,
             p_metadata: std::ptr::null(),
             timestamp: 0,
         };
 
-        // SAFETY: sender is a valid NDI send instance. frame points to self.frame_buffer which
-        // is correctly sized and will outlive this call.
+        // SAFETY: sender is a valid NDI send instance. The async API retains the
+        // frame buffer after this call, so both buffers are owned by the session
+        // and remain allocated until the sender is destroyed. Alternating buffers
+        // prevents the next conversion from overwriting the submitted frame.
         let sender = self.sender;
         let frame_ptr = std::ptr::from_ref(&frame);
         unsafe {
-            (self.library.send_video)(sender, frame_ptr);
+            if let Some(send_video_async) = self.library.send_video_async {
+                send_video_async(sender, frame_ptr);
+                self.next_frame_buffer = (buffer_index + 1) % self.frame_buffers.len();
+            } else {
+                (self.library.send_video)(sender, frame_ptr);
+            }
         }
         self.frame_count += 1;
         if self.frame_count == 1 {
-            log::info!("NDI: first frame sent ({width}x{height}, {} bytes)", self.frame_buffer.len());
+            log::info!("NDI: first frame sent ({width}x{height}, {buffer_len} bytes)");
         } else if self.frame_count.is_multiple_of(300) {
             log::info!("NDI: {} frames sent", self.frame_count);
         }
@@ -520,7 +551,7 @@ fn validate_frame_dimensions(
 /// swap.
 fn rgba_to_bgra(dst: &mut [u8], rgba: &[u8], alpha: NdiAlphaMode) {
     debug_assert!(dst.len() >= rgba.len(), "dst must fit the converted frame");
-    for (idx, px) in rgba.chunks_exact(4).enumerate() {
+    for (idx, px) in rgba.as_chunks::<4>().0.iter().enumerate() {
         let offset = idx * 4;
         dst[offset] = px[2];
         dst[offset + 1] = px[1];
@@ -542,6 +573,12 @@ fn load_symbol<'a, T>(
         symbol: name,
         message: e.to_string(),
     })
+}
+
+fn load_optional_symbol<T: Copy>(library: &Library, symbol: &'static [u8]) -> Option<T> {
+    // SAFETY: the optional symbol is used only when present and is loaded from
+    // the same NDI library handle as the required symbols.
+    unsafe { library.get::<T>(symbol).ok().map(|symbol| *symbol) }
 }
 
 #[cfg(test)]
@@ -577,7 +614,7 @@ mod tests {
     // stay byte-identical to this (a parity test, per CLAUDE.md testing rules).
     fn reference_rgba_to_bgra(rgba: &[u8], alpha: NdiAlphaMode) -> Vec<u8> {
         let mut dst = vec![0u8; rgba.len()];
-        for (idx, px) in rgba.chunks_exact(4).enumerate() {
+        for (idx, px) in rgba.as_chunks::<4>().0.iter().enumerate() {
             let offset = idx * 4;
             dst[offset] = px[2];
             dst[offset + 1] = px[1];

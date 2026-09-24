@@ -47,7 +47,12 @@ export function CountdownTrigger() {
       <Popover
         open={popoverOpen}
         onOpenChange={(open) => {
-          if (open && !requireFeature("countdown", t("trigger.featureName")))
+          if (
+            open &&
+            !requireFeature("countdown", t("trigger.featureName"), () =>
+              setPopoverOpen(true)
+            )
+          )
             return
           setPopoverOpen(open)
         }}
@@ -57,6 +62,7 @@ export function CountdownTrigger() {
             variant="ghost"
             size="icon-sm"
             title={t("trigger.title")}
+            aria-label={t("trigger.title")}
             data-tour="countdown"
             className="relative"
           >

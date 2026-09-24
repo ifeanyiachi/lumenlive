@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PanelHeader } from "@/components/ui/panel-header"
+import { EmptyState } from "@/components/ui/empty-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
@@ -121,6 +122,30 @@ export function MediaGrid() {
       icon: <MusicIcon className="size-3" />,
     },
   ]
+
+  const emptyState = activeCollectionId
+    ? {
+        icon: <FolderIcon />,
+        title: t("empty.collection"),
+        description: t("empty.collectionHint"),
+      }
+    : searchQuery
+      ? { icon: <ImageIcon />, title: t("empty.search") }
+      : {
+          icon: {
+            all: <ImageIcon />,
+            image: <ImageIcon />,
+            video: <FilmIcon />,
+            audio: <MusicIcon />,
+          }[filter],
+          title: {
+            all: t("empty.all"),
+            image: t("empty.images"),
+            video: t("empty.videos"),
+            audio: t("empty.audio"),
+          }[filter],
+          description: t("empty.importHint"),
+        }
 
   const handleDeleteChecked = () => {
     useMediaStore.getState().removeAssets(checkedIds)
@@ -311,40 +336,13 @@ export function MediaGrid() {
 
       <ScrollArea className="min-h-0 flex-1">
         {assets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16">
-            {activeCollectionId ? (
-              <FolderIcon className="size-10 text-muted-foreground/30" />
-            ) : filter === "video" ? (
-              <FilmIcon className="size-10 text-muted-foreground/30" />
-            ) : filter === "audio" ? (
-              <MusicIcon className="size-10 text-muted-foreground/30" />
-            ) : (
-              <ImageIcon className="size-10 text-muted-foreground/30" />
-            )}
-            <p className="text-sm text-muted-foreground">
-              {activeCollectionId
-                ? t("empty.collection")
-                : searchQuery
-                  ? t("empty.search")
-                  : filter === "image"
-                    ? t("empty.images")
-                    : filter === "video"
-                      ? t("empty.videos")
-                      : filter === "audio"
-                        ? t("empty.audio")
-                        : t("empty.all")}
-            </p>
-            {!searchQuery && !activeCollectionId && (
-              <p className="text-xs text-muted-foreground/70">
-                {t("empty.importHint")}
-              </p>
-            )}
-            {activeCollectionId && (
-              <p className="text-xs text-muted-foreground/70">
-                {t("empty.collectionHint")}
-              </p>
-            )}
-          </div>
+          <EmptyState
+            size="lg"
+            icon={emptyState.icon}
+            title={emptyState.title}
+            description={emptyState.description}
+            live={Boolean(searchQuery)}
+          />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 p-3">
             {assets.map((asset) => {

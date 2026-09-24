@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { TranscriptSegment } from "@/types"
+import type { TranscriptionStatus } from "@/lib/transcription/types"
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error"
 
@@ -18,12 +19,17 @@ interface TranscriptState {
    * Updated infrequently — on session start and each usage report (~1/min).
    */
   remainingMinutes: number | null
+  /** Latest server-authoritative usage snapshot, reused by the account menu. */
+  transcriptionStatus: TranscriptionStatus | null
 
   addSegment: (segment: TranscriptSegment) => void
   setPartial: (text: string) => void
   setTranscribing: (transcribing: boolean) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setRemainingMinutes: (minutes: number | null) => void
+  setTranscriptionStatus: (status: TranscriptionStatus | null) => void
+  /** Clear all live transcription and server-derived usage state. */
+  reset: () => void
   clearTranscript: () => void
 }
 
@@ -33,6 +39,7 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   isTranscribing: false,
   connectionStatus: "disconnected",
   remainingMinutes: null,
+  transcriptionStatus: null,
 
   addSegment: (segment) =>
     set((state) => {
@@ -47,5 +54,16 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   setTranscribing: (isTranscribing) => set({ isTranscribing }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   setRemainingMinutes: (remainingMinutes) => set({ remainingMinutes }),
+  setTranscriptionStatus: (transcriptionStatus) =>
+    set({ transcriptionStatus }),
+  reset: () =>
+    set({
+      segments: [],
+      currentPartial: "",
+      isTranscribing: false,
+      connectionStatus: "disconnected",
+      remainingMinutes: null,
+      transcriptionStatus: null,
+    }),
   clearTranscript: () => set({ segments: [], currentPartial: "" }),
 }))

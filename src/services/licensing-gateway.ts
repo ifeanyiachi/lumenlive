@@ -1,6 +1,15 @@
 import { invoke } from "@tauri-apps/api/core"
-import { v1, signIn as clientSignIn, type SignInResult } from "./lumenbo-client"
+import {
+  v1,
+  exchangeDesktopAuthorizationCode as clientExchangeDesktopAuthorizationCode,
+  signIn as clientSignIn,
+  type DesktopTeamList,
+  type DesktopAuthExchangeInput,
+  type SignInResult,
+} from "./lumenbo-client"
 import type { Limits, PlanTier } from "@/lib/entitlements"
+
+export type { DesktopAuthExchangeInput } from "./lumenbo-client"
 
 /**
  * The licensing gateway (betaplan Phase C, step 2): the single typed surface for
@@ -29,6 +38,7 @@ export interface LicenseResult {
   issuedAt: string
   expiresAt: string
   grace: number
+  organizationId: string | null
 }
 
 /** The offline-verify outcome from the Rust `lumenlive-licensing` crate. */
@@ -78,9 +88,22 @@ export function signIn(email: string, password: string): Promise<SignInResult> {
   return clientSignIn(email, password)
 }
 
+/** Exchange a validated browser handoff for the existing bearer session. */
+export function exchangeDesktopAuthorizationCode(
+  input: DesktopAuthExchangeInput
+): Promise<SignInResult> {
+  return clientExchangeDesktopAuthorizationCode(input)
+}
+
+/** List active, seated teams available to this desktop session. */
+export function listTeams(token: string): Promise<DesktopTeamList> {
+  return v1<DesktopTeamList>("/v1/teams", { token })
+}
+
 export interface ActivateInput {
   token: string
   machineId: string
+  organizationId?: string | null
   machineName?: string
   osInfo?: string
   appVersion?: string
@@ -105,12 +128,13 @@ export function activate(input: ActivateInput): Promise<LicenseResult> {
  */
 export function validate(
   token: string,
-  machineId: string
+  machineId: string,
+  licenseToken?: string | null
 ): Promise<LicenseResult> {
   return v1<LicenseResult>("/v1/licenses/validate", {
     method: "POST",
     token,
-    body: { machineId },
+    body: { machineId, licenseToken: licenseToken ?? undefined },
   })
 }
 

@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select"
 import { SongImportButton } from "@/components/song/song-import-button"
 import { SongOnlineSearchDialog } from "@/components/song/song-online-search"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PanelHeader } from "@/components/ui/panel-header"
 import { useSongStore } from "@/stores/song-store"
 import { searchSongs } from "@/lib/song/song-search"
 import { cn } from "@/lib/utils"
@@ -59,16 +61,14 @@ export function SongLibrary() {
       data-slot="song-library"
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      {/* Header: title + count */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-          <MusicIcon className="size-3.5" />
-          {t("library.title")}
-        </span>
-        <span className="text-[10px] text-muted-foreground">
+      <PanelHeader
+        title={t("library.title")}
+        icon={<MusicIcon className="size-3.5" />}
+      >
+        <span className="text-[0.625rem] text-muted-foreground">
           {songs.length}
         </span>
-      </div>
+      </PanelHeader>
 
       {/* Controls: search + sort, then actions */}
       <div className="flex flex-col gap-2 border-b border-border p-2">
@@ -149,17 +149,15 @@ export function SongLibrary() {
       {/* Song list */}
       <ScrollArea className="min-h-0 flex-1">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <MusicIcon className="size-9 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">
-              {searchQuery ? t("library.noMatches") : t("library.empty")}
-            </p>
-            {!searchQuery && (
-              <p className="px-6 text-xs text-muted-foreground/70">
-                {t("library.emptyDescription")}
-              </p>
-            )}
-          </div>
+          <EmptyState
+            size="lg"
+            icon={<MusicIcon />}
+            title={searchQuery ? t("library.noMatches") : t("library.empty")}
+            description={
+              !searchQuery ? t("library.emptyDescription") : undefined
+            }
+            live={Boolean(searchQuery)}
+          />
         ) : (
           <div className="flex flex-col gap-0.5 p-1.5">
             {filtered.map((song) => (
@@ -181,8 +179,7 @@ export function SongLibrary() {
                   {song.title}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {song.authors.length ? song.authors.join(", ") : "—"}
-                  {" · "}
+                  {song.authors.length > 0 && `${song.authors.join(", ")} · `}
                   {song.sections.length}{" "}
                   {t("library.section", { count: song.sections.length })}
                 </span>

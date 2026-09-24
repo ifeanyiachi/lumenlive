@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
-import { EyeIcon, PlayIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  EyeIcon,
+  PlayIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { detectionActions } from "@/hooks/use-detection"
 import { useQueueStore, useBibleStore, useDetectionStore } from "@/stores"
 import { presentDetectionLive, previewDetection } from "@/hooks/use-broadcast"
@@ -22,10 +27,10 @@ const SOURCE_COLORS: Record<
   string,
   { bg: string; text: string; label: string }
 > = {
-  direct: { bg: "bg-green-500/15", text: "text-green-600", label: "Direct" },
+  direct: { bg: "bg-ai-direct/15", text: "text-ai-direct", label: "Direct" },
   semantic: {
-    bg: "bg-indigo-500/15",
-    text: "text-indigo-300",
+    bg: "bg-ai-semantic/15",
+    text: "text-ai-semantic",
     label: "Semantic",
   },
 }
@@ -43,10 +48,10 @@ const FILTER_STYLES: Record<DetectionFilter, { active: string }> = {
     active: "bg-background text-foreground shadow-sm",
   },
   direct: {
-    active: "bg-green-500/15 text-green-500 shadow-sm",
+    active: "bg-ai-direct/15 text-ai-direct shadow-sm",
   },
   semantic: {
-    active: "bg-indigo-500/15 text-indigo-300 shadow-sm",
+    active: "bg-ai-semantic/15 text-ai-semantic shadow-sm",
   },
 }
 
@@ -100,7 +105,12 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
         onClick={
           canActions
             ? undefined
-            : () => requireFeature("detection_actions", "AI detection actions")
+            : () =>
+                requireFeature(
+                  "detection_actions",
+                  "AI detection actions",
+                  handlePresent
+                )
         }
       >
         <Button
@@ -269,7 +279,7 @@ export function DetectionsPanel() {
         {pendingCount > 0 && (
           <button
             onClick={flushNow}
-            className="sticky top-0 z-10 w-full border-b border-indigo-500/20 bg-indigo-500/15 px-3 py-1.5 text-center text-xs font-medium text-indigo-300 backdrop-blur-sm transition-colors hover:bg-indigo-500/25"
+            className="sticky top-0 z-10 w-full border-b border-primary/20 bg-primary/10 px-3 py-1.5 text-center text-xs font-medium text-primary backdrop-blur-sm transition-colors hover:bg-primary/20"
           >
             {t("detections.pending", { count: pendingCount })}
           </button>

@@ -291,21 +291,32 @@ export function PreviewPanel() {
   return (
     <div
       data-slot="preview-panel"
-      className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
+      aria-label={t("preview.badge")}
+      className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-primary/40 bg-card ring-1 ring-primary/10"
     >
-      <PanelHeader title={t("preview.title")}>
+      <PanelHeader
+        className="border-primary/25 bg-primary/[0.04]"
+        actionsClassName="w-full"
+      >
         <div className="flex items-center gap-1.5">
+          <span className="rounded-sm border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[0.5625rem] font-semibold tracking-[0.14em] text-primary uppercase">
+            {t("preview.badge")}
+          </span>
           {isLive && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => takeToLiveOrPrompt()}
+              onClick={() =>
+                takeToLiveOrPrompt(() => {
+                  useBroadcastStore.getState().takeToLive()
+                })
+              }
               disabled={!previewPending}
               title={t("preview.takeLive")}
               className="h-6 gap-1 px-2 text-[0.625rem] font-semibold tracking-wider text-emerald-400 uppercase hover:text-emerald-300 disabled:text-muted-foreground"
             >
               <PlayIcon className="size-3.5" />
-              Go Live
+              {t("preview.goLive")}
             </Button>
           )}
           {showWeb && (
@@ -335,24 +346,34 @@ export function PreviewPanel() {
               )}
             </Button>
           )}
-          {!showMedia && !showWeb && selectedVerse && lexiconEnabled && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-6 px-2 text-[0.625rem] font-medium tracking-wider uppercase ${
-                interlinearOn
-                  ? "bg-blue-500/20 text-blue-400"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={toggleInterlinear}
-              title={`Toggle ${isNT ? "Greek" : "Hebrew"} interlinear transliterations`}
-            >
-              {isNT ? "Gr" : "He"}
-            </Button>
-          )}
         </div>
+        {!showMedia && !showWeb && selectedVerse && lexiconEnabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`ml-auto h-6 px-2 text-[0.625rem] font-medium tracking-wider uppercase ${
+              interlinearOn
+                ? "bg-blue-500/20 text-blue-400"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={toggleInterlinear}
+            title={t("preview.interlinearToggle", {
+              language: t(
+                isNT
+                  ? "preview.interlinearGreek"
+                  : "preview.interlinearHebrew"
+              ),
+            })}
+          >
+            {t(
+              isNT
+                ? "preview.interlinearGreekShort"
+                : "preview.interlinearHebrewShort"
+            )}
+          </Button>
+        )}
       </PanelHeader>
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black p-3">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black p-3 ring-1 ring-inset ring-primary/20">
         {showWeb ? (
           <PreviewWebMonitor web={liveWeb} monitorAudio={monitorAudio} />
         ) : showMedia ? (

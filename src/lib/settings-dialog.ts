@@ -1,7 +1,6 @@
 import { create } from "zustand"
 
 type SettingsSection =
-  | "account"
   | "audio"
   | "bible"
   | "display"

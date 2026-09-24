@@ -7,10 +7,12 @@ function PanelHeader({
   title,
   icon,
   children,
+  actionsClassName,
   ...props
 }: React.ComponentProps<"div"> & {
-  title: string
+  title?: string
   icon?: React.ReactNode
+  actionsClassName?: string
 }) {
   return (
     <div
@@ -21,11 +23,17 @@ function PanelHeader({
       )}
       {...props}
     >
-      <span className="flex items-center gap-2 text-[0.6875rem] font-medium tracking-wider text-muted-foreground uppercase">
-        {icon}
-        {title}
-      </span>
-      {children && <div className="flex items-center gap-1">{children}</div>}
+      {title && (
+        <span className="flex items-center gap-2 text-[0.6875rem] font-medium tracking-wider text-muted-foreground uppercase">
+          {icon}
+          {title}
+        </span>
+      )}
+      {children && (
+        <div className={cn("flex items-center gap-1", actionsClassName)}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }

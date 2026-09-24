@@ -18,6 +18,14 @@
     "toggleSidebar": "Alternar barra lateral"
   },
   "color": { "hex": "Hex" },
+  "colorPalette": {
+    "standardColors": "Colores estándar",
+    "recentColors": "Colores recientes",
+    "moreColors": "Más colores…",
+    "palette": "Paleta",
+    "clear": "Borrar",
+    "selectColor": "Seleccionar {{color}}"
+  },
   "live": { "active": "EN DIRECTO", "inactive": "FUERA DEL AIRE" },
   "verseCard": { "empty": "Selecciona un versículo para previsualizar" },
   "errorBoundary": {

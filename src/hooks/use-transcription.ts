@@ -16,12 +16,18 @@ import { describeTranscriptionStartError } from "@/lib/transcription/start-error
 import type { BlockedCopy } from "@/lib/transcription/access"
 import type {
   SttProviderId,
-  TranscriptionMode,
 } from "@/lib/transcription/types"
 import {
   sanitizeUsageDelta,
   shouldReportUsage,
 } from "@/lib/transcription/usage-meter"
+import { LicensingError } from "@/services/lumenbo-client"
+import {
+  beginTranscriptionSession,
+  clearTranscriptionSession,
+  getActiveTranscriptionSession,
+  stopAndClearTranscription,
+} from "@/services/transcription-session"
 import { useTauriEvent } from "./use-tauri-event"
 
 interface TranscriptPartialPayload {
@@ -37,9 +43,8 @@ interface TranscriptionUsagePayload {
 interface UseTranscriptionOptions {
   /**
    * Called when transcription can't start because the user isn't signed in.
-   * Transcription runs strictly on platform-managed keys, which require an
-   * account, so anonymous users are prompted to sign in rather than shown a
-   * generic error toast.
+   * Server-authorized transcription keys require an account, so anonymous
+   * users are prompted to sign in rather than shown a generic error toast.
    */
   onSignInRequired?: () => void
   /**
@@ -51,30 +56,28 @@ interface UseTranscriptionOptions {
 }
 
 const NOT_RUNNING_ERROR = "Transcription is not running"
+let providerKeyRetryAttempted = false
 
-/**
- * The mode of the current session, retained at module scope (one live session at
- * a time) so the usage/unauthorized event handlers know how to react. Always a
- * platform-resolved mode while a session is live — usage is metered against the
- * server-issued temporary key. `null` between sessions.
- */
-let sessionMode: TranscriptionMode | null = null
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof LicensingError && error.code === "UNAUTHORIZED"
+}
 
 export const transcriptionActions = {
   async start(
     onSignInRequired?: () => void,
-    onBlocked?: (copy: BlockedCopy) => void
+    onBlocked?: (copy: BlockedCopy) => void,
+    retryingProviderKey = false
   ): Promise<void> {
+    if (!retryingProviderKey) providerKeyRetryAttempted = false
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("connecting")
 
     const settings = useSettingsStore.getState()
-    const token = useAuthStore.getState().token
-    sessionMode = null
+    const auth = useAuthStore.getState()
+    const token = auth.token
 
-    // Transcription runs strictly on platform-managed keys, which require an
-    // account. Without a token there's no key to pull, so prompt sign-in rather
-    // than attempt to start.
+    // Without a bearer token there is no server-authorized key to pull, so
+    // prompt sign-in rather than attempt to start.
     if (!token) {
       transcript.setConnectionStatus("disconnected")
       if (onSignInRequired) onSignInRequired()
@@ -83,6 +86,28 @@ export const transcriptionActions = {
           description:
             "Transcription is included with your LumenLive account. Sign in to start.",
         })
+      return
+    }
+
+    // A bearer session identifies the operator, but it is not enough to mint
+    // a provider key. Device activation and team selection must have completed
+    // first; the server remains authoritative for the resulting resolution.
+    if (auth.activationStatus !== "activated") {
+      transcript.setConnectionStatus("disconnected")
+      if (auth.activationErrorCode === "UNAUTHORIZED") {
+        onSignInRequired?.()
+        if (!onSignInRequired) {
+          toast.error("Sign-in expired", {
+            description:
+              "Your LumenLive session expired. Sign in again to continue transcribing.",
+          })
+        }
+      } else {
+        toast.error("Activate this device first", {
+          description:
+            "Choose a team and finish device activation from the Account menu before transcribing.",
+        })
+      }
       return
     }
 
@@ -96,6 +121,14 @@ export const transcriptionActions = {
       const machineId = await useEntitlementsStore.getState().ensureMachineId()
       const resolution = await pullTranscriptionKey(token, machineId)
       transcript.setRemainingMinutes(resolution.remainingMinutes)
+      transcript.setTranscriptionStatus({
+        mode: resolution.mode,
+        reason: resolution.reason,
+        tier: resolution.tier,
+        allowanceMinutes: resolution.allowanceMinutes,
+        usedMinutes: resolution.usedMinutes,
+        remainingMinutes: resolution.remainingMinutes,
+      })
       const decision = decideTranscriptionStart(resolution)
       if (decision.action === "blocked") {
         transcript.setConnectionStatus("disconnected")
@@ -108,14 +141,28 @@ export const transcriptionActions = {
       }
       apiKey = decision.key
       provider = resolution.provider ?? "deepgram"
-      sessionMode = decision.mode
+      // Replace the prior session binding only once a fresh server resolution
+      // is ready, so a final usage delta from a just-stopped session is not
+      // lost during key rotation/restart.
+      clearTranscriptionSession()
+      beginTranscriptionSession(decision.mode, token)
     } catch (error) {
       // Key retrieval can fail because of an expired session, a backend response,
       // or the network. Keep those cases distinct for the operator.
       transcript.setConnectionStatus("error")
-      toast.error("Could not start transcription", {
-        description: describeTranscriptionStartError(error),
-      })
+      if (isUnauthorized(error)) {
+        onSignInRequired?.()
+        if (!onSignInRequired) {
+          toast.error("Sign-in expired", {
+            description:
+              "Your LumenLive session expired. Sign in again to continue transcribing.",
+          })
+        }
+      } else {
+        toast.error("Could not start transcription", {
+          description: describeTranscriptionStartError(error),
+        })
+      }
       return
     }
 
@@ -130,7 +177,7 @@ export const transcriptionActions = {
     } catch (e) {
       const msg = String(e)
       transcript.setConnectionStatus("error")
-      sessionMode = null
+      clearTranscriptionSession()
       toast.error("Could not start transcription", { description: msg })
     }
   },
@@ -144,8 +191,9 @@ export const transcriptionActions = {
         toast.error("Could not stop transcription", { description: String(e) })
       }
     }
-    // Leave `sessionMode` set until the final `transcription_usage` flush from
-    // Rust has a chance to report; it's reset on the next start.
+    // Keep the session binding until the final `transcription_usage` flush from
+    // Rust has a chance to report. Account/team changes use
+    // stopAndClearTranscription, which removes it before changing identity.
     transcript.setTranscribing(false)
     transcript.setPartial("")
     transcript.setConnectionStatus("disconnected")
@@ -156,6 +204,8 @@ export function useTranscription(options?: UseTranscriptionOptions) {
   const segments = useTranscriptStore((s) => s.segments)
   const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
   const connectionStatus = useTranscriptStore((s) => s.connectionStatus)
+  const onSignInRequired = options?.onSignInRequired
+  const onBlocked = options?.onBlocked
 
   // STT lifecycle events
   useTauriEvent("stt_connected", () => {
@@ -170,33 +220,65 @@ export function useTranscription(options?: UseTranscriptionOptions) {
   })
 
   // The STT service rejected the API key (HTTP 401). The key is server-issued
-  // and short-lived, so a rejection is transient — surface it and let the
-  // operator re-start, which re-pulls a fresh key.
+  // and short-lived, so retry once with a freshly pulled resolution. A second
+  // rejection is surfaced instead of creating an automatic retry loop.
   useTauriEvent("stt_unauthorized", () => {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("error")
     transcript.setTranscribing(false)
-    sessionMode = null
+    clearTranscriptionSession()
+    if (!providerKeyRetryAttempted) {
+      providerKeyRetryAttempted = true
+      void transcriptionActions.start(
+        onSignInRequired,
+        onBlocked,
+        true
+      )
+      return
+    }
+    providerKeyRetryAttempted = false
     toast.error("Transcription key rejected", {
-      description: "The transcription service rejected the API key.",
+      description:
+        "The transcription service rejected the refreshed key. Try again or contact support.",
     })
   })
 
   // Rust reports audio-seconds as UI telemetry only. Soniox usage logs, bound to
   // the server-issued temporary key, are the authoritative trial meter.
   useTauriEvent<TranscriptionUsagePayload>("transcription_usage", (payload) => {
-    if (sessionMode === null) return
-    const token = useAuthStore.getState().token
-    if (!token) return
+    const session = getActiveTranscriptionSession()
+    if (!session) return
     const seconds = sanitizeUsageDelta(payload.seconds)
     if (!shouldReportUsage(seconds)) return
-    void reportTranscriptionUsage(token, seconds)
+    void useEntitlementsStore
+      .getState()
+      .ensureMachineId()
+      .then((machineId) =>
+        reportTranscriptionUsage(session.token, machineId, seconds)
+      )
       .then((status) => {
-        useTranscriptStore
-          .getState()
-          .setRemainingMinutes(status.remainingMinutes)
+        // A late response from the previous team/session must never overwrite
+        // the current account's usage snapshot.
+        const current = getActiveTranscriptionSession()
+        if (current !== session) return
+        const transcript = useTranscriptStore.getState()
+        transcript.setRemainingMinutes(status.remainingMinutes)
+        transcript.setTranscriptionStatus(status)
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (!isUnauthorized(error)) return
+        // Stop native capture before offering a new browser login. This also
+        // releases the current provider instance and its in-memory key.
+        void stopAndClearTranscription().then(() => {
+          if (onSignInRequired) onSignInRequired()
+          else {
+            toast.error("Sign-in expired", {
+              description:
+                "Your LumenLive session expired. Sign in again to continue transcribing.",
+            })
+          }
+        })
+      })
   })
 
   // Audio source lifecycle: when the OS device disappears (mic unplugged,
@@ -231,9 +313,6 @@ export function useTranscription(options?: UseTranscriptionOptions) {
       timestamp: Date.now(),
     })
   })
-
-  const onSignInRequired = options?.onSignInRequired
-  const onBlocked = options?.onBlocked
 
   // A user-initiated start of the live session.
   const startTranscription = useCallback(() => {

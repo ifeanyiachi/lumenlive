@@ -10,11 +10,17 @@
 import type { PlanTier } from "@/lib/entitlements"
 
 /** Which key the platform decided this client may use right now. */
-export type TranscriptionMode = "platform_paid" | "platform_trial" | "blocked"
+export type TranscriptionMode =
+  "team_byok" | "platform_paid" | "platform_trial" | "blocked"
 
 /** Why transcription is blocked — only set when `mode === "blocked"`. */
 export type BlockedReason =
-  "allowance_exhausted" | "no_subscription" | "platform_key_unset"
+  | "allowance_exhausted"
+  | "no_subscription"
+  | "platform_key_unset"
+  | "transcription_not_included"
+  | "team_key_unset"
+  | "platform_disabled"
 
 /**
  * Which STT backend the resolved key targets. Server-authoritative: lumenbo mints
@@ -37,7 +43,7 @@ export interface TranscriptionResolution {
   /** Minutes allowance for this tier; `-1` = unlimited. Paid clients ignore it. */
   allowanceMinutes: number
   usedMinutes: number
-  /** Remaining free/trial minutes; `null` when unlimited or on a paid plan. */
+  /** Remaining metered minutes; `null` for paid or team-key paths. */
   remainingMinutes: number | null
   /**
    * The STT backend this key targets, chosen by the church admin in lumenbo.

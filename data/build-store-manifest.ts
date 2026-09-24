@@ -378,9 +378,11 @@ function buildStandaloneDb(
     for (let i = 0; i < data.books.length; i++) {
       const book = data.books[i]
       const bookNumber = i + 1
-      const abbrev = BOOK_ABBREVS[book.name] || book.name.substring(0, 4)
+      // Source names vary by translation; book number is authoritative.
+      const bookName = bookNumber === 66 ? "Revelation" : book.name
+      const abbrev = BOOK_ABBREVS[bookName] || bookName.substring(0, 4)
       const testament = bookNumber <= 39 ? "OT" : "NT"
-      insertBook.run(tId, bookNumber, book.name, abbrev, testament)
+      insertBook.run(tId, bookNumber, bookName, abbrev, testament)
       const bookId = (
         db.query("SELECT last_insert_rowid() as id").get() as { id: number }
       ).id
@@ -390,7 +392,7 @@ function buildStandaloneDb(
             tId,
             bookId,
             bookNumber,
-            book.name,
+            bookName,
             abbrev,
             chapter.chapter,
             verse.verse,

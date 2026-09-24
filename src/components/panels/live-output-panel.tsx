@@ -20,7 +20,6 @@ import {
   presentQueueVerse,
   takeToLiveOrPrompt,
 } from "@/hooks/use-broadcast"
-import { focusBroadcastWindow } from "@/services/broadcast-window-gateway"
 import { shouldStageManualVerse } from "@/lib/broadcast/follow-manual-verse"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { SlideCanvas } from "@/components/slides/slide-canvas"
@@ -31,10 +30,8 @@ import {
   ImageIcon,
   MonitorOffIcon,
   EyeOffIcon,
-  MonitorUpIcon,
 } from "lucide-react"
 
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 import { PropsManager } from "@/components/props/props-manager"
 import { requireFeature } from "@/components/entitlements/require-feature"
 import { applyMuteParam } from "@/lib/live-output/presentation"
@@ -145,7 +142,9 @@ export function LiveOutputPanel() {
         return
       }
       e.preventDefault()
-      takeToLiveOrPrompt()
+      takeToLiveOrPrompt(() => {
+        useBroadcastStore.getState().takeToLive()
+      })
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -200,19 +199,48 @@ export function LiveOutputPanel() {
   return (
     <div
       data-slot="live-output-panel"
+      aria-label={t("live.badge")}
       className={cn(
         "flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card",
-        isLive && "shadow-[inset_0_2px_0_0_rgba(16,185,129,0.3)]"
+        isLive &&
+          "border-emerald-500/70 shadow-[0_0_24px_-16px_rgba(16,185,129,0.9)] ring-1 ring-emerald-500/25"
       )}
     >
-      <PanelHeader title={t("live.title")}>
+      <PanelHeader
+        className={cn(
+          isLive && "border-emerald-500/30 bg-emerald-500/[0.05]"
+        )}
+        actionsClassName="w-full"
+      >
         <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5 text-[0.5625rem] font-semibold tracking-[0.14em] uppercase",
+              isLive
+                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
+                : "border-border bg-muted/50 text-muted-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                isLive ? "animate-pulse bg-emerald-400" : "bg-muted-foreground/50"
+              )}
+            />
+            {t("live.badge")}
+          </span>
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => {
               // Lower-thirds / props are a Starter capability.
-              if (requireFeature("props", "Lower-thirds & props"))
+              if (
+                requireFeature(
+                  "props",
+                  "Lower-thirds & props",
+                  () => setPropsOpen(true)
+                )
+              )
                 setPropsOpen(true)
             }}
             title={t("live.props")}
@@ -220,22 +248,6 @@ export function LiveOutputPanel() {
             <LayersIcon className="size-3.5" />
           </Button>
           <PropsManager open={propsOpen} onOpenChange={setPropsOpen} />
-          {/* Bring the projector output back to the front. The projector is a
-              shared display — the operator can switch another app (a browser
-              video, a Chrome page) onto it mid-service, then tap this to return
-              the congregation to Lumen. The output window is hidden from the
-              taskbar/alt-tab, so this is the only way to raise it again. Shown
-              only when the Display Output is active. */}
-          {isTauri && mainOutput?.enabled && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => void focusBroadcastWindow("main").catch(() => {})}
-              title={t("live.showProjector")}
-            >
-              <MonitorUpIcon className="size-3.5" />
-            </Button>
-          )}
           {(showVideoControls || showWebControls) && (
             <Button
               variant="ghost"
@@ -255,29 +267,30 @@ export function LiveOutputPanel() {
               )}
             </Button>
           )}
-          <label className="flex items-center gap-2">
-            <span
-              className={cn(
-                "text-[0.625rem] font-medium tracking-wider uppercase transition-colors",
-                isLive ? "text-emerald-400" : "text-muted-foreground"
-              )}
-            >
-              {isLive ? t("live.live") : t("live.goLive")}
-            </span>
-            <Switch
-              checked={isLive}
-              onCheckedChange={(checked) =>
-                useBroadcastStore.getState().setLive(checked)
-              }
-              className="data-[state=checked]:bg-emerald-500"
-            />
-          </label>
         </div>
+        <label className="ml-auto flex items-center gap-2">
+          <span
+            className={cn(
+              "text-[0.625rem] font-medium tracking-wider uppercase transition-colors",
+              isLive ? "text-emerald-400" : "text-muted-foreground"
+            )}
+          >
+            {isLive ? t("live.live") : t("live.goLive")}
+          </span>
+          <Switch
+            checked={isLive}
+            onCheckedChange={(checked) =>
+              useBroadcastStore.getState().setLive(checked)
+            }
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </label>
       </PanelHeader>
 
       <div
         className={cn(
-          "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black p-3 transition-opacity",
+          "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black p-3 transition-opacity ring-1 ring-inset",
+          isLive ? "ring-emerald-400/30" : "ring-border/30",
           !isLive && "opacity-40"
         )}
       >
@@ -386,7 +399,10 @@ export function LiveOutputPanel() {
               ‹
             </button>
             <span className="tabular-nums">
-              Page {liveVersePageIndex + 1} / {liveVersePages.length}
+              {t("live.pageOf", {
+                current: liveVersePageIndex + 1,
+                total: liveVersePages.length,
+              })}
             </span>
             <button
               type="button"

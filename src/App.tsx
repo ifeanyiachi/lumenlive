@@ -11,9 +11,27 @@ import { AlertOverlay } from "@/components/alerts/alert-overlay"
 import { CountdownOverlay } from "@/components/countdown/countdown-overlay"
 import { DragGhost } from "@/components/panels/drag-ghost"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { UpdateNotificationDialog } from "@/components/store/update-notification-dialog"
+import { ForceUpdateScreen } from "@/components/store/force-update-screen"
+import { useUpdateStore } from "@/stores/update-store"
 import { Toaster } from "sonner"
 
 export function App() {
+  const updateBlocked = useUpdateStore((s) => s.policyStatus === "blocked")
+
+  if (updateBlocked) {
+    return (
+      <>
+        <ForceUpdateScreen />
+        <Toaster position="bottom-right" />
+      </>
+    )
+  }
+
+  return <ActiveApp />
+}
+
+function ActiveApp() {
   useRemoteControl()
   useStageSources()
   useOutputDisplayGuard()
@@ -38,6 +56,9 @@ export function App() {
       </ErrorBoundary>
       <ErrorBoundary label="keyboard shortcuts" fallback={() => null}>
         <KeyboardShortcutsOverlay />
+      </ErrorBoundary>
+      <ErrorBoundary label="update notification" fallback={() => null}>
+        <UpdateNotificationDialog />
       </ErrorBoundary>
       <DragGhost />
       <Toaster position="bottom-right" />

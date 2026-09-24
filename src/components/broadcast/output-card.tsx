@@ -284,7 +284,7 @@ export function OutputCard({
             className={cn(
               "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
               c.outputType === "display"
-                ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
+                ? "border-primary/50 bg-primary/15 text-primary"
                 : "border-border bg-background text-muted-foreground hover:text-foreground"
             )}
           >
@@ -296,7 +296,7 @@ export function OutputCard({
             className={cn(
               "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
               c.outputType === "ndi"
-                ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
+                ? "border-primary/50 bg-primary/15 text-primary"
                 : "border-border bg-background text-muted-foreground hover:text-foreground"
             )}
           >

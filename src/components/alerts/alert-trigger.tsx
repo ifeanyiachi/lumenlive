@@ -43,7 +43,13 @@ export function AlertTrigger() {
           // On-screen alerts are a Starter capability; gate the whole panel so a
           // Free operator can't send an alert (the stage-monitor controls inside
           // are separately Pro-gated by whether stage output exists).
-          if (open && !requireFeature("alerts", "On-screen alerts")) return
+          if (
+            open &&
+            !requireFeature("alerts", "On-screen alerts", () =>
+              setPopoverOpen(true)
+            )
+          )
+            return
           setPopoverOpen(open)
         }}
       >
@@ -52,6 +58,7 @@ export function AlertTrigger() {
             variant="ghost"
             size="icon-sm"
             title={t("trigger.title")}
+            aria-label={t("trigger.title")}
             data-tour="alerts"
             className="relative"
           >

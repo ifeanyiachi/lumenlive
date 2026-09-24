@@ -498,17 +498,16 @@ fn frame_header_u32(request: &tauri::ipc::Request<'_>, name: &str) -> Result<u32
         .ok_or_else(|| format!("push_ndi_frame: missing/invalid header {name}"))
 }
 
-// The NDI encode + network send in `send_frame_rgba` is genuinely blocking, and
-// output windows call this once per frame. An `#[tauri::command] async fn` runs
-// on Tauri's async runtime, so doing the blocking send inline would occupy a
-// runtime worker for the whole encode/send every frame and back up the runtime
-// that also services the operator window's other invokes/events — the projector
-// being "on" then froze the operator's controls. So we hand the owned frame to
-// `spawn_blocking`, which runs it on the dedicated blocking pool and leaves the
-// async runtime free. The `NdiRuntime` mutex is locked and released inside the
-// blocking closure (the guard never crosses threads), so `std::sync::Mutex` is
-// safe here. The pixel body is copied once (`to_vec`) to own it across the
-// thread boundary — far cheaper than stalling the runtime.
+// Pixel conversion and NDI submission in `send_frame_rgba` are blocking native
+// work, and output windows call this once per frame. An `#[tauri::command]
+// async fn` runs on Tauri's async runtime, so doing that work inline would occupy
+// a runtime worker and back up the runtime that also services the operator
+// window's invokes/events. Hand the owned frame to `spawn_blocking` instead;
+// the NDI backend uses its asynchronous send API when available, so compression
+// and network transmission can proceed without holding up the next frame.
+// The `NdiRuntime` mutex is locked and released inside the blocking closure (the
+// guard never crosses threads), so `std::sync::Mutex` is safe here. The pixel
+// body is copied once (`to_vec`) to own it across the thread boundary.
 #[tauri::command]
 pub async fn push_ndi_frame(
     app: tauri::AppHandle,

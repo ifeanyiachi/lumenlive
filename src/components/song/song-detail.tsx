@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { SongSectionsEditor } from "@/components/song/song-sections-editor"
 import { SongProjectionOptions } from "@/components/song/song-projection-options"
 import { SongSlidePreview } from "@/components/song/song-slide-preview"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useSongStore } from "@/stores/song-store"
 import { addSongToSchedule } from "@/lib/schedule-song"
 import type { Song } from "@/types/song"
@@ -35,14 +36,13 @@ export function SongDetail() {
 
   if (!song) {
     return (
-      <div className="flex min-h-0 flex-col items-center justify-center rounded-lg border border-border bg-card">
-        <MusicIcon className="size-10 text-muted-foreground/25" />
-        <p className="mt-3 text-sm text-muted-foreground">
-          {t("detail.selectSong")}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground/60">
-          {t("detail.createSong")}
-        </p>
+      <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card">
+        <EmptyState
+          size="lg"
+          icon={<MusicIcon />}
+          title={t("detail.selectSong")}
+          description={t("detail.createSong")}
+        />
       </div>
     )
   }

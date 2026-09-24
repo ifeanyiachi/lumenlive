@@ -66,7 +66,11 @@ describe("use-transcription", () => {
   function signIn(useAuthStore: {
     setState: (partial: Record<string, unknown>) => void
   }) {
-    useAuthStore.setState({ token: "session-token", status: "authenticated" })
+    useAuthStore.setState({
+      token: "session-token",
+      status: "authenticated",
+      activationStatus: "activated",
+    })
   }
 
   describe("transcriptionActions.start", () => {
@@ -151,6 +155,52 @@ describe("use-transcription", () => {
       })
     })
 
+    it("starts a team BYOK session without displaying a platform allowance", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      mockPullKey.mockResolvedValue({
+        mode: "team_byok",
+        key: "team-deepgram-key",
+        provider: "deepgram",
+        remainingMinutes: null,
+        tier: "free",
+        allowanceMinutes: -1,
+        usedMinutes: 0,
+      })
+      const { useAuthStore, useTranscriptStore, transcriptionActions } =
+        await loadModules()
+
+      signIn(useAuthStore)
+      await transcriptionActions.start()
+
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        apiKey: "team-deepgram-key",
+        provider: "deepgram",
+        deviceId: null,
+        gain: 1,
+      })
+      expect(useTranscriptStore.getState().remainingMinutes).toBeNull()
+      expect(useTranscriptStore.getState().transcriptionStatus).toMatchObject({
+        mode: "team_byok",
+        remainingMinutes: null,
+      })
+    })
+
+    it("routes an expired session during key retrieval to sign-in recovery", async () => {
+      const { useAuthStore, transcriptionActions } = await loadModules()
+      const onSignInRequired = vi.fn()
+
+      const { LicensingError } = await import("@/services/lumenbo-client")
+      mockPullKey.mockRejectedValue(
+        new LicensingError("UNAUTHORIZED", "Session expired", 401)
+      )
+
+      signIn(useAuthStore)
+      await transcriptionActions.start(onSignInRequired)
+
+      expect(onSignInRequired).toHaveBeenCalledTimes(1)
+      expect(mockToastError).not.toHaveBeenCalled()
+    })
+
     it("prompts sign-in (no pull, no invoke) when anonymous", async () => {
       const { useTranscriptStore, transcriptionActions } = await loadModules()
       const onSignInRequired = vi.fn()
@@ -175,6 +225,24 @@ describe("use-transcription", () => {
       expect(mockInvoke).not.toHaveBeenCalled()
       expect(mockToastError).toHaveBeenCalledWith(
         "Sign in to transcribe",
+        expect.objectContaining({ description: expect.any(String) })
+      )
+    })
+
+    it("does not pull a provider key before device activation completes", async () => {
+      const { useAuthStore, transcriptionActions } = await loadModules()
+
+      useAuthStore.setState({
+        token: "session-token",
+        status: "authenticated",
+        activationStatus: "failed",
+      })
+      await transcriptionActions.start()
+
+      expect(mockPullKey).not.toHaveBeenCalled()
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Activate this device first",
         expect.objectContaining({ description: expect.any(String) })
       )
     })

@@ -88,6 +88,10 @@
     "title": "Mise à jour du logiciel",
     "currentVersion": "Version actuelle {{version}}",
     "updateNow": "Mettre à jour maintenant",
+    "newVersion": "Nouvelle version disponible",
+    "dialogDescription": "Une nouvelle version de LumenLive est prête avec les dernières améliorations et corrections.",
+    "releaseReady": "Prête à être installée",
+    "releaseNotes": "Notes de version",
     "check": "Rechercher des mises à jour",
     "updatingTo": "Mise à jour vers LumenLive {{version}}",
     "available": "LumenLive {{version}} est disponible",
@@ -98,6 +102,13 @@
     "checking": "Recherche de mises à jour…",
     "checkDescription": "Vérifiez si une version plus récente de LumenLive est disponible.",
     "whatsNew": "Nouveautés de LumenLive {{version}}",
-    "noReleaseNotes": "Aucune note de version n'a été fournie pour cette version."
+    "noReleaseNotes": "Aucune note de version n'a été fournie pour cette version.",
+    "requiredLabel": "Mise à jour requise",
+    "requiredTitle": "Mettez LumenLive à jour pour continuer",
+    "requiredDescription": "Cette version n'est plus prise en charge. Installez la mise à jour requise avant d'utiliser LumenLive.",
+    "currentVersionLabel": "Version actuelle",
+    "requiredVersionLabel": "Version requise",
+    "retry": "Vérifier à nouveau",
+    "requiredInstallFailed": "La mise à jour n'a pas pu être installée. Vérifiez votre connexion et réessayez."
   }
 }

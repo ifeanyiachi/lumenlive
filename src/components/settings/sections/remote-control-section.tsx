@@ -66,7 +66,7 @@ export function RemoteControlSection() {
             onClick={() => {
               if (
                 oscStatus.running ||
-                requireFeature("remote_control", t("remote.featureName"))
+                requireFeature("remote_control", t("remote.featureName"), handleOscToggle)
               )
                 handleOscToggle()
             }}
@@ -111,7 +111,7 @@ export function RemoteControlSection() {
             onClick={() => {
               if (
                 httpStatus.running ||
-                requireFeature("remote_control", t("remote.featureName"))
+                requireFeature("remote_control", t("remote.featureName"), handleHttpToggle)
               )
                 handleHttpToggle()
             }}

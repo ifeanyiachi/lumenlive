@@ -152,6 +152,7 @@ export function SchedulePanel() {
             size="icon-sm"
             onClick={handleCreateSchedule}
             title={t("panel.new")}
+            aria-label={t("panel.new")}
           >
             <PlusIcon className="size-3.5" />
           </Button>
@@ -160,6 +161,7 @@ export function SchedulePanel() {
             size="icon-sm"
             onClick={handleImportSchedule}
             title={t("panel.import")}
+            aria-label={t("panel.import")}
           >
             <DownloadIcon className="size-3.5" />
           </Button>
@@ -170,6 +172,7 @@ export function SchedulePanel() {
                 size="icon-sm"
                 onClick={handleExportSchedule}
                 title={t("panel.export")}
+                aria-label={t("panel.export")}
               >
                 <UploadIcon className="size-3.5" />
               </Button>
@@ -183,6 +186,7 @@ export function SchedulePanel() {
                   toast.success(t("toast.duplicated"))
                 }}
                 title={t("panel.duplicate")}
+                aria-label={t("panel.duplicate")}
               >
                 <CopyIcon className="size-3.5" />
               </Button>
@@ -191,6 +195,7 @@ export function SchedulePanel() {
                 size="icon-sm"
                 onClick={() => setConfirmDelete(true)}
                 title={t("panel.delete")}
+                aria-label={t("panel.delete")}
               >
                 <TrashIcon className="size-3.5" />
               </Button>
@@ -251,7 +256,13 @@ export function SchedulePanel() {
             onEditProperties={(item) => setEditingItem(item)}
             onEditScripture={(item) => {
               // Editing scripture text is a Starter capability (verse_editing).
-              if (requireFeature("verse_editing", "Verse editing"))
+              if (
+                requireFeature(
+                  "verse_editing",
+                  "Verse editing",
+                  () => setEditingScripture(item)
+                )
+              )
                 setEditingScripture(item)
             }}
             onEditLexicon={(item) => setEditingLexicon(item)}

@@ -97,6 +97,8 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.552 0.016 285.938);
+    /* Semantic color roles: primary marks operator selection, live-pulse is
+       reserved for on-air status, and ai-* identifies detection sources. */
     --ai-direct: oklch(72.3% 0.219 149.579);
     --ai-semantic: oklch(76.9% 0.188 70.08);
     --ai-cloud: oklch(62.3% 0.214 259.815);

@@ -19,6 +19,14 @@ export function describeTranscriptionStartError(error: unknown): string {
       return "Transcription is not available on the LumenLive server this app is using. Update the app or contact support. (Error: NOT_FOUND)"
     case "VALIDATION_ERROR":
       return "LumenLive rejected the transcription request. Check your account, then try again. (Error: VALIDATION_ERROR)"
+    case "NO_SEAT":
+      return "This team no longer has a desktop seat for transcription. Choose another team from the Account menu. (Error: NO_SEAT)"
+    case "ORG_AMBIGUOUS":
+      return "Choose a team in the Account menu before starting transcription. (Error: ORG_AMBIGUOUS)"
+    case "DEVICE_LIMIT_REACHED":
+      return "This account has reached its device limit. Deactivate another device, then try again. (Error: DEVICE_LIMIT_REACHED)"
+    case "LICENSE_INVALID":
+      return "The device license could not be verified. Re-validate the account, then try again. (Error: LICENSE_INVALID)"
     case "SERVICE_UNAVAILABLE":
       return `${error.message} (Error: SERVICE_UNAVAILABLE)`
     case "INTERNAL":

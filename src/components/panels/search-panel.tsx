@@ -71,10 +71,12 @@ export function SearchPanel() {
   // editor-open paths (single-verse formatting + multi-verse edit) so a Free
   // operator is prompted instead of the editor opening.
   const openVerseEditor = (verse: Verse) => {
-    if (requireFeature("verse_editing", "Verse editing")) setEditingVerse(verse)
+    if (requireFeature("verse_editing", "Verse editing", () => setEditingVerse(verse)))
+      setEditingVerse(verse)
   }
   const openMultiVerseEditor = () => {
-    if (requireFeature("verse_editing", "Verse editing")) setMultiEditOpen(true)
+    if (requireFeature("verse_editing", "Verse editing", () => setMultiEditOpen(true)))
+      setMultiEditOpen(true)
   }
   // Book-search rows key by real `verse.id` (number); context-search results
   // are synthesized with `id: 0`, so they key by a "book:chapter:verse" string.
@@ -334,7 +336,7 @@ export function SearchPanel() {
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                 contentTab === tab.value
-                  ? "border-lime-500/50 bg-lime-500/15"
+                  ? "border-primary/50 bg-primary/15"
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
             >
@@ -342,7 +344,7 @@ export function SearchPanel() {
                 className={cn(
                   "size-3.5",
                   contentTab === tab.value
-                    ? "text-lime-400"
+                    ? "text-primary"
                     : "text-muted-foreground"
                 )}
               />
@@ -362,7 +364,7 @@ export function SearchPanel() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                 activeTab === "book"
-                  ? "border-lime-500/50 bg-lime-500/15"
+                  ? "border-primary/50 bg-primary/15"
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
             >
@@ -370,7 +372,7 @@ export function SearchPanel() {
                 className={cn(
                   "size-3.5",
                   activeTab === "book"
-                    ? "text-lime-400"
+                    ? "text-primary"
                     : "text-muted-foreground"
                 )}
               />
@@ -380,7 +382,10 @@ export function SearchPanel() {
               data-tour="context-search"
               onClick={() => {
                 if (!canContextSearch) {
-                  requireFeature("context_search", "Context search")
+                  requireFeature("context_search", "Context search", () => {
+                    setActiveTab("context")
+                    resetContextSearch()
+                  })
                   return
                 }
                 setActiveTab("context")
@@ -389,7 +394,7 @@ export function SearchPanel() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                 activeTab === "context"
-                  ? "border-lime-500/50 bg-lime-500/15"
+                  ? "border-primary/50 bg-primary/15"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
                 !canContextSearch && "opacity-60"
               )}
@@ -398,7 +403,7 @@ export function SearchPanel() {
                 className={cn(
                   "size-3.5",
                   activeTab === "context"
-                    ? "text-lime-400"
+                    ? "text-primary"
                     : "text-muted-foreground"
                 )}
               />

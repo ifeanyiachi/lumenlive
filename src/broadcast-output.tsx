@@ -9,6 +9,9 @@ import {
 } from "@/components/broadcast-output/runtime"
 import { useMediaPlayback } from "@/components/broadcast-output/hooks/use-media-playback"
 import { useBroadcastEvents } from "@/components/broadcast-output/hooks/use-broadcast-events"
+import { disableNativeContextMenu } from "@/lib/disable-native-context-menu"
+
+disableNativeContextMenu()
 
 // This is a window entry point (defines the component and calls createRoot at
 // the bottom), so it is not a Fast Refresh module boundary.

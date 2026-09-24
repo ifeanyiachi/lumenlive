@@ -38,6 +38,23 @@ describe("decideTranscriptionStart", () => {
     })
   })
 
+  it("starts team BYOK without treating it as a finite platform allowance", () => {
+    const d = decideTranscriptionStart(
+      resolution({
+        mode: "team_byok",
+        key: "team-provider-key",
+        remainingMinutes: null,
+        allowanceMinutes: -1,
+      })
+    )
+    expect(d).toEqual({
+      action: "start",
+      key: "team-provider-key",
+      mode: "team_byok",
+    })
+    expect(isMetered({ remainingMinutes: null })).toBe(false)
+  })
+
   it("blocks with allowance copy when exhausted", () => {
     const d = decideTranscriptionStart(
       resolution({
@@ -67,6 +84,20 @@ describe("decideTranscriptionStart", () => {
     })
     if (unset.action === "blocked") {
       expect(unset.copy.title).not.toBe(describeBlock(undefined).title)
+    }
+  })
+
+  it.each([
+    ["team_key_unset", /team|administrator/i],
+    ["platform_disabled", /platform|team key/i],
+  ] as const)("shows distinct recovery copy for %s", (reason, expected) => {
+    const blocked = decideTranscriptionStart(
+      resolution({ mode: "blocked", key: undefined, reason })
+    )
+    expect(blocked).toMatchObject({ action: "blocked", reason })
+    if (blocked.action === "blocked") {
+      expect(blocked.copy.title).toMatch(expected)
+      expect(blocked.copy.message).toMatch(expected)
     }
   })
 

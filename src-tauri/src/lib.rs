@@ -1,4 +1,5 @@
 mod bible_state;
+mod auth_callback;
 mod commands;
 mod display_watch;
 mod events;
@@ -28,6 +29,23 @@ pub fn run() {
     let _tokio_guard = rt_handle.inner().enter();
 
     let mut builder = tauri::Builder::default();
+
+    // Windows and Linux start a second process for a custom-scheme URL. The
+    // single-instance plugin forwards that URL to the existing process; it
+    // must be registered before the deep-link plugin for that integration.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(
+            |app, _argv, _cwd| {
+                auth_callback::focus_main_window(app);
+            },
+        ));
+    }
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_deep_link::init());
+    }
 
     // Anonymous usage analytics (Aptabase). The App Key is baked into the binary
     // at compile time by build.rs (from APTABASE_KEY / .env) via a generated
@@ -68,6 +86,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(Mutex::new(auth_callback::AuthCallbackState::default()))
         .manage(Mutex::new(state::AppState::new()))
         .manage(Mutex::new(bible_state::BibleState::new()))
         .manage(Mutex::new(lumenlive_detection::DetectionPipeline::new()))
@@ -144,8 +163,11 @@ pub fn run() {
             commands::licensing::os_info,
             commands::licensing::verify_license,
             commands::licensing::licensing_request,
+            auth_callback::consume_desktop_auth_callbacks,
         ])
         .setup(|app| {
+            #[cfg(desktop)]
+            auth_callback::initialize(app)?;
             memstats::spawn();
 
             // A missing Bible DB degrades gracefully; a corrupt one refuses to

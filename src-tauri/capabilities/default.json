@@ -12,6 +12,7 @@
     "store:default",
     "log:default",
     "updater:default",
+    "deep-link:default",
     "process:default",
     "dialog:default",
     "opener:default",

@@ -23,6 +23,7 @@ export function ToolbarToggle({
       className="size-7"
       onClick={onClick}
       title={title}
+      aria-label={title}
     >
       <Icon className="size-3.5" />
     </Button>
@@ -47,6 +48,7 @@ export function ToolbarAlignButton({
       className={cn("size-7", active && "bg-accent text-accent-foreground")}
       onClick={onClick}
       title={title}
+      aria-label={title}
     >
       <Icon className="size-3.5" />
     </Button>

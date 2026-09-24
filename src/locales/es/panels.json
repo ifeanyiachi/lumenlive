@@ -1,12 +1,21 @@
 {
   "preview": {
     "title": "Vista previa del programa",
+    "badge": "Vista previa del programa",
     "takeLive": "Enviar el elemento previsualizado a la audiencia (Intro)",
+    "goLive": "Ir al directo",
     "monitorAudio": "Escuchar audio",
-    "muteMonitorAudio": "Silenciar audio de monitoreo"
+    "muteMonitorAudio": "Silenciar audio de monitoreo",
+    "interlinearToggle": "Alternar transliteraciones interlineales en {{language}}",
+    "interlinearHebrew": "hebreo",
+    "interlinearGreek": "griego",
+    "interlinearHebrewShort": "He",
+    "interlinearGreekShort": "Gr"
   },
   "live": {
     "title": "Pantalla en directo",
+    "badge": "Pantalla en directo",
+    "offAir": "Pantalla en directo",
     "goLive": "Ir al directo",
     "live": "En directo",
     "props": "Accesorios / Superposiciones",
@@ -15,6 +24,7 @@
     "unmuteAudio": "Activar audio de transmisión",
     "previousPage": "Página anterior (←)",
     "nextPage": "Página siguiente (→)",
+    "pageOf": "Página {{current}} / {{total}}",
     "blackHidden": "Negro · oculto",
     "logo": "Logotipo",
     "clearHidden": "Limpiar · texto oculto",
@@ -142,6 +152,7 @@
     "startingTitle": "Iniciando transcripción",
     "starting": "Iniciando…",
     "startTitle": "Iniciar transcripción (T)",
-    "start": "Iniciar transcripción"
+    "start": "Iniciar transcripción",
+    "connection": { "connected": "Transcripción conectada", "connecting": "Conectando a la transcripción", "disconnected": "Transcripción desconectada", "error": "Error de conexión de la transcripción" }
   }
 }

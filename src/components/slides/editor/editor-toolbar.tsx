@@ -135,7 +135,11 @@ export function EditorToolbar({
                   onClick={async () => {
                     if (!draft) return
                     // PDF export is a Starter capability.
-                    if (!requireFeature("pdf_export", t("toolbar.pdfExport")))
+                    if (
+                      !requireFeature("pdf_export", t("toolbar.pdfExport"), () => {
+                        void exportCurrentSlideAsPdf(draft, activeSlideIndex)
+                      })
+                    )
                       return
                     await exportCurrentSlideAsPdf(draft, activeSlideIndex)
                     toast.success(t("toolbar.slideExportedPdf"))
@@ -146,7 +150,11 @@ export function EditorToolbar({
                 <DropdownMenuItem
                   onClick={async () => {
                     if (!draft) return
-                    if (!requireFeature("pdf_export", t("toolbar.pdfExport")))
+                    if (
+                      !requireFeature("pdf_export", t("toolbar.pdfExport"), () => {
+                        void exportAllSlidesAsPdf(draft)
+                      })
+                    )
                       return
                     await exportAllSlidesAsPdf(draft)
                     toast.success(t("toolbar.allSlidesExportedPdf"))

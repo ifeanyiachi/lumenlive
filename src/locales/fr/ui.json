@@ -18,6 +18,14 @@
     "toggleSidebar": "Afficher/masquer la barre latérale"
   },
   "color": { "hex": "Hex" },
+  "colorPalette": {
+    "standardColors": "Couleurs standard",
+    "recentColors": "Couleurs récentes",
+    "moreColors": "Plus de couleurs…",
+    "palette": "Palette",
+    "clear": "Effacer",
+    "selectColor": "Sélectionner {{color}}"
+  },
   "live": { "active": "DIRECT", "inactive": "HORS ANTENNE" },
   "verseCard": { "empty": "Sélectionnez un verset à prévisualiser" },
   "errorBoundary": {

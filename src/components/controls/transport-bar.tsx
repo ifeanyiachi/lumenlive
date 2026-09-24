@@ -1,10 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { LevelMeter } from "@/components/ui/level-meter"
-import { LiveIndicator } from "@/components/ui/live-indicator"
-import { Badge } from "@/components/ui/badge"
 import {
-  MicIcon,
   PaletteIcon,
   MonitorIcon,
   CastIcon,
@@ -24,8 +20,6 @@ import { StageLayoutDesigner } from "@/components/broadcast/stage-layout/stage-l
 import { requireFeature } from "@/components/entitlements/require-feature"
 import { BroadcastSettings } from "@/components/broadcast/broadcast-settings"
 import {
-  useAudioStore,
-  useTranscriptStore,
   useBroadcastStore,
   useAppStore,
   useUpdateStore,
@@ -35,10 +29,10 @@ import { shouldNotifyUpdate } from "@/lib/updater/version"
 import { ReloadButton } from "@/components/controls/reload-button"
 import { AlertTrigger } from "@/components/alerts/alert-trigger"
 import { CountdownTrigger } from "@/components/countdown/countdown-trigger"
-import { useEntitlementsStore } from "@/stores/entitlements-store"
-import { planLabel } from "@/lib/entitlements"
 import { cn } from "@/lib/utils"
 import type { AppView } from "@/stores/app-store"
+import { AccountMenu } from "@/components/controls/account-menu"
+import { Separator } from "@/components/ui/separator"
 
 function getViewButtons(t: (key: string) => string): {
   view: AppView
@@ -79,54 +73,31 @@ function getViewButtons(t: (key: string) => string): {
   ]
 }
 
-/**
- * Leaf that subscribes to the audio RMS only. Isolated so the high-frequency
- * `audio_level` tick (many times per second during recording) re-renders this
- * meter alone, never the whole transport bar. (Mirrors `AudioLevelMeter` in
- * `transcript-panel.tsx`.)
- */
-function AudioLevelMeter() {
-  const rms = useAudioStore((s) => s.level.rms)
-  return <LevelMeter level={rms} bars={4} />
-}
-
 export function TransportBar() {
   const { t } = useTranslation("controls")
-  const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const currentView = useAppStore((s) => s.view)
   // Same predicate as the Store-page banner, so dismissing there clears the dot.
   const updateAvailable = useUpdateStore((s) =>
     shouldNotifyUpdate(s.available, s.dismissedVersion)
   )
-  // Current plan label — built-in and admin-managed tier names are both
-  // derived from the verified entitlement snapshot.
-  const plan = useEntitlementsStore((s) => planLabel(s.entitlement))
   const viewButtons = getViewButtons(t)
 
   return (
     <div
       data-slot="transport-bar"
-      className="col-span-4 flex h-14 items-center justify-between border-b border-border bg-card px-3"
+      className="col-span-4 grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-border bg-card px-3"
     >
-      {/* Left: Wordmark + Plan Badge */}
-      <div className="flex items-center gap-2.5">
-        <span className="text-sm font-semibold tracking-tight text-foreground">
-          LumenLive
-        </span>
-        <Badge
-          variant={plan === "Free" ? "outline" : "default"}
-          className="text-[0.5625rem] uppercase"
-        >
-          {plan}
-        </Badge>
+      {/* Left: Account */}
+      <div className="flex min-w-0 items-center gap-2.5 justify-self-start">
+        <AccountMenu />
         <ReloadButton />
       </div>
 
       {/* Center: View Switcher */}
       <div
         data-tour="view-switcher"
-        className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/50 p-0.5"
+        className="flex min-w-0 items-center gap-0.5 rounded-lg border border-border bg-muted/50 p-0.5 justify-self-center"
       >
         {viewButtons.map(({ view, label, icon }) => (
           <Button
@@ -153,64 +124,94 @@ export function TransportBar() {
         ))}
       </div>
 
-      {/* Right: Audio + Status + Settings */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <MicIcon className="size-3.5 text-muted-foreground" />
-          <AudioLevelMeter />
+      {/* Right: service tools, design tools, and app controls */}
+      <div className="flex min-w-0 items-center gap-2 justify-self-end">
+        <div
+          role="group"
+          aria-label={t("groups.serviceTools")}
+          className="flex items-center gap-1"
+        >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={t("broadcastSettings")}
+            aria-label={t("broadcastSettings")}
+            data-tour="broadcast"
+            onClick={() => setBroadcastOpen(true)}
+          >
+            <CastIcon className="size-3.5" />
+          </Button>
+          <BroadcastSettings
+            open={broadcastOpen}
+            onOpenChange={setBroadcastOpen}
+          />
+          <AlertTrigger />
+          <CountdownTrigger />
         </div>
-        <LiveIndicator active={isTranscribing} />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={t("broadcastSettings")}
-          data-tour="broadcast"
-          onClick={() => setBroadcastOpen(true)}
+
+        <Separator orientation="vertical" className="h-5" />
+
+        <div
+          role="group"
+          aria-label={t("groups.designTools")}
+          className="flex items-center gap-1"
         >
-          <CastIcon className="size-3.5" />
-        </Button>
-        <BroadcastSettings
-          open={broadcastOpen}
-          onOpenChange={setBroadcastOpen}
-        />
-        <AlertTrigger />
-        <CountdownTrigger />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={t("themeDesigner")}
-          data-tour="theme"
-          onClick={() => {
-            if (requireFeature("theme_designer", t("themeDesignerFeature")))
-              useBroadcastStore.getState().setDesignerOpen(true)
-          }}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={t("themeDesigner")}
+            aria-label={t("themeDesigner")}
+            data-tour="theme"
+            onClick={() => {
+              if (
+                requireFeature("theme_designer", t("themeDesignerFeature"), () =>
+                  useBroadcastStore.getState().setDesignerOpen(true)
+                )
+              )
+                useBroadcastStore.getState().setDesignerOpen(true)
+            }}
+          >
+            <PaletteIcon className="size-3.5" />
+          </Button>
+          <ThemeDesigner />
+          <PresentationEditorHost />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={t("stageLayoutDesigner")}
+            aria-label={t("stageLayoutDesigner")}
+            onClick={() => {
+              if (
+                requireFeature("stage_display", t("stageDisplayFeature"), () =>
+                  useBroadcastStore.getState().setStageDesignerOpen(true)
+                )
+              )
+                useBroadcastStore.getState().setStageDesignerOpen(true)
+            }}
+          >
+            <MonitorIcon className="size-3.5" />
+          </Button>
+          <StageLayoutDesigner />
+        </div>
+
+        <Separator orientation="vertical" className="h-5" />
+
+        <div
+          role="group"
+          aria-label={t("groups.appControls")}
+          className="flex items-center gap-1"
         >
-          <PaletteIcon className="size-3.5" />
-        </Button>
-        <ThemeDesigner />
-        <PresentationEditorHost />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={t("stageLayoutDesigner")}
-          onClick={() => {
-            if (requireFeature("stage_display", t("stageDisplayFeature")))
-              useBroadcastStore.getState().setStageDesignerOpen(true)
-          }}
-        >
-          <MonitorIcon className="size-3.5" />
-        </Button>
-        <StageLayoutDesigner />
-        <SettingsDialog />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={t("keyboardShortcuts")}
-          aria-label={t("keyboardShortcuts")}
-          onClick={() => useShortcutsStore.getState().setOverlayOpen(true)}
-        >
-          <KeyboardIcon className="size-3.5" />
-        </Button>
+          <SettingsDialog />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={t("keyboardShortcuts")}
+            aria-label={t("keyboardShortcuts")}
+            onClick={() => useShortcutsStore.getState().setOverlayOpen(true)}
+          >
+            <KeyboardIcon className="size-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
   )

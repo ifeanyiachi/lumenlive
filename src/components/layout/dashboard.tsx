@@ -29,30 +29,28 @@ export function Dashboard() {
       <TransportBar />
 
       <div
-        className="min-h-0 flex-1 *:min-h-0"
-        style={{
-          padding: "12px",
-          display: "grid",
-          gap: "12px",
-          overflow: "hidden",
-          gridTemplateColumns:
-            "320px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
-          gridTemplateRows: "minmax(0, 2fr) minmax(0, 3fr)",
-        }}
+        className="grid min-h-0 min-w-0 flex-1 auto-rows-[minmax(260px,auto)] grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-2 xl:grid-cols-[320px_repeat(3,minmax(0,1fr))] xl:grid-rows-[minmax(0,2fr)_minmax(0,3fr)] xl:overflow-hidden [&>*]:min-h-0"
       >
         <div
-          style={{ gridRow: "1 / 3", gridColumn: "1" }}
-          className="min-h-0 [&>*]:h-full"
+          className="min-h-[320px] min-w-0 lg:row-span-2 xl:col-start-1 xl:row-start-1 xl:row-span-2 [&>*]:h-full"
         >
           <SchedulePanel />
         </div>
-        <TranscriptPanel />
-        <PreviewPanel />
-        <LiveOutputPanel />
-        <div style={{ gridColumn: "2 / 4" }} className="min-h-0 [&>*]:h-full">
+        <div className="min-h-[260px] min-w-0 xl:col-start-2 xl:row-start-1 [&>*]:h-full">
+          <TranscriptPanel />
+        </div>
+        <div className="min-h-[300px] min-w-0 xl:col-start-3 xl:row-start-1 [&>*]:h-full">
+          <PreviewPanel />
+        </div>
+        <div className="min-h-[320px] min-w-0 lg:col-span-2 xl:col-span-1 xl:col-start-4 xl:row-start-1 [&>*]:h-full">
+          <LiveOutputPanel />
+        </div>
+        <div className="min-h-[300px] min-w-0 lg:col-span-2 xl:col-start-2 xl:row-start-2 xl:col-span-2 [&>*]:h-full">
           <SearchPanel />
         </div>
-        <DetectionsPanel />
+        <div className="min-h-[300px] min-w-0 lg:col-span-2 xl:col-start-4 xl:row-start-2 xl:col-span-1 [&>*]:h-full">
+          <DetectionsPanel />
+        </div>
       </div>
     </div>
   )

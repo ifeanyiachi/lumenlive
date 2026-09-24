@@ -1,12 +1,21 @@
 {
   "preview": {
     "title": "Program preview",
+    "badge": "Program preview",
     "takeLive": "Send the previewed item to the audience (Enter)",
+    "goLive": "Go live",
     "monitorAudio": "Monitor audio",
-    "muteMonitorAudio": "Mute monitor audio"
+    "muteMonitorAudio": "Mute monitor audio",
+    "interlinearToggle": "Toggle {{language}} interlinear transliterations",
+    "interlinearHebrew": "Hebrew",
+    "interlinearGreek": "Greek",
+    "interlinearHebrewShort": "He",
+    "interlinearGreekShort": "Gr"
   },
   "live": {
     "title": "Live display",
+    "badge": "Live display",
+    "offAir": "Live display",
     "goLive": "Go live",
     "live": "Live",
     "props": "Props / Overlays",
@@ -15,6 +24,7 @@
     "unmuteAudio": "Unmute broadcast audio",
     "previousPage": "Previous page (←)",
     "nextPage": "Next page (→)",
+    "pageOf": "Page {{current}} / {{total}}",
     "blackHidden": "Black · hidden",
     "logo": "Logo",
     "clearHidden": "Clear · text hidden",
@@ -71,5 +81,5 @@
   "lexicon": { "hebrew": "Hebrew", "greek": "Greek", "noInterlinear": "No {{language}} interlinear data. Run", "importIt": "to import it.", "previewing": "Previewing {{word}}", "addedToSchedule": "Added {{word}} to schedule", "noStrongsNumber": "No Strong's number for this word.", "loading": "Loading…", "noDefinition": "No definition found for {{number}}.", "definition": "Definition", "kjvUsage": "KJV Usage", "wordOrigin": "Word Origin", "formatBeforePresenting": "Format the Lexical Summary before presenting", "edit": "Edit", "addToSchedule": "Add this Lexical Summary to the schedule" },
   "liveWeb": { "outputTitle": "Live web output", "loadingPlayer": "Loading player…", "youtube": "YouTube", "web": "Web", "pause": "Pause", "play": "Play" },
   "liveMedia": { "loadFailed": "Couldn't load this media", "jumpTo": "Jump to {{time}}" },
-  "transcript": { "title": "Live transcript", "empty": "Click \"Start transcribing\" to begin", "stopTitle": "Stop transcribing (T)", "stop": "Stop transcribing", "startingTitle": "Starting transcription", "starting": "Starting...", "startTitle": "Start transcribing (T)", "start": "Start transcribing" }
+  "transcript": { "title": "Live transcript", "empty": "Click \"Start transcribing\" to begin", "stopTitle": "Stop transcribing (T)", "stop": "Stop transcribing", "startingTitle": "Starting transcription", "starting": "Starting...", "startTitle": "Start transcribing (T)", "start": "Start transcribing", "connection": { "connected": "Transcription connected", "connecting": "Connecting to transcription", "disconnected": "Transcription disconnected", "error": "Transcription connection error" } }
 }

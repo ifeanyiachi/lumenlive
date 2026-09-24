@@ -14,6 +14,11 @@
   "themeDesignerFeature": "Theme Designer",
   "stageDisplayFeature": "Stage display",
   "keyboardShortcuts": "Keyboard shortcuts (?)",
+  "groups": {
+    "serviceTools": "Service tools",
+    "designTools": "Design and output tools",
+    "appControls": "Application controls"
+  },
   "reload": {
     "button": "Reload app",
     "title": "Reload app?",
