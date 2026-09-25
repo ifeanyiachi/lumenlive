@@ -23,7 +23,7 @@
   },
   "sidebar": { "title": "Sidebar", "mobileDescription": "Displays the mobile sidebar." },
   "signInPrompt": {
-    "title": "Sign in to transcribe", "description": "Live transcription is included with your LumenLive account. Sign in to start listening — nothing else to set up.",
+    "title": "Sign in to transcribe", "description": "Sign in to start using live transcription",
     "signIn": "Sign in", "notNow": "Not now"
   },
   "transcriptionBlocked": { "openPortal": "Open account portal", "notNow": "Not now" }

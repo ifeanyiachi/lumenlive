@@ -58,7 +58,7 @@ describe("desktop auth service", () => {
 
     expect(snapshot.status).toBe("pending")
     expect(snapshot.pendingAction).toBe("start-transcription")
-    expect(loginUrl.pathname).toBe("/login")
+    expect(loginUrl.pathname).toBe("/desktop/authorize")
     expect(loginUrl.searchParams.get("desktop")).toBe("1")
     expect(loginUrl.searchParams.get("redirect_uri")).toBe(
       "lumenlive://auth/callback"
@@ -193,6 +193,60 @@ describe("desktop auth service", () => {
     resolveExchange(authResult)
     await expect(firstCallback).resolves.toEqual(authResult)
     expect(exchangeDesktopAuthorizationCode).toHaveBeenCalledTimes(1)
+  })
+
+  it("recovers a persisted transaction after a webview reload and completes once", async () => {
+    // The Node test runtime has no `localStorage`; provide a minimal one so the
+    // service can persist across the simulated reload below.
+    const store = new Map<string, string>()
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value)
+      },
+      removeItem: (key: string) => {
+        store.delete(key)
+      },
+    })
+    try {
+      // Session 1: start the login. The transaction is mirrored to storage.
+      vi.resetModules()
+      const session1 = await import("./desktop-auth-service")
+      await session1.startDesktopLogin("start-transcription")
+      const loginUrl = new URL(openExternalUrl.mock.calls.at(-1)?.[0] ?? "")
+      const state = loginUrl.searchParams.get("state") ?? ""
+      expect(store.size).toBe(1)
+
+      // Session 2: a webview reload re-evaluates the module — in-memory state is
+      // gone (status is idle) but storage survives.
+      vi.resetModules()
+      const session2 = await import("./desktop-auth-service")
+      expect(session2.getDesktopAuthSnapshot().status).toBe("idle")
+
+      const url = `lumenlive://auth/callback?code=one-time-code&state=${state}`
+      const result = await session2.handleDesktopAuthCallback(url)
+
+      expect(result).toEqual(authResult)
+      expect(exchangeDesktopAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: "one-time-code",
+          state,
+          codeVerifier: expect.any(String),
+          redirectUri: "lumenlive://auth/callback",
+        })
+      )
+      expect(session2.getDesktopAuthSnapshot().status).toBe("completed")
+
+      // The consumed transaction is gone from storage, so a replay finds nothing.
+      expect(store.size).toBe(0)
+      await expect(
+        session2.handleDesktopAuthCallback(url)
+      ).rejects.toMatchObject({ code: "NO_ACTIVE_TRANSACTION" })
+      expect(exchangeDesktopAuthorizationCode).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+      vi.resetModules()
+    }
   })
 
   it("rejects credential-bearing callbacks", async () => {

@@ -7,7 +7,12 @@ import type { SignInResult } from "@/services/lumenbo-client"
 import { openExternalUrl } from "./external-link-gateway"
 
 export const DESKTOP_AUTH_REDIRECT_URI = "lumenlive://auth/callback"
-const LOGIN_URL = appUrl("/login")
+// Start at the server-side authorization endpoint, not /login directly. The
+// endpoint creates the durable desktop_request that the web app carries
+// through the browser login. Opening /login with the OAuth parameters inline
+// lets the normal authenticated redirect win and drops the desktop handoff at
+// /account before the callback can be issued.
+const DESKTOP_AUTHORIZE_URL = appUrl("/desktop/authorize")
 const TRANSACTION_TTL_MS = 10 * 60 * 1000
 
 export type DesktopAuthStatus =
@@ -72,9 +77,75 @@ function clearTimer() {
   }
 }
 
+/**
+ * The pending login lives in module memory, which a webview reload wipes — a
+ * routine event under `tauri dev` (any frontend edit hot-reloads the webview)
+ * and unavoidable on a cold launch when the deep link starts the app fresh.
+ * Mirroring the transaction to `localStorage` lets a reloaded or freshly booted
+ * webview still finish the callback. The PKCE verifier stays on-device, and the
+ * entry is removed the instant the transaction is consumed, so an authorization
+ * code is never exchangeable twice. Storage is best-effort: a webview without it
+ * (or the Node test runtime) transparently falls back to in-memory-only.
+ */
+const TRANSACTION_STORAGE_KEY = "lumenlive.desktop-auth.transaction"
+
+function persistTransaction(transaction: LoginTransaction) {
+  try {
+    globalThis.localStorage?.setItem(
+      TRANSACTION_STORAGE_KEY,
+      JSON.stringify(transaction)
+    )
+  } catch {
+    // Best-effort: fall back to in-memory-only when storage is unavailable.
+  }
+}
+
+function clearPersistedTransaction() {
+  try {
+    globalThis.localStorage?.removeItem(TRANSACTION_STORAGE_KEY)
+  } catch {
+    // Ignore: nothing to clean up when storage is unavailable.
+  }
+}
+
+function readPersistedTransaction(): LoginTransaction | null {
+  let raw: string | null
+  try {
+    raw = globalThis.localStorage?.getItem(TRANSACTION_STORAGE_KEY) ?? null
+  } catch {
+    return null
+  }
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<LoginTransaction>
+    if (
+      typeof parsed.state === "string" &&
+      typeof parsed.codeVerifier === "string" &&
+      typeof parsed.redirectUri === "string" &&
+      typeof parsed.expiresAt === "number"
+    ) {
+      return {
+        state: parsed.state,
+        codeVerifier: parsed.codeVerifier,
+        redirectUri: parsed.redirectUri,
+        expiresAt: parsed.expiresAt,
+        pendingAction:
+          typeof parsed.pendingAction === "string"
+            ? parsed.pendingAction
+            : null,
+      }
+    }
+  } catch {
+    // Corrupt entry — drop it below.
+  }
+  clearPersistedTransaction()
+  return null
+}
+
 function clearTransaction() {
   clearTimer()
   activeTransaction = null
+  clearPersistedTransaction()
 }
 
 function errorMessage(error: unknown): string {
@@ -172,7 +243,7 @@ export function buildDesktopLoginUrl(transaction: {
   redirectUri?: string
   pendingAction?: string | null
 }): string {
-  const url = new URL(LOGIN_URL)
+  const url = new URL(DESKTOP_AUTHORIZE_URL)
   url.searchParams.set("desktop", "1")
   url.searchParams.set(
     "redirect_uri",
@@ -209,6 +280,7 @@ export async function startDesktopLogin(
       pendingAction: normalizePendingAction(pendingAction),
     }
     activeTransaction = transaction
+    persistTransaction(transaction)
     publish({
       status: "pending",
       pendingAction: transaction.pendingAction,
@@ -327,7 +399,17 @@ export async function handleDesktopAuthCallback(
     throw authError
   }
 
-  const transaction = activeTransaction
+  // Recover from storage when a webview reload or cold launch wiped the
+  // in-memory transaction. The entry is removed the moment a transaction is
+  // consumed, so a duplicate callback still finds nothing here and cannot replay.
+  let transaction = activeTransaction
+  if (!transaction) {
+    const restored = readPersistedTransaction()
+    if (restored) {
+      activeTransaction = restored
+      transaction = restored
+    }
+  }
   if (!transaction) {
     const error = transactionError(
       "NO_ACTIVE_TRANSACTION",
@@ -425,6 +507,33 @@ export function subscribeDesktopAuth(listener: Listener): () => void {
 
 export function getDesktopAuthSnapshot(): DesktopAuthSnapshot {
   return snapshot
+}
+
+/**
+ * Re-arm a pending browser login that a previous webview session persisted.
+ * Called once on boot so a `tauri dev` hot reload (or any webview reload/crash)
+ * keeps the account UI in its pending state and an arriving callback is treated
+ * as solicited rather than unsolicited. No-ops when nothing valid is stored or a
+ * login is already active, and drops an entry that has already expired.
+ */
+export function restoreDesktopLoginFromStorage(): void {
+  if (activeTransaction) return
+  const restored = readPersistedTransaction()
+  if (!restored) return
+  if (Date.now() >= restored.expiresAt) {
+    clearPersistedTransaction()
+    return
+  }
+  activeTransaction = restored
+  clearTimer()
+  timer = setTimeout(timeoutTransaction, restored.expiresAt - Date.now())
+  publish({
+    status: "pending",
+    pendingAction: restored.pendingAction,
+    expiresAt: restored.expiresAt,
+    result: null,
+    error: null,
+  })
 }
 
 /** Clear a terminal result before the next login attempt. */

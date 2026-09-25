@@ -31,6 +31,7 @@ import { trackAppLaunched } from "@/services/analytics-gateway"
 import { i18n, initializeI18n } from "@/lib/i18n/config"
 import { disableNativeContextMenu } from "@/lib/disable-native-context-menu"
 import { initializeDesktopAuthCallbackBridge } from "@/services/desktop-auth-callback-gateway"
+import { restoreDesktopLoginFromStorage } from "@/services/desktop-auth-service"
 
 disableNativeContextMenu()
 
@@ -48,6 +49,12 @@ window.addEventListener("beforeunload", () => {
 // LumenLive is dark-only. Clear the obsolete theme preference left by older
 // builds that had a light/dark toggle, so nothing lingers in localStorage.
 localStorage.removeItem("theme")
+
+// A webview reload (routine under `tauri dev`) or a cold launch via the deep
+// link wipes the in-memory browser-login transaction. Restore any pending one
+// from storage before the callback bridge runs so an arriving callback can still
+// complete the sign-in and the Account surface keeps showing "pending".
+restoreDesktopLoginFromStorage()
 
 // Persist uncaught errors and rejections to the tauri-plugin-log FILE before a
 // crash can reload the webview and wipe the console. A hard renderer/GPU crash
