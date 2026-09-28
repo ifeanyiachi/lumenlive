@@ -59,8 +59,10 @@ impl HnswVectorIndex {
         }
 
         let embeddings: Vec<f32> = emb_bytes
-            .chunks_exact(std::mem::size_of::<f32>())
-            .map(|b| f32::from_ne_bytes(b.try_into().unwrap()))
+            .as_chunks::<{ std::mem::size_of::<f32>() }>()
+            .0
+            .iter()
+            .map(|b| f32::from_ne_bytes(*b))
             .collect();
         let num_vectors = embeddings.len() / dim;
 
@@ -84,8 +86,10 @@ impl HnswVectorIndex {
         }
 
         let verse_ids: Vec<i64> = ids_bytes
-            .chunks_exact(std::mem::size_of::<i64>())
-            .map(|b| i64::from_ne_bytes(b.try_into().unwrap()))
+            .as_chunks::<{ std::mem::size_of::<i64>() }>()
+            .0
+            .iter()
+            .map(|b| i64::from_ne_bytes(*b))
             .collect();
 
         if verse_ids.len() != num_vectors {
@@ -147,9 +151,9 @@ fn dot_product(a: &[f32], b: &[f32]) -> f32 {
     const LANES: usize = 8;
     let mut acc = [0.0f32; LANES];
 
-    let mut a_chunks = a.chunks_exact(LANES);
-    let mut b_chunks = b.chunks_exact(LANES);
-    for (ca, cb) in a_chunks.by_ref().zip(b_chunks.by_ref()) {
+    let (a_chunks, a_remainder) = a.as_chunks::<LANES>();
+    let (b_chunks, b_remainder) = b.as_chunks::<LANES>();
+    for (ca, cb) in a_chunks.iter().zip(b_chunks.iter()) {
         for l in 0..LANES {
             acc[l] += ca[l] * cb[l];
         }
@@ -157,7 +161,7 @@ fn dot_product(a: &[f32], b: &[f32]) -> f32 {
 
     let mut sum: f32 = acc.iter().sum();
     // Tail shorter than one full lane (e.g. the dim=4 unit tests).
-    for (x, y) in a_chunks.remainder().iter().zip(b_chunks.remainder().iter()) {
+    for (x, y) in a_remainder.iter().zip(b_remainder.iter()) {
         sum += x * y;
     }
     sum

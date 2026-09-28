@@ -451,8 +451,10 @@ export function MediaProperties({
             onSelect={handlePickerSelect}
             onSelectMultiple={handlePickerSelectMultiple}
             onSelectFromDevice={(path: string) => {
+              const mediaType = getMediaTypeFromName(path)
               useScheduleStore.getState().updateItem(scheduleId, item.id, {
                 cachedFilePath: path,
+                cachedMediaType: mediaType ?? undefined,
                 label: path.replace(/\\/g, "/").split("/").pop() ?? "Media",
               })
             }}

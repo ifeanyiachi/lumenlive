@@ -1,6 +1,8 @@
-import { useRef, useEffect, useCallback, memo } from "react"
+import { useRef, useEffect, useCallback, memo, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { PlayIcon } from "lucide-react"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
+import { getMediaType } from "@/lib/media-import"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
@@ -32,6 +34,7 @@ import type {
   SongScheduleItem,
   LexiconScheduleItem,
 } from "@/types/schedule"
+import type { MediaAsset } from "@/types/media"
 
 const THUMB_W = 160
 const THUMB_H = 78
@@ -267,6 +270,10 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
     draw()
   }, [draw])
 
+  if (item.type === "media") {
+    return <ScheduleMediaThumbnail item={item} asset={mediaAsset} />
+  }
+
   return (
     <canvas
       ref={canvasRef}
@@ -275,3 +282,81 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
     />
   )
 })
+
+/**
+ * Media thumbnails use the same direct image/video path as the media panel and
+ * quick-add cards. Canvas-backed video thumbnails can remain blank when seeking
+ * to time zero does not emit a `seeked` event, and schedule imports may only have
+ * their cached path until the library finishes hydrating.
+ */
+function ScheduleMediaThumbnail({
+  item,
+  asset,
+}: {
+  item: MediaScheduleItem
+  asset: MediaAsset | undefined
+}) {
+  const { t } = useTranslation("schedule")
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
+  const filePath = asset?.filePath ?? item.cachedFilePath
+  const mediaType =
+    asset?.type ??
+    item.cachedMediaType ??
+    (item.cachedFilePath ? getMediaType(item.cachedFilePath) : null)
+
+  const thumbSrc = useMemo(() => {
+    if (asset?.thumbnailDataUrl) return asset.thumbnailDataUrl
+    if (mediaType === "image" && filePath) return safeFileSrc(filePath)
+    return null
+  }, [asset?.thumbnailDataUrl, filePath, mediaType])
+
+  const videoSrc = useMemo(
+    () =>
+      mediaType === "video" && filePath ? safeFileSrc(filePath) : null,
+    [filePath, mediaType]
+  )
+
+  return (
+    <div
+      className="relative block size-full overflow-hidden rounded-[3px] bg-muted"
+      style={{ width: THUMB_W, height: THUMB_H }}
+    >
+      {thumbSrc ? (
+        <img
+          src={thumbSrc}
+          alt={item.label}
+          className="size-full object-cover"
+        />
+      ) : videoSrc && !videoPreviewFailed ? (
+        <>
+          <video
+            src={videoSrc}
+            aria-label={item.label}
+            className="size-full object-cover"
+            muted
+            playsInline
+            preload="auto"
+            onError={() => setVideoPreviewFailed(true)}
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget
+              if (Number.isFinite(video.duration) && video.duration > 0) {
+                video.currentTime = Math.min(1, video.duration * 0.1)
+              }
+            }}
+          />
+          <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-black/60 text-white shadow-sm">
+            <PlayIcon className="ml-px size-2 fill-current" />
+          </span>
+        </>
+      ) : (
+        <div className="flex size-full items-center justify-center text-[0.625rem] text-muted-foreground">
+          {mediaType === "video"
+            ? "Video"
+            : mediaType === "image"
+              ? "Image"
+              : t("thumbnail.noMedia")}
+        </div>
+      )}
+    </div>
+  )
+}

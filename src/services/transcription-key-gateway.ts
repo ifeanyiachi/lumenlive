@@ -1,4 +1,4 @@
-import { v1 } from "./lumenbo-client"
+import { LicensingError, v1 } from "./lumenbo-client"
 import type {
   TranscriptionResolution,
   TranscriptionStatus,
@@ -18,6 +18,29 @@ export type {
   TranscriptionStatus,
 } from "@/lib/transcription/types"
 
+const MAX_RATE_LIMIT_RETRIES = 2
+const BASE_RATE_LIMIT_DELAY_MS = 250
+const MAX_RATE_LIMIT_DELAY_MS = 2_000
+
+function retryDelayMs(error: LicensingError, retryIndex: number): number {
+  const serverHint =
+    typeof error.details === "object" &&
+    error.details !== null &&
+    "retryAfterMs" in error.details &&
+    typeof error.details.retryAfterMs === "number"
+      ? error.details.retryAfterMs
+      : 0
+  const exponential = BASE_RATE_LIMIT_DELAY_MS * 2 ** retryIndex
+  return Math.min(
+    MAX_RATE_LIMIT_DELAY_MS,
+    Math.max(exponential, Math.max(0, serverHint)),
+  )
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /**
  * Pull the key this client may use right now. Call at the start of a session and
  * on rotation/expiry — re-pull rather than caching long-term. Returns either a
@@ -27,11 +50,31 @@ export function pullTranscriptionKey(
   token: string,
   machineId: string
 ): Promise<TranscriptionResolution> {
-  return v1<TranscriptionResolution>("/v1/transcription/key", {
-    method: "POST",
-    token,
-    body: { machineId },
-  })
+  return pullTranscriptionKeyWithRetry(token, machineId)
+}
+
+async function pullTranscriptionKeyWithRetry(
+  token: string,
+  machineId: string,
+): Promise<TranscriptionResolution> {
+  for (let retryIndex = 0; ; retryIndex += 1) {
+    try {
+      return await v1<TranscriptionResolution>("/v1/transcription/key", {
+        method: "POST",
+        token,
+        body: { machineId },
+      })
+    } catch (error) {
+      if (
+        !(error instanceof LicensingError) ||
+        error.status !== 429 ||
+        retryIndex >= MAX_RATE_LIMIT_RETRIES
+      ) {
+        throw error
+      }
+      await wait(retryDelayMs(error, retryIndex))
+    }
+  }
 }
 
 /**

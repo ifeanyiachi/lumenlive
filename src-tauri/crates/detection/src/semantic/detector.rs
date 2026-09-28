@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::cache::EmbeddingCache;
 use super::chunker::Chunker;
 use super::embedder::{StubEmbedder, TextEmbedder};
 use super::ensemble::EnsembleSearcher;
-use super::index::{StubIndex, VectorIndex};
+use super::index::{SearchResult, StubIndex, VectorIndex};
 use super::normalize::normalize_archaic;
 use super::synonyms::SynonymExpander;
 use crate::types::Detection;
@@ -14,6 +14,13 @@ const DEFAULT_CACHE_CAPACITY: usize = 256;
 
 /// Default cosine-similarity threshold below which results are discarded.
 const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.50;
+
+/// Run the paraphrase fallback when the fast search's winner is weak.
+const ADAPTIVE_FALLBACK_MAX_TOP_SIMILARITY: f64 = 0.68;
+
+/// Run the paraphrase fallback when the fast search's top two results are too
+/// close to call confidently.
+const ADAPTIVE_FALLBACK_MIN_TOP_MARGIN: f64 = 0.04;
 
 /// Orchestrator that combines text chunking, embedding, vector search,
 /// and caching to detect Bible verses from transcript text using
@@ -108,12 +115,10 @@ impl SemanticDetector {
         if self.use_synonyms {
             // Ensemble search: 3 strategies (original + synonym + concept)
             // More expensive (~3 embed calls) but much better accuracy for paraphrases.
-            match self.ensemble.search(
-                &normalized,
-                self.embedder.as_ref(),
-                self.index.as_ref(),
-                5,
-            ) {
+            match self
+                .ensemble
+                .search(&normalized, self.embedder.as_ref(), self.index.as_ref(), 5)
+            {
                 Ok(results) => {
                     let now = Self::timestamp_ms();
                     for result in results {
@@ -133,9 +138,13 @@ impl SemanticDetector {
             }
         } else {
             // Single direct embedding: fast (~1 embed call), good for exact quotes.
-            let Ok(embedding) = self.embedder.embed(&normalized) else { return vec![] };
+            let Ok(embedding) = self.embedder.embed(&normalized) else {
+                return vec![];
+            };
 
-            let Ok(results) = self.index.search(&embedding, 5) else { return vec![] };
+            let Ok(results) = self.index.search(&embedding, 5) else {
+                return vec![];
+            };
 
             // Cache keyed by the normalized text: distinct raw transcripts that
             // canonicalize to the same string share the (expensive) embedding.
@@ -175,14 +184,19 @@ impl SemanticDetector {
         self.confidence_threshold = threshold;
     }
 
-    /// Direct query -> results for manual semantic search.
+    /// Direct query -> results for manual and live semantic search.
     /// Unlike `detect()`, this does NOT chunk the text or apply cooldown.
     ///
-    /// This is the method the live semantic path calls (via
-    /// `DetectionPipeline::semantic_search`), so it consults the embedding
-    /// cache: embedding is the expensive step (~300-600ms of ONNX), while the
-    /// index search is cheap. Identical/repeated transcript text — common with
-    /// overlapping speech-final fragments — reuses the cached embedding.
+    /// The fast direct search is the normal path. When its winner is weak or
+    /// ambiguous, an ensemble paraphrase search expands synonyms and biblical
+    /// concepts, then merges strong candidates back into the same top-k list.
+    /// This keeps ordinary quotations fast while improving recall for modern
+    /// rewordings without adding a user-facing setting.
+    ///
+    /// The embedding cache remains important because embedding is the expensive
+    /// step (~300-600ms of ONNX), while the index search is cheap. Identical or
+    /// repeated transcript text — common with overlapping speech-final
+    /// fragments — reuses the cached embedding.
     pub fn search_query(&mut self, query: &str, k: usize) -> Vec<(i64, f64)> {
         if !self.is_ready() {
             return vec![];
@@ -199,14 +213,60 @@ impl SemanticDetector {
                 Err(_) => return vec![],
             },
         };
-        match self.index.search(&embedding, k) {
-            Ok(results) => {
-                self.cache
-                    .insert(normalized, (embedding, results.clone()));
-                results.iter().map(|r| (r.verse_id, r.similarity)).collect()
-            }
-            Err(_) => vec![],
+        let Ok(primary_results) = self.index.search(&embedding, k) else {
+            return vec![];
+        };
+
+        let results = if should_run_adaptive_fallback(&primary_results) {
+            self.adaptive_results(&normalized, primary_results, k)
+        } else {
+            primary_results
+        };
+
+        self.cache.insert(normalized, (embedding, results.clone()));
+        results.iter().map(|r| (r.verse_id, r.similarity)).collect()
+    }
+
+    /// Merge strong paraphrase candidates into a fast-search result set.
+    fn adaptive_results(
+        &mut self,
+        query: &str,
+        primary_results: Vec<SearchResult>,
+        k: usize,
+    ) -> Vec<SearchResult> {
+        let Ok(paraphrase_results) =
+            self.ensemble
+                .search_for_recall(query, self.embedder.as_ref(), self.index.as_ref(), k)
+        else {
+            return primary_results;
+        };
+
+        let mut best_by_verse: HashMap<i64, f64> = primary_results
+            .into_iter()
+            .map(|result| (result.verse_id, result.similarity))
+            .collect();
+
+        for result in paraphrase_results {
+            best_by_verse
+                .entry(result.verse_id)
+                .and_modify(|similarity| *similarity = similarity.max(result.best_similarity))
+                .or_insert(result.best_similarity);
         }
+
+        let mut merged: Vec<SearchResult> = best_by_verse
+            .into_iter()
+            .map(|(verse_id, similarity)| SearchResult {
+                verse_id,
+                similarity,
+            })
+            .collect();
+        merged.sort_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        merged.truncate(k);
+        merged
     }
 
     // ---- private helpers ----
@@ -215,21 +275,80 @@ impl SemanticDetector {
         Detection::now_millis()
     }
 
-    fn make_detection(verse_id: i64, similarity: f64, snippet: &str, detected_at: u64) -> Detection {
+    fn make_detection(
+        verse_id: i64,
+        similarity: f64,
+        snippet: &str,
+        detected_at: u64,
+    ) -> Detection {
         Detection::semantic(verse_id, similarity, snippet.to_string(), detected_at)
     }
+}
+
+/// Decide whether a direct vector search needs the more expensive paraphrase
+/// fallback. Empty and single-result searches are treated as uncertain because
+/// they have no reliable score margin.
+fn should_run_adaptive_fallback(results: &[SearchResult]) -> bool {
+    let Some(best) = results.first() else {
+        return true;
+    };
+
+    if best.similarity < ADAPTIVE_FALLBACK_MAX_TOP_SIMILARITY {
+        return true;
+    }
+
+    let Some(second) = results.get(1) else {
+        return true;
+    };
+
+    best.similarity - second.similarity < ADAPTIVE_FALLBACK_MIN_TOP_MARGIN
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::DetectionSource;
     use crate::semantic::index::SearchResult;
+    use crate::types::DetectionSource;
     use crate::DetectionError;
 
     /// A fake index that always returns a fixed set of results.
     struct FakeIndex {
         results: Vec<SearchResult>,
+    }
+
+    struct AdaptiveEmbedder;
+
+    impl TextEmbedder for AdaptiveEmbedder {
+        fn embed(&self, text: &str) -> Result<Vec<f32>, DetectionError> {
+            Ok(vec![f32::from(text.contains("rescue"))])
+        }
+
+        fn dimension(&self) -> usize {
+            1
+        }
+    }
+
+    struct AdaptiveIndex;
+
+    impl VectorIndex for AdaptiveIndex {
+        fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>, DetectionError> {
+            let results = if query[0] > 0.5 {
+                vec![SearchResult {
+                    verse_id: 99,
+                    similarity: 0.80,
+                }]
+            } else {
+                vec![SearchResult {
+                    verse_id: 1,
+                    similarity: 0.60,
+                }]
+            };
+            Ok(results.into_iter().take(k).collect())
+        }
+
+        fn len(&self) -> usize {
+            2
+        }
     }
 
     impl VectorIndex for FakeIndex {
@@ -284,10 +403,7 @@ mod tests {
         assert!(!detections.is_empty());
         for d in &detections {
             assert!(d.confidence >= 0.35);
-            assert!(matches!(
-                d.source,
-                DetectionSource::Semantic { .. }
-            ));
+            assert!(matches!(d.source, DetectionSource::Semantic { .. }));
         }
     }
 
@@ -311,7 +427,20 @@ mod tests {
 
         // Raise threshold above the result's similarity
         detector.set_confidence_threshold(0.70);
-        let detections = detector.detect("whoever believes in him shall not perish but have everlasting life");
+        let detections =
+            detector.detect("whoever believes in him shall not perish but have everlasting life");
         assert!(detections.is_empty());
+    }
+
+    #[test]
+    fn adaptive_search_adds_a_strong_synonym_candidate() {
+        let mut detector =
+            SemanticDetector::new(Box::new(AdaptiveEmbedder), Box::new(AdaptiveIndex));
+
+        let results = detector.search_query("God saved the world", 3);
+
+        assert_eq!(results[0].0, 99);
+        assert!((results[0].1 - 0.80).abs() < f64::EPSILON);
+        assert!(results.iter().any(|(verse_id, _)| *verse_id == 1));
     }
 }

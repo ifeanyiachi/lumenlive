@@ -174,6 +174,64 @@ describe("presentation store — deck & slide flow", () => {
     }
   })
 
+  it("updates a non-active slide without applying the patch to the active slide", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    useStore.getState().addSlide()
+    useStore.getState().setActiveSlideIndex(0)
+
+    useStore.getState().updateDraftSlideAt(1, {
+      transition: { type: "fade", duration: 800 },
+    })
+
+    const draft = useStore.getState().draftPresentation!
+    expect(useStore.getState().activeSlideIndex).toBe(0)
+    expect(draft.slides[0].transition).toBeUndefined()
+    expect(draft.slides[1].transition).toEqual({ type: "fade", duration: 800 })
+
+    useStore.getState().saveDraft()
+    expect(
+      useStore.getState().getPresentationById(id)!.slides[1].transition
+    ).toEqual({ type: "fade", duration: 800 })
+  })
+
+  it("clears text builds and entry animations when switched back to none", async () => {
+    const useStore = await freshStore()
+    const id = useStore.getState().createPresentation("Deck")
+    useStore.getState().startEditing(id)
+    const element = useStore.getState().draftPresentation!.slides[0]
+      .elements[0]
+
+    useStore.getState().updateDraftElement(element.id, {
+      textBuild: { type: "line-by-line", duration: 300, delay: 0 },
+      animation: {
+        entry: {
+          type: "fade",
+          duration: 500,
+          delay: 0,
+          easing: "ease-out",
+        },
+      },
+    })
+    useStore.getState().updateDraftElement(element.id, {
+      textBuild: undefined,
+      animation: undefined,
+    })
+
+    const savedElement = useStore.getState().draftPresentation!.slides[0]
+      .elements[0]
+    if (savedElement.type !== "text") throw new Error("expected text element")
+    expect(savedElement.textBuild).toBeUndefined()
+    expect(savedElement.animation).toBeUndefined()
+
+    useStore.getState().saveDraft()
+    const exported = JSON.parse(useStore.getState().exportPresentation(id)!)
+      .slides[0].elements[0]
+    expect(exported.textBuild).toBeUndefined()
+    expect(exported.animation).toBeUndefined()
+  })
+
   it("export/import round-trips a presentation with fresh ids", async () => {
     const useStore = await freshStore()
     const id = useStore.getState().createPresentation("Original")

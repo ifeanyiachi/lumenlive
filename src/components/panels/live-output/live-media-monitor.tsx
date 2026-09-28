@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { cn } from "@/lib/utils"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { nativeLoopEnabled } from "@/lib/media/loop-mode"
-import { isEditableTarget } from "@/lib/dom/is-editable-target"
 import { useBroadcastStore } from "@/stores"
 import {
   BROADCAST_EVENTS,
@@ -12,20 +12,15 @@ import type { LiveMedia } from "@/stores/broadcast-store"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { mediaFitStyle } from "@/lib/media-fit"
 import { MediaFitBackdrop } from "@/components/media/media-fit-backdrop"
-import { PlayIcon, PauseIcon, MusicIcon } from "lucide-react"
-import {
-  sortMarkers,
-  findMarkerInDirection,
-  relativeSeekTarget,
-} from "@/lib/live-output/markers"
-import { formatClock, resolveMediaDisplay } from "@/lib/live-output/transport"
+import { RepeatIcon, MusicIcon } from "lucide-react"
 
 /**
  * Operator monitor for the live media item. Renders a muted mirror of the
- * output plus a transport bar: primary play/pause and jump-to-marker chips,
- * with a secondary scrubber. Every action drives this local monitor for
- * instant feedback AND forwards to the broadcast output(s) via
- * sendMediaTransport, so the audience feed follows.
+ * output plus a single loop-toggle control. Playback rolls automatically when
+ * the clip reaches air (see the auto-start effect). The seek scrubber and
+ * jump-to-marker chips now live in the Program preview (MediaPreview), which
+ * drives the audience output; this mirror follows that true output position via
+ * a drift correction so the live display stays faithful to air.
  */
 export function LiveMediaMonitor({
   media,
@@ -36,22 +31,18 @@ export function LiveMediaMonitor({
 }) {
   const { t } = useTranslation("panels")
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null)
-  const [duration, setDuration] = useState(0)
-  const [current, setCurrent] = useState(0)
-  // Cue paused — playback starts when the operator presses Play (which also
-  // forwards to the audience output). Nothing auto-plays on going live.
-  const [playing, setPlaying] = useState(false)
-  const [dragging, setDragging] = useState(false)
   // Surfaced when the media source fails to load or play. Without this a failed
-  // load is silent: play() rejects, onPlay never fires, and the Play button
-  // looks dead with no clue why (e.g. an unresolvable path in a packaged build).
+  // load is silent: play() rejects and the mirror looks dead with no clue why
+  // (e.g. an unresolvable path in a packaged build).
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const sendTransport = useBroadcastStore((s) => s.sendMediaTransport)
   const setMediaTransport = useBroadcastStore((s) => s.setMediaTransport)
   const transport = useBroadcastStore((s) => s.mediaTransport)
 
-  // Track the true output position echoed back by the broadcast window.
+  // Track the true output position echoed back by the broadcast window. This
+  // populates the store's mediaTransport, which the Program-preview scrubber
+  // reads and which this monitor's drift correction below follows.
   useTauriEvent<MediaProgressPayload>(BROADCAST_EVENTS.mediaProgress, (p) =>
     setMediaTransport({
       position: p.position,
@@ -76,21 +67,63 @@ export function LiveMediaMonitor({
     setLoadError(media.filePath)
   }, [media.filePath, src])
 
-  const markers = useMemo(
-    () => sortMarkers(media.markers ?? []),
-    [media.markers]
-  )
-
   // Full-length loops use the element's native loop attribute so the operator
   // monitor loops in lockstep with the audience output. Trimmed loops are still
   // handled manually in handleTime (return to trimStart at trimEnd).
   const loopNative = nativeLoopEnabled(media)
 
+  // Start (or restart) the clip from its in-point and forward the matching
+  // transport to the audience output. Shared by the auto-start-on-air effect so
+  // the operator mirror and the output roll through one proven path.
+  const playFromStart = useCallback(() => {
+    const el = mediaRef.current
+    if (!el) return
+    // Play always restarts from the in-point, so it plays the clip again from
+    // the beginning at the current configuration rather than resuming.
+    const start = media.trimStart ?? 0
+    try {
+      el.currentTime = start
+    } catch {
+      /* not seekable yet */
+    }
+    sendTransport("seek", start)
+    sendTransport("play")
+    // Await play() so a rejected source (unresolvable path, decode failure)
+    // surfaces instead of failing silently — otherwise the mirror looks dead.
+    // AbortError (a quick pause/seek interrupting play) is benign, so ignore it.
+    el.play()
+      .then(() => setLoadError(null))
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        console.error("[live-media] play() rejected", {
+          filePath: media.filePath,
+          err,
+        })
+        setLoadError(media.filePath)
+      })
+  }, [sendTransport, media.trimStart, media.filePath])
+
+  // Auto-start playback when a clip reaches the live display. Sending a video or
+  // audio item to air (double-click, Go Live, Take, remote) should roll it
+  // immediately rather than holding on the first frame. Fires once per mounted
+  // clip — the component is keyed by file path, so a newly presented clip
+  // remounts and re-arms this — and needs the element ready (metadata loaded),
+  // so it's invoked both from the onAir effect and once the source loads
+  // (handleLoaded), whichever settles last.
+  const autoStartedRef = useRef(false)
+  const maybeAutoStart = useCallback(() => {
+    if (media.mediaType === "image") return
+    if (!onAir || autoStartedRef.current) return
+    const el = mediaRef.current
+    if (!el || el.readyState < 1 /* HAVE_METADATA */) return
+    autoStartedRef.current = true
+    playFromStart()
+  }, [onAir, media.mediaType, playFromStart])
+
   const handleLoaded = useCallback(() => {
     const el = mediaRef.current
     if (!el) return
     setLoadError(null)
-    setDuration(Number.isFinite(el.duration) ? el.duration : 0)
     if (media.trimStart) {
       try {
         el.currentTime = media.trimStart
@@ -98,12 +131,12 @@ export function LiveMediaMonitor({
         /* not seekable yet */
       }
     }
-  }, [media.trimStart])
+    maybeAutoStart()
+  }, [media.trimStart, maybeAutoStart])
 
   const handleTime = useCallback(() => {
     const el = mediaRef.current
     if (!el) return
-    if (!dragging) setCurrent(el.currentTime)
     if (media.trimEnd != null && el.currentTime >= media.trimEnd) {
       if (media.loop || media.endAction === "loop") {
         try {
@@ -115,90 +148,53 @@ export function LiveMediaMonitor({
         el.pause()
       }
     }
-  }, [dragging, media.trimEnd, media.trimStart, media.loop, media.endAction])
+  }, [media.trimEnd, media.trimStart, media.loop, media.endAction])
 
-  const togglePlay = useCallback(() => {
-    const el = mediaRef.current
-    if (!el) return
-    if (el.paused) {
-      // Play always restarts from the in-point, so it plays the clip again from
-      // the beginning at the current configuration rather than resuming.
-      const start = media.trimStart ?? 0
-      try {
-        el.currentTime = start
-      } catch {
-        /* not seekable yet */
-      }
-      setCurrent(start)
-      sendTransport("seek", start)
-      sendTransport("play")
-      // Await play() so a rejected source (unresolvable path, decode failure)
-      // surfaces instead of failing silently — otherwise the button looks dead.
-      // AbortError (a quick pause/seek interrupting play) is benign, so ignore it.
-      el.play()
-        .then(() => setLoadError(null))
-        .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === "AbortError") return
-          console.error("[live-media] play() rejected", {
-            filePath: media.filePath,
-            err,
-          })
-          setLoadError(media.filePath)
-        })
-    } else {
-      el.pause()
-      sendTransport("pause")
-    }
-  }, [sendTransport, media.trimStart, media.filePath])
+  // `loop` and an `endAction` of "loop" both make the clip repeat, so either
+  // means "looping" for the toggle's lit state.
+  const isLooping = media.loop === true || media.endAction === "loop"
 
-  const seekLocal = useCallback((t: number) => {
-    const el = mediaRef.current
-    if (el) {
-      try {
-        el.currentTime = t
-      } catch {
-        /* not seekable */
-      }
-    }
-    setCurrent(t)
-  }, [])
-
-  const commitSeek = useCallback(
-    (t: number) => {
-      seekLocal(t)
-      sendTransport("seek", t)
-    },
-    [seekLocal, sendTransport]
-  )
-
-  const jumpToMarker = useCallback(
-    (t: number) => {
-      const el = mediaRef.current
-      commitSeek(t)
-      if (el && el.paused) {
-        void el.play()
-        sendTransport("play")
-      }
-    },
-    [commitSeek, sendTransport]
-  )
+  // Toggle looping on the live clip (and the audience output) without restarting
+  // playback. Turning it off also clears an "endAction: loop", which would
+  // otherwise keep the clip repeating regardless of the `loop` flag.
+  const toggleLoop = useCallback(() => {
+    useBroadcastStore.getState().updateLiveMediaPlayback(
+      isLooping
+        ? {
+            loop: false,
+            endAction: media.endAction === "loop" ? "hold" : media.endAction,
+          }
+        : { loop: true }
+    )
+  }, [isLooping, media.endAction])
 
   const setElRef = useCallback((el: HTMLMediaElement | null) => {
     mediaRef.current = el
   }, [])
 
-  const jumpRelative = useCallback(
-    (dir: 1 | -1) => {
-      const pos = transport?.position ?? mediaRef.current?.currentTime ?? 0
-      if (markers.length > 0) {
-        const target = findMarkerInDirection(markers, pos, dir)
-        if (target) jumpToMarker(target.time)
-      } else {
-        commitSeek(relativeSeekTarget(pos, dir))
+  // Roll the clip as soon as it's on air. Runs on mount and whenever it goes
+  // live; if the source hasn't loaded its metadata yet, handleLoaded picks it up
+  // once it does. The ref guard keeps it to a single start per mounted clip.
+  useEffect(() => {
+    maybeAutoStart()
+  }, [maybeAutoStart])
+
+  // Follow the true output position echoed back from the audience window. The
+  // seek control lives in the Program preview now and drives the audience
+  // directly; without this, a seek there would move the audience while this
+  // mirror kept playing from where it was. Snap only on a large divergence so
+  // normal playback drift (both started together at go-live) never stutters.
+  useEffect(() => {
+    const el = mediaRef.current
+    if (!el || transport == null) return
+    if (Math.abs(el.currentTime - transport.position) > 1) {
+      try {
+        el.currentTime = transport.position
+      } catch {
+        /* not seekable yet */
       }
-    },
-    [markers, transport, jumpToMarker, commitSeek]
-  )
+    }
+  }, [transport])
 
   // Going off-air stops playback: pause the booth element and forward a pause to
   // the audience output so its <video>/<audio> stops too. Without this, media
@@ -208,38 +204,10 @@ export function LiveMediaMonitor({
     const el = mediaRef.current
     if (el && !el.paused) el.pause()
     sendTransport("pause")
+    // Re-arm so taking this same (still-mounted) clip back to air rolls it again
+    // from the in-point rather than sitting frozen where it was paused.
+    autoStartedRef.current = false
   }, [onAir, sendTransport])
-
-  // Operator keyboard shortcuts: ←/→ = jump markers. Space is intentionally not
-  // bound here — it's the global "go live" alias; the operator pauses media
-  // manually via the transport controls.
-  useEffect(() => {
-    if (media.mediaType === "image") return
-    const onKey = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target)) return
-      if (e.code === "ArrowRight") {
-        e.preventDefault()
-        jumpRelative(1)
-      } else if (e.code === "ArrowLeft") {
-        e.preventDefault()
-        jumpRelative(-1)
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [media.mediaType, jumpRelative])
-
-  const {
-    duration: displayDuration,
-    current: displayCurrent,
-    playing: displayPlaying,
-  } = resolveMediaDisplay({
-    transport,
-    dragging,
-    localCurrent: current,
-    localDuration: duration,
-    localPlaying: playing,
-  })
 
   if (media.mediaType === "image") {
     return (
@@ -277,8 +245,6 @@ export function LiveMediaMonitor({
               style={mediaFitStyle(media)}
               onLoadedMetadata={handleLoaded}
               onTimeUpdate={handleTime}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
               onError={handleMediaError}
             />
           </>
@@ -292,8 +258,6 @@ export function LiveMediaMonitor({
               loop={loopNative}
               onLoadedMetadata={handleLoaded}
               onTimeUpdate={handleTime}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
               onError={handleMediaError}
             />
           </div>
@@ -311,56 +275,21 @@ export function LiveMediaMonitor({
         )}
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pt-6 pb-2">
-        {markers.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {markers.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => jumpToMarker(m.time)}
-                className="rounded bg-white/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-white transition-colors hover:bg-white/25"
-                title={t("liveMedia.jumpTo", { time: formatClock(m.time) })}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={togglePlay}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/90 text-black transition-colors hover:bg-white"
-            title={displayPlaying ? t("liveWeb.pause") : t("liveWeb.play")}
-          >
-            {displayPlaying ? (
-              <PauseIcon className="size-3.5" />
-            ) : (
-              <PlayIcon className="size-3.5" />
-            )}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={displayDuration || 0}
-            step={0.05}
-            value={Math.min(displayCurrent, displayDuration || 0)}
-            onPointerDown={() => setDragging(true)}
-            onChange={(e) => seekLocal(Number(e.target.value))}
-            onPointerUp={(e) => {
-              setDragging(false)
-              commitSeek(Number((e.target as HTMLInputElement).value))
-            }}
-            onKeyUp={(e) =>
-              commitSeek(Number((e.target as HTMLInputElement).value))
-            }
-            className="h-1 flex-1 cursor-pointer accent-emerald-400"
-          />
-          <span className="shrink-0 text-[0.625rem] text-white/80 tabular-nums">
-            {formatClock(displayCurrent)} / {formatClock(displayDuration)}
-          </span>
-        </div>
+      <div className="absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-3 pt-6 pb-2">
+        <button
+          type="button"
+          onClick={toggleLoop}
+          aria-pressed={isLooping}
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-full transition-colors",
+            isLooping
+              ? "bg-emerald-400 text-black hover:bg-emerald-300"
+              : "bg-white/90 text-black hover:bg-white"
+          )}
+          title={t("liveMedia.loop")}
+        >
+          <RepeatIcon className="size-3.5" />
+        </button>
       </div>
     </div>
   )

@@ -88,7 +88,7 @@ export const SlideThumb = memo(function SlideThumb({
             onChange={(e) => {
               const type = e.target.value as SlideTransitionType
               const store = usePresentationStore.getState()
-              store.updateDraftSlide({
+              store.updateDraftSlideAt(index, {
                 ...slide,
                 transition:
                   type === "cut"
@@ -116,7 +116,7 @@ export const SlideThumb = memo(function SlideThumb({
                 title={t("slideThumb.duration")}
                 onChange={(e) => {
                   const store = usePresentationStore.getState()
-                  store.updateDraftSlide({
+                  store.updateDraftSlideAt(index, {
                     ...slide,
                     transition: {
                       type: currentTransition as SlideTransitionType,

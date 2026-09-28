@@ -305,15 +305,35 @@ export function parseScheduleBundle(
     return { ...rewriteSurface(theme, ctx), id, builtin: false }
   })
 
-  // Presentations — re-point deck ids (and slide ids) and rewrite slide media.
+  // Presentations — re-point deck/slide/element ids and rewrite slide media.
   const presIdRemap = new Map<string, string>()
   const presentations = manifest.presentations.map((pres) => {
     const id = newId()
     presIdRemap.set(pres.id, id)
-    const slides: Slide[] = pres.slides.map((slide) => ({
-      ...rewriteSurface(slide, ctx),
-      id: newId(),
-    }))
+    const slides: Slide[] = pres.slides.map((slide) => {
+      const rewritten = rewriteSurface(slide, ctx)
+      const elementIdRemap = new Map<string, string>()
+      const elements = rewritten.elements.map((element) => {
+        const nextId = newId()
+        elementIdRemap.set(element.id, nextId)
+        return { ...element, id: nextId }
+      })
+
+      // A shape can refer to another element as its mask target. Preserve that
+      // relationship after assigning fresh IDs to the imported elements.
+      const remappedElements = elements.map((element) => {
+        if (element.type !== "shape" || !element.maskTargetId) {
+          return element
+        }
+        return {
+          ...element,
+          maskTargetId:
+            elementIdRemap.get(element.maskTargetId) ?? element.maskTargetId,
+        }
+      })
+
+      return { ...rewritten, id: newId(), elements: remappedElements }
+    })
     return { ...pres, id, slides }
   })
 

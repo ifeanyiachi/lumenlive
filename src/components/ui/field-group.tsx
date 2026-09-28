@@ -45,7 +45,7 @@ function FieldGroup({
   return (
     <div
       data-slot="field-group"
-      className={cn("flex flex-col gap-1", className)}
+      className={cn("flex min-w-0 flex-col gap-1", className)}
       {...props}
     >
       <div className="flex min-h-4 items-center justify-between gap-2">

@@ -35,7 +35,7 @@ export function ItemPropertiesContent({
 }) {
   const { t } = useTranslation("schedule")
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex min-w-0 flex-col gap-3 p-3">
       <FieldGroup label={t("properties.label")}>
         <Input
           className="h-7 text-xs"
@@ -50,7 +50,7 @@ export function ItemPropertiesContent({
 
       <FieldGroup label={t("properties.notes")}>
         <textarea
-          className="min-h-[60px] w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
+          className="min-h-[60px] w-full min-w-0 max-w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
           value={item.notes ?? ""}
           onChange={(e) =>
             useScheduleStore

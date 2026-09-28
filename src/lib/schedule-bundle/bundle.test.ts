@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest"
 import type { MediaAsset } from "@/types/media"
 import type { Theme } from "@/types/theme"
 import type { ServiceSchedule } from "@/types/schedule"
-import { createDefaultPresentation } from "@/lib/slide-defaults"
+import {
+  createDefaultPresentation,
+  createDefaultShapeElement,
+} from "@/lib/slide-defaults"
 import { createDefaultSong } from "@/types/song"
 import { ScheduleParseError } from "@/lib/schedule-io"
 import {
@@ -31,6 +34,24 @@ function scenario() {
   // A deck whose one slide has a library-image background.
   const deck = createDefaultPresentation("Deck")
   deck.id = "p1"
+  const editableText = deck.slides[0].elements[0]
+  if (editableText.type === "text") {
+    editableText.text = "Editable welcome"
+    editableText.x = 18
+    editableText.animation = {
+      entry: {
+        type: "fade",
+        duration: 0.4,
+        delay: 0.1,
+        easing: "ease-out",
+      },
+    }
+  }
+  const mask = createDefaultShapeElement()
+  mask.id = "mask-shape"
+  mask.maskTargetId = editableText.id
+  deck.slides[0].elements.push(mask)
+  deck.slides[0].transition = { type: "fade", duration: 0.5 }
   deck.slides[0].background = {
     type: "image",
     mediaAssetId: "a2",
@@ -183,6 +204,41 @@ describe("buildScheduleBundle", () => {
 })
 
 describe("parseScheduleBundle", () => {
+  it("preserves editable slide data while refreshing element ids", () => {
+    const { schedule, sources, deck } = scenario()
+    const { manifest, mediaFiles } = buildScheduleBundle(schedule, sources, 1)
+
+    let n = 0
+    const parsed = parseScheduleBundle(manifest, extract(mediaFiles), {
+      newId: () => `nid-${n++}`,
+      now: 999,
+      toAssetUrl: (p) => `converted://${p}`,
+    })
+
+    const sourceSlide = deck.slides[0]
+    const importedSlide = parsed.presentations[0].slides[0]
+    expect(importedSlide.name).toBe(sourceSlide.name)
+    expect(importedSlide.transition).toEqual(sourceSlide.transition)
+
+    const importedText = importedSlide.elements.find(
+      (element) => element.type === "text"
+    )
+    expect(importedText).toMatchObject({
+      type: "text",
+      text: "Editable welcome",
+      x: 18,
+    })
+    expect(importedText?.id).not.toBe(sourceSlide.elements[0].id)
+
+    const importedMask = importedSlide.elements.find(
+      (element) => element.type === "shape"
+    )
+    expect(importedMask?.id).not.toBe("mask-shape")
+    expect(importedMask?.type === "shape" && importedMask.maskTargetId).toBe(
+      importedText?.id
+    )
+  })
+
   it("round-trips with every reference re-pointed at imported copies", () => {
     const { schedule, sources } = scenario()
     const { manifest, mediaFiles } = buildScheduleBundle(schedule, sources, 1)

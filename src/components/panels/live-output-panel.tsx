@@ -49,6 +49,9 @@ export function LiveOutputPanel() {
   const liveVersePages = useBroadcastStore((s) => s.liveVersePages)
   const liveVersePageIndex = useBroadcastStore((s) => s.liveVersePageIndex)
   const liveMedia = useBroadcastStore((s) => s.liveMedia)
+  // Re-taking the same clip (e.g. after a Set In cue) bumps this, remounting the
+  // monitor so its auto-start re-fires from the new in-point.
+  const mediaTakeNonce = useBroadcastStore((s) => s.mediaTakeNonce)
   const liveSlide = useBroadcastStore((s) => s.liveSlide)
   const broadcastMuted = useBroadcastStore((s) => s.broadcastMuted)
   const liveWeb = useBroadcastStore((s) => s.liveWeb)
@@ -328,7 +331,7 @@ export function LiveOutputPanel() {
             />
           ) : showMedia ? (
             <LiveMediaMonitor
-              key={liveMedia.filePath}
+              key={`${liveMedia.filePath}:${mediaTakeNonce}`}
               media={liveMedia}
               onAir={isLive}
             />

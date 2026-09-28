@@ -359,12 +359,12 @@ mod tests {
         approx(adjust_confidence(1.0, 0.0), 1.0);
         approx(adjust_confidence(0.6, 0.0), 0.6);
         // Full quotation -> lifted by QUOTE_BOOST.
-        approx(adjust_confidence(0.5, 1.0), 0.5 * (1.0 + QUOTE_BOOST));
+        approx(adjust_confidence(0.5, 1.0), f64::midpoint(1.0, QUOTE_BOOST));
         // Monotonic in quotation score.
         assert!(adjust_confidence(0.7, 0.3) < adjust_confidence(0.7, 0.8));
         // Clamped to [0, 1] and quotation clamped to [0, 1].
         approx(adjust_confidence(0.9, 1.0), (0.9 * (1.0 + QUOTE_BOOST)).min(1.0));
-        approx(adjust_confidence(0.5, 5.0), 0.5 * (1.0 + QUOTE_BOOST));
+        approx(adjust_confidence(0.5, 5.0), f64::midpoint(1.0, QUOTE_BOOST));
         approx(adjust_confidence(0.5, -5.0), 0.5);
     }
 

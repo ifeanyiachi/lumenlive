@@ -142,7 +142,9 @@
   },
   "liveMedia": {
     "loadFailed": "Não foi possível carregar esta mídia",
-    "jumpTo": "Ir para {{time}}"
+    "jumpTo": "Ir para {{time}}",
+    "loop": "Repetir",
+    "setIn": "Definir ponto de entrada — o Ir ao vivo começa aqui"
   },
   "transcript": {
     "title": "Transcrição ao vivo",

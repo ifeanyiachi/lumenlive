@@ -30,6 +30,26 @@ import type {
 } from "@/types/slide"
 
 /**
+ * A stable primitive for the animation settings that control the editor RAF.
+ * Text/content edits intentionally do not restart a reveal, but changing an
+ * entry or text-build setting must cancel the old tracker (especially when the
+ * setting is changed back to none).
+ */
+function animationConfigKey(slide: Slide | null): string {
+  if (!slide) return ""
+  return slide.elements
+    .map((el) =>
+      JSON.stringify({
+        id: el.id,
+        entry: el.animation?.entry ?? null,
+        textBuild:
+          el.type === "text" ? (el as SlideTextElement).textBuild ?? null : null,
+      })
+    )
+    .join("|")
+}
+
+/**
  * The editor canvas coordinator: owns the single visible `<canvas>` plus every
  * persistent handle its render paths share — the video cache, the animation
  * tracker, the entry-animation / media-playback / transition-preview RAF loops,
@@ -58,6 +78,7 @@ export function useSlideEditorCanvas(
   const editorVideoUrlsRef = useRef<string[]>([])
   const editorAnimTrackerRef = useRef<SlideAnimationTracker | null>(null)
   const editorAnimRafRef = useRef<number>(0)
+  const currentAnimationConfigKey = animationConfigKey(activeSlide)
   // Persistent offscreen canvases reused across renders instead of allocating a
   // fresh 1920×1080 buffer per slide change / transition (P3).
   const measuringCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -115,8 +136,9 @@ export function useSlideEditorCanvas(
 
   // Replay text-build / entry animations when navigating to a slide, so lyric
   // reveals (fade-up / blur-in) and element entries are visible in the editor
-  // preview — not only on the live/broadcast output. Keyed on slide id so
-  // content edits to the current slide don't restart the animation.
+  // preview — not only on the live/broadcast output. Keyed on slide id and the
+  // animation settings so changing a build/entry animation immediately resets
+  // the tracker; ordinary content edits still don't restart the animation.
   useEffect(() => {
     cancelAnimationFrame(editorAnimRafRef.current)
     editorAnimTrackerRef.current = null
@@ -180,7 +202,7 @@ export function useSlideEditorCanvas(
 
     return () => cancelAnimationFrame(editorAnimRafRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSlide?.id])
+  }, [activeSlide?.id, currentAnimationConfigKey])
 
   const handlePreviewTransition = useCallback((slideIndex: number) => {
     // Read the draft from the store rather than closing over it, so this callback

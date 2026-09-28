@@ -25,6 +25,7 @@ export type ElementsSlice = Pick<
   | "editingTextElementId"
   | "selectedElementIds"
   | "updateDraftSlide"
+  | "updateDraftSlideAt"
   | "updateDraftElement"
   | "updateDraftElementsBatch"
   | "beginTextEdit"
@@ -67,6 +68,20 @@ export const createElementsSlice: StateCreator<
         draftPresentation: slides.updateSlideAt(
           s.draftPresentation,
           s.activeSlideIndex,
+          updates,
+          Date.now()
+        ),
+      }
+    }),
+
+  updateDraftSlideAt: (index, updates) =>
+    set((s) => {
+      if (!s.draftPresentation || !s.draftPresentation.slides[index]) return s
+      pushUndoDebounced(s.draftPresentation)
+      return {
+        draftPresentation: slides.updateSlideAt(
+          s.draftPresentation,
+          index,
           updates,
           Date.now()
         ),

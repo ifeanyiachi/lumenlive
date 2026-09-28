@@ -145,8 +145,13 @@ export function ElementAnimationProperties({
         title={t("properties.entryAnimation")}
         anim={anim?.entry}
         onChange={(entry) => {
+          const animation = entry
+            ? { ...anim, entry }
+            : anim?.exit
+              ? { exit: anim.exit }
+              : undefined
           update({
-            animation: entry ? { ...anim, entry } : { exit: anim?.exit },
+            animation,
           })
         }}
       />
@@ -154,8 +159,13 @@ export function ElementAnimationProperties({
         title={t("properties.exitAnimation")}
         anim={anim?.exit}
         onChange={(exit) => {
+          const animation = exit
+            ? { ...anim, exit }
+            : anim?.entry
+              ? { entry: anim.entry }
+              : undefined
           update({
-            animation: exit ? { ...anim, exit } : { entry: anim?.entry },
+            animation,
           })
         }}
       />

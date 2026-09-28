@@ -142,7 +142,9 @@
   },
   "liveMedia": {
     "loadFailed": "Impossible de charger ce média",
-    "jumpTo": "Aller à {{time}}"
+    "jumpTo": "Aller à {{time}}",
+    "loop": "Boucle",
+    "setIn": "Définir le point d'entrée — le passage à l'antenne démarre ici"
   },
   "transcript": {
     "title": "Transcription en direct",

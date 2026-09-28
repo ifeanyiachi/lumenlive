@@ -74,15 +74,15 @@ export function ItemPropertiesModal({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-sm">
+      <DialogContent className="min-w-0 overflow-hidden sm:max-w-md">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="min-w-0 truncate pr-6 text-sm">
             {isAdd
               ? t("properties.addType", { type: typeLabels[item.type] })
               : t("properties.editTitle")}
           </DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh]">
+        <ScrollArea className="max-h-[60vh] min-w-0 overflow-hidden">
           <ItemPropertiesContent
             item={item}
             scheduleId={scheduleId}

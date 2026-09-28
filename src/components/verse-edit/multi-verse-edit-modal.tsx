@@ -25,6 +25,7 @@ import {
 import { buildMultiVerseReference } from "@/lib/multi-verse"
 import { buildGroupedScriptureScheduleItem } from "@/lib/search/schedule-items"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { takeToLiveOrPrompt } from "@/hooks/use-broadcast"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
@@ -235,7 +236,11 @@ export function MultiVerseEditModal({
     if (goLiveEnabled) {
       const broadcast = useBroadcastStore.getState()
       broadcast.setLiveVerse(renderData, "manual")
-      broadcast.takeToLive()
+      // The Go Live option is expected to work even when no broadcast is
+      // currently active, so enable the audience output before taking the
+      // edited block live.
+      if (!broadcast.isLive) broadcast.setLive(true)
+      takeToLiveOrPrompt()
     }
     onApplied?.()
     onOpenChange(false)

@@ -48,6 +48,8 @@ export interface PresentationState {
   setActiveSlideIndex: (index: number) => void
 
   updateDraftSlide: (updates: Partial<Slide>) => void
+  /** Update a specific slide without changing the editor's active-slide cursor. */
+  updateDraftSlideAt: (index: number, updates: Partial<Slide>) => void
   updateDraftElement: (
     elementId: string,
     updates: Partial<SlideElement>

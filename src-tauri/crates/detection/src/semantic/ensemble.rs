@@ -59,16 +59,64 @@ impl EnsembleSearcher {
         index: &dyn VectorIndex,
         k: usize,
     ) -> Result<Vec<EnsembleResult>, DetectionError> {
+        let mut results = self.collect_candidates(text, embedder, index, k)?;
+
+        // Filter by ensemble threshold and sort by combined score.
+        results.retain(|r| r.score >= ENSEMBLE_THRESHOLD);
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(k);
+
+        Ok(results)
+    }
+
+    /// Return high-quality candidates for a recall-oriented fallback.
+    ///
+    /// Unlike [`Self::search`], this path accepts a candidate when one search
+    /// strategy finds it strongly, even if the weighted ensemble score is low
+    /// because the other strategies did not find the same verse. That matters
+    /// for paraphrases: a synonym-expanded query can recover the right verse
+    /// without the original wording also ranking it highly.
+    pub fn search_for_recall(
+        &mut self,
+        text: &str,
+        embedder: &dyn TextEmbedder,
+        index: &dyn VectorIndex,
+        k: usize,
+    ) -> Result<Vec<EnsembleResult>, DetectionError> {
+        let mut results = self.collect_candidates(text, embedder, index, k)?;
+
+        results.retain(|r| r.best_similarity >= CONCEPT_CUTOFF);
+        results.sort_by(|a, b| {
+            b.best_similarity
+                .partial_cmp(&a.best_similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    b.score
+                        .partial_cmp(&a.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        });
+        results.truncate(k);
+
+        Ok(results)
+    }
+
+    /// Run all search strategies and return the unfiltered candidate set.
+    fn collect_candidates(
+        &mut self,
+        text: &str,
+        embedder: &dyn TextEmbedder,
+        index: &dyn VectorIndex,
+        k: usize,
+    ) -> Result<Vec<EnsembleResult>, DetectionError> {
         let mut combined: HashMap<i64, EnsembleResult> = HashMap::new();
 
         // Strategy 1: Original (direct embedding)
-        let original_results = self.run_strategy(
-            text,
-            embedder,
-            index,
-            k,
-            "original",
-        )?;
+        let original_results = self.run_strategy(text, embedder, index, k, "original")?;
         for (verse_id, similarity) in &original_results {
             if *similarity >= ORIGINAL_CUTOFF {
                 let entry = combined.entry(*verse_id).or_insert_with(|| EnsembleResult {
@@ -87,13 +135,7 @@ impl EnsembleSearcher {
         let variants = self.synonym_expander.expand(text);
         // Skip the first variant (it's the original text, already searched)
         for variant in variants.iter().skip(1).take(2) {
-            let synonym_results = self.run_strategy(
-                variant,
-                embedder,
-                index,
-                k,
-                "synonym",
-            )?;
+            let synonym_results = self.run_strategy(variant, embedder, index, k, "synonym")?;
             for (verse_id, similarity) in &synonym_results {
                 if *similarity >= SYNONYM_CUTOFF {
                     let entry = combined.entry(*verse_id).or_insert_with(|| EnsembleResult {
@@ -116,13 +158,8 @@ impl EnsembleSearcher {
         let concepts = extract_concepts(text);
         if !concepts.is_empty() {
             let concept_query = concepts.join(" ");
-            let concept_results = self.run_strategy(
-                &concept_query,
-                embedder,
-                index,
-                k,
-                "concept",
-            )?;
+            let concept_results =
+                self.run_strategy(&concept_query, embedder, index, k, "concept")?;
             for (verse_id, similarity) in &concept_results {
                 if *similarity >= CONCEPT_CUTOFF {
                     let entry = combined.entry(*verse_id).or_insert_with(|| EnsembleResult {
@@ -140,21 +177,7 @@ impl EnsembleSearcher {
             }
         }
 
-        // Filter by ensemble threshold and sort by score
-        let mut results: Vec<EnsembleResult> = combined
-            .into_values()
-            .filter(|r| r.score >= ENSEMBLE_THRESHOLD)
-            .collect();
-
-        results.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        results.truncate(k);
-
-        Ok(results)
+        Ok(combined.into_values().collect())
     }
 
     /// Run a single strategy: embed text, search index, return results.
@@ -195,14 +218,53 @@ impl Default for EnsembleSearcher {
 fn extract_concepts(text: &str) -> Vec<String> {
     // Biblical concept keywords — if any appear in the text, include them
     const CONCEPT_WORDS: &[&str] = &[
-        "love", "faith", "grace", "mercy", "sin", "salvation", "forgiveness",
-        "righteousness", "holy", "spirit", "prayer", "worship", "heaven",
-        "eternal", "life", "death", "resurrection", "cross", "blood",
-        "covenant", "promise", "blessing", "curse", "judgment", "kingdom",
-        "peace", "joy", "hope", "truth", "wisdom", "light", "darkness",
-        "shepherd", "lamb", "sacrifice", "temple", "circumcision",
-        "baptism", "communion", "apostle", "prophet", "priest",
-        "repentance", "obedience", "commandment", "law", "gospel",
+        "love",
+        "faith",
+        "grace",
+        "mercy",
+        "sin",
+        "salvation",
+        "forgiveness",
+        "righteousness",
+        "holy",
+        "spirit",
+        "prayer",
+        "worship",
+        "heaven",
+        "eternal",
+        "life",
+        "death",
+        "resurrection",
+        "cross",
+        "blood",
+        "covenant",
+        "promise",
+        "blessing",
+        "curse",
+        "judgment",
+        "kingdom",
+        "peace",
+        "joy",
+        "hope",
+        "truth",
+        "wisdom",
+        "light",
+        "darkness",
+        "shepherd",
+        "lamb",
+        "sacrifice",
+        "temple",
+        "circumcision",
+        "baptism",
+        "communion",
+        "apostle",
+        "prophet",
+        "priest",
+        "repentance",
+        "obedience",
+        "commandment",
+        "law",
+        "gospel",
     ];
 
     let lower = text.to_lowercase();
@@ -210,7 +272,10 @@ fn extract_concepts(text: &str) -> Vec<String> {
 
     let mut concepts: Vec<String> = Vec::new();
     for &concept in CONCEPT_WORDS {
-        if words.iter().any(|w| w.trim_matches(|c: char| !c.is_alphabetic()) == concept) {
+        if words
+            .iter()
+            .any(|w| w.trim_matches(|c: char| !c.is_alphabetic()) == concept)
+        {
             concepts.push(concept.to_string());
         }
     }

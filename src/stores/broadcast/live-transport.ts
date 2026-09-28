@@ -40,6 +40,7 @@ export type LiveTransportSlice = Pick<
   | "previewWeb"
   | "previewSource"
   | "previewPending"
+  | "mediaTakeNonce"
   | "mediaTransport"
   | "webTransport"
   | "broadcastSource"
@@ -58,6 +59,7 @@ export type LiveTransportSlice = Pick<
   | "updateLiveMediaFit"
   | "updateLiveMediaPlayback"
   | "setLiveWeb"
+  | "updatePreviewMedia"
   | "updatePreviewWeb"
   | "clearLiveWeb"
   | "syncWebOutput"
@@ -134,6 +136,9 @@ export const createLiveTransportSlice: StateCreator<
       ...clearedLiveFields(),
       liveMedia,
       broadcastSource: source ?? null,
+      // Bump so the live media monitor remounts and re-fires auto-start even when
+      // the same clip is re-taken with a new in-point (see mediaTakeNonce).
+      mediaTakeNonce: get().mediaTakeNonce + 1,
     })
     if (hadWeb) clearWebOutputs(get().outputs)
     get().syncBroadcastOutput()
@@ -165,6 +170,7 @@ export const createLiveTransportSlice: StateCreator<
     previewWeb: null,
     previewSource: null,
     previewPending: false,
+    mediaTakeNonce: 0,
     mediaTransport: null,
     webTransport: null,
     broadcastSource: null,
@@ -284,6 +290,19 @@ export const createLiveTransportSlice: StateCreator<
         previewSource: source ?? null,
         previewPending: true,
       })
+    },
+    updatePreviewMedia: (
+      update: Partial<
+        Pick<LiveMedia, "trimStart" | "trimEnd" | "loop" | "endAction">
+      >
+    ) => {
+      const media = get().previewMedia
+      if (!media) return
+      // Preview-only: the edited cue stays pending until the operator takes it,
+      // at which point takeToLive commits this exact object (with its new in-point)
+      // to the audience. An empty update just marks the preview pending — e.g. a
+      // scrub that should light up Go Live without changing the cue.
+      set({ previewMedia: { ...media, ...update }, previewPending: true })
     },
     updatePreviewWeb: (update) => {
       const web = get().previewWeb

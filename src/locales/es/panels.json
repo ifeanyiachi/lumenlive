@@ -142,7 +142,9 @@
   },
   "liveMedia": {
     "loadFailed": "No se pudo cargar este medio",
-    "jumpTo": "Ir a {{time}}"
+    "jumpTo": "Ir a {{time}}",
+    "loop": "Bucle",
+    "setIn": "Definir punto de entrada — Salir en vivo empieza aquí"
   },
   "transcript": {
     "title": "Transcripción en directo",

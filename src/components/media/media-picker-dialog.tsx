@@ -31,6 +31,7 @@ import {
   HardDriveIcon,
   SearchIcon,
   MusicIcon,
+  PlayIcon,
   UploadIcon,
 } from "lucide-react"
 import type { MediaAsset, MediaType } from "@/types/media"
@@ -310,6 +311,7 @@ function PickerCard({
   onSelect: (e: React.MouseEvent) => void
   onDoubleClick: () => void
 }) {
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
   const dragSource = useDragSource()
   const dragHandlers = dragSource(() => ({
     payload: { kind: "media" as const, assets: [asset] },
@@ -327,6 +329,13 @@ function PickerCard({
     }
     return null
   }, [asset.thumbnailDataUrl, asset.type, asset.filePath])
+
+  // Match the media panel and quick-add cards: videos use their local asset URL
+  // directly and seek to an early frame so the picker shows real content.
+  const videoSrc = useMemo(() => {
+    if (asset.type !== "video") return null
+    return safeFileSrc(asset.filePath)
+  }, [asset.type, asset.filePath])
 
   return (
     <button
@@ -348,6 +357,27 @@ function PickerCard({
             alt={asset.name}
             className="size-full object-cover"
           />
+        ) : videoSrc && !videoPreviewFailed ? (
+          <>
+            <video
+              src={videoSrc}
+              aria-label={asset.name}
+              className="size-full object-cover"
+              muted
+              playsInline
+              preload="auto"
+              onError={() => setVideoPreviewFailed(true)}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  video.currentTime = Math.min(1, video.duration * 0.1)
+                }
+              }}
+            />
+            <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-black/60 text-white shadow-sm">
+              <PlayIcon className="ml-px size-2 fill-current" />
+            </span>
+          </>
         ) : (
           <div className="flex size-full items-center justify-center">
             {asset.type === "video" ? (

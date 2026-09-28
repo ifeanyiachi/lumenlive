@@ -22,30 +22,26 @@ import {
   GlobeIcon,
   MusicIcon,
   PlayIcon,
+  FlagIcon,
 } from "lucide-react"
 import { PreviewWebMonitor } from "@/components/panels/preview-web-monitor"
-import { formatClock } from "@/lib/live-output/transport"
+import { formatClock, resolveMediaDisplay } from "@/lib/live-output/transport"
+import { isEditableTarget } from "@/lib/dom/is-editable-target"
+import {
+  sortMarkers,
+  findMarkerInDirection,
+  relativeSeekTarget,
+} from "@/lib/live-output/markers"
 
-/** Read-only mirror of the live output's playback position (control lives in Live display). */
-function OutputProgressMirror() {
-  const transport = useBroadcastStore((s) => s.mediaTransport)
-  if (!transport || !transport.duration) return null
-  const pct = Math.min(100, (transport.position / transport.duration) * 100)
-  return (
-    <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-5 pb-1.5">
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/20">
-        <div
-          className="h-full rounded-full bg-emerald-400"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="shrink-0 text-[0.625rem] text-white/80 tabular-nums">
-        {formatClock(transport.position)} / {formatClock(transport.duration)}
-      </span>
-    </div>
-  )
-}
-
+/**
+ * Program-preview monitor for a staged media item. This is where the media
+ * transport lives (seek scrubber + jump-to-marker chips + ←/→) — mirroring the
+ * YouTube split where cueing is done in Program preview and the live display
+ * keeps only a minimal control. When the previewed clip is the one currently on
+ * air it drives the audience output via sendMediaTransport (and the Live-display
+ * mirror follows the echoed position); otherwise the scrubber auditions the
+ * staged clip locally without touching the audience.
+ */
 function MediaPreview({
   media,
   monitorAudio,
@@ -53,9 +49,9 @@ function MediaPreview({
   media: LiveMedia
   monitorAudio: boolean
 }) {
+  const { t } = useTranslation("panels")
   const { filePath, mediaType } = media
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null)
   const src = useMemo(() => {
     try {
       return safeFileSrc(filePath)
@@ -64,14 +60,214 @@ function MediaPreview({
     }
   }, [filePath])
 
+  const sendTransport = useBroadcastStore((s) => s.sendMediaTransport)
+  const mediaTransport = useBroadcastStore((s) => s.mediaTransport)
+  // The transport controls only reach the audience when the staged clip is the
+  // one actually on air. Otherwise a seek here would scrub whatever different
+  // clip is live — so off-air (or a not-yet-taken clip) the scrubber is local
+  // audition only, and the echoed output position is ignored (it belongs to a
+  // different clip).
+  const isLiveClip = useBroadcastStore(
+    (s) => s.isLive && s.liveMedia?.filePath === filePath
+  )
+  const transport = isLiveClip ? mediaTransport : null
+
+  const [duration, setDuration] = useState(0)
+  const [current, setCurrent] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [dragging, setDragging] = useState(false)
+
+  const markers = useMemo(
+    () => sortMarkers(media.markers ?? []),
+    [media.markers]
+  )
+
+  const setElRef = useCallback((el: HTMLMediaElement | null) => {
+    mediaRef.current = el
+  }, [])
+
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = !monitorAudio
-    }
-    if (audioRef.current) {
-      audioRef.current.muted = !monitorAudio
-    }
+    if (mediaRef.current) mediaRef.current.muted = !monitorAudio
   }, [monitorAudio])
+
+  const handleLoaded = useCallback(() => {
+    const el = mediaRef.current
+    if (!el) return
+    setDuration(Number.isFinite(el.duration) ? el.duration : 0)
+    if (media.trimStart) {
+      try {
+        el.currentTime = media.trimStart
+      } catch {
+        /* not seekable yet */
+      }
+    }
+  }, [media.trimStart])
+
+  const handleTime = useCallback(() => {
+    const el = mediaRef.current
+    if (!el) return
+    if (!dragging) setCurrent(el.currentTime)
+    if (media.trimEnd != null && el.currentTime >= media.trimEnd) {
+      if (media.loop || media.endAction === "loop") {
+        try {
+          el.currentTime = media.trimStart ?? 0
+        } catch {
+          /* not seekable */
+        }
+      } else {
+        el.pause()
+      }
+    }
+  }, [dragging, media.trimEnd, media.trimStart, media.loop, media.endAction])
+
+  const seekLocal = useCallback((tSec: number) => {
+    const el = mediaRef.current
+    if (el) {
+      try {
+        el.currentTime = tSec
+      } catch {
+        /* not seekable */
+      }
+    }
+    setCurrent(tSec)
+  }, [])
+
+  // Seek the local preview element for instant feedback and, when this clip is
+  // on air, forward the seek to the audience output. Any committed scrub also
+  // stages the preview (previewPending) so the Go Live button lights up.
+  const commitSeek = useCallback(
+    (tSec: number) => {
+      seekLocal(tSec)
+      if (isLiveClip) sendTransport("seek", tSec)
+      useBroadcastStore.getState().updatePreviewMedia({})
+    },
+    [seekLocal, isLiveClip, sendTransport]
+  )
+
+  // "Set In": stage the current position as the clip's in-point. Taking the
+  // preview to air (Go Live) then starts/continues playback from here. Preview
+  // only — the audience is untouched until the operator takes it live.
+  const setInPoint = useCallback(() => {
+    const pos = transport?.position ?? mediaRef.current?.currentTime ?? 0
+    useBroadcastStore.getState().updatePreviewMedia({ trimStart: pos })
+  }, [transport])
+
+  const jumpToMarker = useCallback(
+    (tSec: number) => {
+      const el = mediaRef.current
+      commitSeek(tSec)
+      if (el && el.paused) {
+        void el.play()
+        if (isLiveClip) sendTransport("play")
+      }
+    },
+    [commitSeek, isLiveClip, sendTransport]
+  )
+
+  const jumpRelative = useCallback(
+    (dir: 1 | -1) => {
+      const pos = transport?.position ?? mediaRef.current?.currentTime ?? 0
+      if (markers.length > 0) {
+        const target = findMarkerInDirection(markers, pos, dir)
+        if (target) jumpToMarker(target.time)
+      } else {
+        commitSeek(relativeSeekTarget(pos, dir))
+      }
+    },
+    [markers, transport, jumpToMarker, commitSeek]
+  )
+
+  // Operator keyboard shortcuts: ←/→ = jump markers (or ±10s without markers).
+  useEffect(() => {
+    if (mediaType === "image") return
+    const onKey = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) return
+      if (e.code === "ArrowRight") {
+        e.preventDefault()
+        jumpRelative(1)
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault()
+        jumpRelative(-1)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [mediaType, jumpRelative])
+
+  const { duration: displayDuration, current: displayCurrent } =
+    resolveMediaDisplay({
+      transport,
+      dragging,
+      localCurrent: current,
+      localDuration: duration,
+      localPlaying: playing,
+    })
+
+  if (mediaType === "image") {
+    return (
+      <div className="relative flex size-full items-center justify-center overflow-hidden">
+        <MediaFitBackdrop media={media} src={src} />
+        {/* 16:9 output frame (see the video branch): the image is cropped to the
+            audience frame, not to the panel's aspect ratio. */}
+        <img
+          src={src}
+          alt=""
+          className="relative aspect-video max-h-full max-w-full"
+          style={mediaFitStyle(media)}
+        />
+      </div>
+    )
+  }
+
+  const transportBar = (
+    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pt-6 pb-2">
+      {markers.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {markers.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => jumpToMarker(m.time)}
+              className="rounded bg-white/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-white transition-colors hover:bg-white/25"
+              title={t("liveMedia.jumpTo", { time: formatClock(m.time) })}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={setInPoint}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/90 text-black transition-colors hover:bg-white"
+          title={t("liveMedia.setIn")}
+        >
+          <FlagIcon className="size-3.5" />
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={displayDuration || 0}
+          step={0.05}
+          value={Math.min(displayCurrent, displayDuration || 0)}
+          onPointerDown={() => setDragging(true)}
+          onChange={(e) => seekLocal(Number(e.target.value))}
+          onPointerUp={(e) => {
+            setDragging(false)
+            commitSeek(Number((e.target as HTMLInputElement).value))
+          }}
+          onKeyUp={(e) =>
+            commitSeek(Number((e.target as HTMLInputElement).value))
+          }
+          className="h-1 flex-1 cursor-pointer accent-emerald-400"
+        />
+        <span className="shrink-0 text-[0.625rem] text-white/80 tabular-nums">
+          {formatClock(displayCurrent)} / {formatClock(displayDuration)}
+        </span>
+      </div>
+    </div>
+  )
 
   if (mediaType === "video") {
     return (
@@ -81,7 +277,7 @@ function MediaPreview({
             this frame exactly as it does on the audience 1920×1080 canvas, so the
             operator sees the same crop instead of one cropped to the panel shape. */}
         <video
-          ref={videoRef}
+          ref={setElRef}
           key={filePath}
           src={src}
           autoPlay
@@ -89,41 +285,31 @@ function MediaPreview({
           playsInline
           className="relative aspect-video max-h-full max-w-full"
           style={mediaFitStyle(media)}
+          onLoadedMetadata={handleLoaded}
+          onTimeUpdate={handleTime}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
         />
-        <OutputProgressMirror />
-      </div>
-    )
-  }
-
-  if (mediaType === "audio") {
-    return (
-      <div className="relative flex size-full flex-col items-center justify-center gap-3">
-        <MusicIcon className="size-12 text-muted-foreground/50" />
-        <OutputProgressMirror />
-        <audio
-          ref={audioRef}
-          key={filePath}
-          src={src}
-          autoPlay
-          muted={!monitorAudio}
-          controls
-          className="w-4/5 max-w-md"
-        />
+        {transportBar}
       </div>
     )
   }
 
   return (
-    <div className="relative flex size-full items-center justify-center overflow-hidden">
-      <MediaFitBackdrop media={media} src={src} />
-      {/* 16:9 output frame (see the video branch): the image is cropped to the
-          audience frame, not to the panel's aspect ratio. */}
-      <img
+    <div className="relative flex size-full flex-col items-center justify-center gap-3">
+      <MusicIcon className="size-12 text-muted-foreground/50" />
+      <audio
+        ref={setElRef}
+        key={filePath}
         src={src}
-        alt=""
-        className="relative aspect-video max-h-full max-w-full"
-        style={mediaFitStyle(media)}
+        autoPlay
+        muted={!monitorAudio}
+        onLoadedMetadata={handleLoaded}
+        onTimeUpdate={handleTime}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
       />
+      {transportBar}
     </div>
   )
 }

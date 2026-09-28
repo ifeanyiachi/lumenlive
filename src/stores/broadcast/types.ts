@@ -64,6 +64,15 @@ export interface BroadcastState {
    * take never needlessly re-commits — and thus restarts — the already-live item.
    */
   previewPending: boolean
+  /**
+   * Bumped on every media commit ({@link BroadcastState.takeToLive}). The live
+   * media monitor keys on it (alongside the file path) so re-taking the same clip
+   * remounts and re-fires its auto-start — this is how a "Set In" cue re-taken to
+   * air starts/continues playback from the new in-point. Trim/loop edits go
+   * through {@link BroadcastState.updateLiveMediaPlayback} and deliberately do NOT
+   * bump it, so they still adjust the live clip without restarting it.
+   */
+  mediaTakeNonce: number
   mediaTransport: MediaTransportState | null
   webTransport: WebTransportState | null
   broadcastSource: BroadcastSource
@@ -180,6 +189,16 @@ export interface BroadcastState {
     playback: Pick<LiveMedia, "trimStart" | "trimEnd" | "loop" | "endAction">
   ) => void
   setLiveWeb: (web: LiveWeb | null, source?: BroadcastSource) => void
+  /**
+   * Update the staged media cue without touching the audience output. Program
+   * preview uses this to stage a "Set In" point (and to mark the preview pending
+   * after a scrub) that `takeToLive` then commits to air.
+   */
+  updatePreviewMedia: (
+    update: Partial<
+      Pick<LiveMedia, "trimStart" | "trimEnd" | "loop" | "endAction">
+    >
+  ) => void
   /**
    * Update the staged YouTube cue without touching the audience output. This
    * lets Program preview prepare a seek/edit that `takeToLive` can commit.

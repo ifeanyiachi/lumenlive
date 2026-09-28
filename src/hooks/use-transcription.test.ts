@@ -343,6 +343,114 @@ describe("use-transcription", () => {
       )
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })
+
+    it("shares one key request across concurrent starts", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      mockPullKey.mockResolvedValue({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+      })
+      const { useAuthStore, transcriptionActions } = await loadModules()
+
+      signIn(useAuthStore)
+      await Promise.all([
+        transcriptionActions.start(),
+        transcriptionActions.start(),
+      ])
+
+      expect(mockPullKey).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+    })
+
+    it("cancels a pending start when stop becomes the final intent", async () => {
+      let resolveKey: (value: {
+        mode: "platform_trial"
+        key: string
+        remainingMinutes: number
+        tier: "free"
+        allowanceMinutes: number
+        usedMinutes: number
+      }) => void = () => {}
+      mockPullKey.mockReturnValue(
+        new Promise((resolve) => {
+          resolveKey = resolve
+        })
+      )
+      const { useAuthStore, transcriptionActions, useTranscriptStore } =
+        await loadModules()
+
+      signIn(useAuthStore)
+      const start = transcriptionActions.start()
+      await vi.waitFor(() => expect(mockPullKey).toHaveBeenCalledTimes(1))
+      const stop = transcriptionActions.stop()
+
+      resolveKey({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+      })
+      await Promise.all([start, stop])
+
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(useTranscriptStore.getState().isTranscribing).toBe(false)
+      expect(useTranscriptStore.getState().connectionStatus).toBe(
+        "disconnected"
+      )
+      expect(mockToastError).not.toHaveBeenCalled()
+    })
+
+    it("settles a rapid start-stop-start sequence on the final start intent", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      let resolveKey: (value: {
+        mode: "platform_trial"
+        key: string
+        remainingMinutes: number
+        tier: "free"
+        allowanceMinutes: number
+        usedMinutes: number
+      }) => void = () => {}
+      mockPullKey.mockReturnValue(
+        new Promise((resolve) => {
+          resolveKey = resolve
+        })
+      )
+      const { useAuthStore, transcriptionActions, useTranscriptStore } =
+        await loadModules()
+
+      signIn(useAuthStore)
+      const firstStart = transcriptionActions.start()
+      await vi.waitFor(() => expect(mockPullKey).toHaveBeenCalledTimes(1))
+      const stop = transcriptionActions.stop()
+      const finalStart = transcriptionActions.start()
+
+      resolveKey({
+        mode: "platform_trial",
+        key: "dg-platform-key",
+        remainingMinutes: 120,
+        tier: "free",
+        allowanceMinutes: 300,
+        usedMinutes: 180,
+      })
+      await Promise.all([firstStart, stop, finalStart])
+
+      expect(mockPullKey).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        apiKey: "dg-platform-key",
+        provider: "deepgram",
+        deviceId: null,
+        gain: 1,
+      })
+      expect(useTranscriptStore.getState().isTranscribing).toBe(true)
+      expect(mockToastError).not.toHaveBeenCalled()
+    })
   })
 
   describe("transcriptionActions.stop", () => {

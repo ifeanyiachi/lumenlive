@@ -26,6 +26,7 @@ import { useSettingsStore } from "@/stores/settings-store"
 import { useScheduleStore } from "@/stores/schedule-store"
 import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { takeToLiveOrPrompt } from "@/hooks/use-broadcast"
 import type { StyledVerseSegment } from "@/types/verse-edit"
 import type { Verse } from "@/types/bible"
 import type { VerseRenderData } from "@/types/broadcast"
@@ -161,7 +162,12 @@ export function VerseEditModal({
 
     if (goLiveEnabled) {
       const renderData: VerseRenderData = { reference, segments: [segment] }
-      useBroadcastStore.getState().setLiveVerse(renderData, "manual")
+      const broadcast = useBroadcastStore.getState()
+      broadcast.setLiveVerse(renderData, "manual")
+      // This option is an express live path: taking the edited verse live must
+      // also bring the broadcast on air when the operator was off-air.
+      if (!broadcast.isLive) broadcast.setLive(true)
+      takeToLiveOrPrompt()
     }
 
     onOpenChange(false)
