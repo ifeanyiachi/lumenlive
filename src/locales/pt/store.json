@@ -69,7 +69,7 @@
   },
   "songPacks": {
     "title": "Pacotes de canções comunitários",
-    "description": "Instale um cancioneiro público inteiro com um clique e remova-o com a mesma facilidade. As letras podem estar protegidas por direitos autorais — projetá-las é responsabilidade CCLI da sua igreja.",
+    "description": "Instale um cancioneiro público inteiro com um clique e remova-o com a mesma facilidade.",
     "noSongs": "Nenhuma canção encontrada em «{{name}}»",
     "installedFrom": "{{count}} canções instaladas de «{{name}}»",
     "installFailed": "Falha ao instalar o pacote",

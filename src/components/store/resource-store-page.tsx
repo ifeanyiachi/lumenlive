@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils"
 
 /** Category filter chips for the resources that remain on this page. */
 const CATEGORIES = [
-  { id: "all", icon: Package },
   { id: "songs", icon: Music },
 ] as const
 
@@ -20,9 +19,9 @@ type CategoryId = (typeof CATEGORIES)[number]["id"]
 
 export function ResourceStorePage() {
   const { t } = useTranslation("store")
-  const [category, setCategory] = useState<CategoryId>("all")
+  const [category, setCategory] = useState<CategoryId>("songs")
 
-  const showSongs = category === "all" || category === "songs"
+  const showSongs = category === "songs"
 
   return (
     <div className="flex w-full flex-col gap-6 px-8 py-8">

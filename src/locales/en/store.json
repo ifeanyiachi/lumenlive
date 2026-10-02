@@ -69,7 +69,7 @@
   },
   "songPacks": {
     "title": "Community Song Packs",
-    "description": "Install a whole public songbook in one click, then remove it just as easily. Lyrics may be under copyright — projecting them is your church's CCLI responsibility.",
+    "description": "Install a whole public songbook in one click, then remove it just as easily.",
     "noSongs": "No songs found in \"{{name}}\"",
     "installedFrom": "Installed {{count}} songs from \"{{name}}\"",
     "installFailed": "Pack install failed",

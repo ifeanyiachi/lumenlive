@@ -69,7 +69,7 @@
   },
   "songPacks": {
     "title": "Packs de chants communautaires",
-    "description": "Installez un recueil public entier en un clic, puis retirez-le tout aussi facilement. Les paroles peuvent être protégées — leur projection relève de la responsabilité CCLI de votre église.",
+    "description": "Installez un recueil public entier en un clic, puis retirez-le tout aussi facilement.",
     "noSongs": "Aucun chant trouvé dans « {{name}} »",
     "installedFrom": "{{count}} chants installés depuis « {{name}} »",
     "installFailed": "Échec de l'installation du pack",
