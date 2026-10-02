@@ -112,6 +112,47 @@
       "restart": "Restart"
     }
   },
+  "feedback": {
+    "description": "Send a bug report or feature request directly to the LumenLive team.",
+    "bug": {
+      "title": "Report a bug",
+      "description": "Something is not working as expected? Let us know what happened."
+    },
+    "feature": {
+      "title": "Request a feature",
+      "description": "Share an idea that would make your services easier to run."
+    },
+    "tabs": {
+      "bug": "Bugs",
+      "feature": "Feature requests"
+    },
+    "signIn": {
+      "title": "Sign in to send feedback",
+      "description": "Please sign in so we can attach your account and church details to the submission.",
+      "action": "Sign in"
+    },
+    "loading": "Loading feedback…",
+    "form": {
+      "titleLabel": "Title",
+      "bugTitlePlaceholder": "What went wrong?",
+      "featureTitlePlaceholder": "What would you like LumenLive to do?",
+      "whatHappenedLabel": "What happened?",
+      "whatHappenedPlaceholder": "Describe the problem and what you were doing when it occurred.",
+      "requestLabel": "What would you like to see?",
+      "requestPlaceholder": "Describe the feature or improvement you have in mind.",
+      "stepsLabel": "Steps to reproduce",
+      "stepsPlaceholder": "1. Open... 2. Click... 3. Notice...",
+      "expectedLabel": "Expected behavior",
+      "expectedPlaceholder": "What did you expect to happen?",
+      "impactLabel": "Why would this help?",
+      "impactPlaceholder": "Who would this help, and how would it improve your workflow?"
+    },
+    "send": "Send feedback",
+    "sending": "Sending…",
+    "sent": "Sent",
+    "sentDescription": "Thanks — your feedback was sent to the LumenLive team.",
+    "failedDescription": "We couldn't send your feedback. Check your connection and try again."
+  },
   "mediaLibrary": {
     "whenImporting": "When Importing Media",
     "reference": {
@@ -379,6 +420,10 @@
     "help": {
       "name": "Help",
       "title": "Help"
+    },
+    "feedback": {
+      "name": "Send feedback",
+      "title": "Send feedback"
     },
     "language": {
       "name": "Language",

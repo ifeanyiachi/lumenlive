@@ -137,6 +137,47 @@
       "restart": "Reiniciar"
     }
   },
+  "feedback": {
+    "description": "Envía un informe de error o una solicitud de función directamente al equipo de LumenLive.",
+    "bug": {
+      "title": "Informar de un error",
+      "description": "¿Algo no funciona como esperabas? Cuéntanos qué ocurrió."
+    },
+    "feature": {
+      "title": "Solicitar una función",
+      "description": "Comparte una idea que facilite tus servicios."
+    },
+    "tabs": {
+      "bug": "Errores",
+      "feature": "Solicitudes de funciones"
+    },
+    "signIn": {
+      "title": "Inicia sesión para enviar comentarios",
+      "description": "Inicia sesión para que podamos incluir los datos de tu cuenta y de tu iglesia.",
+      "action": "Iniciar sesión"
+    },
+    "loading": "Cargando comentarios…",
+    "form": {
+      "titleLabel": "Título",
+      "bugTitlePlaceholder": "¿Qué salió mal?",
+      "featureTitlePlaceholder": "¿Qué te gustaría que hiciera LumenLive?",
+      "whatHappenedLabel": "¿Qué ocurrió?",
+      "whatHappenedPlaceholder": "Describe el problema y qué estabas haciendo cuando ocurrió.",
+      "requestLabel": "¿Qué te gustaría ver?",
+      "requestPlaceholder": "Describe la función o mejora que tienes en mente.",
+      "stepsLabel": "Pasos para reproducirlo",
+      "stepsPlaceholder": "1. Abre... 2. Haz clic... 3. Observa...",
+      "expectedLabel": "Comportamiento esperado",
+      "expectedPlaceholder": "¿Qué esperabas que ocurriera?",
+      "impactLabel": "¿Por qué sería útil?",
+      "impactPlaceholder": "¿A quién ayudaría y cómo mejoraría su flujo de trabajo?"
+    },
+    "send": "Enviar comentarios",
+    "sending": "Enviando…",
+    "sent": "Enviado",
+    "sentDescription": "Gracias: tus comentarios se enviaron al equipo de LumenLive.",
+    "failedDescription": "No se pudieron enviar tus comentarios. Comprueba tu conexión e inténtalo de nuevo."
+  },
   "mediaLibrary": {
     "whenImporting": "Al importar contenido multimedia",
     "reference": {
@@ -359,6 +400,7 @@
     },
     "privacy": { "name": "Privacidad", "title": "Privacidad" },
     "help": { "name": "Ayuda", "title": "Ayuda" },
+    "feedback": { "name": "Enviar comentarios", "title": "Enviar comentarios" },
     "language": { "name": "Idioma", "title": "Idioma" }
   },
   "dialog": {

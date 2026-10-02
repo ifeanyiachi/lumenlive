@@ -9,6 +9,7 @@ type SettingsSection =
   | "remote"
   | "backup"
   | "privacy"
+  | "feedback"
   | "help"
   | "language"
 

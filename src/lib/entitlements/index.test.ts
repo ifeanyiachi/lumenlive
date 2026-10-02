@@ -18,6 +18,13 @@ const PRO: Entitlement = {
   trialEnd: 1_800_000_000,
 }
 
+const ADMIN_OWNED: Entitlement = {
+  tier: "admin-owned",
+  features: [...FREE_FEATURES, "cloud_stt"],
+  limits: { maxDevices: 5, maxTranslations: -1, maxTranscriptionMinutes: -1 },
+  trialEnd: null,
+}
+
 describe("can", () => {
   it("grants a free feature to the Free entitlement", () => {
     expect(can(FREE_ENTITLEMENT, "bible_search")).toBe(true)
@@ -45,6 +52,14 @@ describe("can", () => {
     expect(can(PRO, "ndi_output")).toBe(true)
     expect(can(PRO, "remote_control")).toBe(true)
     expect(can(PRO, "bible_search")).toBe(true) // still includes Free
+  })
+
+  it("grants offline STT to admin-owned accounts without the token flag", () => {
+    expect(can(ADMIN_OWNED, "offline_stt")).toBe(true)
+  })
+
+  it("does not grant offline STT to other tiers without the token flag", () => {
+    expect(can(PRO, "offline_stt")).toBe(false)
   })
 
   it("denies unknown keys", () => {

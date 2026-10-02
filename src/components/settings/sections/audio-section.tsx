@@ -16,6 +16,7 @@ import type { DirectVerseDestination } from "@/stores"
 import type { DeviceInfo } from "@/types/audio"
 import { listAudioDevices } from "@/services/audio-devices-gateway"
 import { OnDeviceTranscriptionRow } from "./on-device-transcription-row"
+import { useCan } from "@/stores/entitlements-store"
 import {
   gainToPercent,
   percentToGain,
@@ -69,6 +70,7 @@ function modeForProvider(provider: string): TranscriptionMode {
 
 export function AudioSection() {
   const { t } = useTranslation("settings")
+  const canUseOfflineStt = useCan("offline_stt")
   const {
     audioDeviceId,
     setAudioDeviceId,
@@ -110,7 +112,12 @@ export function AudioSection() {
 
   const gainPercent = gainToPercent(gain)
   const thresholdPercent = thresholdToPercent(confidenceThreshold)
-  const mode = modeForProvider(transcriptionProvider)
+  const mode = canUseOfflineStt
+    ? modeForProvider(transcriptionProvider)
+    : "online"
+  const availableModes: readonly TranscriptionMode[] = canUseOfflineStt
+    ? ["online", "on-device"]
+    : ["online"]
 
   function setMode(nextMode: TranscriptionMode) {
     if (nextMode === "on-device") {
@@ -140,7 +147,7 @@ export function AudioSection() {
             role="radiogroup"
             aria-label={t("audio.modeLabel")}
           >
-            {(["online", "on-device"] as const).map((option) => (
+            {availableModes.map((option) => (
               <button
                 key={option}
                 type="button"

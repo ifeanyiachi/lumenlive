@@ -137,6 +137,47 @@
       "restart": "Redémarrer"
     }
   },
+  "feedback": {
+    "description": "Envoyez un rapport de bug ou une demande de fonctionnalité directement à l’équipe LumenLive.",
+    "bug": {
+      "title": "Signaler un problème",
+      "description": "Quelque chose ne fonctionne pas comme prévu ? Dites-nous ce qui s’est passé."
+    },
+    "feature": {
+      "title": "Proposer une fonctionnalité",
+      "description": "Partagez une idée pour faciliter vos cultes."
+    },
+    "tabs": {
+      "bug": "Bugs",
+      "feature": "Demandes de fonctionnalités"
+    },
+    "signIn": {
+      "title": "Connectez-vous pour envoyer un commentaire",
+      "description": "Connectez-vous afin que nous puissions joindre les informations de votre compte et de votre église.",
+      "action": "Se connecter"
+    },
+    "loading": "Chargement des commentaires…",
+    "form": {
+      "titleLabel": "Titre",
+      "bugTitlePlaceholder": "Que s’est-il passé ?",
+      "featureTitlePlaceholder": "Que souhaitez-vous que LumenLive fasse ?",
+      "whatHappenedLabel": "Que s’est-il passé ?",
+      "whatHappenedPlaceholder": "Décrivez le problème et ce que vous faisiez lorsqu’il est survenu.",
+      "requestLabel": "Que souhaitez-vous voir ?",
+      "requestPlaceholder": "Décrivez la fonctionnalité ou l’amélioration souhaitée.",
+      "stepsLabel": "Étapes pour reproduire le problème",
+      "stepsPlaceholder": "1. Ouvrir... 2. Cliquer... 3. Constater...",
+      "expectedLabel": "Comportement attendu",
+      "expectedPlaceholder": "Que pensiez-vous qu’il allait se passer ?",
+      "impactLabel": "Pourquoi cela serait-il utile ?",
+      "impactPlaceholder": "Qui cela aiderait-il et comment votre travail serait-il amélioré ?"
+    },
+    "send": "Envoyer le commentaire",
+    "sending": "Envoi…",
+    "sent": "Envoyé",
+    "sentDescription": "Merci — votre commentaire a été envoyé à l’équipe LumenLive.",
+    "failedDescription": "Impossible d’envoyer votre commentaire. Vérifiez votre connexion et réessayez."
+  },
   "mediaLibrary": {
     "whenImporting": "Lors de l’importation de médias",
     "reference": {
@@ -356,6 +397,7 @@
     },
     "privacy": { "name": "Confidentialité", "title": "Confidentialité" },
     "help": { "name": "Aide", "title": "Aide" },
+    "feedback": { "name": "Envoyer un commentaire", "title": "Envoyer un commentaire" },
     "language": { "name": "Langue", "title": "Langue" }
   },
   "dialog": {

@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useAuthStore } from "@/stores/auth-store"
 import { useSettingsStore } from "@/stores/settings-store"
-import { useEntitlementsStore } from "@/stores/entitlements-store"
+import { can, useEntitlementsStore } from "@/stores/entitlements-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { trackServiceStarted } from "@/services/analytics-gateway"
 import {
@@ -87,12 +87,24 @@ async function startTranscriptionOnce(
 
   const settings = useSettingsStore.getState()
 
-  // Offline models intentionally bypass account, activation, and network key
-  // resolution. The backend verifies that the selected store model is installed.
-  if (
+  const isOfflineProvider =
     settings.transcriptionProvider === "nemotron" ||
     settings.transcriptionProvider === "nemotron35"
-  ) {
+
+  // Offline models intentionally bypass account, activation, and network key
+  // resolution, but the entitlement still gates their use. This also protects
+  // against a previously-persisted offline selection after access expires.
+  if (isOfflineProvider && !can("offline_stt")) {
+    settings.setTranscriptionProvider("cloud")
+    transcript.setConnectionStatus("disconnected")
+    toast.error("On-device transcription is a paid feature", {
+      description:
+        "Upgrade your plan or use an administrator-granted subscription to unlock it.",
+    })
+    return "failed"
+  }
+
+  if (isOfflineProvider) {
     try {
       await invoke("start_transcription", {
         apiKey: "",

@@ -70,8 +70,17 @@ export const FREE_ENTITLEMENT: Entitlement = {
   trialEnd: null,
 }
 
-/** Whether the entitlement unlocks `key`. Unknown keys are denied. */
+/**
+ * Whether the entitlement unlocks `key`. Unknown keys are denied.
+ *
+ * Admin-owned accounts are managed outside the public plan catalog, so they
+ * receive on-device transcription even when the server token predates the
+ * `offline_stt` feature flag.
+ */
 export function can(entitlement: Entitlement, key: string): boolean {
+  if (key === "offline_stt" && entitlement.tier === "admin-owned") {
+    return true
+  }
   return entitlement.features.includes(key)
 }
 

@@ -137,6 +137,47 @@
       "restart": "Reiniciar"
     }
   },
+  "feedback": {
+    "description": "Envie um relatório de problema ou uma solicitação de recurso diretamente à equipe do LumenLive.",
+    "bug": {
+      "title": "Relatar um problema",
+      "description": "Algo não está funcionando como esperado? Conte-nos o que aconteceu."
+    },
+    "feature": {
+      "title": "Sugerir um recurso",
+      "description": "Compartilhe uma ideia que tornaria seus cultos mais fáceis."
+    },
+    "tabs": {
+      "bug": "Problemas",
+      "feature": "Solicitações de recursos"
+    },
+    "signIn": {
+      "title": "Entre para enviar feedback",
+      "description": "Entre para que possamos anexar os dados da sua conta e da sua igreja ao envio.",
+      "action": "Entrar"
+    },
+    "loading": "Carregando feedback…",
+    "form": {
+      "titleLabel": "Título",
+      "bugTitlePlaceholder": "O que deu errado?",
+      "featureTitlePlaceholder": "O que você gostaria que o LumenLive fizesse?",
+      "whatHappenedLabel": "O que aconteceu?",
+      "whatHappenedPlaceholder": "Descreva o problema e o que você estava fazendo quando ele ocorreu.",
+      "requestLabel": "O que você gostaria de ver?",
+      "requestPlaceholder": "Descreva o recurso ou melhoria que você tem em mente.",
+      "stepsLabel": "Passos para reproduzir",
+      "stepsPlaceholder": "1. Abra... 2. Clique... 3. Observe...",
+      "expectedLabel": "Comportamento esperado",
+      "expectedPlaceholder": "O que você esperava que acontecesse?",
+      "impactLabel": "Por que isso ajudaria?",
+      "impactPlaceholder": "Quem seria ajudado e como isso melhoraria seu fluxo de trabalho?"
+    },
+    "send": "Enviar feedback",
+    "sending": "Enviando…",
+    "sent": "Enviado",
+    "sentDescription": "Obrigado — seu feedback foi enviado à equipe do LumenLive.",
+    "failedDescription": "Não foi possível enviar seu feedback. Verifique sua conexão e tente novamente."
+  },
   "mediaLibrary": {
     "whenImporting": "Ao importar mídias",
     "reference": {
@@ -350,6 +391,7 @@
     },
     "privacy": { "name": "Privacidade", "title": "Privacidade" },
     "help": { "name": "Ajuda", "title": "Ajuda" },
+    "feedback": { "name": "Enviar feedback", "title": "Enviar feedback" },
     "language": { "name": "Idioma", "title": "Idioma" }
   },
   "dialog": {

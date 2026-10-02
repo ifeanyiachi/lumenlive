@@ -10,6 +10,7 @@ import {
   MusicIcon,
   ArchiveIcon,
   LanguagesIcon,
+  MessageSquarePlusIcon,
 } from "lucide-react"
 
 import type { SettingsSection } from "@/lib/settings-dialog"
@@ -23,6 +24,7 @@ import { SongsSection } from "./sections/songs-section"
 import { BackupSection } from "./sections/backup-section"
 import { HelpSection } from "./sections/help-section"
 import { LanguageSection } from "./sections/language-section"
+import { FeedbackSection } from "./sections/feedback-section"
 
 /**
  * Single source of truth for the settings sections. Replaces the three
@@ -87,6 +89,13 @@ export function getSettingsSections(t: TFunction): SettingsSectionDef[] {
       title: t("sections.backup.title"),
       icon: <ArchiveIcon strokeWidth={2} />,
       Component: BackupSection,
+    },
+    {
+      id: "feedback",
+      name: t("sections.feedback.name"),
+      title: t("sections.feedback.title"),
+      icon: <MessageSquarePlusIcon strokeWidth={2} />,
+      Component: FeedbackSection,
     },
     {
       id: "help",

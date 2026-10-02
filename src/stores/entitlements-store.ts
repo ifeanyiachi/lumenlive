@@ -176,7 +176,7 @@ export function limit(key: keyof Limits): number {
 
 /** Reactive gate: subscribes narrowly to just this feature's grant. */
 export function useCan(key: string): boolean {
-  return useEntitlementsStore((s) => s.entitlement.features.includes(key))
+  return useEntitlementsStore((s) => entitlements.can(s.entitlement, key))
 }
 
 /** Reactive numeric cap lookup. */
