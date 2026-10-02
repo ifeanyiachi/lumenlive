@@ -3,8 +3,10 @@
 //! the same [`SttProvider`] trait (see `soniox.md`).
 
 use lumenlive_stt::{
-    DeepgramClient, SonioxClient, SonioxConfig, SttBackend, SttConfig, SttProvider,
+    DeepgramClient, NemotronClient, NemotronConfig, SonioxClient, SonioxConfig, SttBackend,
+    SttConfig, SttProvider,
 };
+use std::path::PathBuf;
 
 use super::truncate_safe;
 
@@ -13,11 +15,56 @@ use super::truncate_safe;
 pub(super) fn build_provider(
     backend: SttBackend,
     api_key: String,
+    model_dir: Option<PathBuf>,
 ) -> Result<Box<dyn SttProvider>, String> {
     match backend {
         SttBackend::Deepgram => build_deepgram(api_key),
         SttBackend::Soniox => build_soniox(api_key),
+        SttBackend::Nemotron => build_nemotron(model_dir),
+        SttBackend::Nemotron35 => build_nemotron35(model_dir),
     }
+}
+
+fn build_nemotron(model_dir: Option<PathBuf>) -> Result<Box<dyn SttProvider>, String> {
+    let model_dir = model_dir.ok_or_else(|| {
+        "English on-device transcription is not installed. Download it from Transcription settings."
+            .to_string()
+    })?;
+
+    let num_threads = std::thread::available_parallelism()
+        .map(|count| count.get().clamp(2, 4) as i32)
+        .unwrap_or(2);
+    log::info!(
+        "Starting offline English transcription: model_dir={}, threads={num_threads}, language=en",
+        model_dir.display()
+    );
+
+    Ok(Box::new(NemotronClient::new(NemotronConfig {
+        model_dir,
+        sample_rate: 16_000,
+        num_threads,
+    })))
+}
+
+fn build_nemotron35(model_dir: Option<PathBuf>) -> Result<Box<dyn SttProvider>, String> {
+    let model_dir = model_dir.ok_or_else(|| {
+        "On-device transcription is not installed. Download it from Transcription settings."
+            .to_string()
+    })?;
+
+    let num_threads = std::thread::available_parallelism()
+        .map(|count| count.get().clamp(2, 4) as i32)
+        .unwrap_or(2);
+    log::info!(
+        "Starting offline Nemotron 3.5 transcription: model_dir={}, threads={num_threads}, language=auto",
+        model_dir.display()
+    );
+
+    Ok(Box::new(NemotronClient::new(NemotronConfig {
+        model_dir,
+        sample_rate: 16_000,
+        num_threads,
+    })))
 }
 
 /// Deepgram (Nova-3). Key falls back to `DEEPGRAM_API_KEY`.
@@ -87,6 +134,8 @@ fn resolve_key(api_key: String, env_var: &str) -> String {
 pub(super) fn parse_backend(provider: Option<&str>) -> SttBackend {
     match provider {
         Some(p) if p.eq_ignore_ascii_case("soniox") => SttBackend::Soniox,
+        Some(p) if p.eq_ignore_ascii_case("nemotron") => SttBackend::Nemotron,
+        Some(p) if p.eq_ignore_ascii_case("nemotron35") => SttBackend::Nemotron35,
         _ => SttBackend::Deepgram,
     }
 }

@@ -28,7 +28,11 @@ export type BlockedReason =
  * Soniox client with a Deepgram key would fail auth). Absent on older lumenbo
  * responses — callers default to `"deepgram"`.
  */
-export type SttProviderId = "deepgram" | "soniox"
+export type SttProviderId =
+  | "deepgram"
+  | "soniox"
+  | "nemotron"
+  | "nemotron35"
 
 /**
  * The full resolution from `POST /v1/transcription/key`, including the raw key.

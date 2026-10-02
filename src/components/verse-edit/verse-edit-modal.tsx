@@ -147,13 +147,18 @@ export function VerseEditModal({
     const scheduleStore = useScheduleStore.getState()
     const activeScheduleId = scheduleStore.activeScheduleId
     if (activeScheduleId) {
+      const schedule = scheduleStore.getActiveSchedule()
+      const insertAt =
+        scheduleStore.activeItemIndex !== null
+          ? scheduleStore.activeItemIndex + 1
+          : (schedule?.items.length ?? 0)
       const item = buildScriptureScheduleItem(
         { ...verse, translation_id: translationId },
         translationAbbreviation,
-        scheduleStore.getActiveSchedule()?.items.length ?? 0,
+        insertAt,
         edited ? segment : undefined
       )
-      const ok = scheduleStore.addItem(activeScheduleId, item)
+      const ok = scheduleStore.insertItemAt(activeScheduleId, item, insertAt)
       if (ok) toast.success(t("addedToSchedule"))
       else toast.info(t("alreadyInSchedule"))
     } else {

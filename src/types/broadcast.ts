@@ -41,6 +41,8 @@ export interface BroadcastOutput {
   name: string
   themeId: string
   mode: "normal" | "stage"
+  /** Output transport. Missing values keep the legacy external-display default. */
+  outputType?: "display" | "ndi"
   contentSource: ContentRouting
   /** Surface sizing. Optional for back-compat; a missing value is `"native"`. */
   displayMode?: OutputDisplayMode

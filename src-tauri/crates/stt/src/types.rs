@@ -56,6 +56,8 @@ impl Default for SttConfig {
 pub enum SttBackend {
     Deepgram,
     Soniox,
+    Nemotron,
+    Nemotron35,
 }
 
 /// Soniox real-time config. Kept separate from [`SttConfig`] so neither provider

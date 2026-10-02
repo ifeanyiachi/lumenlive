@@ -24,8 +24,9 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, State};
 
-use lumenlive_stt::{SttProvider, TranscriptEvent};
+use lumenlive_stt::{SttBackend, SttProvider, TranscriptEvent};
 
+use crate::commands::offline_stt;
 use crate::state::AppState;
 
 /// Truncate a string to at most `max_bytes`, snapping to a valid UTF-8 char boundary.
@@ -89,10 +90,15 @@ pub async fn start_transcription(
     }
 
     // ── 2. Build the STT provider ───────────────────────────────────────
-    // Backend defaults to Deepgram; the frontend `provider` field (Phase 3)
-    // selects Soniox for the A/B trial.
+    // Backend defaults to Deepgram; offline models resolve exclusively from
+    // the app-data store directory.
     let backend = model::parse_backend(provider.as_deref());
-    let stt_provider = model::build_provider(backend, api_key)?;
+    let model_dir = match backend {
+        SttBackend::Nemotron => offline_stt::installed_model_dir(&app)?,
+        SttBackend::Nemotron35 => offline_stt::installed_nemotron35_model_dir(&app)?,
+        _ => None,
+    };
+    let stt_provider = model::build_provider(backend, api_key, model_dir)?;
 
     stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);

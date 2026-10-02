@@ -23,6 +23,9 @@
   "minimumVerseSize": "Tamanho mínimo dos versículos (px)",
   "minimumVerseSizeHelp": "Os versículos não serão reduzidos abaixo deste valor. Passagens longas serão divididas em páginas.",
   "paginateLongVerses": "Paginar versículos longos",
+  "outputSize": "Tamanho da saída",
+  "verseText": "Texto do versículo",
+  "fitLabel": "Ajuste",
   "resolution": "Resolução",
   "frameRate": "Taxa de fotogramas",
   "alphaChannel": "Canal alfa",
@@ -31,5 +34,6 @@
   "transparentBackground": "Fundo transparente (para sobreposição/chroma key)",
   "startNdi": "Iniciar NDI",
   "stopNdi": "Parar NDI",
-  "reconnecting": "A reconectar…"
+  "reconnecting": "A reconectar…",
+  "configureOutput": "Configurar esta saída"
 }

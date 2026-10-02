@@ -23,6 +23,9 @@
   "minimumVerseSize": "Minimum verse size (px)",
   "minimumVerseSizeHelp": "Verses won't shrink below this. Long passages split into pages instead.",
   "paginateLongVerses": "Paginate long verses",
+  "outputSize": "Output size",
+  "verseText": "Verse text",
+  "fitLabel": "Fit",
   "resolution": "Resolution",
   "frameRate": "Frame Rate",
   "alphaChannel": "Alpha Channel",
@@ -31,5 +34,6 @@
   "transparentBackground": "Transparent background (for overlay/keying)",
   "startNdi": "Start NDI",
   "stopNdi": "Stop NDI",
-  "reconnecting": "Reconnecting…"
+  "reconnecting": "Reconnecting…",
+  "configureOutput": "Configure this output"
 }

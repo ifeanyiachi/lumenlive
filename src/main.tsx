@@ -33,6 +33,13 @@ import { disableNativeContextMenu } from "@/lib/disable-native-context-menu"
 import { initializeDesktopAuthCallbackBridge } from "@/services/desktop-auth-callback-gateway"
 import { restoreDesktopLoginFromStorage } from "@/services/desktop-auth-service"
 
+// The visual exploration is a browser-only prototype route. Keeping it ahead
+// of the desktop bootstrap makes the preview link load without Tauri APIs.
+if (window.location.pathname === "/settings-variations") {
+  const { default: SettingsVariations } = await import("./settings-variations")
+  createRoot(document.getElementById("root")!).render(<SettingsVariations />)
+} else {
+
 disableNativeContextMenu()
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
@@ -133,3 +140,4 @@ invoke("stop_transcription")
       trackAppLaunched()
     }
   })
+}

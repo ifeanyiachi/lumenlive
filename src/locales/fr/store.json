@@ -20,7 +20,7 @@
   },
   "page": {
     "title": "Boutique de ressources",
-    "description": "Parcourez et installez des versions bibliques et packs de chants communautaires.",
+    "description": "Parcourez et installez des packs de chants communautaires et des outils hors ligne.",
     "searchPlaceholder": "Rechercher des ressources…",
     "importBibleTitle": "Importez un fichier de traduction biblique que vous êtes autorisé à utiliser"
   },
@@ -31,7 +31,7 @@
     "songs": "Chants",
     "backgrounds": "Arrière-plans",
     "videos": "Vidéos",
-    "bible": "Versions bibliques"
+    "bible": "Traductions bibliques"
   },
   "bibles": {
     "filterLanguage": "Filtrer les versions bibliques par langue",

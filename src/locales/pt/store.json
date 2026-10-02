@@ -20,7 +20,7 @@
   },
   "page": {
     "title": "Loja de recursos",
-    "description": "Navegue e instale versões da Bíblia e pacotes de canções comunitários.",
+    "description": "Navegue e instale pacotes de canções comunitários e ferramentas offline.",
     "searchPlaceholder": "Pesquisar recursos…",
     "importBibleTitle": "Importe um arquivo de tradução bíblica que você tenha licença para usar"
   },
@@ -31,7 +31,7 @@
     "songs": "Canções",
     "backgrounds": "Planos de fundo",
     "videos": "Vídeos",
-    "bible": "Versões da Bíblia"
+    "bible": "Traduções da Bíblia"
   },
   "bibles": {
     "filterLanguage": "Filtrar versões da Bíblia por idioma",

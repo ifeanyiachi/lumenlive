@@ -13,6 +13,13 @@ import {
 
 type MediaImportMode = "reference" | "copy"
 
+/** The selected transcription path. Nemotron 3.5 runs locally after installation. */
+export type TranscriptionProvider =
+  | "cloud"
+  | "soniox"
+  | "nemotron"
+  | "nemotron35"
+
 /** Automatic destination for finalized, directly spoken verse references. */
 export type DirectVerseDestination = "live" | "preview" | "detection"
 
@@ -32,6 +39,7 @@ interface SettingsState {
   claudeApiKey: string | null
   audioDeviceId: string | null
   gain: number
+  transcriptionProvider: TranscriptionProvider
   confidenceThreshold: number
   cooldownMs: number
   onboardingComplete: boolean
@@ -124,6 +132,7 @@ interface SettingsState {
   setClaudeApiKey: (key: string | null) => void
   setAudioDeviceId: (id: string | null) => void
   setGain: (gain: number) => void
+  setTranscriptionProvider: (provider: TranscriptionProvider) => void
   setConfidenceThreshold: (threshold: number) => void
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
@@ -148,6 +157,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   claudeApiKey: null,
   audioDeviceId: null,
   gain: 1.0,
+  transcriptionProvider: "cloud",
   confidenceThreshold: 0.65,
   cooldownMs: 2500,
   onboardingComplete: false,
@@ -170,6 +180,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setClaudeApiKey: (claudeApiKey) => set({ claudeApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
   setGain: (gain) => set({ gain }),
+  setTranscriptionProvider: (transcriptionProvider) =>
+    set({ transcriptionProvider }),
   setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
@@ -197,6 +209,7 @@ const PERSISTED_KEYS = [
   "claudeApiKey",
   "audioDeviceId",
   "gain",
+  "transcriptionProvider",
   "confidenceThreshold",
   "cooldownMs",
   "onboardingComplete",
@@ -272,6 +285,20 @@ export function hydrateSettings(): Promise<void> {
       if (savedLanguage !== uiLanguage) {
         patch.uiLanguage = uiLanguage
         await store.set("uiLanguage", uiLanguage)
+        await store.save()
+      }
+
+      // Reset persisted provider values that are no longer supported.
+      const persistedProvider = (patch as Record<string, unknown>)
+        .transcriptionProvider
+      if (
+        typeof persistedProvider === "string" &&
+        !["cloud", "soniox", "nemotron", "nemotron35"].includes(
+          persistedProvider
+        )
+      ) {
+        patch.transcriptionProvider = "cloud"
+        await store.set("transcriptionProvider", "cloud")
         await store.save()
       }
 

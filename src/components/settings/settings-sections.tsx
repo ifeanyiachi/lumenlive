@@ -3,7 +3,6 @@ import type { TFunction } from "i18next"
 
 import {
   MicIcon,
-  TvIcon,
   BookOpenIcon,
   HelpCircleIcon,
   ListOrderedIcon,
@@ -18,7 +17,6 @@ import { isI18nUiEnabled } from "@/lib/i18n/config"
 
 import { AudioSection } from "./sections/audio-section"
 import { BibleSection } from "./sections/bible-section"
-import { DisplayModeSection } from "./sections/display-mode-section"
 import { ScheduleSection } from "./sections/schedule-section"
 import { MediaLibrarySection } from "./sections/media-library-section"
 import { SongsSection } from "./sections/songs-section"
@@ -61,13 +59,6 @@ export function getSettingsSections(t: TFunction): SettingsSectionDef[] {
       title: t("sections.bible.title"),
       icon: <BookOpenIcon strokeWidth={2} />,
       Component: BibleSection,
-    },
-    {
-      id: "display",
-      name: t("sections.display.name"),
-      title: t("sections.display.title"),
-      icon: <TvIcon strokeWidth={2} />,
-      Component: DisplayModeSection,
     },
     {
       id: "schedule",

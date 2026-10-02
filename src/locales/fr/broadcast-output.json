@@ -23,6 +23,9 @@
   "minimumVerseSize": "Taille minimale des versets (px)",
   "minimumVerseSizeHelp": "Les versets ne seront pas réduits en dessous de cette taille. Les longs passages seront plutôt répartis sur plusieurs pages.",
   "paginateLongVerses": "Paginer les longs versets",
+  "outputSize": "Taille de sortie",
+  "verseText": "Texte du verset",
+  "fitLabel": "Ajuster",
   "resolution": "Résolution",
   "frameRate": "Fréquence d’images",
   "alphaChannel": "Canal alpha",
@@ -31,5 +34,6 @@
   "transparentBackground": "Arrière-plan transparent (pour incrustation/clé)",
   "startNdi": "Démarrer NDI",
   "stopNdi": "Arrêter NDI",
-  "reconnecting": "Reconnexion…"
+  "reconnecting": "Reconnexion…",
+  "configureOutput": "Configurer cette sortie"
 }

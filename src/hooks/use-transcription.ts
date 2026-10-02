@@ -14,9 +14,7 @@ import {
 import { decideTranscriptionStart } from "@/lib/transcription/access"
 import { describeTranscriptionStartError } from "@/lib/transcription/start-error"
 import type { BlockedCopy } from "@/lib/transcription/access"
-import type {
-  SttProviderId,
-} from "@/lib/transcription/types"
+import type { SttProviderId } from "@/lib/transcription/types"
 import {
   sanitizeUsageDelta,
   shouldReportUsage,
@@ -88,6 +86,34 @@ async function startTranscriptionOnce(
   transcript.setConnectionStatus("connecting")
 
   const settings = useSettingsStore.getState()
+
+  // Offline models intentionally bypass account, activation, and network key
+  // resolution. The backend verifies that the selected store model is installed.
+  if (
+    settings.transcriptionProvider === "nemotron" ||
+    settings.transcriptionProvider === "nemotron35"
+  ) {
+    try {
+      await invoke("start_transcription", {
+        apiKey: "",
+        provider: settings.transcriptionProvider,
+        deviceId: settings.audioDeviceId,
+        gain: settings.gain,
+      })
+      transcript.setTranscribing(true)
+      return "started"
+    } catch (e) {
+      const msg = String(e)
+      transcript.setConnectionStatus("error")
+      if (desiredRunning) {
+        toast.error("Could not start offline transcription", {
+          description: msg,
+        })
+      }
+      return "failed"
+    }
+  }
+
   const auth = useAuthStore.getState()
   const token = auth.token
 
@@ -162,8 +188,26 @@ async function startTranscriptionOnce(
         })
       return "failed"
     }
+
+    // A Soniox test selection is only safe when the server-issued key is also
+    // a Soniox key. Never send a Deepgram key to the Soniox websocket.
+    if (
+      settings.transcriptionProvider === "soniox" &&
+      (resolution.provider ?? "deepgram") !== "soniox"
+    ) {
+      transcript.setConnectionStatus("disconnected")
+      toast.error("Soniox is not selected for this account", {
+        description:
+          "Ask the administrator to select Soniox for the online transcription provider, then try again.",
+      })
+      return "failed"
+    }
+
     apiKey = decision.key
-    provider = resolution.provider ?? "deepgram"
+    provider =
+      settings.transcriptionProvider === "soniox"
+        ? "soniox"
+        : (resolution.provider ?? "deepgram")
     // Replace the prior session binding only once a fresh server resolution
     // is ready, so a final usage delta from a just-stopped session is not
     // lost during key rotation/restart.
@@ -338,11 +382,7 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     clearTranscriptionSession()
     if (!providerKeyRetryAttempted) {
       providerKeyRetryAttempted = true
-      void transcriptionActions.start(
-        onSignInRequired,
-        onBlocked,
-        true
-      )
+      void transcriptionActions.start(onSignInRequired, onBlocked, true)
       return
     }
     providerKeyRetryAttempted = false

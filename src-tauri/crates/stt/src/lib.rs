@@ -21,6 +21,7 @@
 pub mod deepgram;
 pub mod error;
 pub mod keyterms;
+pub mod nemotron;
 pub mod provider;
 pub mod rest;
 pub mod soniox;
@@ -29,6 +30,7 @@ pub mod types;
 pub use deepgram::DeepgramClient;
 pub use error::SttError;
 pub use keyterms::bible_keyterms;
+pub use nemotron::{NemotronClient, NemotronConfig};
 pub use provider::SttProvider;
 pub use soniox::SonioxClient;
 pub use types::{SonioxConfig, SttBackend, SttConfig, TranscriptEvent, Word};

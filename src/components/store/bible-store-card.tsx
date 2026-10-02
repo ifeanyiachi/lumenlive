@@ -5,26 +5,18 @@ import {
   Download,
   Loader2,
   RefreshCw,
-  Star,
   Trash2,
 } from "lucide-react"
 import type { CatalogEntry } from "@/types/resource-store"
 import { Button } from "@/components/ui/button"
 import { useResourceStore } from "@/stores/resource-store"
-import {
-  bibleDisplayMeta,
-  languageLabel,
-  formatBytes,
-} from "@/lib/resource-store"
+import { bibleDisplayMeta, formatBytes } from "@/lib/resource-store"
 import InstallProgressBar from "./install-progress"
-import { cn } from "@/lib/utils"
 
 /**
- * A rich Bible-version store card: colored abbreviation badge, title + featured
- * star, a "language · verses · size" metadata row, a one-line description, an
- * optional license-attribution line (shown when the manifest carries one, e.g.
- * for CC-licensed editions), and a status-driven action (Download / Installed /
- * Update / Installing).
+ * A compact Bible-translation list row with a status-driven action. The
+ * language is supplied by the parent accordion, so each row only needs the
+ * abbreviation, title, metadata, and action.
  *
  * `memo`ed with plain-data props only; the install/remove handlers are read from
  * the store via `getState()` so they stay stable and the memo holds (perf rule
@@ -43,36 +35,21 @@ function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
   const imported = entry.installed?.imported === true
 
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-border/80">
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            "flex size-12 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white",
-            meta.badgeClass
-          )}
-        >
-          {resource.abbreviation}
-        </div>
-
+    <div className="flex flex-col py-3">
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <h3 className="truncate text-sm font-semibold text-foreground">
-              {resource.title}
-            </h3>
-            {imported ? (
-              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
+          <h3 className="truncate text-sm font-normal text-foreground">
+            <span>{resource.abbreviation}</span>
+            <span className="text-muted-foreground"> · </span>
+            {resource.title}
+            {imported && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
                 {t("bibleCard.imported")}
               </span>
-            ) : (
-              meta.featured && (
-                <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
-              )
             )}
-          </div>
-
+          </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[
-              languageLabel(resource.language),
               !imported && meta.verses
                 ? t("bibleCard.verseCount", { count: meta.verses })
                 : null,
@@ -81,30 +58,15 @@ function BibleStoreCard({ entry }: { entry: CatalogEntry }) {
               .filter(Boolean)
               .join(" · ")}
           </p>
-
-          {!imported && meta.description && (
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground/90">
-              {meta.description}
-            </p>
-          )}
-
-          {resource.license.attribution && (
-            <p className="mt-1 text-[0.625rem] leading-snug text-muted-foreground/70">
-              {resource.license.attribution}
-            </p>
-          )}
         </div>
+        <CardAction entry={entry} op={op} />
       </div>
 
       {op === "installing" && (
-        <div className="mt-3">
+        <div className="mt-2">
           <InstallProgressBar resourceId={id} />
         </div>
       )}
-
-      <div className="mt-3 flex items-center justify-end">
-        <CardAction entry={entry} op={op} />
-      </div>
     </div>
   )
 }
@@ -121,41 +83,37 @@ function CardAction({
   const busy = op !== undefined
 
   if (op === "installing") {
-    return (
-      <Button size="sm" variant="secondary" disabled>
-        <Loader2 className="animate-spin" /> {t("common.installing")}
-      </Button>
-    )
+    return <Loader2 className="size-4 animate-spin text-muted-foreground" />
   }
   if (op === "removing") {
-    return (
-      <Button size="sm" variant="secondary" disabled>
-        <Loader2 className="animate-spin" /> {t("common.removing")}
-      </Button>
-    )
+    return <Loader2 className="size-4 animate-spin text-muted-foreground" />
   }
 
   switch (status) {
     case "available":
       return (
         <Button
-          size="sm"
-          variant="outline"
+          size="icon-sm"
+          variant="ghost"
           disabled={busy}
+          title={t("common.download")}
+          aria-label={`${t("common.download")} ${entry.resource.title}`}
           onClick={() => useResourceStore.getState().install(entry)}
         >
-          <Download /> {t("common.download")}
+          <Download />
         </Button>
       )
     case "update-available":
       return (
         <Button
-          size="sm"
-          variant="outline"
+          size="icon-sm"
+          variant="ghost"
           disabled={busy}
+          title={t("common.update")}
+          aria-label={`${t("common.update")} ${entry.resource.title}`}
           onClick={() => useResourceStore.getState().install(entry)}
         >
-          <RefreshCw /> {t("common.update")}
+          <RefreshCw />
         </Button>
       )
     case "installed": {
@@ -164,8 +122,12 @@ function CardAction({
       const bundled = entry.installed?.bundled === true
       return (
         <div className="flex items-center gap-1.5">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-            <CheckCircle2 className="size-4" /> {t("common.installed")}
+          <span
+            className="flex items-center text-emerald-500"
+            title={t("common.installed")}
+            aria-label={t("common.installed")}
+          >
+            <CheckCircle2 className="size-4" />
           </span>
           {!bundled && (
             <Button

@@ -3,7 +3,6 @@ import { create } from "zustand"
 type SettingsSection =
   | "audio"
   | "bible"
-  | "display"
   | "schedule"
   | "media"
   | "songs"

@@ -20,6 +20,7 @@ import {
 } from "@/lib/settings/translations"
 
 import { ToggleCard } from "../ui/toggle-card"
+import { BibleTranslationsSection } from "./bible-translations-section"
 
 export function BibleSection() {
   const { t } = useTranslation("settings")
@@ -125,6 +126,8 @@ export function BibleSection() {
           onCheckedChange={setLexiconEnabled}
         />
       </div>
+
+      <BibleTranslationsSection />
     </div>
   )
 }

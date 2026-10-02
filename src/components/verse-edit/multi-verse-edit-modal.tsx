@@ -218,13 +218,18 @@ export function MultiVerseEditModal({
       const scheduleStore = useScheduleStore.getState()
       const activeScheduleId = scheduleStore.activeScheduleId
       if (activeScheduleId) {
+        const schedule = scheduleStore.getActiveSchedule()
+        const insertAt =
+          scheduleStore.activeItemIndex !== null
+            ? scheduleStore.activeItemIndex + 1
+            : (schedule?.items.length ?? 0)
         const item = buildGroupedScriptureScheduleItem(
           verses,
           translationAbbreviation,
-          scheduleStore.getActiveSchedule()?.items.length ?? 0,
+          insertAt,
           segmentById
         )
-        const ok = scheduleStore.addItem(activeScheduleId, item)
+        const ok = scheduleStore.insertItemAt(activeScheduleId, item, insertAt)
         if (ok)
           toast.success(t("addedVersesToSchedule", { count: verses.length }))
         else toast.info(t("alreadyInSchedule"))

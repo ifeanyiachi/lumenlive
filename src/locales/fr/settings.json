@@ -37,6 +37,29 @@
     }
   },
   "audio": {
+    "modeLabel": "Mode de transcription",
+    "modeDescription": "Choisissez si LumenLive transcrit en ligne ou sur cet appareil.",
+    "modes": {
+      "online": "En ligne",
+      "on-device": "Sur cet appareil"
+    },
+    "onDeviceModelsLabel": "Options de transcription sur l’appareil",
+    "onDeviceModels": {
+      "selected": "Sélectionné",
+      "active": "Active",
+      "setActive": "Définir comme active",
+      "download": "Télécharger",
+      "remove": "Supprimer",
+      "multilingual": {
+        "title": "LumenLive sur l’appareil (multilingue)",
+        "description": "Transcrivez avec détection automatique de la langue. Utilise environ 1,3 Go d’espace."
+      },
+      "english": {
+        "title": "LumenLive sur l’appareil (anglais)",
+        "description": "Transcrivez l’anglais localement. Idéal si votre langue principale est l’anglais. Utilise environ 1,2 Go d’espace."
+      }
+    },
+    "detectionDescription": "Choisissez comment les versets détectés et la navigation vocale sont gérés pendant le service.",
     "inputDevice": "Périphérique d’entrée",
     "loadingDevices": "Chargement des périphériques…",
     "systemDefault": "Valeur par défaut du système",
@@ -57,6 +80,22 @@
     "translationsAvailable_one": "{{count}} traduction disponible.",
     "translationsAvailable_other": "{{count}} traductions disponibles.",
     "originalLanguages": "Langues originales",
+    "translations": {
+      "title": "Traductions bibliques",
+      "description": "Installez et gérez les traductions depuis la boutique de ressources, regroupées par langue originale.",
+      "groupedBy": "Langue originale",
+      "import": "Importer",
+      "importTitle": "Importez un fichier de traduction biblique que vous êtes autorisé à utiliser",
+      "dismiss": "Ignorer",
+      "loading": "Chargement des traductions…",
+      "empty": "Aucune traduction biblique trouvée",
+      "emptyDescription": "Installez une traduction ou importez un fichier biblique pour en ajouter une ici.",
+      "noResults": "Aucune traduction ne correspond à votre recherche",
+      "noResultsDescription": "Essayez un autre titre, une autre abréviation ou une autre langue.",
+      "searchPlaceholder": "Rechercher des traductions bibliques…",
+      "count_one": "{{count}} traduction",
+      "count_other": "{{count}} traductions"
+    },
     "lexicon": {
       "title": "Lexique grec et hébreu",
       "description": "Fourni avec la KJV mais désactivé par défaut. Lorsqu’il est activé, chaque verset comporte un bouton interlinéaire (He / Gr) pour le texte original mot à mot avec les définitions Strong, et vous permet d’envoyer une étude de mot vers l’aperçu Programme. Lorsqu’il est désactivé, il reste masqué partout."
@@ -292,12 +331,17 @@
   },
   "language": {
     "label": "Langue de l’interface",
-    "description": "Choisissez la langue utilisée pour l’interface opérateur de LumenLive."
+    "description": "Choisissez la langue utilisée pour l’interface opérateur de LumenLive.",
+    "active": "Active",
+    "setActive": "Définir comme active"
   },
   "sections": {
     "account": { "name": "Compte", "title": "Compte et licence" },
-    "audio": { "name": "Audio", "title": "Audio" },
-    "bible": { "name": "Bible", "title": "Traduction de la Bible" },
+    "audio": { "name": "Transcription", "title": "Transcription" },
+    "bible": {
+      "name": "Traductions bibliques",
+      "title": "Traductions bibliques"
+    },
     "display": { "name": "Mode d’affichage", "title": "Mode d’affichage" },
     "schedule": { "name": "Déroulé", "title": "Déroulé" },
     "media": {
@@ -316,7 +360,7 @@
   },
   "dialog": {
     "title": "Réglages",
-    "description": "Configurez l’audio, le mode d’affichage et les clés API.",
+    "description": "Configurez la transcription, le comportement d’affichage et les réglages de l’application.",
     "buttonLabel": "Réglages",
     "buttonTitle": "Réglages (Ctrl ,)",
     "backupFile": "Sauvegarde LumenLive",

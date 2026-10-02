@@ -20,7 +20,7 @@
   },
   "page": {
     "title": "Resource Store",
-    "description": "Browse and install Bible versions and community song packs.",
+    "description": "Browse and install community song packs and offline tools.",
     "searchPlaceholder": "Search resources…",
     "importBibleTitle": "Import a Bible translation file you're licensed to use"
   },
@@ -31,7 +31,7 @@
     "songs": "Songs",
     "backgrounds": "Backgrounds",
     "videos": "Videos",
-    "bible": "Bible Versions"
+    "bible": "Bible Translations"
   },
   "bibles": {
     "filterLanguage": "Filter Bible versions by language",

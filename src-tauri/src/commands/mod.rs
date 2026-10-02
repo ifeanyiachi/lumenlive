@@ -6,6 +6,7 @@ pub mod bundle;
 pub mod detection;
 pub mod licensing;
 pub mod media;
+pub mod offline_stt;
 pub mod remote;
 pub mod resource_store;
 pub mod song_pack;

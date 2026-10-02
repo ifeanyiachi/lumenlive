@@ -111,6 +111,9 @@ zstd = "0.13"
 # into one zip (kept under the .lumsched extension). See commands/schedule_bundle.rs.
 zip = { version = "4", default-features = false, features = ["deflate"] }
 futures-util = "0.3"
+# Offline STT model-store archive extraction.
+bzip2 = "0.5"
+tar = "0.4"
 tauri-plugin-aptabase = "1.0.0"
 # UTC timestamps + filenames for per-session transcript recording
 # (commands/stt/transcript_log.rs). Already in the tree via tauri-plugin-log.
