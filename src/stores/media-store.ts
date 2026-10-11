@@ -52,6 +52,11 @@ interface MediaState {
   setSearchQuery: (query: string) => void
   setSelectedAsset: (id: string | null) => void
   toggleChecked: (id: string) => void
+  checkRange: (
+    visibleIds: string[],
+    anchorId: string | null,
+    targetId: string
+  ) => void
   clearChecked: () => void
   setImportProgress: (progress: ImportProgress | null) => void
   filteredAssets: () => MediaAsset[]
@@ -161,6 +166,20 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return { checkedIds: next }
+    }),
+
+  checkRange: (visibleIds, anchorId, targetId) =>
+    set((state) => {
+      const targetIndex = visibleIds.indexOf(targetId)
+      if (targetIndex === -1) return state
+      const anchorIndex = anchorId ? visibleIds.indexOf(anchorId) : -1
+      const start =
+        anchorIndex === -1 ? targetIndex : Math.min(anchorIndex, targetIndex)
+      const end =
+        anchorIndex === -1 ? targetIndex : Math.max(anchorIndex, targetIndex)
+      const checkedIds = new Set(state.checkedIds)
+      for (let i = start; i <= end; i++) checkedIds.add(visibleIds[i])
+      return { checkedIds, selectedAssetId: targetId }
     }),
 
   clearChecked: () => set({ checkedIds: new Set() }),

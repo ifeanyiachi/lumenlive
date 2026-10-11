@@ -20,7 +20,8 @@
     "appControls": "Contrôles de l’application"
   },
   "reload": {
-    "button": "Recharger l’application",
+    "label": "Actualiser",
+    "button": "Actualisez l’application en toute sécurité. Cela n’affecte pas la sortie en direct",
     "title": "Recharger l’application ?",
     "description": "Recharge l’interface de l’application.",
     "liveOutputRestored": "Votre sortie en direct est rétablie automatiquement.",

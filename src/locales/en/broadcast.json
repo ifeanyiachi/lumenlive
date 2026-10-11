@@ -110,6 +110,7 @@
     "saved": "Theme saved",
     "defaultScripture": "Set as default scripture theme",
     "defaultSong": "Set as default song theme",
+    "defaultSet": "Set as default {{type}} theme",
     "exportMissingMedia": "Exported \"{{name}}\" · {{count}} media file missing and couldn't be packaged",
     "exported": "Exported \"{{name}}\"",
     "exportFailed": "Couldn't export that theme.",

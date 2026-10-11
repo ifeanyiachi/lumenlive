@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SongSlideOptions } from "@/types/song"
 import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
-import { SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
+import { BUILTIN_THEME_BY_TYPE, SCRIPTURE_BUILTIN } from "@/lib/theme/builtins"
+import type { OtherDefaultThemeType } from "@/lib/theme/defaults"
 import { setAnalyticsEnabled } from "@/services/analytics-gateway"
 import {
   changeLanguage,
@@ -102,6 +103,7 @@ interface SettingsState {
    * is `songSlideDefaults.themeId`).
    */
   scriptureDefaultThemeId: string
+  otherThemeDefaultIds: Record<OtherDefaultThemeType, string>
 
   /**
    * Anonymous usage analytics opt-out. `true` (default) sends fixed event names
@@ -145,6 +147,7 @@ interface SettingsState {
   setLexiconEnabled: (enabled: boolean) => void
   setSongSlideDefaults: (options: SongSlideOptions) => void
   setScriptureDefaultThemeId: (themeId: string) => void
+  setOtherThemeDefaultId: (type: OtherDefaultThemeType, themeId: string) => void
   setTelemetryEnabled: (enabled: boolean) => void
   setScheduleViewMode: (mode: ScheduleViewMode) => void
   setVerseEditGoLive: (enabled: boolean) => void
@@ -170,6 +173,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   lexiconEnabled: false,
   songSlideDefaults: DEFAULT_SONG_SLIDE_OPTIONS,
   scriptureDefaultThemeId: SCRIPTURE_BUILTIN.id,
+  otherThemeDefaultIds: {
+    countdown: BUILTIN_THEME_BY_TYPE.countdown.id,
+    sermon: BUILTIN_THEME_BY_TYPE.sermon.id,
+    overlay: BUILTIN_THEME_BY_TYPE.overlay.id,
+    announcement: BUILTIN_THEME_BY_TYPE.announcement.id,
+  },
   telemetryEnabled: true,
   scheduleViewMode: "list",
   verseEditGoLive: false,
@@ -197,6 +206,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSongSlideDefaults: (songSlideDefaults) => set({ songSlideDefaults }),
   setScriptureDefaultThemeId: (scriptureDefaultThemeId) =>
     set({ scriptureDefaultThemeId }),
+  setOtherThemeDefaultId: (type, themeId) =>
+    set((state) => ({
+      otherThemeDefaultIds: { ...state.otherThemeDefaultIds, [type]: themeId },
+    })),
   setTelemetryEnabled: (telemetryEnabled) => set({ telemetryEnabled }),
   setScheduleViewMode: (scheduleViewMode) => set({ scheduleViewMode }),
   setVerseEditGoLive: (verseEditGoLive) => set({ verseEditGoLive }),
@@ -222,6 +235,7 @@ const PERSISTED_KEYS = [
   "lexiconEnabled",
   "songSlideDefaults",
   "scriptureDefaultThemeId",
+  "otherThemeDefaultIds",
   "telemetryEnabled",
   "scheduleViewMode",
   "verseEditGoLive",
@@ -288,14 +302,17 @@ export function hydrateSettings(): Promise<void> {
         await store.save()
       }
 
-      // Reset persisted provider values that are no longer supported.
+      // The multilingual Nemotron download is no longer offered. Keep users
+      // with an older saved selection on the remaining English model.
       const persistedProvider = (patch as Record<string, unknown>)
         .transcriptionProvider
-      if (
+      if (persistedProvider === "nemotron35") {
+        patch.transcriptionProvider = "nemotron"
+        await store.set("transcriptionProvider", "nemotron")
+        await store.save()
+      } else if (
         typeof persistedProvider === "string" &&
-        !["cloud", "soniox", "nemotron", "nemotron35"].includes(
-          persistedProvider
-        )
+        !["cloud", "soniox", "nemotron"].includes(persistedProvider)
       ) {
         patch.transcriptionProvider = "cloud"
         await store.set("transcriptionProvider", "cloud")

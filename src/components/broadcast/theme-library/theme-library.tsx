@@ -30,7 +30,6 @@ import { useThemesStore } from "@/stores/themes"
 import { useSettingsStore } from "@/stores"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { THEME_TYPES } from "@/lib/theme/templates"
-import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
 import { currentDefaultThemeId } from "@/lib/theme/defaults"
 import type { Theme, ThemeType } from "@/types/theme"
 import { ThemeThumbnail } from "@/components/broadcast/theme-thumbnail"
@@ -56,8 +55,8 @@ type FilterTab = "all" | "pinned"
 /**
  * The theme library for the type-first model (themeredo.md, Phase 3). Lists every
  * theme from `useThemesStore` as one flat, unsectioned library — there is no
- * built-in/custom demarcation; a theme is just a theme. The current default
- * floats to the very top (whether it is a shipped or a user-authored theme).
+ * built-in/custom demarcation; a theme is just a theme. The current defaults
+ * float to the top (whether shipped or user-authored).
  * **New** offers the six intrinsic types — each opens the editor on a seeded
  * builder. There is no "category" concept: a theme's type is intrinsic.
  */
@@ -95,26 +94,28 @@ export function ThemeLibrary({
     return result
   }, [allThemes, search, filter, typeFilter])
 
-  // The app-wide default scripture theme (resolved through the legacy-id alias
-  // so a stored built-in id still matches). Used to float it to the top and to
-  // badge its thumbnail.
   const scriptureDefaultThemeId = useSettingsStore(
     (s) => s.scriptureDefaultThemeId
   )
-  const defaultThemeId = useMemo(
-    () => resolveLegacyThemeId(scriptureDefaultThemeId),
-    [scriptureDefaultThemeId]
-  )
+  const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  const otherThemeDefaultIds = useSettingsStore((s) => s.otherThemeDefaultIds)
 
-  // One flat list. Float the current default to the very top — regardless of
-  // whether it is a shipped or a user-authored theme — then keep every other
-  // theme in registry order (the sort is stable).
+  // Keep app-wide defaults first in All, and the matching default first
+  // within its type. Preserve registry order within each group.
   const orderedThemes = useMemo(() => {
+    const settings = {
+      scriptureDefaultThemeId,
+      songSlideDefaults,
+      otherThemeDefaultIds,
+    }
+    const defaultIds = new Set(
+      THEME_TYPES.map((type) => currentDefaultThemeId(type, settings))
+    )
     return [...filtered].sort(
       (a, b) =>
-        (a.id === defaultThemeId ? 0 : 1) - (b.id === defaultThemeId ? 0 : 1)
+        (defaultIds.has(a.id) ? 0 : 1) - (defaultIds.has(b.id) ? 0 : 1)
     )
-  }, [filtered, defaultThemeId])
+  }, [filtered, scriptureDefaultThemeId, songSlideDefaults, otherThemeDefaultIds])
 
   const handleImport = async () => {
     try {
@@ -278,18 +279,20 @@ function ThemeCard({
 }) {
   const { t } = useTranslation("broadcast")
   const { labelKey, icon: Icon } = TYPE_META[theme.type]
-  // Scripture and song themes carry an app-wide default; the current default is
+  // Every theme type carries an app-wide default; the current default is
   // badged here. Setting the default now lives in the Theme Designer's top bar
   // (not a per-card action). The default id is resolved through the legacy-id
-  // alias so a stored built-in id still matches. Other types have no default.
+  // alias so a stored built-in id still matches.
   const scriptureDefaultThemeId = useSettingsStore(
     (s) => s.scriptureDefaultThemeId
   )
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
+  const otherThemeDefaultIds = useSettingsStore((s) => s.otherThemeDefaultIds)
   const isDefault =
     currentDefaultThemeId(theme.type, {
       scriptureDefaultThemeId,
       songSlideDefaults,
+      otherThemeDefaultIds,
     }) === theme.id
   return (
     <div

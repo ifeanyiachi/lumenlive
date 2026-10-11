@@ -88,20 +88,10 @@ export function LiveMediaMonitor({
     }
     sendTransport("seek", start)
     sendTransport("play")
-    // Await play() so a rejected source (unresolvable path, decode failure)
-    // surfaces instead of failing silently — otherwise the mirror looks dead.
-    // AbortError (a quick pause/seek interrupting play) is benign, so ignore it.
-    el.play()
-      .then(() => setLoadError(null))
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return
-        console.error("[live-media] play() rejected", {
-          filePath: media.filePath,
-          err,
-        })
-        setLoadError(media.filePath)
-      })
-  }, [sendTransport, media.trimStart, media.filePath])
+    // The output window is the timing authority. This local mirror starts from
+    // the output's confirmed progress echo in the effect below.
+    setLoadError(null)
+  }, [sendTransport, media.trimStart])
 
   // Auto-start playback when a clip reaches the live display. Sending a video or
   // audio item to air (double-click, Go Live, Take, remote) should roll it
@@ -182,19 +172,34 @@ export function LiveMediaMonitor({
   // Follow the true output position echoed back from the audience window. The
   // seek control lives in the Program preview now and drives the audience
   // directly; without this, a seek there would move the audience while this
-  // mirror kept playing from where it was. Snap only on a large divergence so
-  // normal playback drift (both started together at go-live) never stutters.
+  // mirror kept playing from where it was. The output is the timing authority:
+  // start this mirror only after the output reports playing, and correct small
+  // but visible drift as well as seeks.
   useEffect(() => {
     const el = mediaRef.current
     if (!el || transport == null) return
-    if (Math.abs(el.currentTime - transport.position) > 1) {
+    if (Math.abs(el.currentTime - transport.position) > 0.1) {
       try {
         el.currentTime = transport.position
       } catch {
         /* not seekable yet */
       }
     }
-  }, [transport])
+    if (transport.playing) {
+      if (el.paused) {
+        void el.play().catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === "AbortError") return
+          console.error("[live-media] play() rejected", {
+            filePath: media.filePath,
+            err,
+          })
+          setLoadError(media.filePath)
+        })
+      }
+    } else if (!el.paused) {
+      el.pause()
+    }
+  }, [transport, media.filePath])
 
   // Going off-air stops playback: pause the booth element and forward a pause to
   // the audience output so its <video>/<audio> stops too. Without this, media

@@ -28,10 +28,12 @@ import type {
   ServiceSchedule,
   SlideScheduleItem,
   SongScheduleItem,
+  ScriptureScheduleItem,
 } from "@/types/schedule"
 import type { Presentation, Slide } from "@/types/slide"
 import type { Theme } from "@/types/theme"
 import type { Song } from "@/types/song"
+import type { SongSlideOptions } from "@/types/song"
 import type { MediaAsset } from "@/types/media"
 import type {
   BundleMediaEntry,
@@ -39,6 +41,7 @@ import type {
   ExtractedMedia,
 } from "@/types/bundle"
 import { ScheduleParseError } from "@/lib/schedule-io"
+import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
 
 // Re-exported so existing consumers of `@/lib/schedule-bundle` keep resolving
 // these shared bundle types from the barrel.
@@ -54,7 +57,7 @@ import {
 export const BUNDLE_FORMAT = "lumenlive.schedule.bundle"
 
 /** Bundle manifest schema version. Bump on any manifest shape change. */
-export const BUNDLE_VERSION = 2
+export const BUNDLE_VERSION = 3
 
 /** The document written as `manifest.json` inside the bundle. */
 export interface BundleManifest {
@@ -77,6 +80,10 @@ export interface BundleSources {
   mediaAssets: MediaAsset[]
   presentations: Presentation[]
   songs: Song[]
+  /** Sender's projection defaults, needed to preserve inherited song settings. */
+  songSlideDefaults: SongSlideOptions
+  /** Main output's scripture theme at export time. */
+  scriptureThemeId: string
   /**
    * Resolve a `themeId` (alias-aware) to its Theme, or `undefined`. Only themes
    * whose `builtin` is false are packaged. Injected so this module needn't reach
@@ -107,23 +114,41 @@ export function buildScheduleBundle(
   sources: BundleSources,
   exportedAt: number
 ): BuiltBundle {
+  const portableSchedule: ServiceSchedule = {
+    ...schedule,
+    items: schedule.items.map((item) =>
+      item.type === "scripture"
+        ? { ...item, themeId: item.themeId ?? sources.scriptureThemeId }
+        : item
+    ),
+  }
   const presIds = new Set<string>()
   const songIds = new Set<string>()
   const themeIds = new Set<string>()
 
-  for (const item of schedule.items) {
+  for (const item of portableSchedule.items) {
     if (item.type === "slide" && item.presentationId)
       presIds.add(item.presentationId)
     else if (item.type === "song" && item.songId) {
       songIds.add(item.songId)
       if (item.themeId) themeIds.add(item.themeId)
+    } else if (item.type === "scripture" && item.themeId) {
+      themeIds.add(item.themeId)
     }
   }
 
   const presentations = dedupeById(
     sources.presentations.filter((p) => presIds.has(p.id))
   )
-  const songs = dedupeById(sources.songs.filter((s) => songIds.has(s.id)))
+  const songs = dedupeById(sources.songs.filter((s) => songIds.has(s.id))).map(
+    (song) => ({
+      ...song,
+      slideOptions: resolveSongSlideOptions(
+        sources.songSlideDefaults,
+        song.slideOptions
+      ),
+    })
+  )
   for (const song of songs) {
     const t = song.slideOptions?.themeId
     if (t) themeIds.add(t)
@@ -140,7 +165,7 @@ export function buildScheduleBundle(
   }
 
   const { media, missingMedia } = collectMedia(
-    schedule,
+    portableSchedule,
     presentations,
     themes,
     sources
@@ -150,7 +175,7 @@ export function buildScheduleBundle(
     format: BUNDLE_FORMAT,
     version: BUNDLE_VERSION,
     exportedAt,
-    schedule,
+    schedule: portableSchedule,
     presentations,
     songs,
     themes,
@@ -396,6 +421,15 @@ function rewriteScheduleItem(
   remaps: ScheduleRemaps
 ): ScheduleItem {
   switch (item.type) {
+    case "scripture": {
+      const scripture = item as ScriptureScheduleItem
+      return {
+        ...scripture,
+        themeId: scripture.themeId
+          ? (remaps.themeIdRemap.get(scripture.themeId) ?? scripture.themeId)
+          : scripture.themeId,
+      }
+    }
     case "media": {
       const mi = item as MediaScheduleItem
       const oldId = mi.mediaAssetId

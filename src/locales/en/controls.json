@@ -20,7 +20,8 @@
     "appControls": "Application controls"
   },
   "reload": {
-    "button": "Reload app",
+    "label": "Refresh",
+    "button": "Safely refresh your app. It does not affect Live output",
     "title": "Reload app?",
     "description": "Reloads the app interface.",
     "liveOutputRestored": "Your live output is restored automatically.",

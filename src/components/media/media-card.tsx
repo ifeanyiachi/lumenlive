@@ -29,8 +29,8 @@ export function MediaCard({
   collectionCount?: number
   /** Assets to drag when this card is dragged (accounts for multi-selection); omit to disable dragging. */
   dragAssets?: MediaAsset[]
-  onSelect: () => void
-  onToggleCheck: () => void
+  onSelect: (shiftKey: boolean) => void
+  onToggleCheck: (shiftKey: boolean) => void
 }) {
   const { t } = useTranslation("media")
   const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
@@ -63,7 +63,7 @@ export function MediaCard({
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={(e) => onSelect(e.shiftKey)}
       {...dragHandlers}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left transition-colors",
@@ -78,12 +78,12 @@ export function MediaCard({
         aria-checked={checked}
         onClick={(e) => {
           e.stopPropagation()
-          onToggleCheck()
+          onToggleCheck(e.shiftKey)
         }}
         onKeyDown={(e) => {
           if (e.key === " " || e.key === "Enter") {
             e.stopPropagation()
-            onToggleCheck()
+            onToggleCheck(e.shiftKey)
           }
         }}
         tabIndex={0}

@@ -81,6 +81,19 @@ describe("settings store", () => {
     expect(after.telemetryEnabled).toBe(true)
   })
 
+  it("migrates the removed multilingual offline model to English", async () => {
+    mockGet.mockImplementation(async (key: string) =>
+      key === "transcriptionProvider" ? "nemotron35" : null
+    )
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    expect(useSettingsStore.getState().transcriptionProvider).toBe("nemotron")
+    expect(mockSet).toHaveBeenCalledWith("transcriptionProvider", "nemotron")
+  })
+
   it("migrates the former direct-to-live toggle to its matching destination", async () => {
     mockGet.mockImplementation(async (key: string) =>
       key === "directVerseToLive" ? true : null

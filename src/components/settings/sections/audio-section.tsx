@@ -121,7 +121,7 @@ export function AudioSection() {
 
   function setMode(nextMode: TranscriptionMode) {
     if (nextMode === "on-device") {
-      setTranscriptionProvider("nemotron35")
+      setTranscriptionProvider("nemotron")
     } else {
       // Preserve a previously selected online backend internally. The
       // interface intentionally presents both online services as "Online".
@@ -170,19 +170,8 @@ export function AudioSection() {
         {mode === "on-device" ? (
           <div
             className="flex flex-col"
-            role="radiogroup"
-            aria-label={t("audio.onDeviceModelsLabel")}
           >
-            <OnDeviceTranscriptionRow
-              model="nemotron"
-              selected={transcriptionProvider === "nemotron"}
-              onSelect={() => setTranscriptionProvider("nemotron")}
-            />
-            <OnDeviceTranscriptionRow
-              model="nemotron35"
-              selected={transcriptionProvider === "nemotron35"}
-              onSelect={() => setTranscriptionProvider("nemotron35")}
-            />
+            <OnDeviceTranscriptionRow model="nemotron" />
           </div>
         ) : null}
 

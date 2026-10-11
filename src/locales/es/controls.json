@@ -20,7 +20,8 @@
     "appControls": "Controles de la aplicación"
   },
   "reload": {
-    "button": "Recargar aplicación",
+    "label": "Actualizar",
+    "button": "Actualiza la aplicación de forma segura. No afecta a la salida en vivo",
     "title": "¿Recargar la aplicación?",
     "description": "Recarga la interfaz de la aplicación.",
     "liveOutputRestored": "La salida en vivo se restaurará automáticamente.",

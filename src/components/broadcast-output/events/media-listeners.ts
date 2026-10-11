@@ -221,8 +221,15 @@ export function registerMediaListeners(
 
       if (action === "play") {
         rt.mediaBlankRef.current = false
-        void el.play()
-        if (isVideo) runMediaVideoLoop()
+        void el
+          .play()
+          .then(() => {
+            // Let the control window start its two local mirrors only after the
+            // audience media element has accepted playback.
+            emitMediaProgress(true)
+            if (isVideo) runMediaVideoLoop()
+          })
+          .catch(() => emitMediaProgress(true))
       } else if (action === "pause") {
         el.pause()
         if (isVideo) {

@@ -9,11 +9,13 @@ import type {
   SlideScheduleItem,
   MediaScheduleItem,
   WebScheduleItem,
+  SongScheduleItem,
 } from "@/types/schedule"
 import { ScriptureProperties } from "./item-properties/scripture-properties"
 import { SlideProperties } from "./item-properties/slide-properties"
 import { MediaProperties } from "./item-properties/media-properties"
 import { WebProperties } from "./item-properties/web-properties"
+import { SongProperties } from "./item-properties/song-properties"
 
 /**
  * Editor for a single schedule item. Renders the shared Label/Notes fields, then
@@ -50,7 +52,7 @@ export function ItemPropertiesContent({
 
       <FieldGroup label={t("properties.notes")}>
         <textarea
-          className="min-h-[60px] w-full min-w-0 max-w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
+          className="min-h-[60px] w-full max-w-full min-w-0 resize-y rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
           value={item.notes ?? ""}
           onChange={(e) =>
             useScheduleStore
@@ -86,6 +88,12 @@ export function ItemPropertiesContent({
       )}
       {item.type === "web" && (
         <WebProperties item={item as WebScheduleItem} scheduleId={scheduleId} />
+      )}
+      {item.type === "song" && (
+        <SongProperties
+          item={item as SongScheduleItem}
+          scheduleId={scheduleId}
+        />
       )}
       {item.type === "header" && (
         <div className="flex items-center gap-2 rounded-md bg-muted/30 p-3">

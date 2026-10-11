@@ -3,14 +3,12 @@ import { useTranslation } from "react-i18next"
 import { CircleUserRoundIcon, ChevronDownIcon } from "lucide-react"
 
 import { AccountContent } from "@/components/settings/sections/account-section"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { planLabel } from "@/lib/entitlements"
 import { useAuthStore } from "@/stores/auth-store"
 import { useEntitlementsStore } from "@/stores/entitlements-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
@@ -28,7 +26,6 @@ export function AccountMenu() {
   const status = useAuthStore((s) => s.status)
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
-  const plan = useEntitlementsStore((s) => planLabel(s.entitlement))
   const selectedOrganizationId = useTeamStore((s) => s.selectedOrganizationId)
   const open = useAccountMenuStore((s) => s.open)
   const setOpen = useAccountMenuStore((s) => s.setOpen)
@@ -69,21 +66,13 @@ export function AccountMenu() {
           className="h-8 gap-1.5 px-2.5 text-xs"
           aria-label={
             signedIn
-              ? `${firstName(user?.name, user?.email)} · ${plan}`
+              ? firstName(user?.name, user?.email)
               : t("account.signIn.action")
           }
         >
           <CircleUserRoundIcon className="size-3.5" />
           {signedIn ? (
-            <>
-              <span>{firstName(user?.name, user?.email)}</span>
-              <Badge
-                variant={plan === "Free" ? "outline" : "default"}
-                className="ml-0.5 h-4 px-1.5 text-[0.5625rem] uppercase"
-              >
-                {plan}
-              </Badge>
-            </>
+            <span>{firstName(user?.name, user?.email)}</span>
           ) : (
             <span>{t("account.signIn.action")}</span>
           )}

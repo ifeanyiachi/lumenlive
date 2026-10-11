@@ -10,6 +10,7 @@
 //! - [`Verse`], [`Book`], [`Translation`] — data models
 //! - [`BibleError`] — error type for all database operations
 
+mod book_name;
 pub mod crossref;
 pub mod db;
 pub mod error;

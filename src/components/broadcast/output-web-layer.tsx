@@ -58,6 +58,13 @@ export function OutputWebLayer() {
   const playerRef = useRef<any>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const endHandledRef = useRef(false)
+  const pendingTransportRef = useRef<
+    Array<{
+      action: "play" | "pause" | "seek" | "mute" | "jumpLive"
+      position?: number
+      muted?: boolean
+    }>
+  >([])
   // Latest content for handlers that fire outside the mount effect (transport,
   // progress echo) without re-binding their listeners each present. Written in
   // an effect (not during render) — the handlers read it later, after commit.
@@ -119,7 +126,10 @@ export function OutputWebLayer() {
       BROADCAST_EVENTS.webTransport,
       (event) => {
         const player = playerRef.current
-        if (!player) return
+        if (!player) {
+          pendingTransportRef.current.push(event.payload)
+          return
+        }
         const { action, position, muted } = event.payload
         try {
           switch (action) {
@@ -201,7 +211,9 @@ export function OutputWebLayer() {
         width: "100%",
         height: "100%",
         playerVars: {
-          autoplay: cfg.autoplay ? 1 : 0,
+          // The control window sends one coordinated play command after the
+          // live output is ready. Do not let this iframe start on its own.
+          autoplay: 0,
           controls: 0,
           rel: 0,
           modestbranding: 1,
@@ -225,9 +237,23 @@ export function OutputWebLayer() {
                 /* DVR may be disabled */
               }
             }
-            // Only auto-start when opted in; otherwise stay cued so YouTube never
-            // blares the moment it hits the audience output.
-            if (cfg.autoplay) player.playVideo()
+            // Stay cued until Go Live sends the play command through the
+            // transport channel after
+            // the operator monitor is ready. Keeping this player cued here is
+            // what prevents the external output from starting early.
+            const pending = pendingTransportRef.current.splice(0)
+            for (const command of pending) {
+              if (command.action === "seek" && command.position != null) {
+                player.seekTo(command.position, true)
+              } else if (command.action === "play") {
+                player.playVideo()
+              } else if (command.action === "pause") {
+                player.pauseVideo()
+              } else if (command.action === "mute") {
+                if (command.muted) player.mute()
+                else player.unMute()
+              }
+            }
             emitProgress()
           },
           onStateChange: () => emitProgress(),
@@ -255,6 +281,7 @@ export function OutputWebLayer() {
     return () => {
       cancelled = true
       clearInterval(interval)
+      pendingTransportRef.current = []
       if (playerRef.current?.destroy) {
         try {
           playerRef.current.destroy()

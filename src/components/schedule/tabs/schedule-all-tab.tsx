@@ -191,14 +191,14 @@ export function ScheduleAllTab({
     const m = new Map<string, RowDeck>()
     const items = activeSchedule?.items ?? []
     const themes = buildThemeRegistry(customThemes)
-    const theme =
-      resolveScriptureTheme(mainThemeId, themes) ??
-      themes.find((t) => t.type === "scripture")
-    if (!theme) return m
     for (const item of items) {
       if (item.type !== "scripture") continue
       const si = item as ScriptureScheduleItem
       if (!si.groupCollection || !si.collectionVerses?.length) continue
+      const theme =
+        resolveScriptureTheme(si.themeId ?? mainThemeId, themes) ??
+        themes.find((t) => t.type === "scripture")
+      if (!theme) continue
       const abbr = si.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
       // One slide per verse, in canonical order — each applying that verse's own
       // item-scoped styled edit (cv.segment), never a global store.

@@ -17,10 +17,9 @@ const ALL_TYPES: ThemeType[] = [
 ]
 
 describe("isDefaultableThemeType", () => {
-  it("is true only for scripture and song", () => {
+  it("supports every theme type", () => {
     for (const type of ALL_TYPES) {
-      const expected = type === "scripture" || type === "song"
-      expect(isDefaultableThemeType(type)).toBe(expected)
+      expect(isDefaultableThemeType(type)).toBe(true)
     }
   })
 
@@ -37,6 +36,12 @@ describe("currentDefaultThemeId", () => {
   const settings: ThemeDefaultSettings = {
     scriptureDefaultThemeId: "custom-scripture-1",
     songSlideDefaults: { themeId: "custom-song-1" },
+    otherThemeDefaultIds: {
+      countdown: "custom-countdown-1",
+      sermon: "custom-sermon-1",
+      overlay: "custom-overlay-1",
+      announcement: "custom-announcement-1",
+    },
   }
 
   it("reads the scripture default from the top-level field", () => {
@@ -49,9 +54,11 @@ describe("currentDefaultThemeId", () => {
     expect(currentDefaultThemeId("song", settings)).toBe("custom-song-1")
   })
 
-  it("returns null for non-defaultable types", () => {
+  it("reads the remaining defaults from their per-type ids", () => {
     for (const type of ["countdown", "sermon", "overlay", "announcement"]) {
-      expect(currentDefaultThemeId(type as ThemeType, settings)).toBeNull()
+      expect(currentDefaultThemeId(type as ThemeType, settings)).toBe(
+        `custom-${type}-1`
+      )
     }
   })
 
@@ -61,12 +68,14 @@ describe("currentDefaultThemeId", () => {
       currentDefaultThemeId("scripture", {
         scriptureDefaultThemeId: "builtin-classic-dark",
         songSlideDefaults: { themeId: "theme-aurora-worship" },
+        otherThemeDefaultIds: settings.otherThemeDefaultIds,
       })
     ).toBe("builtin-scripture")
     expect(
       currentDefaultThemeId("song", {
         scriptureDefaultThemeId: "builtin-classic-dark",
         songSlideDefaults: { themeId: "theme-aurora-worship" },
+        otherThemeDefaultIds: settings.otherThemeDefaultIds,
       })
     ).toBe("builtin-song-aurora")
   })

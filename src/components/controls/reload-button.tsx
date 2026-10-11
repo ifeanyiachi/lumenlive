@@ -35,13 +35,14 @@ export function ReloadButton() {
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
         variant="ghost"
-        size="icon"
-        className="size-7 text-muted-foreground hover:text-foreground"
+        size="sm"
+        className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
         title={t("reload.button")}
         aria-label={t("reload.button")}
         onClick={() => setOpen(true)}
       >
         <RotateCwIcon className="size-3.5" />
+        {t("reload.label")}
       </Button>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>

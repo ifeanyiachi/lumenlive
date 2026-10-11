@@ -31,12 +31,16 @@ export function PreviewWebMonitor({
     () => `yt-preview-${web.videoId ?? "web"}`,
     [web.videoId]
   )
-  const { state, loadVideo, seekTo, toggleMute, togglePlay } =
+  const { state, loadVideo, pause, play, seekTo, toggleMute, togglePlay } =
     useYouTubePlayer(containerId)
   const { currentTime, duration, isReady, isMuted } = state
   const [dragCurrent, setDragCurrent] = useState<number | null>(null)
   const position = dragCurrent ?? currentTime
   const isLive = web.isLive ?? false
+  const isLiveWeb = useBroadcastStore(
+    (s) => s.isLive && s.liveWeb?.videoId === web.videoId
+  )
+  const webTransport = useBroadcastStore((s) => s.webTransport)
   const markers = useMemo(() => sortMarkers(web.markers ?? []), [web.markers])
 
   useEffect(() => {
@@ -48,6 +52,31 @@ export function PreviewWebMonitor({
   useEffect(() => {
     if (isReady && (web.startTime ?? 0) > 0) seekTo(web.startTime!)
   }, [isReady, web.startTime, seekTo])
+
+  // Go Live hands playback to the output window. Stop the off-air preview as
+  // soon as it becomes live, then follow the output's confirmed play state and
+  // position so the three visible surfaces share one clock.
+  useEffect(() => {
+    if (!isYouTube || !isReady || !isLiveWeb) return
+    if (webTransport?.playing) {
+      if (Math.abs(currentTime - webTransport.position) > 0.1) {
+        seekTo(webTransport.position)
+      }
+      if (!state.isPlaying) play()
+    } else {
+      pause()
+    }
+  }, [
+    isYouTube,
+    isReady,
+    isLiveWeb,
+    webTransport,
+    currentTime,
+    state.isPlaying,
+    pause,
+    play,
+    seekTo,
+  ])
 
   useEffect(() => {
     if (!isReady || isMuted === !monitorAudio) return

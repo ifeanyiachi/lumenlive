@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select"
 import { ColorSwatch } from "@/components/ui/color-swatch"
 import { useThemesStore } from "@/stores/themes"
+import { useSettingsStore } from "@/stores"
+import { COUNTDOWN_BUILTIN } from "@/lib/theme/builtins"
 import { buildThemeRegistry } from "@/lib/theme/registry"
 import { countdownThemeColors } from "@/lib/countdown/theme-colors"
 import type { CountdownTimer, CountdownFormat } from "@/types/alert"
@@ -34,9 +36,17 @@ export function TimerEditor({
   const seconds = draft.durationSeconds % 60
 
   const customThemes = useThemesStore((s) => s.customThemes)
+  const otherThemeDefaultIds = useSettingsStore((s) => s.otherThemeDefaultIds)
   const countdownThemes = buildThemeRegistry(customThemes).filter(
     (t) => t.type === "countdown"
   )
+  const preferredCountdownThemeId =
+    otherThemeDefaultIds.countdown ?? COUNTDOWN_BUILTIN.id
+  const defaultCountdownThemeId = countdownThemes.some(
+    (theme) => theme.id === preferredCountdownThemeId
+  )
+    ? preferredCountdownThemeId
+    : countdownThemes[0]?.id
   const isThemed = draft.styleMode === "theme"
 
   return (
@@ -70,7 +80,7 @@ export function TimerEditor({
                   // the picker isn't empty; keep any prior choice otherwise.
                   themeId:
                     mode === "theme"
-                      ? (draft.themeId ?? countdownThemes[0]?.id)
+                      ? (draft.themeId ?? defaultCountdownThemeId)
                       : draft.themeId,
                 })
               }

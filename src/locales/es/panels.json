@@ -42,6 +42,7 @@
     "addToQueue": "Añadir a la cola",
     "alreadyInQueue": "Ya está en la cola",
     "addToSchedule": "Añadir al programa",
+    "deleteMedia": "Eliminar",
     "alreadyInSchedule": "Ya está en el programa",
     "noActiveSchedule": "No hay programa activo: primero selecciona o crea uno",
     "translationFailed": "No se pudo cambiar la traducción",

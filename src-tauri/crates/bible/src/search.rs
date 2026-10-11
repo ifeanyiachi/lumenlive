@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use rusqlite::Connection;
 
+use crate::book_name::display_name;
 use crate::db::BibleDb;
 use crate::error::BibleError;
 use crate::models::{Book, Verse};
@@ -130,7 +131,7 @@ fn run_fts_query(
             Ok(Bm25Result {
                 rank: row.get(0)?,
                 book_number: row.get(1)?,
-                book_name: row.get(2)?,
+                book_name: display_name(row.get(1)?, row.get(2)?),
                 chapter: row.get(3)?,
                 verse: row.get(4)?,
             })
@@ -201,7 +202,7 @@ impl BibleDb {
                     id: row.get(0)?,
                     translation_id: row.get(1)?,
                     book_number: row.get(2)?,
-                    book_name: row.get(3)?,
+                    book_name: display_name(row.get(2)?, row.get(3)?),
                     book_abbreviation: row.get(4)?,
                     chapter: row.get(5)?,
                     verse: row.get(6)?,
@@ -250,7 +251,7 @@ impl BibleDb {
                     id: row.get(0)?,
                     translation_id: route.display_id,
                     book_number: row.get(1)?,
-                    book_name: row.get(2)?,
+                    book_name: display_name(row.get(1)?, row.get(2)?),
                     book_abbreviation: row.get(3)?,
                     chapter: row.get(4)?,
                     verse: row.get(5)?,
@@ -325,7 +326,7 @@ impl BibleDb {
                 id: row.get(0)?,
                 translation_id: row.get(1)?,
                 book_number: row.get(2)?,
-                name: row.get(3)?,
+                name: display_name(row.get(2)?, row.get(3)?),
                 abbreviation: row.get(4)?,
                 testament: row.get(5)?,
             })

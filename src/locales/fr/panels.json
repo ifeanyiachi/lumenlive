@@ -42,6 +42,7 @@
     "addToQueue": "Ajouter à la file",
     "alreadyInQueue": "Déjà dans la file",
     "addToSchedule": "Ajouter au programme",
+    "deleteMedia": "Supprimer",
     "alreadyInSchedule": "Déjà dans le programme",
     "noActiveSchedule": "Aucun programme actif — sélectionnez-en ou créez-en un d’abord",
     "translationFailed": "Impossible de changer de traduction",

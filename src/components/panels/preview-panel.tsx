@@ -103,6 +103,45 @@ function MediaPreview({
     }
   }, [media.trimStart])
 
+  // Once Go Live commits this same clip, the output window becomes the playback
+  // clock. Pause the preview immediately so its off-air autoplay cannot run
+  // ahead, then follow the output's play state and echoed position below.
+  // The preview is intentionally not an independent player while its clip is
+  // live. The external output starts first; this monitor then starts from the
+  // same echoed position and applies small drift corrections without visibly
+  // stuttering on normal progress updates.
+  useEffect(() => {
+    const el = mediaRef.current
+    if (!el || !isLiveClip) return
+
+    // A new Go Live commit clears the old echo before the output has accepted
+    // the new source. Pause immediately during that hand-off, including when
+    // the same clip is taken live again.
+    if (!mediaTransport) {
+      el.pause()
+      try {
+        el.currentTime = media.trimStart ?? 0
+      } catch {
+        /* not seekable yet */
+      }
+      return
+    }
+
+    if (Math.abs(el.currentTime - mediaTransport.position) > 0.1) {
+      try {
+        el.currentTime = mediaTransport.position
+      } catch {
+        /* not seekable yet */
+      }
+    }
+
+    if (mediaTransport.playing) {
+      if (el.paused) void el.play().catch(() => {})
+    } else if (!el.paused) {
+      el.pause()
+    }
+  }, [isLiveClip, mediaTransport, media.trimStart])
+
   const handleTime = useCallback(() => {
     const el = mediaRef.current
     if (!el) return
@@ -280,7 +319,7 @@ function MediaPreview({
           ref={setElRef}
           key={filePath}
           src={src}
-          autoPlay
+          autoPlay={!isLiveClip}
           muted={!monitorAudio}
           playsInline
           className="relative aspect-video max-h-full max-w-full"
@@ -302,7 +341,7 @@ function MediaPreview({
         ref={setElRef}
         key={filePath}
         src={src}
-        autoPlay
+        autoPlay={!isLiveClip}
         muted={!monitorAudio}
         onLoadedMetadata={handleLoaded}
         onTimeUpdate={handleTime}

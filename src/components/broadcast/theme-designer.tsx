@@ -51,10 +51,8 @@ export function ThemeDesigner() {
     (s) => s.scriptureDefaultThemeId
   )
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
-  // Scripture and song themes can be marked the app-wide default for their type.
   const sessionType = session?.identity.type
-  const isDefaultableTheme =
-    sessionType === "scripture" || sessionType === "song"
+  const otherThemeDefaultIds = useSettingsStore((s) => s.otherThemeDefaultIds)
 
   const [showGrid, setShowGrid] = useState(false)
   const [pendingSwitch, setPendingSwitch] = useState<(() => void) | null>(null)
@@ -68,6 +66,7 @@ export function ThemeDesigner() {
       ? currentDefaultThemeId(sessionType, {
           scriptureDefaultThemeId,
           songSlideDefaults,
+          otherThemeDefaultIds,
         })
       : null
   const isCurrentDefault =
@@ -186,11 +185,13 @@ export function ThemeDesigner() {
       const s = useSettingsStore.getState()
       s.setSongSlideDefaults({ ...s.songSlideDefaults, themeId })
       toast.success(t("themeDesigner.defaultSong"))
+    } else {
+      useSettingsStore.getState().setOtherThemeDefaultId(type, themeId)
+      toast.success(t("themeDesigner.defaultSet", { type }))
     }
   }
 
-  // Make the current theme the app-wide default for its type (the look new
-  // scripture outputs / generated song slides adopt).
+  // Make the current theme the app-wide default for its type.
   //
   // A pristine, unedited built-in is set as default by its *own* id — opening a
   // built-in forks it to an unsaved custom copy, so saving here would persist a
@@ -326,7 +327,7 @@ export function ThemeDesigner() {
                   <TrashIcon className="size-4" />
                   {t("discard")}
                 </Button>
-                {isDefaultableTheme && (
+                {sessionType && (
                   <Button
                     variant="outline"
                     onClick={handleSaveAsDefault}

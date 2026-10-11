@@ -48,6 +48,7 @@ export function MediaGrid() {
   const [managerOpen, setManagerOpen] = useState(false)
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+  const selectionAnchorId = useRef<string | null>(selectedAssetId)
   const { isOver: fileDragOver, dropHandlers } = useOsFileDrop(dropZoneRef, {
     accept: ["image", "video", "audio"],
     onDrop: (assets) => {
@@ -149,12 +150,32 @@ export function MediaGrid() {
 
   const handleDeleteChecked = () => {
     useMediaStore.getState().removeAssets(checkedIds)
+    selectionAnchorId.current = null
   }
 
   const handleSelectAll = () => {
     const next = new Set(checkedIds)
     for (const a of assets) next.add(a.id)
     useMediaStore.setState({ checkedIds: next })
+  }
+
+  const handleSelectAsset = (
+    id: string,
+    shiftKey: boolean,
+    checkbox: boolean
+  ) => {
+    const store = useMediaStore.getState()
+    if (shiftKey) {
+      store.checkRange(
+        assets.map((asset) => asset.id),
+        selectionAnchorId.current,
+        id
+      )
+      return
+    }
+    selectionAnchorId.current = id
+    if (checkbox) store.toggleChecked(id)
+    else store.setSelectedAsset(id)
   }
 
   return (
@@ -247,7 +268,10 @@ export function MediaGrid() {
             variant="ghost"
             size="icon-sm"
             aria-label={t("clearSelection")}
-            onClick={() => useMediaStore.getState().clearChecked()}
+            onClick={() => {
+              useMediaStore.getState().clearChecked()
+              selectionAnchorId.current = null
+            }}
           >
             <XIcon className="size-3.5" />
           </Button>
@@ -359,11 +383,11 @@ export function MediaGrid() {
                   checked={isChecked}
                   collectionCount={collectionCountMap.get(asset.id) ?? 0}
                   dragAssets={dragAssets}
-                  onSelect={() =>
-                    useMediaStore.getState().setSelectedAsset(asset.id)
+                  onSelect={(shiftKey) =>
+                    handleSelectAsset(asset.id, shiftKey, false)
                   }
-                  onToggleCheck={() =>
-                    useMediaStore.getState().toggleChecked(asset.id)
+                  onToggleCheck={(shiftKey) =>
+                    handleSelectAsset(asset.id, shiftKey, true)
                   }
                 />
               )

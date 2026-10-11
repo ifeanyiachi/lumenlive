@@ -175,6 +175,11 @@ jobs:
           tar -xf "$ASSETS_TAR"
           rm -f "$ASSETS_TAR"
 
+      # The staged DB may come from an older asset bundle. Correct its display
+      # names in the workspace and fail before packaging if book 66 is missing.
+      - name: Normalize and verify bundled Bible names
+        run: bun run data/ensure-revelation-name.ts --fix
+
       # Build the frontend (beforeBuildCommand: bun run build) and bundle the
       # signed NSIS installer. createUpdaterArtifacts=true + the TAURI_SIGNING_*
       # env vars make the bundler emit `<installer>.sig` next to the .exe — the

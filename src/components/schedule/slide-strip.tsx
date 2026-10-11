@@ -5,6 +5,7 @@ import {
   type ScriptureRenderPayload,
 } from "@/lib/slide-renderer"
 import { getSlideImageCache, ensureSlideImages } from "@/lib/slide-image-cache"
+import { slideHasAnimatedBackground } from "@/lib/slide-renderer/predicates"
 import { cn } from "@/lib/utils"
 import type { Slide, SlideScriptureElement } from "@/types/slide"
 import type { VerseRenderData } from "@/types/broadcast"
@@ -107,7 +108,7 @@ const SlideRow = memo(function SlideRow({
       THUMB_H * 2,
       getSlideImageCache(),
       undefined,
-      scriptureContent ? { scriptureContent } : undefined
+      { scriptureContent, frameTime: performance.now() }
     )
     if (slide.background.type === "image" && slide.background.imageUrl) {
       ensureSlideImages(slide.background.imageUrl, () => drawRef.current())
@@ -117,7 +118,19 @@ const SlideRow = memo(function SlideRow({
   useEffect(() => {
     drawRef.current = draw
     draw()
-  }, [draw])
+    if (!slideHasAnimatedBackground(slide)) return
+    let raf = 0
+    let lastFrame = 0
+    const tick = (time: number) => {
+      if (time - lastFrame >= 1000 / 30) {
+        draw()
+        lastFrame = time
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [draw, slide])
 
   // Scripture slides are style-only, so their text lives in the verse payload,
   // not the slide element — label from the reference when we have one.

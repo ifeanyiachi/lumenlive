@@ -110,6 +110,7 @@
     "saved": "Tema enregistré",
     "defaultScripture": "Définir comme thème de référence par défaut",
     "defaultSong": "Définir comme thème de chant par défaut",
+    "defaultSet": "Tema de {{type}} definido como padrão",
     "exportMissingMedia": "« {{name}} » exporté · {{count}} fichier média manquant n’a pas pu être inclus",
     "exported": "« {{name}} » exporté",
     "exportFailed": "Não foi possível exportar esse tema.",

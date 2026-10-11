@@ -7,6 +7,7 @@ import {
   createDefaultShapeElement,
 } from "@/lib/slide-defaults"
 import { createDefaultSong } from "@/types/song"
+import { DEFAULT_SONG_SLIDE_OPTIONS } from "@/lib/song/song-to-slides"
 import { ScheduleParseError } from "@/lib/schedule-io"
 import {
   buildScheduleBundle,
@@ -119,6 +120,8 @@ function scenario() {
     mediaAssets: [a1, a2, a3],
     presentations: [deck],
     songs: [song],
+    songSlideDefaults: DEFAULT_SONG_SLIDE_OPTIONS,
+    scriptureThemeId: "builtin-scripture",
     resolveTheme: (id) => (id === "custom-theme-1" ? theme : undefined),
   }
   return { schedule, sources, song, deck, theme }
@@ -135,6 +138,105 @@ function extract(
 }
 
 describe("buildScheduleBundle", () => {
+  it("carries a scripture item's animated theme to the imported schedule", () => {
+    const { schedule, sources } = scenario()
+    const scriptureTheme: Theme = {
+      id: "scripture-aurora",
+      name: "Scripture Aurora",
+      type: "scripture",
+      builtin: false,
+      pinned: false,
+      createdAt: 0,
+      updatedAt: 0,
+      resolution: { width: 1920, height: 1080 },
+      background: {
+        type: "animated",
+        animated: {
+          preset: "aurora",
+          palette: ["#315fa8", "#8cc9f5"],
+          speed: 1,
+          intensity: 0.7,
+        },
+      },
+      elements: [],
+    }
+    sources.scriptureThemeId = scriptureTheme.id
+    const previousResolveTheme = sources.resolveTheme
+    sources.resolveTheme = (id) =>
+      id === scriptureTheme.id ? scriptureTheme : previousResolveTheme(id)
+    schedule.items.push({
+      id: "verse-1",
+      type: "scripture",
+      label: "John 3:16",
+      order: 3,
+      translationId: 1,
+      bookNumber: 43,
+      chapter: 3,
+      verseStart: 16,
+      verseEnd: 16,
+      cachedReference: "John 3:16 (KJV)",
+      cachedText: "For God so loved the world",
+    })
+
+    const { manifest } = buildScheduleBundle(schedule, sources, 1)
+    expect(manifest.themes).toContainEqual(scriptureTheme)
+    expect(schedule.items[3]).not.toHaveProperty("themeId")
+    let n = 0
+    const parsed = parseScheduleBundle(manifest, [], {
+      newId: () => `nid-${n++}`,
+      now: 2,
+      toAssetUrl: (path) => path,
+    })
+    const imported = parsed.schedule.items[3]
+    expect(imported.type).toBe("scripture")
+    if (imported.type === "scripture") {
+      expect(imported.themeId).toBe(
+        parsed.themes.find((theme) => theme.type === "scripture")?.id
+      )
+    }
+  })
+
+  it("preserves an animated theme inherited from the sender's song defaults", () => {
+    const { schedule, sources, song } = scenario()
+    song.slideOptions = undefined
+    const item = schedule.items.find((entry) => entry.type === "song")!
+    if (item.type !== "song") throw new Error("expected song item")
+    item.themeId = undefined
+    sources.songSlideDefaults = {
+      ...DEFAULT_SONG_SLIDE_OPTIONS,
+      themeId: "custom-theme-1",
+      animatedBackground: { speed: 1.75 },
+    }
+    const theme = sources.resolveTheme("custom-theme-1")!
+    theme.background = {
+      type: "animated",
+      animated: {
+        preset: "aurora",
+        palette: ["#315fa8", "#8cc9f5"],
+        baseColor: "#071326",
+        speed: 1,
+        intensity: 0.7,
+      },
+    }
+
+    const { manifest } = buildScheduleBundle(schedule, sources, 1)
+    expect(song.slideOptions).toBeUndefined()
+    expect(manifest.songs[0].slideOptions).toMatchObject({
+      themeId: "custom-theme-1",
+      animatedBackground: { speed: 1.75 },
+    })
+    expect(manifest.themes[0].background).toEqual(theme.background)
+
+    let n = 0
+    const parsed = parseScheduleBundle(manifest, [], {
+      newId: () => `nid-${n++}`,
+      now: 2,
+      toAssetUrl: (path) => path,
+    })
+    expect(parsed.songs[0].slideOptions?.themeId).toBe(parsed.themes[0].id)
+    expect(parsed.themes[0].background.type).toBe("animated")
+  })
+
   it("packages referenced media, decks, songs, and custom themes", () => {
     const { schedule, sources } = scenario()
     const { manifest, mediaFiles, missingMedia } = buildScheduleBundle(

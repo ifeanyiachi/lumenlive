@@ -41,6 +41,8 @@ export interface ScriptureCollectionVerse {
 
 export interface ScriptureScheduleItem extends ScheduleItemBase {
   type: "scripture"
+  /** Theme captured by a portable schedule; absent uses the current main output. */
+  themeId?: string
   translationId: number
   bookNumber: number
   chapter: number

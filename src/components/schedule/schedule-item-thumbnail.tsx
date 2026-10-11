@@ -24,10 +24,10 @@ import {
   generateSlidesFromSong,
   resolveSongSlideOptions,
 } from "@/lib/song/song-to-slides"
+import { slideHasAnimatedBackground } from "@/lib/slide-renderer/predicates"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
 import type {
   ScheduleItem,
-  ScriptureScheduleItem,
   SlideScheduleItem,
   MediaScheduleItem,
   WebScheduleItem,
@@ -68,6 +68,78 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
   // Re-render the song thumbnail if the global default theme changes.
   const songSlideDefaults = useSettingsStore((s) => s.songSlideDefaults)
   const customThemes = useThemesStore((s) => s.customThemes)
+  const mainThemeId = useBroadcastStore(
+    (s) => findOutput(s.outputs, "main")?.themeId ?? ""
+  )
+  const scriptureTheme = useMemo(() => {
+    const themes = buildThemeRegistry(customThemes)
+    return (
+      resolveScriptureTheme(
+        item.type === "scripture" ? (item.themeId ?? mainThemeId) : mainThemeId,
+        themes
+      ) ?? themes.find((theme) => theme.type === "scripture")
+    )
+  }, [customThemes, mainThemeId, item])
+  const scripturePreview = useMemo(() => {
+    if (item.type !== "scripture" || !scriptureTheme) return undefined
+    const fakeVerse = {
+      id: 0,
+      translation_id: item.translationId,
+      book_number: item.bookNumber,
+      book_name: item.cachedReference.split(" ")[0] ?? "John",
+      book_abbreviation: item.cachedReference.split(" ")[0] ?? "Jhn",
+      chapter: item.chapter,
+      verse: item.verseStart,
+      text: item.cachedText || item.cachedReference,
+    }
+    const abbr = item.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
+    const renderData = toVerseRenderData(fakeVerse, abbr)
+    const slide = presentScripture(
+      scriptureTheme,
+      { type: "scripture", verse: renderData },
+      () => "thumb-scripture"
+    )[0].slide
+    const el = slide.elements.find((e) => e.type === "scripture") as
+      SlideScriptureElement | undefined
+    const scriptureContent = el
+      ? new Map<string, ScriptureRenderPayload>([
+          [
+            el.id,
+            {
+              verse: renderData,
+              style: scriptureElementToVerseStyle(el),
+              options: {
+                scale: 1,
+                verseAutoFit: false,
+                maxVerseScale: 1,
+                minVerseFontSize: 40,
+              },
+            },
+          ],
+        ])
+      : undefined
+    return { slide, scriptureContent }
+  }, [item, scriptureTheme])
+  const songSlide = useMemo(() => {
+    if (item.type !== "song" || !song) return undefined
+    const arrangement =
+      (item.arrangementId
+        ? song.arrangements.find((a) => a.id === item.arrangementId)
+        : undefined) ??
+      song.arrangements.find((a) => a.isDefault) ??
+      song.arrangements[0]
+    if (!arrangement) return undefined
+    const base = resolveSongSlideOptions(songSlideDefaults, song.slideOptions)
+    const options = item.themeId ? { ...base, themeId: item.themeId } : base
+    return generateSlidesFromSong(
+      song,
+      arrangement,
+      options,
+      undefined,
+      undefined,
+      customThemes
+    ).slides[0]
+  }, [item, song, songSlideDefaults, customThemes])
   // Holds the latest draw so the async image-load callback can redraw without
   // draw() referencing itself (which the compiler flags and risks stale closures).
   const drawRef = useRef<() => void>(() => {})
@@ -87,64 +159,28 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
 
     switch (item.type) {
       case "scripture": {
-        const si = item as ScriptureScheduleItem
-        const activeThemeId =
-          findOutput(useBroadcastStore.getState().outputs, "main")?.themeId ??
-          ""
-        const themes = buildThemeRegistry(
-          useThemesStore.getState().customThemes
+        if (!scripturePreview) break
+        renderSlide(
+          ctx,
+          scripturePreview.slide,
+          w,
+          h,
+          getSlideImageCache(),
+          undefined,
+          {
+            scriptureContent: scripturePreview.scriptureContent,
+            frameTime: performance.now(),
+          }
         )
-        const theme =
-          resolveScriptureTheme(activeThemeId, themes) ??
-          themes.find((t) => t.type === "scripture")
-        if (!theme) break
-        const fakeVerse = {
-          id: 0,
-          translation_id: si.translationId,
-          book_number: si.bookNumber,
-          book_name: si.cachedReference.split(" ")[0] ?? "John",
-          book_abbreviation: si.cachedReference.split(" ")[0] ?? "Jhn",
-          chapter: si.chapter,
-          verse: si.verseStart,
-          text: si.cachedText || si.cachedReference,
-        }
-        const abbr = si.cachedReference.match(/\(([^)]+)\)/)?.[1] ?? "KJV"
-        const renderData = toVerseRenderData(fakeVerse, abbr)
-        // Scripture through the slide path (RF3c), matching the audience output.
-        const slide = presentScripture(
-          theme,
-          { type: "scripture", verse: renderData },
-          () => "thumb-scripture"
-        )[0].slide
-        const el = slide.elements.find((e) => e.type === "scripture") as
-          SlideScriptureElement | undefined
-        const scriptureContent = el
-          ? new Map<string, ScriptureRenderPayload>([
-              [
-                el.id,
-                {
-                  verse: renderData,
-                  style: scriptureElementToVerseStyle(el),
-                  options: {
-                    scale: 1,
-                    verseAutoFit: false,
-                    maxVerseScale: 1,
-                    minVerseFontSize: 40,
-                  },
-                },
-              ],
-            ])
-          : undefined
-        renderSlide(ctx, slide, w, h, getSlideImageCache(), undefined, {
-          scriptureContent,
-        })
         break
       }
       case "slide": {
         const si = item as SlideScheduleItem
         const slide = presentation?.slides[si.slideIndex]
         if (slide) {
-          renderSlide(ctx, slide, w, h, getSlideImageCache())
+          renderSlide(ctx, slide, w, h, getSlideImageCache(), undefined, {
+            frameTime: performance.now(),
+          })
           if (slide.background.type === "image" && slide.background.imageUrl) {
             ensureSlideImages(slide.background.imageUrl, () =>
               drawRef.current()
@@ -204,32 +240,11 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         break
       }
       case "song": {
-        const si = item as SongScheduleItem
-        const arrangement = song
-          ? ((si.arrangementId
-              ? song.arrangements.find((a) => a.id === si.arrangementId)
-              : undefined) ??
-            song.arrangements.find((a) => a.isDefault) ??
-            song.arrangements[0])
-          : undefined
-        if (song && arrangement) {
-          const base = resolveSongSlideOptions(
-            songSlideDefaults,
-            song.slideOptions
-          )
-          const options = si.themeId ? { ...base, themeId: si.themeId } : base
-          const slide = generateSlidesFromSong(
-            song,
-            arrangement,
-            options,
-            undefined,
-            undefined,
-            customThemes
-          ).slides[0]
-          if (slide) {
-            renderSlide(ctx, slide, w, h, getSlideImageCache())
-            break
-          }
+        if (songSlide) {
+          renderSlide(ctx, songSlide, w, h, getSlideImageCache(), undefined, {
+            frameTime: performance.now(),
+          })
+          break
         }
         ctx.fillStyle = "#1a1a2e"
         ctx.fillRect(0, 0, w, h)
@@ -263,12 +278,33 @@ export const ScheduleItemThumbnail = memo(function ScheduleItemThumbnail({
         break
       }
     }
-  }, [item, presentation, mediaAsset, song, songSlideDefaults, customThemes, t])
+  }, [item, presentation, mediaAsset, scripturePreview, songSlide, t])
 
   useEffect(() => {
     drawRef.current = draw
     draw()
-  }, [draw])
+    const animated =
+      (item.type === "slide" &&
+        !!presentation?.slides[item.slideIndex] &&
+        slideHasAnimatedBackground(presentation.slides[item.slideIndex])) ||
+      (item.type === "song" &&
+        !!songSlide &&
+        slideHasAnimatedBackground(songSlide)) ||
+      (item.type === "scripture" &&
+        scriptureTheme?.background.type === "animated")
+    if (!animated) return
+    let raf = 0
+    let lastFrame = 0
+    const tick = (time: number) => {
+      if (time - lastFrame >= 1000 / 30) {
+        draw()
+        lastFrame = time
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [draw, item, presentation, songSlide, scriptureTheme])
 
   if (item.type === "media") {
     return <ScheduleMediaThumbnail item={item} asset={mediaAsset} />
@@ -311,8 +347,7 @@ function ScheduleMediaThumbnail({
   }, [asset?.thumbnailDataUrl, filePath, mediaType])
 
   const videoSrc = useMemo(
-    () =>
-      mediaType === "video" && filePath ? safeFileSrc(filePath) : null,
+    () => (mediaType === "video" && filePath ? safeFileSrc(filePath) : null),
     [filePath, mediaType]
   )
 

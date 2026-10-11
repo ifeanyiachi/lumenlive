@@ -50,6 +50,9 @@ for f in "${FILES[@]}"; do
   [ -f "$f" ] || { echo "ERROR: missing $f — run the download/precompute step first" >&2; exit 1; }
 done
 
+# Keep newly published asset archives correct as well as the staged copy in CI.
+bun run data/ensure-revelation-name.ts --fix
+
 rm -f "$TAR"
 tar -cf "$TAR" "${FILES[@]}"
 

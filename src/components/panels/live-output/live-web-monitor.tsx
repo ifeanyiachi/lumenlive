@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useBroadcastStore } from "@/stores"
 import type { LiveWeb } from "@/stores/broadcast-store"
@@ -27,16 +27,78 @@ export function LiveWebMonitor({
   )
   const { state, loadVideo, play, pause, seekTo, toggleMute } =
     useYouTubePlayer(containerId)
+  const webTransport = useBroadcastStore((s) => s.webTransport)
+  const startRequestedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (isYouTube) void loadVideo(web.videoId!, web.autoplay ?? false)
-  }, [isYouTube, web.videoId, web.autoplay, loadVideo])
+    if (isYouTube) void loadVideo(web.videoId!, false)
+  }, [isYouTube, web.videoId, loadVideo])
   useEffect(() => {
     if (state.isReady && (web.startTime ?? 0) > 0) seekTo(web.startTime!)
   }, [state.isReady, web.startTime, seekTo])
   useEffect(() => {
     if (state.isReady && !state.isMuted) toggleMute()
   }, [state.isReady, state.isMuted, toggleMute])
+
+  // One start request drives every output. The output window queues this
+  // request if its YouTube iframe is still loading, so a slow external monitor
+  // cannot miss the play command.
+  useEffect(() => {
+    if (!isYouTube || !onAir || !state.isReady) {
+      if (!onAir) startRequestedRef.current = null
+      return
+    }
+    if (startRequestedRef.current === web.videoId) return
+    startRequestedRef.current = web.videoId!
+    // Resume the operator mirror immediately as well as the audience player.
+    // The output window may still be rebuilding its iframe after an off→on
+    // transition, so waiting for its first progress echo can leave this panel
+    // stuck behind a stale `playing: false` update.
+    seekTo(web.startTime ?? 0)
+    play()
+    sendWeb("seek", { position: web.startTime ?? 0 })
+    sendWeb("play")
+  }, [
+    isYouTube,
+    onAir,
+    state.isReady,
+    web.videoId,
+    web.startTime,
+    play,
+    seekTo,
+    sendWeb,
+  ])
+
+  // Start this operator mirror only after the external output confirms that it
+  // is playing, then keep it aligned to the echoed output position.
+  useEffect(() => {
+    if (!isYouTube || !onAir || !state.isReady || !webTransport) return
+    if (webTransport.playing) {
+      // The first playing echo acknowledges the explicit resume request above.
+      // From this point onward the output is authoritative for drift correction.
+      startRequestedRef.current = null
+      if (Math.abs(state.currentTime - webTransport.position) > 0.1) {
+        seekTo(webTransport.position)
+      }
+      if (!state.isPlaying) play()
+    } else {
+      // Do not let the stale paused echo generated while the output iframe is
+      // being recreated undo the off→on resume request.
+      if (startRequestedRef.current === web.videoId) return
+      pause()
+    }
+  }, [
+    isYouTube,
+    onAir,
+    state.isReady,
+    state.isPlaying,
+    state.currentTime,
+    webTransport,
+    web.videoId,
+    pause,
+    play,
+    seekTo,
+  ])
   useEffect(() => {
     if (!onAir) {
       pause()
@@ -46,13 +108,15 @@ export function LiveWebMonitor({
 
   const togglePlay = useCallback(() => {
     if (state.isPlaying) {
+      startRequestedRef.current = null
       pause()
       sendWeb("pause")
     } else {
+      startRequestedRef.current = web.videoId ?? null
       play()
       sendWeb("play")
     }
-  }, [state.isPlaying, pause, play, sendWeb])
+  }, [state.isPlaying, web.videoId, pause, play, sendWeb])
 
   if (!isYouTube)
     return (

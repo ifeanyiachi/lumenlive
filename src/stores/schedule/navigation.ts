@@ -10,6 +10,7 @@ import type {
 } from "@/types/schedule"
 import type { Verse } from "@/types/bible"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import {
   toVerseRenderData,
   presentSlide,
@@ -360,6 +361,13 @@ export const createNavigationSlice: StateCreator<
     switch (item.type) {
       case "scripture": {
         const si = item as ScriptureScheduleItem
+        if (
+          si.themeId &&
+          findOutput(useBroadcastStore.getState().outputs, "main")?.themeId !==
+            si.themeId
+        ) {
+          useBroadcastStore.getState().setActiveTheme(si.themeId)
+        }
         useBroadcastStore.setState({ broadcastSource: "schedule" })
         const abbr =
           useBibleStore

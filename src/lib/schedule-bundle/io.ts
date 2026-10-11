@@ -12,6 +12,9 @@ import { useScheduleStore } from "@/stores/schedule-store"
 import { useMediaStore } from "@/stores/media-store"
 import { usePresentationStore } from "@/stores/presentation-store"
 import { useSongStore } from "@/stores/song-store"
+import { useSettingsStore } from "@/stores/settings-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
+import { findOutput } from "@/lib/broadcast/output-selectors"
 import { useThemesStore } from "@/stores/themes/store"
 import { safeFileSrc } from "@/lib/media/safe-file-src"
 import { parseScheduleFile, scheduleFileName } from "@/lib/schedule-io"
@@ -45,6 +48,10 @@ export async function exportScheduleBundle(
     mediaAssets: useMediaStore.getState().assets,
     presentations: usePresentationStore.getState().presentations,
     songs: useSongStore.getState().songs,
+    songSlideDefaults: useSettingsStore.getState().songSlideDefaults,
+    scriptureThemeId:
+      findOutput(useBroadcastStore.getState().outputs, "main")?.themeId ??
+      useSettingsStore.getState().scriptureDefaultThemeId,
     resolveTheme: (id) => useThemesStore.getState().getThemeById(id),
   }
   const { manifest, mediaFiles, missingMedia } = buildScheduleBundle(

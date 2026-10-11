@@ -34,7 +34,30 @@ function asset(over: Partial<MediaAsset> & { filePath: string }): MediaAsset {
 
 beforeEach(() => {
   pathsToAssets.mockReset()
-  useMediaStore.setState({ assets: [] })
+  useMediaStore.setState({
+    assets: [],
+    selectedAssetId: null,
+    checkedIds: new Set(),
+  })
+})
+
+describe("checkRange", () => {
+  it("checks the visible range in either direction and keeps earlier checks", () => {
+    useMediaStore.setState({ checkedIds: new Set(["outside"]) })
+
+    useMediaStore.getState().checkRange(["a", "c", "d", "b"], "d", "a")
+
+    expect(useMediaStore.getState().checkedIds).toEqual(
+      new Set(["outside", "a", "c", "d"])
+    )
+    expect(useMediaStore.getState().selectedAssetId).toBe("a")
+  })
+
+  it("checks only the target when the anchor is outside the visible list", () => {
+    useMediaStore.getState().checkRange(["a", "b"], "hidden", "b")
+
+    expect(useMediaStore.getState().checkedIds).toEqual(new Set(["b"]))
+  })
 })
 
 describe("mergeAssets", () => {

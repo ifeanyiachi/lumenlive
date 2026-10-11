@@ -42,6 +42,7 @@
     "addToQueue": "Add to queue",
     "alreadyInQueue": "Already in queue",
     "addToSchedule": "Add to schedule",
+    "deleteMedia": "Delete",
     "alreadyInSchedule": "Already in schedule",
     "noActiveSchedule": "No active schedule — select or create one first",
     "translationFailed": "Couldn't switch translation",

@@ -9,6 +9,7 @@ import {
   MusicIcon,
   PlayIcon,
   SearchIcon,
+  TrashIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react"
@@ -358,6 +359,19 @@ export function SearchMediaTab() {
           >
             <ListPlusIcon className="size-3" />
             {t("search.addToSchedule")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              useMediaStore
+                .getState()
+                .removeAssets(new Set(selectedAssets.map((asset) => asset.id)))
+              clearSelection()
+            }}
+            className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-[0.6875rem] font-medium text-destructive transition-colors hover:bg-destructive/20"
+          >
+            <TrashIcon className="size-3" />
+            {t("search.deleteMedia")}
           </button>
           <button
             type="button"

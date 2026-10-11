@@ -1,3 +1,4 @@
+use crate::book_name::display_name;
 use crate::db::BibleDb;
 use crate::error::BibleError;
 use crate::models::{Book, SearchVerse, Translation, Verse};
@@ -24,7 +25,7 @@ impl BibleDb {
                 id: row.get(0)?,
                 translation_id: row.get(1)?,
                 book_number: row.get(2)?,
-                book_name: row.get(3)?,
+                book_name: display_name(row.get(2)?, row.get(3)?),
                 book_abbreviation: row.get(4)?,
                 chapter: row.get(5)?,
                 verse: row.get(6)?,
@@ -130,7 +131,7 @@ impl BibleDb {
         let rows = stmt.query_map([route.local_id], |row: &rusqlite::Row| {
             Ok(SearchVerse {
                 book_number: row.get(0)?,
-                book_name: row.get(1)?,
+                book_name: display_name(row.get(0)?, row.get(1)?),
                 chapter: row.get(2)?,
                 verse: row.get(3)?,
                 text: row.get(4)?,
@@ -183,7 +184,7 @@ impl BibleDb {
                 id: row.get(0)?,
                 translation_id: route.display_id,
                 book_number: row.get(1)?,
-                name: row.get(2)?,
+                name: display_name(row.get(1)?, row.get(2)?),
                 abbreviation: row.get(3)?,
                 testament: row.get(4)?,
             })
@@ -201,7 +202,7 @@ fn verse_row(route: &crate::db::Route, row: &rusqlite::Row) -> rusqlite::Result<
         id: row.get(0)?,
         translation_id: route.display_id,
         book_number: row.get(1)?,
-        book_name: row.get(2)?,
+        book_name: display_name(row.get(1)?, row.get(2)?),
         book_abbreviation: row.get(3)?,
         chapter: row.get(4)?,
         verse: row.get(5)?,
@@ -340,6 +341,93 @@ mod tests {
         assert_eq!(books.len(), 1);
         assert_eq!(books[0].translation_id, 1000);
 
+        cleanup(&main_path);
+        cleanup(&ext_path);
+    }
+
+    #[test]
+    fn legacy_revelation_name_is_normalized_for_bundled_and_attached_verses() {
+        let main_path = temp_path("legacy-main");
+        let ext_path = temp_path("legacy-ext");
+        let verses = vec![(
+            66,
+            "Revelation of John",
+            "Rev",
+            22,
+            20,
+            "Behold I come quickly",
+        )];
+        make_db_file(
+            &main_path,
+            "KJV",
+            "King James Version",
+            "en",
+            false,
+            &verses,
+        );
+        make_db_file(
+            &ext_path,
+            "WEB",
+            "World English Bible",
+            "en",
+            false,
+            &verses,
+        );
+
+        for path in [&main_path, &ext_path] {
+            let conn = Connection::open(path).unwrap();
+            conn.execute(
+                "UPDATE books SET book_number = 66, name = 'Revelation of John', abbreviation = 'Rev'",
+                [],
+            )
+            .unwrap();
+        }
+        let conn = Connection::open(&main_path).unwrap();
+        conn.execute_batch(
+            "CREATE VIRTUAL TABLE verses_fts USING fts5(text, content='verses', content_rowid='id');
+             INSERT INTO verses_fts(rowid, text) SELECT id, text FROM verses;",
+        )
+        .unwrap();
+        drop(conn);
+
+        let db = BibleDb::open(&main_path).unwrap();
+        db.attach_translation(1000, &ext_path).unwrap();
+
+        for translation_id in [1, 1000] {
+            assert_eq!(db.list_books(translation_id).unwrap()[0].name, "Revelation");
+            assert_eq!(
+                db.get_verse(translation_id, 66, 22, 20)
+                    .unwrap()
+                    .unwrap()
+                    .book_name,
+                "Revelation"
+            );
+            assert_eq!(
+                db.get_chapter(translation_id, 66, 22).unwrap()[0].book_name,
+                "Revelation"
+            );
+            assert_eq!(
+                db.load_translation_verses_for_search(translation_id)
+                    .unwrap()[0]
+                    .book_name,
+                "Revelation"
+            );
+            assert_eq!(
+                db.search_verses("Behold", translation_id, 1).unwrap()[0].book_name,
+                "Revelation"
+            );
+        }
+        assert_eq!(
+            db.get_verse_by_id(1).unwrap().unwrap().book_name,
+            "Revelation"
+        );
+        assert_eq!(db.search_books("Revelation").unwrap()[0].name, "Revelation");
+        assert_eq!(
+            db.search_verses_bm25("Behold", 1).unwrap()[0].book_name,
+            "Revelation"
+        );
+
+        drop(db);
         cleanup(&main_path);
         cleanup(&ext_path);
     }
