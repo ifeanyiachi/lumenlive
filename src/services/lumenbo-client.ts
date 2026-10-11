@@ -149,6 +149,12 @@ export interface DesktopTeam {
   seat: boolean
   status: "active" | "suspended"
   createdAt: string
+  /**
+   * Whether this is the user's own personal account or a shared team. The
+   * switcher lists both, so it labels each one accordingly. Absent on older
+   * backends — callers treat a missing value as a team.
+   */
+  accountType?: "personal" | "team"
 }
 
 export interface DesktopTeamList {

@@ -56,13 +56,9 @@
       "setActive": "Set as Active",
       "download": "Download",
       "remove": "Remove",
-      "multilingual": {
-        "title": "LumenLive On-device (Multilingual)",
-        "description": "Transcribe with automatic language detection. Uses about 1.3 GB of space."
-      },
       "english": {
         "title": "LumenLive On-device (English)",
-        "description": "Transcribe English locally. Best used if your main language is English. Uses about 1.2 GB of space."
+        "description": "Works better with a direct audio input. Downloads approx. 464 MB of data."
       }
     },
     "detectionDescription": "Choose how detected verses and voice navigation are handled during a service.",
@@ -221,18 +217,18 @@
     "signIn": {
       "title": "Sign in to LumenLive",
       "description": "LumenLive is free to use — no account needed. Sign in to activate your subscription on this device.",
-    "action": "Sign in"
-  },
-  "browser": {
-    "description": "Continue in your browser to sign in securely, then activate this device.",
-    "action": "Sign in via browser",
-    "pending": "Browser sign-in is open. Complete sign-in in your browser, then return here.",
-    "pendingAction": "Waiting for browser",
-    "cancel": "Cancel sign-in",
-    "cancelled": "Browser sign-in was cancelled.",
-    "timedOut": "The browser sign-in window expired. Start again.",
-    "offline": "LumenLive could not reach the server. Check your connection and try again."
-  },
+      "action": "Sign in"
+    },
+    "browser": {
+      "description": "Continue in your browser to sign in securely, then activate this device.",
+      "action": "Sign in via browser",
+      "pending": "Browser sign-in is open. Complete sign-in in your browser, then return here.",
+      "pendingAction": "Waiting for browser",
+      "cancel": "Cancel sign-in",
+      "cancelled": "Browser sign-in was cancelled.",
+      "timedOut": "The browser sign-in window expired. Start again.",
+      "offline": "LumenLive could not reach the server. Check your connection and try again."
+    },
     "email": "Email",
     "password": "Password",
     "signingIn": "Signing in…",
@@ -287,10 +283,12 @@
     "hours_other": "{{count}} hours",
     "accessRemaining": "{{days}} {{hours}} remaining",
     "team": {
-      "label": "Team",
-      "choose": "Choose a team",
-      "chooseTitle": "Choose your team",
-      "chooseDescription": "This account has access to more than one team. Choose which team to use on this device.",
+      "label": "Account",
+      "choose": "Choose an account",
+      "chooseTitle": "Choose your account",
+      "chooseDescription": "You can run services under your personal plan or a team seat. Choose which to use on this device.",
+      "personalBadge": "Personal",
+      "teamBadge": "Team",
       "activating": "Activating…",
       "continue": "Continue"
     }

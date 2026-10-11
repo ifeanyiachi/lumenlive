@@ -50,13 +50,9 @@
       "setActive": "Définir comme active",
       "download": "Télécharger",
       "remove": "Supprimer",
-      "multilingual": {
-        "title": "LumenLive sur l’appareil (multilingue)",
-        "description": "Transcrivez avec détection automatique de la langue. Utilise environ 1,3 Go d’espace."
-      },
       "english": {
         "title": "LumenLive sur l’appareil (anglais)",
-        "description": "Transcrivez l’anglais localement. Idéal si votre langue principale est l’anglais. Utilise environ 1,2 Go d’espace."
+        "description": "Fonctionne mieux avec une entrée audio directe. Télécharge environ 464 Mo de données."
       }
     },
     "detectionDescription": "Choisissez comment les versets détectés et la navigation vocale sont gérés pendant le service.",
@@ -263,10 +259,12 @@
     "hours_other": "{{count}} heures",
     "accessRemaining": "{{days}} {{hours}} restants",
     "team": {
-      "label": "Équipe",
-      "choose": "Choisir une équipe",
-      "chooseTitle": "Choisissez votre équipe",
-      "chooseDescription": "Ce compte a accès à plusieurs équipes. Choisissez l’équipe à utiliser sur cet appareil.",
+      "label": "Compte",
+      "choose": "Choisir un compte",
+      "chooseTitle": "Choisissez votre compte",
+      "chooseDescription": "Vous pouvez utiliser les services via votre offre personnelle ou un siège d’équipe. Choisissez lequel utiliser sur cet appareil.",
+      "personalBadge": "Personnel",
+      "teamBadge": "Équipe",
       "activating": "Activation…",
       "continue": "Continuer"
     }
@@ -397,7 +395,10 @@
     },
     "privacy": { "name": "Confidentialité", "title": "Confidentialité" },
     "help": { "name": "Aide", "title": "Aide" },
-    "feedback": { "name": "Envoyer un commentaire", "title": "Envoyer un commentaire" },
+    "feedback": {
+      "name": "Envoyer un commentaire",
+      "title": "Envoyer un commentaire"
+    },
     "language": { "name": "Langue", "title": "Langue" }
   },
   "dialog": {

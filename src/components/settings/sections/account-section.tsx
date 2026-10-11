@@ -17,7 +17,7 @@ import {
   type PendingTeamActivation,
   type RevalidateResult,
 } from "@/stores/licensing-actions"
-import { LicensingError } from "@/services/lumenbo-client"
+import { LicensingError, type DesktopTeam } from "@/services/lumenbo-client"
 import { openExternalUrl } from "@/services/external-link-gateway"
 import { planLabel, trialRemaining } from "@/lib/entitlements"
 import { appUrl } from "@/lib/app-urls"
@@ -54,6 +54,24 @@ const REASON_KEYS = new Set([
   "issuer",
   "audience",
 ])
+
+/**
+ * The switcher lists both the user's personal account and their teams, so each
+ * option is tagged with its kind. Older backends omit `accountType`; those
+ * entries are teams and get no personal badge.
+ */
+function accountOptionLabel(
+  team: DesktopTeam,
+  t: (key: string) => string
+): string {
+  const badge =
+    team.accountType === "personal"
+      ? t("account.team.personalBadge")
+      : team.accountType === "team"
+        ? t("account.team.teamBadge")
+        : null
+  return badge ? `${team.name} · ${badge}` : team.name
+}
 
 /**
  * Account content shown by the transport-bar account menu.
@@ -134,7 +152,9 @@ function SignedOut() {
           disabled={pending}
           onClick={handleBrowserSignIn}
         >
-          {pending ? t("account.browser.pendingAction") : t("account.browser.action")}
+          {pending
+            ? t("account.browser.pendingAction")
+            : t("account.browser.action")}
         </Button>
         {pending && (
           <Button
@@ -269,7 +289,7 @@ function SignedIn() {
             <SelectContent>
               {teams.map((team) => (
                 <SelectItem key={team.id} value={team.id}>
-                  {team.name}
+                  {accountOptionLabel(team, t)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -299,7 +319,7 @@ function SignedIn() {
             <p className="text-[0.6875rem] text-red-500">{activationError}</p>
           )}
           {activationStatus === "activating" ? null : activationErrorCode ===
-              "UNAUTHORIZED" ? (
+            "UNAUTHORIZED" ? (
             <Button
               variant="outline"
               size="sm"
@@ -459,7 +479,7 @@ function AuthenticatedTeamSelection({
         <SelectContent>
           {pending.teams.map((team) => (
             <SelectItem key={team.id} value={team.id}>
-              {team.name}
+              {accountOptionLabel(team, t)}
             </SelectItem>
           ))}
         </SelectContent>

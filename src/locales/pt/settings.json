@@ -50,13 +50,9 @@
       "setActive": "Definir como ativo",
       "download": "Baixar",
       "remove": "Remover",
-      "multilingual": {
-        "title": "LumenLive neste dispositivo (multilíngue)",
-        "description": "Transcreva com deteção automática do idioma. Usa cerca de 1,3 GB de espaço."
-      },
       "english": {
         "title": "LumenLive neste dispositivo (inglês)",
-        "description": "Transcreva em inglês localmente. Ideal se o seu idioma principal for inglês. Usa cerca de 1,2 GB de espaço."
+        "description": "Funciona melhor com uma entrada de áudio direta. Baixa cerca de 464 MB de dados."
       }
     },
     "detectionDescription": "Escolha como os versículos detectados e a navegação por voz são tratados durante o culto.",
@@ -263,10 +259,12 @@
     "hours_other": "{{count}} horas",
     "accessRemaining": "Restam {{days}} {{hours}}",
     "team": {
-      "label": "Equipe",
-      "choose": "Escolha uma equipe",
-      "chooseTitle": "Escolha sua equipe",
-      "chooseDescription": "Esta conta tem acesso a mais de uma equipe. Escolha qual equipe usar neste dispositivo.",
+      "label": "Conta",
+      "choose": "Escolha uma conta",
+      "chooseTitle": "Escolha sua conta",
+      "chooseDescription": "Você pode usar os serviços com seu plano pessoal ou um assento de equipe. Escolha qual usar neste dispositivo.",
+      "personalBadge": "Pessoal",
+      "teamBadge": "Equipe",
       "activating": "Ativando…",
       "continue": "Continuar"
     }
