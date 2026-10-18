@@ -364,6 +364,7 @@ jobs:
         with:
           workspaces: src-tauri -> target
           prefix-key: v3-rust-macos-${{ inputs.macos_arch || 'aarch64' }}
+          cache-on-failure: true
           cache-directories: |
             ~/Library/Caches/ort.pyke.io
 
@@ -402,6 +403,37 @@ jobs:
 
       - name: Normalize and verify bundled Bible names
         run: bun run data/ensure-revelation-name.ts --fix
+
+      # ort's download service no longer ships Intel macOS. Reuse the runtime
+      # already distributed with our pinned sherpa-onnx dependency instead.
+      - name: Prepare and verify Intel ONNX Runtime
+        if: inputs.macos_arch == 'x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=sherpa-onnx-v1.13.8-osx-x64-static-lib.tar.bz2
+          curl --fail --location --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/$archive" -o "$RUNNER_TEMP/$archive"
+          echo "a3f88da3e54c850a12d61431e73f8affcd1f13738b75b768847dd79541835b4b  $RUNNER_TEMP/$archive" | shasum -a 256 -c -
+          tar -xjf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          libdir="$RUNNER_TEMP/sherpa-onnx-v1.13.8-osx-x64-static-lib/lib"
+          cat > "$RUNNER_TEMP/check-ort.cpp" <<'CPP'
+          #include <cstdint>
+          #include <cstdio>
+          struct OrtApiBase {
+            const void* (*GetApi)(uint32_t);
+            const char* (*GetVersionString)();
+          };
+          extern "C" const OrtApiBase* OrtGetApiBase();
+          int main() {
+            const auto* base = OrtGetApiBase();
+            std::printf("Intel ONNX Runtime: %s\n", base->GetVersionString());
+            return base->GetApi(24) ? 0 : 1;
+          }
+          CPP
+          clang++ "$RUNNER_TEMP/check-ort.cpp" "$libdir/libonnxruntime.a" -framework Foundation -o "$RUNNER_TEMP/check-ort"
+          "$RUNNER_TEMP/check-ort"
+          echo "ORT_LIB_PATH=$libdir" >> "$GITHUB_ENV"
+          echo "SHERPA_ONNX_LIB_DIR=$libdir" >> "$GITHUB_ENV"
 
       # ort-sys rc.12 links its downloaded macOS runtime statically, so no
       # separate libonnxruntime.dylib needs staging or bundling.
