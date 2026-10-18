@@ -604,7 +604,9 @@ jobs:
           [ "${#dmgs[@]}" -eq 1 ] || { echo "::error::Expected exactly one DMG"; exit 1; }
           dmg="${dmgs[0]}"
           filename=$(basename "$dmg")
-          [[ "$filename" == *"_${MACOS_ARCH}.dmg" ]] || { echo "::error::Artifact architecture does not match $MACOS_ARCH"; exit 1; }
+          bundle_arch="$MACOS_ARCH"
+          if [ "$MACOS_ARCH" = x86_64 ]; then bundle_arch=x64; fi
+          [[ "$filename" == *"_${bundle_arch}.dmg" ]] || { echo "::error::Artifact architecture does not match $MACOS_ARCH"; exit 1; }
           sha=$(sha256sum "$dmg" | cut -d ' ' -f 1)
           versioned="v${version}/macos/${filename}"
           stable="download/LumenLive-${MACOS_ARCH}.dmg"
