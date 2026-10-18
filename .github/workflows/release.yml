@@ -73,6 +73,13 @@ on:
       source_run:
         description: "Successful run containing macos-bundle (macos-publish only)"
         type: string
+      macos_arch:
+        description: "Mac processor architecture"
+        type: choice
+        options:
+          - aarch64
+          - x86_64
+        default: aarch64
       runner:
         description: "Build on"
         type: choice
@@ -320,7 +327,7 @@ jobs:
             src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           if-no-files-found: warn
 
-  # macOS (Apple Silicon) build. Always cloud (macos-latest is arm64) — you
+  # macOS build. Uses a native cloud runner for the selected architecture; you
   # can't build a .app/.dmg on Windows. Runs AFTER `build` so that, when
   # publishing, it merges its `darwin-aarch64` entry into the latest.json the
   # Windows job just wrote (read-modify-write), never the other way round. The
@@ -330,10 +337,12 @@ jobs:
   # further workflow change. The updater tarball is still signed with the
   # minisign TAURI_SIGNING_* key regardless, so update signatures are valid.
   build-macos:
-    name: Build macOS (Apple Silicon)
+    name: Build macOS (${{ inputs.macos_arch || 'aarch64' }})
     needs: build
     if: ${{ !cancelled() && inputs.platform != 'macos-publish' && (github.event_name != 'workflow_dispatch' || inputs.platform != 'windows') && (needs.build.result == 'success' || (needs.build.result == 'skipped' && !inputs.publish)) }}
-    runs-on: macos-latest
+    runs-on: ${{ inputs.macos_arch == 'x86_64' && 'macos-15-intel' || 'macos-latest' }}
+    env:
+      MACOS_ARCH: ${{ inputs.macos_arch || 'aarch64' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -345,7 +354,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: ${{ inputs.macos_arch || 'aarch64' }}-apple-darwin
 
       - name: Set up rclone
         uses: AnimMouse/setup-rclone@v1
@@ -354,7 +363,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          prefix-key: v3-rust-macos
+          prefix-key: v3-rust-macos-${{ inputs.macos_arch || 'aarch64' }}
           cache-directories: |
             ~/Library/Caches/ort.pyke.io
 
@@ -417,7 +426,9 @@ jobs:
           for key in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [ -z "${!key}" ]; then unset "$key"; fi
           done
-          bun run tauri build --bundles app,dmg --target aarch64-apple-darwin
+          lipo -verify_arch "${MACOS_ARCH/aarch64/arm64}" sdk/ndi/macos/libndi.dylib
+          bun run tauri build --bundles app,dmg --target "${MACOS_ARCH}-apple-darwin"
+          lipo -verify_arch "${MACOS_ARCH/aarch64/arm64}" "src-tauri/target/${MACOS_ARCH}-apple-darwin/release/bundle/macos/LumenLive.app/Contents/MacOS/LumenLive"
 
       - name: Validate production API URL
         shell: bash
@@ -449,7 +460,7 @@ jobs:
         run: |
           set -euo pipefail
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          bdir="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          bdir="src-tauri/target/${MACOS_ARCH}-apple-darwin/release/bundle"
           dmg=$(ls "$bdir"/dmg/*.dmg 2>/dev/null | head -1 || true)
           tgz=$(ls "$bdir"/macos/*.app.tar.gz 2>/dev/null | head -1 || true)
           sig=$(ls "$bdir"/macos/*.app.tar.gz.sig 2>/dev/null | head -1 || true)
@@ -466,9 +477,9 @@ jobs:
 
           # Stable mac download for the website + checksum (short TTL).
           sha=$(shasum -a 256 "$dmg" | grep -oiE '[0-9a-f]{64}' | head -1)
-          printf '%s  LumenLive-aarch64.dmg\n' "$sha" > LumenLive-aarch64.dmg.sha256
-          rclone copyto "$dmg" "r2:${R2_BUCKET}/download/LumenLive-aarch64.dmg" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
-          rclone copyto LumenLive-aarch64.dmg.sha256 "r2:${R2_BUCKET}/download/LumenLive-aarch64.dmg.sha256" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          printf '%s  LumenLive-%s.dmg\n' "$sha" "$MACOS_ARCH" > macos.sha256
+          rclone copyto "$dmg" "r2:${R2_BUCKET}/download/LumenLive-${MACOS_ARCH}.dmg" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          rclone copyto macos.sha256 "r2:${R2_BUCKET}/download/LumenLive-${MACOS_ARCH}.dmg.sha256" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
 
           # Merge darwin-aarch64 into the Windows-authored latest.json.
           rclone copyto "r2:${R2_BUCKET}/latest.json" latest.json
@@ -484,14 +495,14 @@ jobs:
               console.error("::error::latest.json is missing windows-x86_64; refusing to overwrite");
               process.exit(1);
             }
-            m.platforms["darwin-aarch64"] = { signature: process.env.SIGVAL, url: process.env.URL };
+            m.platforms[`darwin-${process.env.MACOS_ARCH}`] = { signature: process.env.SIGVAL, url: process.env.URL };
             fs.writeFileSync("latest.json", JSON.stringify(m, null, 2));
           '
           rclone copyto latest.json "r2:${R2_BUCKET}/latest.json" --header-upload "Cache-Control: no-cache, no-store, must-revalidate"
 
           echo "Published macOS v${version}"
           echo "  versioned: ${DL_BASE}/v${version}/${dmgname}"
-          echo "  latest:    ${DL_BASE}/download/LumenLive-aarch64.dmg  (sha256 $sha)"
+          echo "  latest:    ${DL_BASE}/download/LumenLive-${MACOS_ARCH}.dmg  (sha256 $sha)"
           echo "  updater:   ${DL_BASE}/v${version}/${tgzname}"
 
       - name: Upload macOS artifact
@@ -499,15 +510,17 @@ jobs:
         with:
           name: macos-bundle
           path: |
-            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+            src-tauri/target/${{ env.MACOS_ARCH }}-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ env.MACOS_ARCH }}-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ env.MACOS_ARCH }}-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
   publish-macos-artifact:
     name: Publish existing macOS build to R2
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.platform == 'macos-publish' && inputs.publish }}
     runs-on: ubuntu-latest
+    env:
+      MACOS_ARCH: ${{ inputs.macos_arch || 'aarch64' }}
     permissions:
       actions: read
       contents: read
@@ -559,15 +572,18 @@ jobs:
           [ "${#dmgs[@]}" -eq 1 ] || { echo "::error::Expected exactly one DMG"; exit 1; }
           dmg="${dmgs[0]}"
           filename=$(basename "$dmg")
+          [[ "$filename" == *"_${MACOS_ARCH}.dmg" ]] || { echo "::error::Artifact architecture does not match $MACOS_ARCH"; exit 1; }
           sha=$(sha256sum "$dmg" | cut -d ' ' -f 1)
           versioned="v${version}/macos/${filename}"
-          stable="download/LumenLive-aarch64.dmg"
+          stable="download/LumenLive-${MACOS_ARCH}.dmg"
           rclone copyto "$dmg" "r2:${R2_BUCKET}/${versioned}" --immutable --header-upload "Cache-Control: public, max-age=31536000, immutable"
           rclone copyto "$dmg" "r2:${R2_BUCKET}/${stable}" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
-          printf '%s  LumenLive-aarch64.dmg\n' "$sha" > macos.sha256
+          printf '%s  LumenLive-%s.dmg\n' "$sha" "$MACOS_ARCH" > macos.sha256
           rclone copyto macos.sha256 "r2:${R2_BUCKET}/${stable}.sha256" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
-          jq -n --arg version "v$version" --arg sha256 "$sha" --arg url "$DL_BASE/$stable" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,platform:"darwin-aarch64",sha256:$sha256,url:$url,published:$published}' > macos-latest.json
-          rclone copyto macos-latest.json "r2:${R2_BUCKET}/download/macos/latest.json" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          jq -n --arg version "v$version" --arg platform "darwin-$MACOS_ARCH" --arg sha256 "$sha" --arg url "$DL_BASE/$stable" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,platform:$platform,sha256:$sha256,url:$url,published:$published}' > macos-latest.json
+          metadata="download/macos/latest.json"
+          if [ "$MACOS_ARCH" = x86_64 ]; then metadata="download/macos/intel/latest.json"; fi
+          rclone copyto macos-latest.json "r2:${R2_BUCKET}/${metadata}" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
           # Read the uploaded binary back through its public versioned URL.
           curl --fail --location --retry 3 "$DL_BASE/$versioned" -o verified.dmg
           printf '%s  verified.dmg\n' "$sha" | sha256sum -c -
