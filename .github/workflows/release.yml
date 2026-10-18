@@ -68,7 +68,11 @@ on:
           - all
           - windows
           - macos
+          - macos-publish
         default: all
+      source_run:
+        description: "Successful run containing macos-bundle (macos-publish only)"
+        type: string
       runner:
         description: "Build on"
         type: choice
@@ -92,7 +96,7 @@ env:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform != 'macos' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.platform != 'macos' && inputs.platform != 'macos-publish') }}
     # Pick the runner: dispatch input wins; otherwise the tag-push default var;
     # otherwise self-hosted. `cloud` -> windows-latest, else the self-hosted
     # Windows runner.
@@ -328,7 +332,7 @@ jobs:
   build-macos:
     name: Build macOS (Apple Silicon)
     needs: build
-    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.platform != 'windows') && (needs.build.result == 'success' || (needs.build.result == 'skipped' && !inputs.publish)) }}
+    if: ${{ !cancelled() && inputs.platform != 'macos-publish' && (github.event_name != 'workflow_dispatch' || inputs.platform != 'windows') && (needs.build.result == 'success' || (needs.build.result == 'skipped' && !inputs.publish)) }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -499,3 +503,72 @@ jobs:
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
+
+  publish-macos-artifact:
+    name: Publish existing macOS build to R2
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.platform == 'macos-publish' && inputs.publish }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    concurrency:
+      group: publish-macos-artifact
+      cancel-in-progress: false
+    steps:
+      - name: Verify source build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]] || { echo "::error::source_run must be a run ID"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > source-run.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" '.conclusion == "success" and .path == ".github/workflows/release.yml" and .head_repository.full_name == $repo' source-run.json
+          echo "sha=$(jq -r .head_sha source-run.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+
+      - name: Download completed macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-bundle
+          path: macos-artifact
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+
+      - name: Set up rclone
+        uses: AnimMouse/setup-rclone@v1
+
+      # Publish separate Mac download objects. Shared Windows download and
+      # updater manifests are deliberately outside this job's destinations.
+      - name: Publish and verify macOS download
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+        run: |
+          set -euo pipefail
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          mapfile -t dmgs < <(find macos-artifact -type f -name '*.dmg')
+          [ "${#dmgs[@]}" -eq 1 ] || { echo "::error::Expected exactly one DMG"; exit 1; }
+          dmg="${dmgs[0]}"
+          filename=$(basename "$dmg")
+          sha=$(sha256sum "$dmg" | cut -d ' ' -f 1)
+          versioned="v${version}/macos/${filename}"
+          stable="download/LumenLive-aarch64.dmg"
+          rclone copyto "$dmg" "r2:${R2_BUCKET}/${versioned}" --immutable --header-upload "Cache-Control: public, max-age=31536000, immutable"
+          rclone copyto "$dmg" "r2:${R2_BUCKET}/${stable}" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          printf '%s  LumenLive-aarch64.dmg\n' "$sha" > macos.sha256
+          rclone copyto macos.sha256 "r2:${R2_BUCKET}/${stable}.sha256" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          jq -n --arg version "v$version" --arg sha256 "$sha" --arg url "$DL_BASE/$stable" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,platform:"darwin-aarch64",sha256:$sha256,url:$url,published:$published}' > macos-latest.json
+          rclone copyto macos-latest.json "r2:${R2_BUCKET}/download/macos/latest.json" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          # Read the uploaded binary back through its public versioned URL.
+          curl --fail --location --retry 3 "$DL_BASE/$versioned" -o verified.dmg
+          printf '%s  verified.dmg\n' "$sha" | sha256sum -c -
+          printf 'Mac download: %s/%s\nVersioned download: %s/%s\nSHA-256: %s\n' "$DL_BASE" "$stable" "$DL_BASE" "$versioned" "$sha" >> "$GITHUB_STEP_SUMMARY"
