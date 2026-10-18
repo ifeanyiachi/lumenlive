@@ -426,9 +426,9 @@ jobs:
           for key in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [ -z "${!key}" ]; then unset "$key"; fi
           done
-          lipo -verify_arch "${MACOS_ARCH/aarch64/arm64}" sdk/ndi/macos/libndi.dylib
+          lipo sdk/ndi/macos/libndi.dylib -verify_arch "${MACOS_ARCH/aarch64/arm64}"
           bun run tauri build --bundles app,dmg --target "${MACOS_ARCH}-apple-darwin"
-          lipo -verify_arch "${MACOS_ARCH/aarch64/arm64}" "src-tauri/target/${MACOS_ARCH}-apple-darwin/release/bundle/macos/LumenLive.app/Contents/MacOS/LumenLive"
+          lipo "src-tauri/target/${MACOS_ARCH}-apple-darwin/release/bundle/macos/LumenLive.app/Contents/MacOS/LumenLive" -verify_arch "${MACOS_ARCH/aarch64/arm64}"
 
       - name: Validate production API URL
         shell: bash
