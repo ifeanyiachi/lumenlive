@@ -488,6 +488,12 @@ fn resolve_library_path() -> Result<PathBuf, NdiError> {
     let mut bases: Vec<PathBuf> = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")];
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            // macOS `.app` bundles place `bundle.resources` under
+            // `Contents/Resources`, a sibling of the `Contents/MacOS` directory
+            // that holds the executable — not beside the binary as on Windows.
+            // Search it first so the bundled dylib resolves in production.
+            #[cfg(target_os = "macos")]
+            bases.push(dir.join("../Resources"));
             bases.push(dir.to_path_buf());
         }
     }

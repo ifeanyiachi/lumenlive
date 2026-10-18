@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "resources": {
+      "../sdk/ndi/windows/Processing.NDI.Lib.x64.dll": null,
+      "libs/onnxruntime.dll": null,
+      "libs/onnxruntime_providers_shared.dll": null,
+      "../sdk/ndi/macos/libndi.dylib": "sdk/ndi/macos/libndi.dylib"
+    },
+    "macOS": {
+      "frameworks": ["libs/libonnxruntime.dylib"],
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    macOS-only. Tauri merges this into the generated Info.plist for .app/.dmg
+    bundles (ignored on other platforms). cpal opens the microphone natively for
+    speech-to-text, and macOS terminates the app on mic access unless this
+    usage string is present. NDI discovery/output uses the local network, which
+    macOS 14+ gates behind its own prompt + usage string.
+  -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>LumenLive listens to the microphone to transcribe spoken words for live scripture detection.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>LumenLive uses the local network to send video output to NDI receivers.</string>
+</dict>
+</plist>

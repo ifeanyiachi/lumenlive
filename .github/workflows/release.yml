@@ -61,6 +61,14 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
+      platform:
+        description: "Platforms to build"
+        type: choice
+        options:
+          - all
+          - windows
+          - macos
+        default: all
       runner:
         description: "Build on"
         type: choice
@@ -84,6 +92,7 @@ env:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform != 'macos' }}
     # Pick the runner: dispatch input wins; otherwise the tag-push default var;
     # otherwise self-hosted. `cloud` -> windows-latest, else the self-hosted
     # Windows runner.
@@ -306,3 +315,203 @@ jobs:
             src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           if-no-files-found: warn
+
+  # macOS (Apple Silicon) build. Always cloud (macos-latest is arm64) — you
+  # can't build a .app/.dmg on Windows. Runs AFTER `build` so that, when
+  # publishing, it merges its `darwin-aarch64` entry into the latest.json the
+  # Windows job just wrote (read-modify-write), never the other way round. The
+  # build is UNSIGNED by Apple for now: it installs (right-click > Open past
+  # Gatekeeper) and auto-update is best-effort. The APPLE_* env below is a
+  # drop-in — set those repo secrets later to codesign + notarize with no
+  # further workflow change. The updater tarball is still signed with the
+  # minisign TAURI_SIGNING_* key regardless, so update signatures are valid.
+  build-macos:
+    name: Build macOS (Apple Silicon)
+    needs: build
+    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.platform != 'windows') && (needs.build.result == 'success' || (needs.build.result == 'skipped' && !inputs.publish)) }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Set up rclone
+        uses: AnimMouse/setup-rclone@v1
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          prefix-key: v3-rust-macos
+          cache-directories: |
+            ~/Library/Caches/ort.pyke.io
+
+      - name: Verify versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          echo "conf=$conf pkg=$pkg ref=$GITHUB_REF_TYPE/$GITHUB_REF_NAME"
+          fail=0
+          if [ "$conf" != "$pkg" ]; then echo "::error::tauri.conf.json ($conf) != package.json ($pkg)"; fail=1; fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$conf" ]; then echo "::error::tag ($tag) != version ($conf)"; fail=1; fi
+          fi
+          [ "$fail" -eq 0 ]
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # Neutral, cross-platform runtime assets (DB, embedding model, precomputed
+      # embeddings) — the same bundle the Windows cloud build uses. The Windows
+      # DLLs inside it are ignored on macOS (not in the macOS resource set). The
+      # macOS NDI dylib is committed in git, so the checkout already has it.
+      - name: Fetch runtime assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$ASSETS_TAG" --pattern "$ASSETS_TAR" --clobber
+          echo "${ASSETS_SHA256}  ${ASSETS_TAR}" | shasum -a 256 -c -
+          tar -xf "$ASSETS_TAR"
+          rm -f "$ASSETS_TAR"
+
+      - name: Normalize and verify bundled Bible names
+        run: bun run data/ensure-revelation-name.ts --fix
+
+      # ort (download-binaries) links ONNX Runtime dynamically and drops
+      # libonnxruntime*.dylib into target/. Produce it with a plain cargo build,
+      # then stage it where tauri.macos.conf.json's bundle.macOS.frameworks
+      # expects it, so Tauri copies it into Contents/Frameworks and rewrites the
+      # install name / rpath. Must happen BEFORE `tauri build`'s bundling phase.
+      - name: Build Rust (produce ONNX Runtime dylib)
+        run: cargo build --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml -p lumenlive-detection --features onnx,vector-search
+
+      - name: Stage ONNX Runtime dylib for bundling
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="src-tauri/target/aarch64-apple-darwin/release"
+          dylib=$(ls "$src"/libonnxruntime*.dylib 2>/dev/null | grep -vE 'providers' | head -1 || true)
+          if [ -z "$dylib" ]; then echo "::error::libonnxruntime.dylib not found in $src"; exit 1; fi
+          cp "$dylib" src-tauri/libs/libonnxruntime.dylib
+          echo "Staged $(basename "$dylib") -> src-tauri/libs/libonnxruntime.dylib"
+
+      # Build the frontend + .app + .dmg + updater .app.tar.gz(+.sig). APPLE_*
+      # are optional (unset => unsigned); TAURI_SIGNING_* always signs the
+      # updater tarball.
+      - name: Build macOS bundles
+        shell: bash
+        env:
+          VITE_LUMENBO_URL: https://app.lumenlive.xyz
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          # Empty optional Apple credentials must behave like unset variables.
+          for key in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!key}" ]; then unset "$key"; fi
+          done
+          bun run tauri build --bundles app,dmg --target aarch64-apple-darwin
+
+      - name: Validate production API URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -rqs 'http://localhost:3016' build; then
+            echo "::error::Production bundle contains http://localhost:3016"; exit 1
+          fi
+          if ! grep -rqs 'https://app.lumenlive.xyz' build; then
+            echo "::error::Production API URL was not found in the frontend bundle"; exit 1
+          fi
+          echo "Production API URL validation passed."
+
+      # Publish to the SAME R2 bucket as Windows, then merge the darwin-aarch64
+      # entry into the existing latest.json. Safety: we abort (without
+      # re-uploading) unless the manifest we fetched is THIS release's version
+      # and still carries windows-x86_64 — so a mac hiccup can never regress
+      # Windows auto-update. Skipped on a publish=off dispatch (build-only).
+      - name: Publish macOS to R2 + merge latest.json
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        shell: bash
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          bdir="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          dmg=$(ls "$bdir"/dmg/*.dmg 2>/dev/null | head -1 || true)
+          tgz=$(ls "$bdir"/macos/*.app.tar.gz 2>/dev/null | head -1 || true)
+          sig=$(ls "$bdir"/macos/*.app.tar.gz.sig 2>/dev/null | head -1 || true)
+          [ -f "$dmg" ] || { echo "::error::no .dmg produced"; exit 1; }
+          [ -f "$tgz" ] || { echo "::error::no .app.tar.gz produced"; exit 1; }
+          [ -f "$sig" ] || { echo "::error::no .app.tar.gz.sig produced (TAURI_SIGNING_* set?)"; exit 1; }
+          dmgname=$(basename "$dmg")
+          tgzname=$(basename "$tgz")
+
+          dst="r2:${R2_BUCKET}/v${version}"
+          rclone copyto "$dmg" "${dst}/${dmgname}" --header-upload "Cache-Control: public, max-age=31536000, immutable"
+          rclone copyto "$tgz" "${dst}/${tgzname}" --header-upload "Cache-Control: public, max-age=31536000, immutable"
+          rclone copyto "$sig" "${dst}/${tgzname}.sig" --header-upload "Cache-Control: public, max-age=31536000, immutable"
+
+          # Stable mac download for the website + checksum (short TTL).
+          sha=$(shasum -a 256 "$dmg" | grep -oiE '[0-9a-f]{64}' | head -1)
+          printf '%s  LumenLive-aarch64.dmg\n' "$sha" > LumenLive-aarch64.dmg.sha256
+          rclone copyto "$dmg" "r2:${R2_BUCKET}/download/LumenLive-aarch64.dmg" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+          rclone copyto LumenLive-aarch64.dmg.sha256 "r2:${R2_BUCKET}/download/LumenLive-aarch64.dmg.sha256" --header-upload "Cache-Control: public, max-age=300, must-revalidate"
+
+          # Merge darwin-aarch64 into the Windows-authored latest.json.
+          rclone copyto "r2:${R2_BUCKET}/latest.json" latest.json
+          SIGVAL="$(cat "$sig")" URL="${DL_BASE}/v${version}/${tgzname}" VERSION="$version" node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("latest.json", "utf8"));
+            if (m.version !== process.env.VERSION) {
+              console.error(`::error::latest.json version (${m.version}) != this build (${process.env.VERSION}); refusing to merge a stale manifest`);
+              process.exit(1);
+            }
+            m.platforms = m.platforms || {};
+            if (!m.platforms["windows-x86_64"] || !m.platforms["windows-x86_64"].url) {
+              console.error("::error::latest.json is missing windows-x86_64; refusing to overwrite");
+              process.exit(1);
+            }
+            m.platforms["darwin-aarch64"] = { signature: process.env.SIGVAL, url: process.env.URL };
+            fs.writeFileSync("latest.json", JSON.stringify(m, null, 2));
+          '
+          rclone copyto latest.json "r2:${R2_BUCKET}/latest.json" --header-upload "Cache-Control: no-cache, no-store, must-revalidate"
+
+          echo "Published macOS v${version}"
+          echo "  versioned: ${DL_BASE}/v${version}/${dmgname}"
+          echo "  latest:    ${DL_BASE}/download/LumenLive-aarch64.dmg  (sha256 $sha)"
+          echo "  updater:   ${DL_BASE}/v${version}/${tgzname}"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundle
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+          if-no-files-found: error
