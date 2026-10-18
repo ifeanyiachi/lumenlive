@@ -390,24 +390,8 @@ jobs:
       - name: Normalize and verify bundled Bible names
         run: bun run data/ensure-revelation-name.ts --fix
 
-      # ort (download-binaries) links ONNX Runtime dynamically and drops
-      # libonnxruntime*.dylib into target/. Produce it with a plain cargo build,
-      # then stage it where tauri.macos.conf.json's bundle.macOS.frameworks
-      # expects it, so Tauri copies it into Contents/Frameworks and rewrites the
-      # install name / rpath. Must happen BEFORE `tauri build`'s bundling phase.
-      - name: Build Rust (produce ONNX Runtime dylib)
-        run: cargo build --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml -p lumenlive-detection --features onnx,vector-search
-
-      - name: Stage ONNX Runtime dylib for bundling
-        shell: bash
-        run: |
-          set -euo pipefail
-          src="src-tauri/target/aarch64-apple-darwin/release"
-          dylib=$(ls "$src"/libonnxruntime*.dylib 2>/dev/null | grep -vE 'providers' | head -1 || true)
-          if [ -z "$dylib" ]; then echo "::error::libonnxruntime.dylib not found in $src"; exit 1; fi
-          cp "$dylib" src-tauri/libs/libonnxruntime.dylib
-          echo "Staged $(basename "$dylib") -> src-tauri/libs/libonnxruntime.dylib"
-
+      # ort-sys rc.12 links its downloaded macOS runtime statically, so no
+      # separate libonnxruntime.dylib needs staging or bundling.
       # Build the frontend + .app + .dmg + updater .app.tar.gz(+.sig). APPLE_*
       # are optional (unset => unsigned); TAURI_SIGNING_* always signs the
       # updater tarball.

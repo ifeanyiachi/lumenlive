@@ -9,7 +9,6 @@
       "../sdk/ndi/macos/libndi.dylib": "sdk/ndi/macos/libndi.dylib"
     },
     "macOS": {
-      "frameworks": ["libs/libonnxruntime.dylib"],
       "minimumSystemVersion": "11.0"
     }
   }
