@@ -1,0 +1,477 @@
+{
+  "display": {
+    "detectionBehavior": "Comportamento da detecção",
+    "directVerseDestination": {
+      "title": "Destino do versículo detectado",
+      "description": "Escolha o que acontece automaticamente quando uma referência bíblica clara como «João 3:16» é detectada.",
+      "options": {
+        "live": {
+          "title": "Saída ao vivo",
+          "description": "Enviar diretamente ao público."
+        },
+        "preview": {
+          "title": "Prévia do programa",
+          "description": "Preparar para sua revisão e exibição."
+        },
+        "detection": {
+          "title": "Somente painel de detecções",
+          "description": "Manter em Detecções, sem preparar, enviar ou adicionar automaticamente à fila."
+        }
+      }
+    },
+    "voiceNavigationGoesLive": {
+      "title": "Navegação por voz entra ao vivo",
+      "description": "Quando você disser «próximo versículo» ou «voltar um versículo», envie o versículo de destino diretamente ao público. Quando desativado (padrão), ele é preparado na prévia do programa para você exibir."
+    },
+    "scheduleVoiceNavigationGoesLive": {
+      "title": "Navegação por voz da programação entra ao vivo",
+      "description": "Quando você disser «próximo slide» ou «voltar ao slide anterior», avance o item ativo da programação (e seus subslides) e envie-o diretamente ao público. Quando desativado, o novo slide é preparado na prévia do programa para você exibir. É separado da navegação entre versículos."
+    },
+    "confidenceThreshold": {
+      "label": "Limite de confiança",
+      "description": "Confiança mínima para que uma correspondência semântica apareça no painel Detecções por IA. Referências diretas como «João 3:16» sempre aparecem. Valores maiores ocultam sugestões menos confiáveis. Correspondências semânticas são apenas sugestões: elas nunca são exibidas automaticamente ao público nem adicionadas à fila."
+    },
+    "cooldown": {
+      "label": "Intervalo mínimo",
+      "description": "Tempo mínimo entre detecções exibidas automaticamente. Evita oscilações rápidas quando vários versículos são detectados em rápida sucessão."
+    }
+  },
+  "audio": {
+    "modeLabel": "Modo de transcrição",
+    "modeDescription": "Escolha se o LumenLive transcreve online ou neste dispositivo.",
+    "modes": {
+      "online": "Online",
+      "on-device": "Neste dispositivo"
+    },
+    "onDeviceModelsLabel": "Opções de transcrição neste dispositivo",
+    "onDeviceModels": {
+      "selected": "Selecionado",
+      "active": "Ativo",
+      "setActive": "Definir como ativo",
+      "download": "Baixar",
+      "remove": "Remover",
+      "english": {
+        "title": "LumenLive neste dispositivo (inglês)",
+        "description": "Funciona melhor com uma entrada de áudio direta. Baixa cerca de 464 MB de dados."
+      }
+    },
+    "detectionDescription": "Escolha como os versículos detectados e a navegação por voz são tratados durante o culto.",
+    "inputDevice": "Dispositivo de entrada",
+    "loadingDevices": "Carregando dispositivos…",
+    "systemDefault": "Padrão do sistema",
+    "defaultDeviceSuffix": " (padrão)",
+    "deviceDescription": "O dispositivo selecionado é mantido entre sessões. Deixe como padrão do sistema para seguir o roteamento de áudio do sistema operacional.",
+    "inputGain": {
+      "label": "Ganho de entrada",
+      "description": "Amplifica o sinal de áudio recebido antes da transcrição. 50% corresponde ao ganho unitário."
+    }
+  },
+  "bible": {
+    "primaryTranslation": "Tradução principal",
+    "loading": "Carregando…",
+    "selectTranslation": "Selecionar tradução",
+    "english": "Inglês",
+    "otherLanguages": "Outros idiomas",
+    "detectedVerses": "Os versículos detectados serão exibidos nesta tradução.",
+    "translationsAvailable_one": "{{count}} tradução disponível.",
+    "translationsAvailable_other": "{{count}} traduções disponíveis.",
+    "originalLanguages": "Idiomas originais",
+    "translations": {
+      "title": "Traduções da Bíblia",
+      "description": "Instale e gerencie traduções da loja de recursos, agrupadas por idioma original.",
+      "groupedBy": "Idioma original",
+      "import": "Importar",
+      "importTitle": "Importe um arquivo de tradução bíblica que você tenha licença para usar",
+      "dismiss": "Dispensar",
+      "loading": "Carregando traduções…",
+      "empty": "Nenhuma tradução da Bíblia encontrada",
+      "emptyDescription": "Instale uma tradução ou importe um arquivo bíblico para adicionar uma aqui.",
+      "noResults": "Nenhuma tradução corresponde à sua pesquisa",
+      "noResultsDescription": "Tente outro título, abreviação ou idioma.",
+      "searchPlaceholder": "Pesquisar traduções da Bíblia…",
+      "count_one": "{{count}} tradução",
+      "count_other": "{{count}} traduções"
+    },
+    "lexicon": {
+      "title": "Léxico grego e hebraico",
+      "description": "Incluído com a KJV, mas desativado por padrão. Quando ativado, cada versículo ganha um seletor interlinear (He / Gr) para o texto original palavra por palavra com definições Strong, e permite enviar um estudo de palavra para a prévia do programa. Quando desativado, permanece oculto em todos os lugares."
+    }
+  },
+  "schedule": {
+    "building": "Montando a programação",
+    "preventDuplicates": {
+      "title": "Evitar itens duplicados",
+      "description": "Quando algo que já está na programação é adicionado novamente — o mesmo versículo, apresentação, arquivo de mídia ou vídeo — mantenha o original e destaque-o na lista em vez de adicionar uma segunda cópia. Os cabeçalhos de seção nunca são afetados, portanto separadores repetidos continuam funcionando."
+    },
+    "guidance": {
+      "title": "Qual configuração combina com o seu culto?",
+      "leaveOn": "Mantenha ativado",
+      "leaveOnDescription": "se a programação for montada antecipadamente por várias pessoas, ou se versículos forem incluídos nela a partir da detecção por IA e da pesquisa durante o culto. Dois operadores arrastando João 3:16 de painéis diferentes terão um único item, e o destaque mostrará onde ele já está.",
+      "turnOff": "Desative",
+      "turnOffDescription": "se a ordem do culto repetir conteúdo intencionalmente — um versículo de chamada à adoração lido novamente na bênção, um vídeo de abertura antes e depois do sermão, ou um slide de música repetido no final. Desativado, cada adição cria seu próprio item, que você pode reordenar e preparar de forma independente."
+    }
+  },
+  "privacy": {
+    "anonymousUsageData": "Dados de uso anônimos",
+    "shareUsage": {
+      "title": "Compartilhar dados de uso anônimos",
+      "description": "Ajude a melhorar o LumenLive enviando dados de uso anônimos e agregados — quais recursos são usados e com que frequência o aplicativo executa um culto. Isso nunca inclui texto bíblico, letras de música, mídias, nomes de igrejas ou cultos, nem qualquer informação que identifique você. Você pode desativar isso a qualquer momento."
+    },
+    "collection": {
+      "title": "O que é e o que não é coletado",
+      "collected": "Coletado:",
+      "collectedDescription": "contagens de eventos como o início do aplicativo, o começo de um culto, a entrada ao vivo e quais recursos são usados — além da versão do aplicativo e do sistema operacional. Isso nos ajuda a ver quais partes do LumenLive são importantes para as igrejas e onde concentrar nossos esforços.",
+      "neverCollected": "Nunca coletado:",
+      "neverCollectedDescription": "sua identidade, sua igreja, o conteúdo de versículos ou músicas, caminhos de arquivos, capturas de tela ou qualquer coisa que você digite. Não há conta nem rastreamento entre outros aplicativos."
+    }
+  },
+  "help": {
+    "description": "Recursos para ajudar você a aproveitar ao máximo o LumenLive.",
+    "tutorial": {
+      "title": "Tutorial interativo",
+      "description": "Guia passo a passo de cada recurso",
+      "restart": "Reiniciar"
+    }
+  },
+  "feedback": {
+    "description": "Envie um relatório de problema ou uma solicitação de recurso diretamente à equipe do LumenLive.",
+    "bug": {
+      "title": "Relatar um problema",
+      "description": "Algo não está funcionando como esperado? Conte-nos o que aconteceu."
+    },
+    "feature": {
+      "title": "Sugerir um recurso",
+      "description": "Compartilhe uma ideia que tornaria seus cultos mais fáceis."
+    },
+    "tabs": {
+      "bug": "Problemas",
+      "feature": "Solicitações de recursos"
+    },
+    "signIn": {
+      "title": "Entre para enviar feedback",
+      "description": "Entre para que possamos anexar os dados da sua conta e da sua igreja ao envio.",
+      "action": "Entrar"
+    },
+    "loading": "Carregando feedback…",
+    "form": {
+      "titleLabel": "Título",
+      "bugTitlePlaceholder": "O que deu errado?",
+      "featureTitlePlaceholder": "O que você gostaria que o LumenLive fizesse?",
+      "whatHappenedLabel": "O que aconteceu?",
+      "whatHappenedPlaceholder": "Descreva o problema e o que você estava fazendo quando ele ocorreu.",
+      "requestLabel": "O que você gostaria de ver?",
+      "requestPlaceholder": "Descreva o recurso ou melhoria que você tem em mente.",
+      "stepsLabel": "Passos para reproduzir",
+      "stepsPlaceholder": "1. Abra... 2. Clique... 3. Observe...",
+      "expectedLabel": "Comportamento esperado",
+      "expectedPlaceholder": "O que você esperava que acontecesse?",
+      "impactLabel": "Por que isso ajudaria?",
+      "impactPlaceholder": "Quem seria ajudado e como isso melhoraria seu fluxo de trabalho?"
+    },
+    "send": "Enviar feedback",
+    "sending": "Enviando…",
+    "sent": "Enviado",
+    "sentDescription": "Obrigado — seu feedback foi enviado à equipe do LumenLive.",
+    "failedDescription": "Não foi possível enviar seu feedback. Verifique sua conexão e tente novamente."
+  },
+  "mediaLibrary": {
+    "whenImporting": "Ao importar mídias",
+    "reference": {
+      "title": "Referenciar originais",
+      "description": "Mantém apenas um link para cada arquivo onde ele já está. Não usa espaço adicional em disco, mas um clipe deixa de funcionar se você mover, renomear ou excluir o original — e a biblioteca não pode ser movida sozinha para outro computador."
+    },
+    "copy": {
+      "title": "Copiar para a biblioteca do aplicativo",
+      "description": "Copia cada arquivo importado para uma pasta gerenciada pelo LumenLive, para que a biblioteca continue funcionando mesmo se você mover ou excluir os originais. Usa mais espaço em disco. Remover um item copiado da biblioteca exclui sua cópia."
+    },
+    "appliesFromNow": "Isso se aplica aos arquivos importados a partir de agora. As mídias que já estão na sua biblioteca permanecem exatamente como estão.",
+    "folder": "Pasta da biblioteca",
+    "open": "Abrir",
+    "folderDescription": "Onde os arquivos copiados são armazenados. Usado apenas quando «Copiar para a biblioteca do aplicativo» está selecionado."
+  },
+  "account": {
+    "signIn": {
+      "title": "Entrar no LumenLive",
+      "description": "Todos os recursos são gratuitos. Entre apenas para usar a transcrição.",
+      "action": "Entrar"
+    },
+    "browser": {
+      "description": "Continue no navegador para entrar com segurança e ativar este dispositivo.",
+      "action": "Entrar pelo navegador",
+      "pending": "O login no navegador está aberto. Conclua-o e volte aqui.",
+      "pendingAction": "Aguardando o navegador",
+      "cancel": "Cancelar login",
+      "cancelled": "O login no navegador foi cancelado.",
+      "timedOut": "A janela de login expirou. Tente novamente.",
+      "offline": "O LumenLive não conseguiu acessar o servidor. Verifique sua conexão e tente novamente."
+    },
+    "email": "E-mail",
+    "password": "Senha",
+    "signingIn": "Entrando…",
+    "newToLumenLive": "Novo no LumenLive?",
+    "registerChurch": "Registrar uma igreja",
+    "unknownDevice": "Dispositivo desconhecido",
+    "activation": {
+      "required": "Conclua a configuração da conta para usar a transcrição. Todos os outros recursos estão disponíveis.",
+      "activating": "A ativação do dispositivo ainda está em andamento.",
+      "failed": "Não foi possível ativar este dispositivo.",
+      "deviceLimit": "Esta conta atingiu o limite de dispositivos. Desative outro dispositivo e tente novamente.",
+      "noSeat": "Esta conta não tem mais uma vaga para desktop na equipe selecionada.",
+      "sessionExpired": "Sua sessão expirou. Entre novamente para ativar este dispositivo.",
+      "offline": "Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.",
+      "retry": "Tentar ativar novamente",
+      "retrying": "Ativando…",
+      "signInAgain": "Entrar novamente"
+    },
+    "reason": {
+      "trial_ended": "Sua avaliação gratuita terminou. Assine um plano para restaurar o acesso completo.",
+      "expired": "Não conseguimos confirmar seu plano recentemente. Conecte-se à Internet e valide-o novamente abaixo.",
+      "machine_mismatch": "Este plano está ativo em outro dispositivo. Entre aqui para movê-lo para este dispositivo.",
+      "signature": "Seu plano precisa de uma rápida atualização neste dispositivo. Valide-o novamente abaixo para atualizá-lo.",
+      "malformed": "A licença salva do dispositivo não pode ser lida. Valide-a novamente para obter uma nova.",
+      "issuer": "A licença salva veio de um emissor não confiável. Valide-a novamente para obter uma nova.",
+      "audience": "A licença salva não é desta aplicação. Valide-a novamente para obter uma nova."
+    },
+    "refreshFailed": "Não foi possível atualizar seu plano agora: {{message}}",
+    "revalidatedNow": "Tudo certo — seu plano agora é {{plan}}.",
+    "revalidatedStill": "Verificado com o servidor — você continua em {{plan}}, tudo bem.",
+    "thisDevice": "Este dispositivo",
+    "loadingDevice": "…",
+    "unlimitedDevices": "Sem limite de dispositivos.",
+    "deviceLimit_one": "Seu plano cobre até {{count}} dispositivo.",
+    "deviceLimit_other": "Seu plano cobre até {{count}} dispositivos.",
+    "revalidating": "Validando novamente…",
+    "revalidated": "Validado novamente",
+    "revalidateNow": "Validar novamente agora",
+    "signOut": "Sair",
+    "accessPeriod": "Período de acesso",
+    "accessEnded": "Acesso encerrado",
+    "transcriptionUsage": "Transcrição este mês",
+    "transcriptionUsageProgress": "{{used}} min de {{allowance}} min usados",
+    "transcriptionUsageRemaining": "{{minutes}} min restantes",
+    "transcriptionUsageUnlimited": "Ilimitada",
+    "transcriptionUsageTeamKey": "Sua chave de provedor",
+    "transcriptionUsageTeamKeyDescription": "O uso é gerenciado pelo seu provedor de transcrição.",
+    "transcriptionUsageUsed": "{{minutes}} min usados",
+    "days_one": "{{count}} dia",
+    "days_other": "{{count}} dias",
+    "hours_one": "{{count}} hora",
+    "hours_other": "{{count}} horas",
+    "accessRemaining": "Restam {{days}} {{hours}}",
+    "team": {
+      "label": "Conta",
+      "choose": "Escolha uma conta",
+      "chooseTitle": "Escolha sua conta",
+      "chooseDescription": "Escolha quais chaves de transcrição da conta usar neste dispositivo.",
+      "personalBadge": "Pessoal",
+      "teamBadge": "Equipe",
+      "activating": "Ativando…",
+      "continue": "Continuar"
+    },
+    "manageTranscriptionKeys": "Gerenciar chaves de transcrição"
+  },
+  "songs": {
+    "apiKeyLabel": "Chave de API do Genius",
+    "apiKeyPlaceholder": "Insira sua chave de API do Genius…",
+    "instructionsTitle": "Como obter uma chave de API do Genius",
+    "helpText": "Ativa resultados do Genius (incluindo correspondências de linhas de letras) na pesquisa de letras on-line. Armazenada localmente neste dispositivo. Outras fontes funcionam sem chave.",
+    "disclaimer": "Aviso: ao ativar esta integração, você concorda em usar sua própria chave de desenvolvedor Genius pessoal e não comercial. Este software é uma ferramenta neutra e não é afiliado, endossado ou licenciado pelo Genius. Você é inteiramente responsável por cumprir os Termos de Serviço da API do Genius, e qualquer exploração comercial ou uso indevido dos dados ocorre estritamente por sua conta e risco.",
+    "instructions": {
+      "signInAt": "Entre em",
+      "freeAccount": "(uma conta Genius gratuita).",
+      "click": "Clique em",
+      "newApiClient": "New API Client",
+      "createClient": ", preencha qualquer nome e URL de aplicativo e então crie-o.",
+      "onClient": "No cliente, clique em",
+      "generateToken": "Generate Access Token",
+      "copyToken": ", copie o token, cole-o acima e pressione",
+      "finish": "."
+    }
+  },
+  "remote": {
+    "featureName": "Controle remoto",
+    "listening": "Escutando",
+    "stopped": "Parado",
+    "osc": "OSC (Open Sound Control)",
+    "port": "Porta",
+    "start": "Iniciar",
+    "stop": "Parar",
+    "oscListening": "Escutando na porta UDP {{port}}",
+    "oscDescription": "Recebe comandos de controladores de hardware (Stream Deck, TouchOSC, Companion) via OSC sobre UDP. O OSC não possui código de acesso (o protocolo não tem autenticação) — ative-o apenas em redes confiáveis.",
+    "httpApi": "API HTTP",
+    "httpServing": "Disponível em http://localhost:{{port}}/api/v1/",
+    "accessCode": "Código de acesso (obrigatório)",
+    "accessCodeIntro": "Insira isto no seu dispositivo remoto — envie-o como um cabeçalho",
+    "accessCodeMiddle": "ou",
+    "accessCodeOutro": ". Sem ele, as solicitações de controle são rejeitadas. O código muda a cada reinicialização do servidor.",
+    "httpDescription": "API REST para consultas de status e comandos de controle. Use com painéis personalizados, scripts de automação ou controladores compatíveis com HTTP. As solicitações são protegidas pelo código de acesso acima.",
+    "firewall": {
+      "title": "Observação sobre o firewall",
+      "description": "Seu sistema operacional pode bloquear conexões de entrada. No macOS, permita o LumenLive em Ajustes do Sistema → Rede → Firewall. No Windows, permita-o em Segurança do Windows → Firewall → Permitir um aplicativo."
+    },
+    "commandLog": "Registro de comandos",
+    "clear": "Limpar",
+    "noCommands": "Nenhum comando recebido ainda"
+  },
+  "backup": {
+    "heading": "Backup e restauração",
+    "moveTitle": "Mova seu conteúdo para um novo PC",
+    "moveDescription": "Salve seu conteúdo — temas personalizados, layouts de palco, apresentações, músicas, programações, temporizadores, alertas e a biblioteca de mídia (incluindo imagens e vídeos) — em um único arquivo de backup e depois restaure-o em outro computador. Escolha tudo ou apenas os tipos de que precisa. A restauração aceita qualquer backup e mescla o que ele contém.",
+    "allContent": "Todo o conteúdo",
+    "saving": "Salvando…",
+    "export": "Exportar backup",
+    "restoring": "Restaurando…",
+    "restore": "Restaurar backup",
+    "travelTitle": "O que é transferido — e o que não é",
+    "included": "Incluído:",
+    "includedDescription": "todo o seu conteúdo personalizado e os arquivos de mídia que ele usa, para que planos de fundo e vídeos continuem funcionando no novo computador.",
+    "notIncluded": "Não incluído:",
+    "notIncludedDescription": "as configurações do aplicativo e as chaves de API (insira-as novamente no novo PC), e as traduções da Bíblia (baixe-as novamente nas configurações da Bíblia). A restauração adiciona e atualiza sua biblioteca atual; ela nunca exclui o que já existe.",
+    "confirmTitle": "Restaurar de um backup?",
+    "confirmDescription": "Isso mescla o conteúdo do backup à sua biblioteca e atualiza os itens que compartilham um id. Seu conteúdo existente é mantido. Continuar?",
+    "chooseFile": "Escolher arquivo…",
+    "kinds": {
+      "themes": "Temas",
+      "stageLayouts": "Layouts de palco",
+      "presentations": "Apresentações",
+      "songs": "Músicas",
+      "schedules": "Programações",
+      "mediaAssets": "Biblioteca de mídia",
+      "countdownTimers": "Temporizadores",
+      "alertTemplates": "Alertas"
+    },
+    "summary": {
+      "themes_one": "{{count}} tema",
+      "themes_other": "{{count}} temas",
+      "stageLayouts_one": "{{count}} layout de palco",
+      "stageLayouts_other": "{{count}} layouts de palco",
+      "presentations_one": "{{count}} apresentação",
+      "presentations_other": "{{count}} apresentações",
+      "songs_one": "{{count}} música",
+      "songs_other": "{{count}} músicas",
+      "schedules_one": "{{count}} programação",
+      "schedules_other": "{{count}} programações",
+      "mediaAssets_one": "{{count}} arquivo de mídia",
+      "mediaAssets_other": "{{count}} arquivos de mídia",
+      "countdownTimers_one": "{{count}} temporizador",
+      "countdownTimers_other": "{{count}} temporizadores",
+      "alertTemplates_one": "{{count}} alerta",
+      "alertTemplates_other": "{{count}} alertas",
+      "webBookmarks_one": "{{count}} favorito",
+      "webBookmarks_other": "{{count}} favoritos"
+    },
+    "savedWithMissingMedia_one": "Backup salvo ({{summary}}) · {{count}} arquivo de mídia estava ausente e não pôde ser incluído",
+    "savedWithMissingMedia_other": "Backup salvo ({{summary}}) · {{count}} arquivos de mídia estavam ausentes e não puderam ser incluídos",
+    "saved": "Backup salvo",
+    "savedWithSummary": "Backup salvo · {{summary}}",
+    "restored": "Backup restaurado",
+    "restoredWithSummary": "Backup restaurado · {{summary}}",
+    "createFailed": "Não foi possível criar esse backup.",
+    "restoreFailed": "Não foi possível restaurar esse backup.",
+    "transcripts": {
+      "heading": "Transcrições",
+      "description": "Exporte a transcrição completa de um culto — cada frase falada e cada detecção de versículo — gravada durante a transcrição. A gravação mais recente e as duas anteriores estão listadas abaixo.",
+      "empty": "Nenhuma transcrição gravada ainda.",
+      "latest": "Mais recente",
+      "export": "Exportar",
+      "exporting": "Exportando…",
+      "exported": "Transcrição exportada",
+      "exportFailed": "Não foi possível exportar essa transcrição.",
+      "unknownTime": "Data desconhecida"
+    }
+  },
+  "language": {
+    "label": "Idioma da interface",
+    "description": "Escolha o idioma usado na interface do operador do LumenLive.",
+    "active": "Ativo",
+    "setActive": "Definir como ativo"
+  },
+  "sections": {
+    "account": {
+      "name": "Conta",
+      "title": "Conta e licença"
+    },
+    "audio": {
+      "name": "Transcrição",
+      "title": "Transcrição"
+    },
+    "bible": {
+      "name": "Traduções da Bíblia",
+      "title": "Traduções da Bíblia"
+    },
+    "display": {
+      "name": "Modo de exibição",
+      "title": "Modo de exibição"
+    },
+    "schedule": {
+      "name": "Programação",
+      "title": "Programação"
+    },
+    "media": {
+      "name": "Biblioteca de mídia",
+      "title": "Biblioteca de mídia"
+    },
+    "songs": {
+      "name": "Músicas",
+      "title": "Músicas"
+    },
+    "remote": {
+      "name": "Controle remoto",
+      "title": "Controle remoto"
+    },
+    "backup": {
+      "name": "Backup e restauração",
+      "title": "Backup e restauração"
+    },
+    "privacy": {
+      "name": "Privacidade",
+      "title": "Privacidade"
+    },
+    "help": {
+      "name": "Ajuda",
+      "title": "Ajuda"
+    },
+    "feedback": {
+      "name": "Enviar feedback",
+      "title": "Enviar feedback"
+    },
+    "language": {
+      "name": "Idioma",
+      "title": "Idioma"
+    },
+    "appearance": {
+      "name": "Aparência",
+      "title": "Aparência"
+    }
+  },
+  "dialog": {
+    "title": "Configurações",
+    "description": "Configure a transcrição, o comportamento da exibição e as definições da aplicação.",
+    "buttonLabel": "Configurações",
+    "buttonTitle": "Configurações (Ctrl ,)",
+    "backupFile": "Backup do LumenLive",
+    "allFiles": "Todos os arquivos",
+    "restoreBackup": "Restaurar backup"
+  },
+  "appearance": {
+    "description": "Adapte a interface do operador à sua tela. As alterações são imediatas e salvas neste dispositivo. Os slides projetados, as telas de palco e a transmissão mantêm seus próprios tamanhos.",
+    "size": "Tamanho da interface",
+    "sizeDescription": "Redimensione juntos o texto, os ícones, os botões, os emblemas e o restante da interface.",
+    "default": "Padrão",
+    "shortcuts": "Use Ctrl / Command com + ou − para redimensionar, e 0 para voltar a 100%. Esses atalhos também funcionam durante a digitação.",
+    "density": "Densidade da interface",
+    "densityDescription": "Ajuste a altura dos controles e os espaçamentos sem alterar o tamanho do texto.",
+    "densities": {
+      "compact": "Compacta",
+      "standard": "Padrão",
+      "comfortable": "Confortável"
+    },
+    "preview": "Prévia",
+    "previewBadge": "Emblema",
+    "previewText": "Confira o conforto do texto, dos emblemas e dos controles neste tamanho.",
+    "previewInput": "Campo de exemplo",
+    "previewButton": "Botão de exemplo",
+    "reset": "Restaurar aparência",
+    "applyFailed": "Não foi possível alterar o tamanho da interface. Tente novamente ou reinicie o LumenLive."
+  }
+}

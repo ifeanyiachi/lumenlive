@@ -1,0 +1,57 @@
+{
+  "command": {
+    "title": "Command Palette",
+    "description": "Search for a command to run..."
+  },
+  "actions": {
+    "close": "Close",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "tryAgain": "Try again"
+  },
+  "accessibility": {
+    "breadcrumb": "Breadcrumb",
+    "more": "More",
+    "chooseColor": "Choose color",
+    "microphoneLevel": "Microphone level",
+    "detectionConfidence": "Detection confidence {{value}}%",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "color": {
+    "hex": "Hex"
+  },
+  "colorPalette": {
+    "standardColors": "Standard Colors",
+    "recentColors": "Recent Colors",
+    "moreColors": "More Colors…",
+    "palette": "Palette",
+    "clear": "Clear",
+    "selectColor": "Select {{color}}"
+  },
+  "live": {
+    "active": "LIVE",
+    "inactive": "OFF AIR"
+  },
+  "verseCard": {
+    "empty": "Select a verse to preview"
+  },
+  "errorBoundary": {
+    "message": "Something went wrong{{location}}.",
+    "location": " in the {{label}}",
+    "unexpected": "An unexpected error occurred."
+  },
+  "sidebar": {
+    "title": "Sidebar",
+    "mobileDescription": "Displays the mobile sidebar."
+  },
+  "signInPrompt": {
+    "title": "Sign in to transcribe",
+    "description": "Connect your own provider key in the portal. Sign-in is required only for transcription.",
+    "signIn": "Sign in",
+    "notNow": "Not now"
+  },
+  "transcriptionBlocked": {
+    "openPortal": "Open account portal",
+    "notNow": "Not now"
+  }
+}

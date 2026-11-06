@@ -1,0 +1,121 @@
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  ChevronDownIcon,
+  LayersIcon,
+  ListPlusIcon,
+  PencilIcon,
+  PlayIcon,
+  XIcon,
+} from "lucide-react"
+import { useTranslation } from "react-i18next"
+
+/**
+ * The floating action bar shown when 2+ verses are multi-selected in the book
+ * search list:
+ * - **Add to Schedule** — the whole selection as one combined block item.
+ * - **Edit** — format the selected verses together.
+ * - **Add as Group** — a collection item that expands into a dropdown deck
+ *   (one slide per verse); its caret menu also offers **Add as separate items**
+ *   (one independent row per verse).
+ * - **Present** — send the block straight to the audience.
+ * - clear.
+ */
+export function MultiSelectBar({
+  count,
+  onAddToSchedule,
+  onEdit,
+  onAddAsGroup,
+  onAddSeparately,
+  onPresent,
+  onClear,
+}: {
+  count: number
+  onAddToSchedule: () => void
+  onEdit: () => void
+  onAddAsGroup: () => void
+  onAddSeparately: () => void
+  onPresent: () => void
+  onClear: () => void
+}) {
+  const { t } = useTranslation("panels")
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-t border-border bg-info/10 px-3 py-2">
+      <LayersIcon className="size-3.5 text-info-text" />
+      <span className="flex-1 text-xs font-medium text-info-text">
+        {t("search.versesSelected", { count })}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1.5 text-xs hover:bg-info/20 hover:text-info-text"
+        onClick={onAddToSchedule}
+      >
+        <ListPlusIcon className="size-3" />
+        {t("search.addToSchedule")}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1.5 text-xs hover:bg-info/20 hover:text-info-text"
+        onClick={onEdit}
+      >
+        <PencilIcon className="size-3" />
+        {t("search.edit")}
+      </Button>
+      {/* Split button: primary click adds the collection; the caret opens the
+          "separate items" alternative so both live in one compact control. */}
+      <div className="flex items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 rounded-r-none text-xs hover:bg-info/20 hover:text-info-text"
+          onClick={onAddAsGroup}
+        >
+          <LayersIcon className="size-3" />
+          {t("search.addAsGroup")}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("search.moreAddOptions")}
+              className="h-7 w-6 rounded-l-none border-l border-info/20 hover:bg-info/20 hover:text-info-text"
+            >
+              <ChevronDownIcon className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onAddSeparately}>
+              <ListPlusIcon className="size-3.5" />
+              {t("search.addAsSeparate")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <Button
+        size="sm"
+        className="h-7 gap-1.5 bg-info text-xs text-info-foreground hover:bg-info"
+        onClick={onPresent}
+      >
+        <PlayIcon className="size-3" />
+        {t("detections.present")}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={t("search.clearSelection")}
+        className="text-muted-foreground hover:text-foreground"
+        onClick={onClear}
+      >
+        <XIcon className="size-3" />
+      </Button>
+    </div>
+  )
+}

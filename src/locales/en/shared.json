@@ -1,0 +1,31 @@
+{
+  "anchor": {
+    "center": "Center",
+    "top-left": "Top left",
+    "top-center": "Top center",
+    "top-right": "Top right",
+    "bottom-left": "Bottom left",
+    "bottom-center": "Bottom center",
+    "bottom-right": "Bottom right"
+  },
+  "loadingFonts": "Loading fonts...",
+  "searchFonts": "Search fonts...",
+  "noFontsFound": "No fonts found",
+  "style": "Style",
+  "linear": "Linear",
+  "radial": "Radial",
+  "angle": "Angle",
+  "colorStops": "Color Stops",
+  "addStop": "Add stop",
+  "position": "Position %",
+  "removeStop": "Remove stop",
+  "textShadow": "Text Shadow",
+  "offsetX": "Offset X",
+  "offsetY": "Offset Y",
+  "blur": "Blur",
+  "shadowColor": "Shadow Color",
+  "opacity": "Opacity",
+  "textOutline": "Text Outline",
+  "width": "Width",
+  "outlineColor": "Outline Color"
+}

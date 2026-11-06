@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/source-serif-4";
+@import "@fontsource/geist-mono";
+
+/* LumenLive design system — a read-only copy synced from lumenweb
+   (design/tokens → src/design). The app is dark-only: <html class="dark">
+   selects the dark theme. Don't add raw colours, shadows or fonts here;
+   `bun run lint:design` enforces it. */
+@import "./design/tokens.css";
+@import "./design/tailwind-v4.css";
+@import "./design/tailwind-v4-shadcn.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Operator-only density. Broadcast entry points never set this attribute.
+   Standard uses the existing component defaults; typography stays unchanged. */
+html[data-interface-density="compact"] {
+  --ui-control-adjust: -0.25rem;
+  --ui-space-adjust: -0.125rem;
+  --ui-badge-adjust: -0.125rem;
+}
+
+html[data-interface-density="comfortable"] {
+  --ui-control-adjust: 0.5rem;
+  --ui-space-adjust: 0.25rem;
+  --ui-badge-adjust: 0.25rem;
+}
+
+@theme inline {
+    --font-heading: var(--font-family-sans);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+/* Tiptap / ProseMirror editor */
+.tiptap.ProseMirror {
+  outline: none;
+}
+.tiptap.ProseMirror p {
+  margin: 0;
+}
+.tiptap.ProseMirror mark {
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Smooth spotlight morph between tutorial steps */
+#react-joyride-portal .react-joyride__spotlight {
+  transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease;
+}

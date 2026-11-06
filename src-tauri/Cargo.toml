@@ -1,0 +1,135 @@
+[workspace]
+members = [
+    ".",
+    "crates/audio",
+    "crates/stt",
+    "crates/bible",
+    "crates/detection",
+    "crates/broadcast",
+    "crates/api",
+    "crates/lyrics",
+    "crates/licensing",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Allow common patterns that pedantic warns about
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Numeric conversions in the DSP / ML / stats / OSC-coercion paths are
+# intentionally lossy: sample counts and byte sizes cast to f32/f64 for
+# duration/percentage math (no lossless int->float exists), and bounded values
+# narrow to smaller ints at sites where the range is already known. Rust's
+# `as` float->int casts saturate, so these are safe by construction. Enabling
+# these would force `try_into().unwrap()` panics into hot audio/inference loops.
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_possible_truncation = "allow"
+
+# Release tuning. The real-time hot paths (RGBA->BGRA pixel conversion in the
+# broadcast crate, the cosine dot-product scan in detection, i16<->f32 audio
+# conversion in audio) each live in a different crate from their caller. With
+# the default `lto = false` / `codegen-units = 16` the optimizer cannot inline
+# or auto-vectorize across those crate boundaries. ThinLTO + a single codegen
+# unit unlock that; the cost is slower *release* builds only (dev is untouched).
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[package]
+name = "lumenlive"
+version = "0.7.2"
+description = "LumenLive - Full suite church presentation and real time AI bible verse detection"
+authors = ["Ifeanyi Achi"]
+license = "PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/ifeanyiachi/lumenlive"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "lumenlive_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "LumenLive"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+# Loads .env at build time so the Aptabase analytics key can be baked into the
+# binary (a packaged app has no .env at runtime). See build.rs.
+dotenvy = "0.15"
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+log.workspace = true
+tokio.workspace = true
+tauri = { version = "2.11", features = ["protocol-asset"] }
+tauri-plugin-log = "2.9"
+tauri-plugin-store = "2"
+lumenlive-audio = { path = "crates/audio" }
+lumenlive-bible = { path = "crates/bible" }
+lumenlive-stt = { path = "crates/stt" }
+lumenlive-broadcast = { path = "crates/broadcast" }
+lumenlive-detection = { path = "crates/detection", features = ["onnx", "vector-search"] }
+lumenlive-api = { path = "crates/api" }
+lumenlive-lyrics = { path = "crates/lyrics" }
+lumenlive-licensing = { path = "crates/licensing" }
+# Stable per-machine id for node-locked licenses (registry MachineGuid on
+# Windows, /etc/machine-id on Linux, IOPlatformUUID on macOS).
+machine-uid = "0.5"
+crossbeam-channel = "0.5"
+dotenvy = "0.15"
+base64 = "0.22"
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+# App self-update: relaunch after install lives in -process.
+tauri-plugin-process = "2"
+tauri-plugin-deep-link = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+url = "2"
+# Resource-store downloader: streamed HTTPS fetch (rustls, no OpenSSL),
+# SHA-256 verification, and zstd decompression of downloaded translation DBs.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+sha2 = "0.10"
+zstd = "0.13"
+# Self-contained schedule bundles: package a schedule + its media/songs/decks
+# into one zip (kept under the .lumsched extension). See commands/schedule_bundle.rs.
+zip = { version = "4", default-features = false, features = ["deflate"] }
+futures-util = "0.3"
+# Offline STT model-store archive extraction.
+bzip2 = "0.5"
+tar = "0.4"
+tauri-plugin-aptabase = "1.0.0"
+# UTC timestamps + filenames for per-session transcript recording
+# (commands/stt/transcript_log.rs). Already in the tree via tauri-plugin-log.
+time = "0.3"
+
+[lints]
+workspace = true
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Deep links arrive as a second process on Windows/Linux. The feature forwards
+# those arguments to the already-running process instead.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+tauri-plugin-global-shortcut = "2"
+# Desktop-only self-updater (checks latest.json, downloads + installs signed builds).
+tauri-plugin-updater = "2"
+# Keep the display + system awake while a broadcast output is live so a service
+# is never interrupted by the machine idling (SetThreadExecutionState on Windows,
+# IOKit on macOS, logind/xdg on Linux). See src/keep_awake.rs.
+keepawake = "0.6"

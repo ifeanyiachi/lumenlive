@@ -1,0 +1,71 @@
+{
+  "controls": {
+    "step": "Paso {{number}}",
+    "skip": "Omitir",
+    "back": "Atrás",
+    "done": "Listo",
+    "next": "Siguiente"
+  },
+  "toast": {
+    "skipped": "Tutorial omitido",
+    "restart": "Reinícielo en cualquier momento desde Configuración."
+  },
+  "steps": {
+    "schedule": {
+      "title": "Programa",
+      "content": "Cree aquí el orden de su servicio. Añada versículos, medios, diapositivas y elementos de YouTube; después, reordénelos según su flujo."
+    },
+    "transcript": {
+      "title": "Transcripción en vivo",
+      "content": "Inicie la transcripción para convertir la voz en texto en tiempo real. Los versículos bíblicos detectados se resaltan automáticamente."
+    },
+    "detections": {
+      "title": "Detecciones de IA",
+      "content": "Los versículos detectados aparecen aquí. Pulse Presentar para mostrar un versículo en pantalla, o En cola para guardarlo para después."
+    },
+    "aiVerses": {
+      "title": "Versículos de IA",
+      "content": "Los versículos detectados con alta confianza llegan aquí automáticamente. Revise, reordene y preséntelos durante su servicio."
+    },
+    "quickTabs": {
+      "title": "Pestañas rápidas",
+      "content": "Cambie rápidamente entre elementos de Versículo, Medio y Diapositiva para arrastrarlos con facilidad a su lista de programa."
+    },
+    "bookSearch": {
+      "title": "Búsqueda por libro",
+      "content": "Busque cualquier versículo por libro, capítulo y número. Cambie de traducción en la lista desplegable."
+    },
+    "contextSearch": {
+      "title": "Búsqueda contextual",
+      "content": "Busque por frase o tema. LumenLive usa IA para encontrar versículos coincidentes."
+    },
+    "quickNav": {
+      "title": "Navegación rápida",
+      "content": "Escriba para navegar al instante: «J» → «Josué» o «1 J» → «1 Juan», pulse Tab para avanzar y luego escriba capítulo y versículo."
+    },
+    "preview": {
+      "title": "Vista previa del programa",
+      "content": "Vea cómo se verán los elementos de su programa antes de emitir. Lo que ve aquí es lo que ve su audiencia."
+    },
+    "liveDisplay": {
+      "title": "Pantalla en vivo",
+      "content": "La salida en vivo. Los versículos presentados aparecen aquí y en pantallas conectadas o salidas NDI."
+    },
+    "views": {
+      "title": "Vistas",
+      "content": "Cambie entre las pestañas Diapositivas, Medios y YouTube para gestionar otros tipos de contenido junto a su servicio."
+    },
+    "broadcast": {
+      "title": "Emisión",
+      "content": "Configure la salida NDI, las ventanas de pantalla y la resolución para su producción."
+    },
+    "theme": {
+      "title": "Diseñador de temas",
+      "content": "Diseñe el aspecto de su emisión: fuentes, colores, fondos y diseños para los versículos en pantalla."
+    },
+    "settings": {
+      "title": "Configuración",
+      "content": "Configure la entrada de audio, las traducciones bíblicas, el modo de pantalla, el control remoto y las claves API."
+    }
+  }
+}

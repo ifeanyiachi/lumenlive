@@ -1,0 +1,31 @@
+{
+  "anchor": {
+    "center": "Centre",
+    "top-left": "En haut à gauche",
+    "top-center": "En haut au centre",
+    "top-right": "En haut à droite",
+    "bottom-left": "En bas à gauche",
+    "bottom-center": "En bas au centre",
+    "bottom-right": "En bas à droite"
+  },
+  "loadingFonts": "Chargement des polices...",
+  "searchFonts": "Rechercher des polices...",
+  "noFontsFound": "Aucune police trouvée",
+  "style": "Style",
+  "linear": "Linéaire",
+  "radial": "Radial",
+  "angle": "Angle",
+  "colorStops": "Points de couleur",
+  "addStop": "Ajouter un point",
+  "position": "Position %",
+  "removeStop": "Supprimer le point",
+  "textShadow": "Ombre du texte",
+  "offsetX": "Décalage X",
+  "offsetY": "Décalage Y",
+  "blur": "Flou",
+  "shadowColor": "Couleur de l’ombre",
+  "opacity": "Opacité",
+  "textOutline": "Contour du texte",
+  "width": "Largeur",
+  "outlineColor": "Couleur du contour"
+}

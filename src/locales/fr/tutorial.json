@@ -1,0 +1,71 @@
+{
+  "controls": {
+    "step": "Étape {{number}}",
+    "skip": "Passer",
+    "back": "Retour",
+    "done": "Terminé",
+    "next": "Suivant"
+  },
+  "toast": {
+    "skipped": "Tutoriel passé",
+    "restart": "Redémarrez à tout moment dans les paramètres."
+  },
+  "steps": {
+    "schedule": {
+      "title": "Programme",
+      "content": "Créez ici le déroulé de votre service. Ajoutez des versets, médias, diapositives et éléments YouTube, puis réorganisez-les selon votre déroulement."
+    },
+    "transcript": {
+      "title": "Transcription en direct",
+      "content": "Lancez la transcription pour convertir la parole en texte en temps réel. Les versets bibliques détectés sont automatiquement mis en évidence."
+    },
+    "detections": {
+      "title": "Détections IA",
+      "content": "Les versets détectés apparaissent ici. Appuyez sur Présenter pour afficher un verset à l'écran, ou sur File d'attente pour le garder pour plus tard."
+    },
+    "aiVerses": {
+      "title": "Versets IA",
+      "content": "Les versets détectés avec une forte confiance arrivent automatiquement ici. Vérifiez-les, réorganisez-les et présentez-les pendant votre service."
+    },
+    "quickTabs": {
+      "title": "Onglets rapides",
+      "content": "Basculez rapidement entre les éléments Verset, Média et Diapositive pour les glisser facilement dans votre programme."
+    },
+    "bookSearch": {
+      "title": "Recherche par livre",
+      "content": "Recherchez n'importe quel verset par livre, chapitre et numéro. Changez de traduction dans la liste déroulante."
+    },
+    "contextSearch": {
+      "title": "Recherche contextuelle",
+      "content": "Recherchez par phrase ou sujet. LumenLive utilise l'IA pour trouver les versets correspondants."
+    },
+    "quickNav": {
+      "title": "Navigation rapide",
+      "content": "Tapez pour naviguer instantanément : « J » → « Josué » ou « 1 J » → « 1 Jean », appuyez sur Tab pour avancer, puis saisissez le chapitre et le verset."
+    },
+    "preview": {
+      "title": "Aperçu du programme",
+      "content": "Prévisualisez l'apparence de vos éléments avant de diffuser. Ce que vous voyez ici est ce que voit votre assemblée."
+    },
+    "liveDisplay": {
+      "title": "Affichage en direct",
+      "content": "La sortie en direct. Les versets présentés apparaissent ici ainsi que sur les écrans connectés ou sorties NDI."
+    },
+    "views": {
+      "title": "Vues",
+      "content": "Basculez entre les onglets Diapositives, Médias et YouTube pour gérer d'autres contenus à côté de votre service."
+    },
+    "broadcast": {
+      "title": "Diffusion",
+      "content": "Configurez la sortie NDI, les fenêtres d'affichage et la résolution pour votre production."
+    },
+    "theme": {
+      "title": "Concepteur de thèmes",
+      "content": "Concevez l'apparence de votre diffusion : polices, couleurs, arrière-plans et mises en page des versets affichés."
+    },
+    "settings": {
+      "title": "Paramètres",
+      "content": "Configurez l'entrée audio, les traductions bibliques, le mode d'affichage, la télécommande et les clés API."
+    }
+  }
+}

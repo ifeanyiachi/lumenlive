@@ -1,0 +1,222 @@
+import { beforeEach, describe, expect, it } from "vitest"
+import { useDetectionStore } from "./detection-store"
+import type { DetectionResult } from "@/types"
+
+function det(
+  ref: string,
+  source: DetectionResult["source"],
+  confidence: number
+): DetectionResult {
+  return {
+    verse_ref: ref,
+    verse_text: `text ${ref}`,
+    book_name: "John",
+    book_number: 43,
+    chapter: 3,
+    verse: 16,
+    confidence,
+    source,
+    auto_queued: false,
+    transcript_snippet: ref,
+    is_chapter_only: false,
+  }
+}
+
+describe("detection store", () => {
+  beforeEach(() => {
+    useDetectionStore.setState({
+      detections: [],
+      directPreviews: [],
+      pendingDirectPreviews: null,
+      pending: [],
+      pendingCount: 0,
+      paused: false,
+    })
+  })
+
+  it("replaces a revised direct preview without retaining it in history", () => {
+    const store = useDetectionStore.getState()
+    store.setDirectPreviews([det("John 3:1", "direct", 1)])
+    store.setDirectPreviews([det("John 3:11", "direct", 1)])
+    expect(
+      useDetectionStore.getState().directPreviews.map((d) => d.verse_ref)
+    ).toEqual(["John 3:11"])
+    expect(useDetectionStore.getState().detections).toEqual([])
+
+    store.setDirectPreviews([])
+    store.addDetections([det("John 3:11", "direct", 1)])
+    expect(useDetectionStore.getState().directPreviews).toEqual([])
+    expect(
+      useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    ).toEqual(["John 3:11"])
+  })
+
+  it("keeps the visible preview stable while paused and resumes with the latest revision", () => {
+    const store = useDetectionStore.getState()
+    store.setDirectPreviews([det("John 3:1", "direct", 1)])
+    store.pause()
+    store.setDirectPreviews([det("John 3:11", "direct", 1)])
+    expect(useDetectionStore.getState().directPreviews[0].verse_ref).toBe(
+      "John 3:1"
+    )
+    expect(useDetectionStore.getState().pendingCount).toBe(1)
+    store.resume()
+    expect(useDetectionStore.getState().directPreviews[0].verse_ref).toBe(
+      "John 3:11"
+    )
+    expect(useDetectionStore.getState().pendingCount).toBe(0)
+  })
+
+  it("keeps the direct hit when a slower semantic pass reports the same verse", () => {
+    const add = useDetectionStore.getState().addDetections
+    // Fast direct worker emits first.
+    add([det("John 3:16", "direct", 0.95)])
+    // Slower semantic worker emits the same verse ~300-600ms later.
+    add([det("John 3:16", "semantic", 0.72)])
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections).toHaveLength(1)
+    expect(detections[0].source).toBe("direct")
+    expect(detections[0].confidence).toBe(0.95)
+  })
+
+  it("lets a direct hit upgrade an earlier semantic detection", () => {
+    const add = useDetectionStore.getState().addDetections
+    add([det("John 3:16", "semantic", 0.72)])
+    add([det("John 3:16", "direct", 0.95)])
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections).toHaveLength(1)
+    expect(detections[0].source).toBe("direct")
+  })
+
+  it("refreshes a semantic hit with a newer semantic re-detection", () => {
+    const add = useDetectionStore.getState().addDetections
+    add([det("John 3:16", "semantic", 0.6)])
+    add([det("John 3:16", "semantic", 0.8)])
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections).toHaveLength(1)
+    expect(detections[0].confidence).toBe(0.8)
+  })
+
+  it("re-ranks a re-detected verse to the top", () => {
+    const add = useDetectionStore.getState().addDetections
+    add([det("John 3:16", "direct", 0.95)])
+    add([det("Rom 5:8", "direct", 0.9)])
+    // Re-mentioning John 3:16 semantically moves it back to the top while
+    // preserving its direct source.
+    add([det("John 3:16", "semantic", 0.7)])
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections.map((d) => d.verse_ref)).toEqual(["John 3:16", "Rom 5:8"])
+    expect(detections[0].source).toBe("direct")
+  })
+
+  it("addDetection also protects a direct hit from semantic downgrade", () => {
+    const store = useDetectionStore.getState()
+    store.addDetection(det("John 3:16", "direct", 0.95))
+    store.addDetection(det("John 3:16", "semantic", 0.72))
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections).toHaveLength(1)
+    expect(detections[0].source).toBe("direct")
+  })
+
+  it("dedupes within a batch keeping the highest confidence", () => {
+    useDetectionStore
+      .getState()
+      .addDetections([
+        det("John 3:16", "semantic", 0.6),
+        det("John 3:16", "semantic", 0.9),
+      ])
+
+    const { detections } = useDetectionStore.getState()
+    expect(detections).toHaveLength(1)
+    expect(detections[0].confidence).toBe(0.9)
+  })
+
+  describe("pause / buffer", () => {
+    it("buffers new detections instead of mutating the visible list", () => {
+      const store = useDetectionStore.getState()
+      store.addDetections([det("John 3:16", "semantic", 0.8)])
+      store.pause()
+      store.addDetections([det("Rom 5:8", "semantic", 0.7)])
+
+      const s = useDetectionStore.getState()
+      // Visible list is untouched while paused.
+      expect(s.detections.map((d) => d.verse_ref)).toEqual(["John 3:16"])
+      expect(s.pendingCount).toBe(1)
+    })
+
+    it("counts distinct new verses, not re-detections of visible ones", () => {
+      const store = useDetectionStore.getState()
+      store.addDetections([det("John 3:16", "semantic", 0.8)])
+      store.pause()
+      // A re-detection of an already-visible verse reorders on flush but is
+      // not a "new verse" for the chip; a genuinely new verse is.
+      store.addDetections([
+        det("John 3:16", "semantic", 0.9),
+        det("Rom 5:8", "semantic", 0.7),
+      ])
+
+      expect(useDetectionStore.getState().pendingCount).toBe(1)
+    })
+
+    it("dedupes across multiple paused batches", () => {
+      const store = useDetectionStore.getState()
+      store.pause()
+      store.addDetections([det("Rom 5:8", "semantic", 0.6)])
+      store.addDetections([det("Rom 5:8", "semantic", 0.9)])
+
+      const s = useDetectionStore.getState()
+      expect(s.pending).toHaveLength(1)
+      expect(s.pending[0].confidence).toBe(0.9)
+      expect(s.pendingCount).toBe(1)
+    })
+
+    it("resume flushes the buffer on top and clears paused state", () => {
+      const store = useDetectionStore.getState()
+      store.addDetections([det("John 3:16", "direct", 0.95)])
+      store.pause()
+      store.addDetections([det("Rom 5:8", "semantic", 0.7)])
+      store.resume()
+
+      const s = useDetectionStore.getState()
+      expect(s.paused).toBe(false)
+      expect(s.pending).toHaveLength(0)
+      expect(s.pendingCount).toBe(0)
+      // Flushed batch lands on top, prior entries preserved.
+      expect(s.detections.map((d) => d.verse_ref)).toEqual([
+        "Rom 5:8",
+        "John 3:16",
+      ])
+    })
+
+    it("preserves direct-over-semantic when flushing a re-detection", () => {
+      const store = useDetectionStore.getState()
+      store.addDetections([det("John 3:16", "direct", 0.95)])
+      store.pause()
+      store.addDetections([det("John 3:16", "semantic", 0.72)])
+      store.resume()
+
+      const s = useDetectionStore.getState()
+      expect(s.detections).toHaveLength(1)
+      expect(s.detections[0].source).toBe("direct")
+      expect(s.detections[0].confidence).toBe(0.95)
+    })
+
+    it("clearDetections also drops the buffer and unpauses", () => {
+      const store = useDetectionStore.getState()
+      store.pause()
+      store.addDetections([det("Rom 5:8", "semantic", 0.7)])
+      store.clearDetections()
+
+      const s = useDetectionStore.getState()
+      expect(s.detections).toHaveLength(0)
+      expect(s.pending).toHaveLength(0)
+      expect(s.pendingCount).toBe(0)
+      expect(s.paused).toBe(false)
+    })
+  })
+})

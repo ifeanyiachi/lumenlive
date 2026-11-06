@@ -1,0 +1,255 @@
+import { PanelHeader } from "@/components/ui/panel-header"
+import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
+import { Slider } from "@/components/ui/slider"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { SettingsIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { usePresentationStore } from "@/stores/presentation-store"
+import { PositionSizeSection } from "@/components/slides/element-property-sections"
+import {
+  ElementAnimationProperties,
+  ShapeMaskProperties,
+} from "@/components/slides/element-animation-properties"
+import type { SlideShapeElement } from "@/types/slide"
+import { CONTENT_COLORS } from "@/lib/content-colors"
+
+function PropertyRow({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex-1">{children}</div>
+    </div>
+  )
+}
+
+export function SlideShapeProperties({
+  element,
+}: {
+  element: SlideShapeElement
+}) {
+  const { t } = useTranslation("slides")
+  const draft = usePresentationStore((s) => s.draftPresentation)
+  const activeSlideIndex = usePresentationStore((s) => s.activeSlideIndex)
+  const activeSlide = draft?.slides[activeSlideIndex]
+  const elements = activeSlide?.elements ?? []
+
+  const update = (updates: Partial<SlideShapeElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  const shadow = element.shadow ?? {
+    offsetX: 2,
+    offsetY: 2,
+    blur: 4,
+    color: CONTENT_COLORS.black50,
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <PanelHeader
+        title={t("shapeProperties.title")}
+        icon={<SettingsIcon className="size-3.5" />}
+      />
+
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-4 p-3">
+          {/* Fill */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("shapeProperties.fill")}
+            </span>
+            <PropertyRow label={t("properties.color")}>
+              <div className="flex items-center gap-2">
+                <ColorSwatch
+                  value={
+                    element.fillColor.startsWith("rgba")
+                      ? CONTENT_COLORS.white
+                      : element.fillColor
+                  }
+                  onChange={(fillColor) => update({ fillColor })}
+                  className="size-7"
+                />
+                <Input
+                  value={element.fillColor}
+                  onChange={(e) => update({ fillColor: e.target.value })}
+                  className="h-7 flex-1 text-xs"
+                />
+              </div>
+            </PropertyRow>
+            <PropertyRow label={t("videoProperties.opacity")}>
+              <Slider
+                value={[element.opacity]}
+                onValueChange={([v]) => update({ opacity: v })}
+                min={0}
+                max={1}
+                step={0.05}
+              />
+            </PropertyRow>
+          </div>
+
+          <Separator />
+
+          {/* Stroke */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("shapeProperties.stroke")}
+            </span>
+            <PropertyRow label={t("properties.color")}>
+              <div className="flex items-center gap-2">
+                <ColorSwatch
+                  value={element.strokeColor}
+                  onChange={(strokeColor) => update({ strokeColor })}
+                  className="size-7"
+                />
+                <Input
+                  value={element.strokeColor}
+                  onChange={(e) => update({ strokeColor: e.target.value })}
+                  className="h-7 flex-1 text-xs"
+                />
+              </div>
+            </PropertyRow>
+            <PropertyRow label={t("properties.width")}>
+              <Slider
+                value={[element.strokeWidth]}
+                onValueChange={([v]) => update({ strokeWidth: v })}
+                min={0}
+                max={20}
+                step={1}
+              />
+            </PropertyRow>
+          </div>
+
+          <Separator />
+
+          {/* Border Radius (only for rounded-rect) */}
+          {element.shapeType === "rounded-rect" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+                  {t("shapeProperties.cornerRadius")}
+                </span>
+                <PropertyRow label={t("videoProperties.radius")}>
+                  <Slider
+                    value={[element.borderRadius]}
+                    onValueChange={([v]) => update({ borderRadius: v })}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </PropertyRow>
+              </div>
+              <Separator />
+            </>
+          )}
+
+          {/* Shadow */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+                {t("properties.shadow")}
+              </span>
+              <Button
+                variant={element.shadow ? "default" : "outline"}
+                size="icon-sm"
+                className="size-5 text-[0.5625rem]"
+                aria-label={t("properties.shadow")}
+                aria-pressed={!!element.shadow}
+                onClick={() =>
+                  update({
+                    shadow: element.shadow
+                      ? undefined
+                      : {
+                          offsetX: 2,
+                          offsetY: 2,
+                          blur: 8,
+                          color: CONTENT_COLORS.black40,
+                        },
+                  })
+                }
+              >
+                {element.shadow ? t("properties.on") : t("properties.off")}
+              </Button>
+            </div>
+            {element.shadow && (
+              <>
+                <PropertyRow label={t("properties.offsetX")}>
+                  <Slider
+                    value={[shadow.offsetX]}
+                    onValueChange={([v]) =>
+                      update({ shadow: { ...shadow, offsetX: v } })
+                    }
+                    min={-20}
+                    max={20}
+                    step={1}
+                  />
+                </PropertyRow>
+                <PropertyRow label={t("properties.offsetY")}>
+                  <Slider
+                    value={[shadow.offsetY]}
+                    onValueChange={([v]) =>
+                      update({ shadow: { ...shadow, offsetY: v } })
+                    }
+                    min={-20}
+                    max={20}
+                    step={1}
+                  />
+                </PropertyRow>
+                <PropertyRow label={t("properties.blur")}>
+                  <Slider
+                    value={[shadow.blur]}
+                    onValueChange={([v]) =>
+                      update({ shadow: { ...shadow, blur: v } })
+                    }
+                    min={0}
+                    max={50}
+                    step={1}
+                  />
+                </PropertyRow>
+                <PropertyRow label={t("properties.color")}>
+                  <div className="flex items-center gap-2">
+                    <ColorSwatch
+                      value={
+                        shadow.color.startsWith("rgba")
+                          ? CONTENT_COLORS.black
+                          : shadow.color
+                      }
+                      onChange={(color) =>
+                        update({ shadow: { ...shadow, color } })
+                      }
+                      className="size-7"
+                    />
+                    <Input
+                      value={shadow.color}
+                      onChange={(e) =>
+                        update({ shadow: { ...shadow, color: e.target.value } })
+                      }
+                      className="h-7 flex-1 text-xs"
+                    />
+                  </div>
+                </PropertyRow>
+              </>
+            )}
+          </div>
+
+          <Separator />
+
+          <PositionSizeSection rect={element} onChange={update} />
+
+          <ShapeMaskProperties element={element} elements={elements} />
+          <ElementAnimationProperties element={element} />
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}

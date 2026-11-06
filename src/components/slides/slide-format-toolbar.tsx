@@ -1,0 +1,669 @@
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  BoldIcon,
+  ItalicIcon,
+  UnderlineIcon,
+  AlignLeftIcon,
+  AlignCenterIcon,
+  AlignRightIcon,
+  AlignVerticalJustifyStartIcon,
+  AlignVerticalJustifyCenterIcon,
+  AlignVerticalJustifyEndIcon,
+  ListIcon,
+  ListOrderedIcon,
+  RotateCwIcon,
+} from "lucide-react"
+import { usePresentationStore } from "@/stores/presentation-store"
+import { FontFamilyPicker } from "@/components/shared/font-family-picker"
+import { ColorSwatch } from "@/components/ui/color-swatch"
+import {
+  ToolbarDivider,
+  ToolbarToggle,
+  ToolbarAlignButton,
+} from "@/components/shared/toolbar-primitives"
+import type {
+  SlideElement,
+  SlideTextElement,
+  SlideScriptureElement,
+  SlideImageElement,
+  SlideShapeElement,
+  SlideVideoElement,
+} from "@/types/slide"
+import { Slider } from "@/components/ui/slider"
+import { useTranslation } from "react-i18next"
+import { CONTENT_COLORS } from "@/lib/content-colors"
+
+function parseColorOpacity(color: string): { hex: string; opacity: number } {
+  if (color.length === 9 && color.startsWith("#")) {
+    const alpha = parseInt(color.slice(7, 9), 16) / 255
+    return { hex: color.slice(0, 7), opacity: Math.round(alpha * 100) }
+  }
+  return { hex: color || CONTENT_COLORS.white, opacity: 100 }
+}
+
+function buildColorWithOpacity(hex: string, opacity: number): string {
+  if (opacity >= 100) return hex.slice(0, 7)
+  const alpha = Math.round((opacity / 100) * 255)
+  return hex.slice(0, 7) + alpha.toString(16).padStart(2, "0")
+}
+
+function TextToolbar({ element }: { element: SlideTextElement }) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideTextElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  const { hex: colorHex, opacity: colorOpacity } = parseColorOpacity(
+    element.color
+  )
+
+  return (
+    <>
+      {/* Font family */}
+      <div className="w-36">
+        <FontFamilyPicker
+          value={element.fontFamily}
+          onChange={(v) => update({ fontFamily: v })}
+        />
+      </div>
+
+      {/* Font size */}
+      <Input
+        type="number"
+        value={element.fontSize}
+        onChange={(e) => update({ fontSize: Number(e.target.value) })}
+        className="h-7 w-16 [appearance:textfield] text-xs [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        min={8}
+        max={200}
+      />
+
+      {/* Font weight */}
+      <Select
+        value={String(element.fontWeight)}
+        onValueChange={(v) => update({ fontWeight: Number(v) })}
+      >
+        <SelectTrigger className="h-7 w-24 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(
+            [
+              "thin",
+              "extraLight",
+              "light",
+              "regular",
+              "medium",
+              "semibold",
+              "bold",
+              "extraBold",
+              "black",
+            ] as const
+          ).map((weight, i) => (
+            <SelectItem key={weight} value={String((i + 1) * 100)}>
+              {t(`format.${weight}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Color + opacity */}
+      <ColorSwatch
+        value={colorHex}
+        onChange={(hex) =>
+          update({ color: buildColorWithOpacity(hex, colorOpacity) })
+        }
+        className="size-7"
+        title={t("format.textColor")}
+      />
+      <div className="w-16" title={t("format.colorOpacity")}>
+        <Slider
+          value={[colorOpacity]}
+          onValueChange={([v]) =>
+            update({ color: buildColorWithOpacity(colorHex, v) })
+          }
+          min={0}
+          max={100}
+          step={1}
+        />
+      </div>
+
+      <ToolbarDivider />
+
+      {/* Bold, Italic, Underline */}
+      <ToolbarToggle
+        active={element.bold}
+        onClick={() =>
+          update({ bold: !element.bold, fontWeight: !element.bold ? 700 : 400 })
+        }
+        icon={BoldIcon}
+        title={t("format.bold")}
+      />
+      <ToolbarToggle
+        active={element.italic}
+        onClick={() => update({ italic: !element.italic })}
+        icon={ItalicIcon}
+        title={t("format.italic")}
+      />
+      <ToolbarToggle
+        active={element.underline}
+        onClick={() => update({ underline: !element.underline })}
+        icon={UnderlineIcon}
+        title={t("format.underline")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Text transform */}
+      <Select
+        value={element.textTransform}
+        onValueChange={(v) =>
+          update({ textTransform: v as SlideTextElement["textTransform"] })
+        }
+      >
+        <SelectTrigger className="h-7 w-20 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Aa</SelectItem>
+          <SelectItem value="uppercase">AA</SelectItem>
+          <SelectItem value="lowercase">aa</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Horizontal alignment */}
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "left"}
+        onClick={() => update({ horizontalAlign: "left" })}
+        icon={AlignLeftIcon}
+        title={t("format.alignLeft")}
+      />
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "center"}
+        onClick={() => update({ horizontalAlign: "center" })}
+        icon={AlignCenterIcon}
+        title={t("format.alignCenter")}
+      />
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "right"}
+        onClick={() => update({ horizontalAlign: "right" })}
+        icon={AlignRightIcon}
+        title={t("format.alignRight")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Vertical alignment */}
+      <ToolbarAlignButton
+        active={element.verticalAlign === "top"}
+        onClick={() => update({ verticalAlign: "top" })}
+        icon={AlignVerticalJustifyStartIcon}
+        title={t("format.alignTop")}
+      />
+      <ToolbarAlignButton
+        active={element.verticalAlign === "middle"}
+        onClick={() => update({ verticalAlign: "middle" })}
+        icon={AlignVerticalJustifyCenterIcon}
+        title={t("format.alignMiddle")}
+      />
+      <ToolbarAlignButton
+        active={element.verticalAlign === "bottom"}
+        onClick={() => update({ verticalAlign: "bottom" })}
+        icon={AlignVerticalJustifyEndIcon}
+        title={t("format.alignBottom")}
+      />
+
+      <ToolbarDivider />
+
+      {/* List type */}
+      <ToolbarToggle
+        active={element.listType === "bullet"}
+        onClick={() =>
+          update({
+            listType: element.listType === "bullet" ? "none" : "bullet",
+          })
+        }
+        icon={ListIcon}
+        title={t("format.bulletList")}
+      />
+      <ToolbarToggle
+        active={element.listType === "numbered"}
+        onClick={() =>
+          update({
+            listType: element.listType === "numbered" ? "none" : "numbered",
+          })
+        }
+        icon={ListOrderedIcon}
+        title={t("format.numberedList")}
+      />
+
+      {element.rotation ? (
+        <>
+          <ToolbarDivider />
+          <RotateCwIcon className="size-3 text-muted-foreground" />
+          <Input
+            type="number"
+            value={element.rotation}
+            onChange={(e) => update({ rotation: Number(e.target.value) % 360 })}
+            className="h-7 w-14 text-xs"
+            min={0}
+            max={359}
+            title={t("format.rotation")}
+          />
+        </>
+      ) : null}
+    </>
+  )
+}
+
+function ScriptureToolbar({ element }: { element: SlideScriptureElement }) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideScriptureElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  return (
+    <>
+      {/* Font family */}
+      <div className="w-36">
+        <FontFamilyPicker
+          value={element.fontFamily}
+          onChange={(v) => update({ fontFamily: v })}
+        />
+      </div>
+
+      {/* Verse font size */}
+      <Input
+        type="number"
+        value={element.fontSize}
+        onChange={(e) => update({ fontSize: Number(e.target.value) })}
+        className="h-7 w-16 [appearance:textfield] text-xs [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        min={8}
+        max={200}
+        title={t("format.verseFontSize")}
+      />
+
+      {/* Font weight */}
+      <Select
+        value={String(element.fontWeight)}
+        onValueChange={(v) => update({ fontWeight: Number(v) })}
+      >
+        <SelectTrigger className="h-7 w-24 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(
+            [
+              "light",
+              "regular",
+              "medium",
+              "semibold",
+              "bold",
+              "extraBold",
+            ] as const
+          ).map((weight, i) => (
+            <SelectItem key={weight} value={String((i + 3) * 100)}>
+              {t(`format.${weight}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Verse color */}
+      <ColorSwatch
+        value={element.color}
+        onChange={(color) => update({ color })}
+        className="size-7"
+        title={t("format.verseColor")}
+      />
+
+      {/* Reference color */}
+      <ColorSwatch
+        value={element.referenceColor}
+        onChange={(referenceColor) => update({ referenceColor })}
+        className="size-7"
+        title={t("format.referenceColor")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Bold, Italic */}
+      <ToolbarToggle
+        active={element.bold}
+        onClick={() =>
+          update({ bold: !element.bold, fontWeight: !element.bold ? 700 : 400 })
+        }
+        icon={BoldIcon}
+        title={t("format.bold")}
+      />
+      <ToolbarToggle
+        active={element.italic}
+        onClick={() => update({ italic: !element.italic })}
+        icon={ItalicIcon}
+        title={t("format.italic")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Horizontal alignment */}
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "left"}
+        onClick={() => update({ horizontalAlign: "left" })}
+        icon={AlignLeftIcon}
+        title={t("format.alignLeft")}
+      />
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "center"}
+        onClick={() => update({ horizontalAlign: "center" })}
+        icon={AlignCenterIcon}
+        title={t("format.alignCenter")}
+      />
+      <ToolbarAlignButton
+        active={element.horizontalAlign === "right"}
+        onClick={() => update({ horizontalAlign: "right" })}
+        icon={AlignRightIcon}
+        title={t("format.alignRight")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Vertical alignment */}
+      <ToolbarAlignButton
+        active={element.verticalAlign === "top"}
+        onClick={() => update({ verticalAlign: "top" })}
+        icon={AlignVerticalJustifyStartIcon}
+        title={t("format.alignTop")}
+      />
+      <ToolbarAlignButton
+        active={element.verticalAlign === "middle"}
+        onClick={() => update({ verticalAlign: "middle" })}
+        icon={AlignVerticalJustifyCenterIcon}
+        title={t("format.alignMiddle")}
+      />
+      <ToolbarAlignButton
+        active={element.verticalAlign === "bottom"}
+        onClick={() => update({ verticalAlign: "bottom" })}
+        icon={AlignVerticalJustifyEndIcon}
+        title={t("format.alignBottom")}
+      />
+    </>
+  )
+}
+
+function ImageToolbar({ element }: { element: SlideImageElement }) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideImageElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  return (
+    <>
+      {/* Object fit */}
+      <Select
+        value={element.objectFit}
+        onValueChange={(v) =>
+          update({ objectFit: v as SlideImageElement["objectFit"] })
+        }
+      >
+        <SelectTrigger className="h-7 w-24 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="contain">
+            {t("videoProperties.contain")}
+          </SelectItem>
+          <SelectItem value="cover">{t("videoProperties.cover")}</SelectItem>
+          <SelectItem value="fill">{t("videoProperties.fill")}</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Opacity */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
+      <div className="w-24">
+        <Slider
+          value={[element.opacity]}
+          onValueChange={([v]) => update({ opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+      </div>
+
+      <ToolbarDivider />
+
+      {/* Border radius */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.radius")}
+      </span>
+      <div className="w-24">
+        <Slider
+          value={[element.borderRadius]}
+          onValueChange={([v]) => update({ borderRadius: v })}
+          min={0}
+          max={100}
+          step={1}
+        />
+      </div>
+    </>
+  )
+}
+
+function ShapeToolbar({ element }: { element: SlideShapeElement }) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideShapeElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  return (
+    <>
+      {/* Shape type */}
+      <Select
+        value={element.shapeType}
+        onValueChange={(v) =>
+          update({ shapeType: v as SlideShapeElement["shapeType"] })
+        }
+      >
+        <SelectTrigger className="h-7 w-28 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="rectangle">{t("format.rectangle")}</SelectItem>
+          <SelectItem value="rounded-rect">
+            {t("format.roundedRect")}
+          </SelectItem>
+          <SelectItem value="circle">{t("format.circle")}</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Fill color */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("shapeProperties.fill")}
+      </span>
+      <ColorSwatch
+        value={
+          element.fillColor.startsWith("rgba") ? CONTENT_COLORS.white : element.fillColor
+        }
+        onChange={(fillColor) => update({ fillColor })}
+        className="size-7"
+        title={t("format.fillColor")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Stroke color */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("shapeProperties.stroke")}
+      </span>
+      <ColorSwatch
+        value={element.strokeColor}
+        onChange={(strokeColor) => update({ strokeColor })}
+        className="size-7"
+        title={t("format.strokeColor")}
+      />
+
+      {/* Stroke width */}
+      <Input
+        type="number"
+        value={element.strokeWidth}
+        onChange={(e) => update({ strokeWidth: Number(e.target.value) })}
+        className="h-7 w-14 text-xs"
+        min={0}
+        max={20}
+        title={t("format.strokeWidth")}
+      />
+
+      <ToolbarDivider />
+
+      {/* Opacity */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
+      <div className="w-24">
+        <Slider
+          value={[element.opacity]}
+          onValueChange={([v]) => update({ opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+      </div>
+
+      {element.shapeType === "rounded-rect" && (
+        <>
+          <ToolbarDivider />
+          <span className="text-[0.6875rem] text-muted-foreground">
+            {t("videoProperties.radius")}
+          </span>
+          <div className="w-24">
+            <Slider
+              value={[element.borderRadius]}
+              onValueChange={([v]) => update({ borderRadius: v })}
+              min={0}
+              max={100}
+              step={1}
+            />
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+function VideoToolbar({ element }: { element: SlideVideoElement }) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideVideoElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  return (
+    <>
+      {/* Object fit */}
+      <Select
+        value={element.objectFit}
+        onValueChange={(v) =>
+          update({ objectFit: v as SlideVideoElement["objectFit"] })
+        }
+      >
+        <SelectTrigger className="h-7 w-24 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="cover">{t("videoProperties.cover")}</SelectItem>
+          <SelectItem value="contain">
+            {t("videoProperties.contain")}
+          </SelectItem>
+          <SelectItem value="fill">{t("videoProperties.fill")}</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <ToolbarDivider />
+
+      {/* Opacity */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.opacity")}
+      </span>
+      <div className="w-24">
+        <Slider
+          value={[element.opacity]}
+          onValueChange={([v]) => update({ opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+      </div>
+
+      <ToolbarDivider />
+
+      {/* Border radius */}
+      <span className="text-[0.6875rem] text-muted-foreground">
+        {t("videoProperties.radius")}
+      </span>
+      <div className="w-24">
+        <Slider
+          value={[element.borderRadius]}
+          onValueChange={([v]) => update({ borderRadius: v })}
+          min={0}
+          max={100}
+          step={1}
+        />
+      </div>
+    </>
+  )
+}
+
+export function SlideFormatToolbar({
+  element,
+}: {
+  element: SlideElement | null
+}) {
+  const { t } = useTranslation("slides")
+  if (!element) {
+    return (
+      <div className="flex h-10 items-center border-b border-border bg-card px-3">
+        <span className="text-xs text-muted-foreground">
+          {t("format.selectElement")}
+        </span>
+      </div>
+    )
+  }
+
+  const elType = element.type ?? "text"
+
+  return (
+    <div className="flex min-h-10 flex-wrap items-center gap-x-1 gap-y-1.5 border-b border-border bg-card px-3 py-1.5">
+      {elType === "text" && (
+        <TextToolbar element={element as SlideTextElement} />
+      )}
+      {elType === "scripture" && (
+        <ScriptureToolbar element={element as SlideScriptureElement} />
+      )}
+      {elType === "image" && (
+        <ImageToolbar element={element as SlideImageElement} />
+      )}
+      {elType === "shape" && (
+        <ShapeToolbar element={element as SlideShapeElement} />
+      )}
+      {elType === "video" && (
+        <VideoToolbar element={element as SlideVideoElement} />
+      )}
+    </div>
+  )
+}

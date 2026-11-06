@@ -1,0 +1,485 @@
+import { useMemo } from "react"
+import { RotateCcwIcon, PlusIcon, XIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
+import { Switch } from "@/components/ui/switch"
+import { Slider } from "@/components/ui/slider"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useSettingsStore } from "@/stores/settings-store"
+import { useSongStore } from "@/stores/song-store"
+import { useThemesStore } from "@/stores/themes"
+import { resolveSongSlideOptions } from "@/lib/song/song-to-slides"
+import { ANIMATED_PRESET_LABELS } from "@/lib/slide-renderer/animated-background"
+import { BUILTIN_THEMES } from "@/lib/theme/builtins"
+import { resolveLegacyThemeId } from "@/lib/theme/migrate/legacy-id"
+import type {
+  SlideTransitionType,
+  AnimatedBackground,
+  AnimatedBackgroundPreset,
+} from "@/types/slide"
+import type { Theme } from "@/types/theme"
+import type { Song, SongSlideOptions } from "@/types/song"
+import { useTranslation } from "react-i18next"
+import { CONTENT_COLORS } from "@/lib/content-colors"
+
+const BUILTIN_SONG_THEMES = BUILTIN_THEMES.filter((t) => t.type === "song")
+
+/**
+ * Sentinel value for the "Default theme" option in the Theme dropdown. Choosing
+ * it clears the per-song theme override so the song follows the app-wide default
+ * song theme (Settings → "Default Lyric Theme"). A real theme id is never this.
+ */
+const DEFAULT_THEME_SENTINEL = "__default__"
+
+/** The animated-background spec of a song theme, or undefined if it isn't animated. */
+function themeAnimatedSpec(
+  themeId: string,
+  themes: Theme[]
+): AnimatedBackground | undefined {
+  const theme = themes.find((t) => t.id === resolveLegacyThemeId(themeId))
+  return theme?.background.animated
+}
+
+const TRANSITION_LABELS: Record<SlideTransitionType, string> = {
+  cut: "None (cut)",
+  fade: "Fade",
+  dissolve: "Dissolve",
+  "push-left": "Push left",
+  "push-right": "Push right",
+  "wipe-left": "Wipe left",
+  "wipe-right": "Wipe right",
+}
+
+/**
+ * The right-pane projection options for the song editor (design doc §9). Every
+ * control shows the *effective* value; fields the operator changes are stored as
+ * a per-song override in `Song.slideOptions`, and a "reset" affordance appears
+ * next to any field that deviates from the global default set in Settings.
+ */
+export function SongProjectionOptions({ song }: { song: Song }) {
+  const { t } = useTranslation("song")
+  const defaults = useSettingsStore((s) => s.songSlideDefaults)
+  const customThemes = useThemesStore((s) => s.customThemes)
+  // Built-in song looks plus any user-authored custom song themes.
+  const songThemes = useMemo(
+    () => [
+      ...BUILTIN_SONG_THEMES,
+      ...customThemes.filter((t) => t.type === "song"),
+    ],
+    [customThemes]
+  )
+  const override = song.slideOptions ?? {}
+  const resolved = resolveSongSlideOptions(defaults, song.slideOptions)
+
+  // The app-wide default song theme, shown by name on the "Default theme" option
+  // so the operator sees which look it inherits. Resolved through the legacy-id
+  // alias so a stored built-in id still matches a registry theme.
+  const defaultThemeName = useMemo(
+    () =>
+      songThemes.find((t) => t.id === resolveLegacyThemeId(defaults.themeId))
+        ?.name,
+    [songThemes, defaults.themeId]
+  )
+
+  const setField = <K extends keyof SongSlideOptions>(
+    key: K,
+    value: SongSlideOptions[K]
+  ) => {
+    useSongStore
+      .getState()
+      .updateSong(song.id, { slideOptions: { ...override, [key]: value } })
+  }
+
+  const resetField = (key: keyof SongSlideOptions) => {
+    const next = { ...override }
+    delete next[key]
+    useSongStore.getState().updateSong(song.id, { slideOptions: next })
+  }
+
+  const isOverridden = (key: keyof SongSlideOptions) =>
+    override[key] !== undefined
+
+  // Animated background: shown only when the chosen theme uses one. Effective
+  // spec = theme spec with any per-song override merged on top.
+  const themeSpec = themeAnimatedSpec(resolved.themeId, songThemes)
+  const animOverride = resolved.animatedBackground ?? {}
+  const effAnim: AnimatedBackground | undefined = themeSpec
+    ? { ...themeSpec, ...animOverride }
+    : undefined
+  const setAnim = (patch: Partial<AnimatedBackground>) =>
+    setField("animatedBackground", { ...animOverride, ...patch })
+
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+        {t("editor.projection")}
+      </span>
+
+      {/* Theme */}
+      <Field
+        label={t("editor.theme")}
+        overridden={isOverridden("themeId")}
+        onReset={() => resetField("themeId")}
+      >
+        <Select
+          value={
+            isOverridden("themeId")
+              ? resolveLegacyThemeId(resolved.themeId)
+              : DEFAULT_THEME_SENTINEL
+          }
+          onValueChange={(v) => {
+            if (v === DEFAULT_THEME_SENTINEL) resetField("themeId")
+            else setField("themeId", v)
+          }}
+        >
+          <SelectTrigger className="h-7 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={DEFAULT_THEME_SENTINEL} className="text-xs">
+              {t("editor.defaultTheme", {
+                theme: defaultThemeName ? ` (${defaultThemeName})` : "",
+              })}
+            </SelectItem>
+            {songThemes.map((t) => (
+              <SelectItem key={t.id} value={t.id} className="text-xs">
+                {t.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {/* Animated background — only for animated themes */}
+      {effAnim && (
+        <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("editor.animatedBackground")}
+            </span>
+            {isOverridden("animatedBackground") && (
+              <ResetButton onReset={() => resetField("animatedBackground")} />
+            )}
+          </div>
+
+          <Field
+            label={t("editor.style")}
+            overridden={false}
+            onReset={() => {}}
+          >
+            <Select
+              value={effAnim.preset}
+              onValueChange={(v) =>
+                setAnim({ preset: v as AnimatedBackgroundPreset })
+              }
+            >
+              <SelectTrigger className="h-7 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  Object.entries(ANIMATED_PRESET_LABELS) as [
+                    AnimatedBackgroundPreset,
+                    string,
+                  ][]
+                ).map(([value, label]) => (
+                  <SelectItem key={value} value={value} className="text-xs">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {/* Palette */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[0.625rem] tracking-wider text-muted-foreground uppercase">
+              {t("editor.colors")}
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {effAnim.palette.map((color, i) => (
+                <div key={i} className="group relative">
+                  <ColorSwatch
+                    value={color}
+                    onChange={(hex) => {
+                      const next = [...effAnim.palette]
+                      next[i] = hex
+                      setAnim({ palette: next })
+                    }}
+                    className="size-7"
+                    title={t("editor.color", { number: i + 1 })}
+                  />
+                  {effAnim.palette.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={t("editor.removeColor", { number: i + 1 })}
+                      onClick={() =>
+                        setAnim({
+                          palette: effAnim.palette.filter((_, j) => j !== i),
+                        })
+                      }
+                      className="absolute -top-1 -right-1 hidden rounded-full bg-background text-muted-foreground shadow group-hover:block hover:text-foreground"
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {effAnim.palette.length < 4 && (
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="size-7"
+                  aria-label={t("library.addColor")}
+                  onClick={() =>
+                    setAnim({ palette: [...effAnim.palette, CONTENT_COLORS.white] })
+                  }
+                >
+                  <PlusIcon className="size-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Speed */}
+          <SliderField
+            label={t("editor.speed")}
+            value={effAnim.speed}
+            min={0.25}
+            max={2}
+            step={0.05}
+            format={(n) => `${n.toFixed(2)}×`}
+            onChange={(n) => setAnim({ speed: n })}
+          />
+
+          {/* Intensity */}
+          <SliderField
+            label={t("editor.intensity")}
+            value={effAnim.intensity}
+            min={0}
+            max={1}
+            step={0.05}
+            format={(n) => `${Math.round(n * 100)}%`}
+            onChange={(n) => setAnim({ intensity: n })}
+          />
+        </div>
+      )}
+
+      {/* Max lines per slide */}
+      <Field
+        label={t("editor.linesPerSlide")}
+        overridden={isOverridden("maxLinesPerSlide")}
+        onReset={() => resetField("maxLinesPerSlide")}
+      >
+        <Input
+          type="number"
+          min={1}
+          max={12}
+          value={resolved.maxLinesPerSlide}
+          onChange={(e) => {
+            const n = Math.max(
+              1,
+              Math.min(12, Math.round(Number(e.target.value) || 1))
+            )
+            setField("maxLinesPerSlide", n)
+          }}
+          className="h-7 w-full text-xs"
+        />
+      </Field>
+
+      {/* Lyric font size — empty input inherits the theme's own size */}
+      <Field
+        label={t("editor.fontSize")}
+        overridden={isOverridden("fontSize")}
+        onReset={() => resetField("fontSize")}
+      >
+        <Input
+          type="number"
+          min={8}
+          max={200}
+          placeholder={t("library.themeDefault")}
+          value={resolved.fontSize ?? ""}
+          onChange={(e) => {
+            const raw = e.target.value
+            if (raw === "") {
+              setField("fontSize", null)
+              return
+            }
+            const n = Math.max(8, Math.min(200, Math.round(Number(raw) || 8)))
+            setField("fontSize", n)
+          }}
+          className="h-7 w-full text-xs"
+        />
+      </Field>
+
+      {/* Slide animation */}
+      <Field
+        label={t("editor.slideAnimation")}
+        overridden={isOverridden("transition")}
+        onReset={() => resetField("transition")}
+      >
+        <Select
+          value={resolved.transition}
+          onValueChange={(v) =>
+            setField("transition", v as SlideTransitionType)
+          }
+        >
+          <SelectTrigger className="h-7 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(
+              Object.entries(TRANSITION_LABELS) as [
+                SlideTransitionType,
+                string,
+              ][]
+            ).map(([value, label]) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <ToggleField
+        label={t("editor.transparentBackground")}
+        checked={resolved.transparentBackground}
+        overridden={isOverridden("transparentBackground")}
+        onChange={(v) => setField("transparentBackground", v)}
+        onReset={() => resetField("transparentBackground")}
+      />
+      <ToggleField
+        label={t("editor.breakBlankLines")}
+        checked={resolved.breakOnBlankLines}
+        overridden={isOverridden("breakOnBlankLines")}
+        onChange={(v) => setField("breakOnBlankLines", v)}
+        onReset={() => resetField("breakOnBlankLines")}
+      />
+      <ToggleField
+        label={t("editor.titleSlide")}
+        checked={resolved.includeTitleSlide}
+        overridden={isOverridden("includeTitleSlide")}
+        onChange={(v) => setField("includeTitleSlide", v)}
+        onReset={() => resetField("includeTitleSlide")}
+      />
+      <ToggleField
+        label={t("editor.blankEndSlide")}
+        checked={resolved.includeBlankEndSlide}
+        overridden={isOverridden("includeBlankEndSlide")}
+        onChange={(v) => setField("includeBlankEndSlide", v)}
+        onReset={() => resetField("includeBlankEndSlide")}
+      />
+      <ToggleField
+        label={t("editor.showSectionLabels")}
+        checked={resolved.showSectionLabels}
+        overridden={isOverridden("showSectionLabels")}
+        onChange={(v) => setField("showSectionLabels", v)}
+        onReset={() => resetField("showSectionLabels")}
+      />
+    </div>
+  )
+}
+
+function ResetButton({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation("song")
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      className="size-5"
+      aria-label={t("library.resetDefault")}
+      title={t("library.resetDefault")}
+      onClick={onReset}
+    >
+      <RotateCcwIcon className="size-3" />
+    </Button>
+  )
+}
+
+function Field({
+  label,
+  overridden,
+  onReset,
+  children,
+}: {
+  label: string
+  overridden: boolean
+  onReset: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="flex items-center gap-1 text-[0.625rem] tracking-wider text-muted-foreground uppercase">
+        {label}
+        {overridden && <ResetButton onReset={onReset} />}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function SliderField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  format: (n: number) => string
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center justify-between text-[0.625rem] tracking-wider text-muted-foreground uppercase">
+        {label}
+        <span className="tabular-nums">{format(value)}</span>
+      </span>
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={([v]) => onChange(v)}
+      />
+    </div>
+  )
+}
+
+function ToggleField({
+  label,
+  checked,
+  overridden,
+  onChange,
+  onReset,
+}: {
+  label: string
+  checked: boolean
+  overridden: boolean
+  onChange: (value: boolean) => void
+  onReset: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-1 text-xs text-foreground">
+        {label}
+        {overridden && <ResetButton onReset={onReset} />}
+      </span>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  )
+}

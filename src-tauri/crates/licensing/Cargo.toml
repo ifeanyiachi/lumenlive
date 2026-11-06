@@ -1,0 +1,16 @@
+[package]
+name = "lumenlive-licensing"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# Offline signature verification only — the private key never ships. `pkcs8`
+# lets us parse the embedded SPKI PEM public key handed off from LumenBO.
+ed25519-dalek = { version = "2", features = ["pkcs8", "pem"] }
+base64 = "0.22"

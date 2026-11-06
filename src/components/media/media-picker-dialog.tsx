@@ -1,0 +1,402 @@
+import { useState, useMemo, useCallback, useRef } from "react"
+import { safeFileSrc } from "@/lib/media/safe-file-src"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
+import { useMediaStore } from "@/stores/media-store"
+import { sortByRecency } from "@/lib/media/ordering"
+import { useDragSource } from "@/stores/drag-store"
+import {
+  pickThemeBackgroundImage,
+  pickVideoFile,
+  pickMediaFile,
+} from "@/lib/theme-designer-files"
+import {
+  IMAGE_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+  AUDIO_EXTENSIONS,
+  isTauri,
+  filesToAssets,
+} from "@/lib/media-import"
+import {
+  FilmIcon,
+  ImageIcon,
+  HardDriveIcon,
+  SearchIcon,
+  MusicIcon,
+  PlayIcon,
+  UploadIcon,
+} from "lucide-react"
+import type { MediaAsset, MediaType } from "@/types/media"
+import { useTranslation } from "react-i18next"
+
+interface MediaPickerDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  mediaType?: MediaType
+  onSelect: (asset: MediaAsset) => void
+  onSelectMultiple?: (assets: MediaAsset[]) => void
+  onSelectFromDevice: (result: string) => void
+}
+
+export function MediaPickerDialog({
+  open,
+  onOpenChange,
+  mediaType,
+  onSelect,
+  onSelectMultiple,
+  onSelectFromDevice,
+}: MediaPickerDialogProps) {
+  const { t } = useTranslation("media")
+  const assets = useMediaStore((s) => s.assets)
+  const [search, setSearch] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [fileDragOver, setFileDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const filtered = useMemo(() => {
+    let list = mediaType ? assets.filter((a) => a.type === mediaType) : assets
+    if (search) {
+      const q = search.toLowerCase()
+      list = list.filter((a) => a.name.toLowerCase().includes(q))
+    }
+    // Most-recently-added first, so a freshly uploaded item lands at the top.
+    return sortByRecency(list)
+  }, [assets, mediaType, search])
+
+  const handleToggleSelect = useCallback(
+    (id: string, shiftKey: boolean) => {
+      setSelectedIds((prev) => {
+        if (shiftKey || onSelectMultiple) {
+          const next = new Set(prev)
+          if (next.has(id)) next.delete(id)
+          else next.add(id)
+          return next
+        }
+        return new Set([id])
+      })
+    },
+    [onSelectMultiple]
+  )
+
+  const handlePickFromDevice = async () => {
+    if (mediaType === "video") {
+      const path = await pickVideoFile()
+      if (path) {
+        onSelectFromDevice(path)
+        void useMediaStore.getState().importPaths([path])
+        onOpenChange(false)
+      }
+    } else if (!mediaType) {
+      const path = await pickMediaFile()
+      if (path) {
+        onSelectFromDevice(path)
+        void useMediaStore.getState().importPaths([path])
+        onOpenChange(false)
+      }
+    } else {
+      const picked = await pickThemeBackgroundImage()
+      if (picked) {
+        onSelectFromDevice(picked.url)
+        void useMediaStore.getState().importPaths([picked.path])
+        onOpenChange(false)
+      }
+    }
+  }
+
+  const handleConfirm = () => {
+    const selected = filtered.filter((a) => selectedIds.has(a.id))
+    if (selected.length === 0) return
+
+    if (selected.length > 1 && onSelectMultiple) {
+      onSelectMultiple(selected)
+    } else {
+      onSelect(selected[0])
+    }
+    onOpenChange(false)
+  }
+
+  const commitFiles = useCallback(
+    async (files: FileList | File[]) => {
+      let newAssets = await filesToAssets(files)
+      if (mediaType) newAssets = newAssets.filter((a) => a.type === mediaType)
+      if (newAssets.length === 0) return
+
+      useMediaStore.getState().addAssets(newAssets)
+      if (newAssets.length > 1 && onSelectMultiple) {
+        onSelectMultiple(newAssets)
+      } else {
+        onSelect(newAssets[0])
+      }
+      onOpenChange(false)
+    },
+    [mediaType, onSelect, onSelectMultiple, onOpenChange]
+  )
+
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setFileDragOver(false)
+      if (e.dataTransfer.files.length === 0) return
+      void commitFiles(e.dataTransfer.files)
+    },
+    [commitFiles]
+  )
+
+  const handleWebFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const fileList = e.target.files
+      if (fileList && fileList.length > 0) void commitFiles(fileList)
+      e.target.value = ""
+    },
+    [commitFiles]
+  )
+
+  const label = !mediaType
+    ? t("picker.labels.media")
+    : mediaType === "video"
+      ? t("picker.labels.video")
+      : mediaType === "audio"
+        ? t("picker.labels.audio")
+        : t("picker.labels.image")
+  const selectedCount = selectedIds.size
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("picker.choose", { label })}</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t("picker.search", { label: label.toLowerCase() })}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+
+          <div
+            className={cn(
+              "relative rounded-md transition-colors",
+              fileDragOver && "bg-success/5 ring-2 ring-success/50"
+            )}
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes("Files")) {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = "copy"
+                setFileDragOver(true)
+              }
+            }}
+            onDragLeave={() => setFileDragOver(false)}
+            onDrop={handleFileDrop}
+          >
+            {fileDragOver && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md bg-success/10">
+                <div className="flex flex-col items-center gap-1 text-success-text dark:text-success-text">
+                  <UploadIcon className="size-6" />
+                  <span className="text-xs font-medium">
+                    {t("picker.drop", { label: label.toLowerCase() })}
+                  </span>
+                </div>
+              </div>
+            )}
+            <ScrollArea className="h-[240px]">
+              {filtered.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+                  {mediaType === "video" ? (
+                    <FilmIcon className="size-8 opacity-40" />
+                  ) : mediaType === "audio" ? (
+                    <MusicIcon className="size-8 opacity-40" />
+                  ) : !mediaType ? (
+                    <HardDriveIcon className="size-8 opacity-40" />
+                  ) : (
+                    <ImageIcon className="size-8 opacity-40" />
+                  )}
+                  <p className="text-xs">
+                    {t("picker.empty", { label: label.toLowerCase() })}
+                  </p>
+                  <p className="text-[0.625rem] text-muted-foreground/60">
+                    {t("picker.hint")}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 p-0.5">
+                  {filtered.map((asset) => (
+                    <PickerCard
+                      key={asset.id}
+                      asset={asset}
+                      selected={selectedIds.has(asset.id)}
+                      onSelect={(e) => handleToggleSelect(asset.id, e.shiftKey)}
+                      onDoubleClick={() => {
+                        onSelect(asset)
+                        onOpenChange(false)
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={() => void handlePickFromDevice()}
+          >
+            <HardDriveIcon className="mr-1.5 size-3" />
+            {t("picker.fromDevice")}
+          </Button>
+          {!isTauri && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <UploadIcon className="mr-1.5 size-3" />
+                {t("picker.uploadFiles")}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={[
+                  ...IMAGE_EXTENSIONS.map((e) => `.${e}`),
+                  ...VIDEO_EXTENSIONS.map((e) => `.${e}`),
+                  ...AUDIO_EXTENSIONS.map((e) => `.${e}`),
+                ].join(",")}
+                className="hidden"
+                onChange={handleWebFileInput}
+              />
+            </>
+          )}
+          <Button
+            size="sm"
+            className="text-xs"
+            disabled={selectedCount === 0}
+            onClick={handleConfirm}
+          >
+            {selectedCount > 1
+              ? t("picker.selectCount", { count: selectedCount })
+              : t("picker.select")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PickerCard({
+  asset,
+  selected,
+  onSelect,
+  onDoubleClick,
+}: {
+  asset: MediaAsset
+  selected: boolean
+  onSelect: (e: React.MouseEvent) => void
+  onDoubleClick: () => void
+}) {
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false)
+  const dragSource = useDragSource()
+  const dragHandlers = dragSource(() => ({
+    payload: { kind: "media" as const, assets: [asset] },
+    label: asset.name,
+  }))
+
+  const thumbSrc = useMemo(() => {
+    if (asset.thumbnailDataUrl) return asset.thumbnailDataUrl
+    if (asset.type === "image") {
+      try {
+        return safeFileSrc(asset.filePath)
+      } catch {
+        return null
+      }
+    }
+    return null
+  }, [asset.thumbnailDataUrl, asset.type, asset.filePath])
+
+  // Match the media panel and quick-add cards: videos use their local asset URL
+  // directly and seek to an early frame so the picker shows real content.
+  const videoSrc = useMemo(() => {
+    if (asset.type !== "video") return null
+    return safeFileSrc(asset.filePath)
+  }, [asset.type, asset.filePath])
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      onDoubleClick={onDoubleClick}
+      {...dragHandlers}
+      className={cn(
+        "flex flex-col overflow-hidden rounded-md border text-left transition-colors",
+        selected
+          ? "border-primary ring-1 ring-primary/40"
+          : "border-border hover:border-border/80 hover:bg-accent/50"
+      )}
+    >
+      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+        {thumbSrc ? (
+          <img
+            src={thumbSrc}
+            alt={asset.name}
+            className="size-full object-cover"
+          />
+        ) : videoSrc && !videoPreviewFailed ? (
+          <>
+            <video
+              src={videoSrc}
+              aria-label={asset.name}
+              className="size-full object-cover"
+              muted
+              playsInline
+              preload="auto"
+              onError={() => setVideoPreviewFailed(true)}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  video.currentTime = Math.min(1, video.duration * 0.1)
+                }
+              }}
+            />
+            <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-sunken/60 text-foreground shadow-sm">
+              <PlayIcon className="ml-px size-2 fill-current" />
+            </span>
+          </>
+        ) : (
+          <div className="flex size-full items-center justify-center">
+            {asset.type === "video" ? (
+              <FilmIcon className="size-6 text-muted-foreground/40" />
+            ) : asset.type === "audio" ? (
+              <MusicIcon className="size-6 text-muted-foreground/40" />
+            ) : (
+              <ImageIcon className="size-6 text-muted-foreground/40" />
+            )}
+          </div>
+        )}
+      </div>
+      <div className="px-1.5 py-1">
+        <span className="line-clamp-1 text-[0.625rem] text-foreground">
+          {asset.name}
+        </span>
+      </div>
+    </button>
+  )
+}

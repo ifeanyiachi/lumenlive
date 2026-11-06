@@ -1,0 +1,94 @@
+import { LicensingError, v1 } from "./lumenbo-client"
+import type {
+  TranscriptionResolution,
+  TranscriptionStatus,
+} from "@/lib/transcription/types"
+
+/**
+ * Gateway for the desktop transcription-key contract (portalplan D2-06;
+ * `docs/desktop-transcription-contract.md`). The desktop talks to the STT
+ * provider directly, but the platform decides which key it may use and meters
+ * free/trial minutes. Both endpoints are bearer-authed with the same session
+ * token as `/v1/licenses/*`; the raw key must not be persisted beyond the
+ * current session.
+ */
+
+export type {
+  TranscriptionResolution,
+  TranscriptionStatus,
+} from "@/lib/transcription/types"
+
+const MAX_RATE_LIMIT_RETRIES = 2
+const BASE_RATE_LIMIT_DELAY_MS = 250
+const MAX_RATE_LIMIT_DELAY_MS = 2_000
+
+function retryDelayMs(error: LicensingError, retryIndex: number): number {
+  const serverHint =
+    typeof error.details === "object" &&
+    error.details !== null &&
+    "retryAfterMs" in error.details &&
+    typeof error.details.retryAfterMs === "number"
+      ? error.details.retryAfterMs
+      : 0
+  const exponential = BASE_RATE_LIMIT_DELAY_MS * 2 ** retryIndex
+  return Math.min(
+    MAX_RATE_LIMIT_DELAY_MS,
+    Math.max(exponential, Math.max(0, serverHint)),
+  )
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Pull the key this client may use right now. Call at the start of a session and
+ * on rotation/expiry — re-pull rather than caching long-term. Returns either a
+ * usable key or a `blocked` state with a reason.
+ */
+export function pullTranscriptionKey(
+  token: string,
+  machineId: string
+): Promise<TranscriptionResolution> {
+  return pullTranscriptionKeyWithRetry(token, machineId)
+}
+
+async function pullTranscriptionKeyWithRetry(
+  token: string,
+  machineId: string,
+): Promise<TranscriptionResolution> {
+  for (let retryIndex = 0; ; retryIndex += 1) {
+    try {
+      return await v1<TranscriptionResolution>("/v1/transcription/key", {
+        method: "POST",
+        token,
+        body: { machineId },
+      })
+    } catch (error) {
+      if (
+        !(error instanceof LicensingError) ||
+        error.status !== 429 ||
+        retryIndex >= MAX_RATE_LIMIT_RETRIES
+      ) {
+        throw error
+      }
+      await wait(retryDelayMs(error, retryIndex))
+    }
+  }
+}
+
+/**
+ * Report consumed transcription seconds as a delta (not a running total). The
+ * response is the fresh status, so the caller learns when the allowance is spent.
+ */
+export function reportTranscriptionUsage(
+  token: string,
+  machineId: string,
+  seconds: number
+): Promise<TranscriptionStatus> {
+  return v1<TranscriptionStatus>("/v1/transcription/usage", {
+    method: "POST",
+    token,
+    body: { machineId, seconds },
+  })
+}

@@ -1,0 +1,268 @@
+import { PanelHeader } from "@/components/ui/panel-header"
+import { Input } from "@/components/ui/input"
+import { ColorSwatch } from "@/components/ui/color-swatch"
+import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { TimerIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { usePresentationStore } from "@/stores/presentation-store"
+import { ElementAnimationProperties } from "@/components/slides/element-animation-properties"
+import {
+  PropertyRow,
+  ShadowSection,
+  OutlineSection,
+  PositionSizeSection,
+} from "@/components/slides/element-property-sections"
+import type { SlideTimerElement } from "@/types/slide"
+import type { CountdownFormat, CountdownMode } from "@/types/alert"
+
+/** Parse an optional seconds field: blank → undefined, otherwise a clamped int. */
+function parseThreshold(raw: string): number | undefined {
+  const trimmed = raw.trim()
+  if (trimmed === "") return undefined
+  const n = Number(trimmed)
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
+}
+
+/**
+ * Type-specific properties for a {@link SlideTimerElement} — the Countdown theme's
+ * placeholder controls. Leads with the timer behaviour (mode, length/target,
+ * display format, overtime, urgency thresholds), then typography and layout.
+ */
+export function SlideTimerProperties({
+  element,
+}: {
+  element: SlideTimerElement
+}) {
+  const { t } = useTranslation("slides")
+  const update = (updates: Partial<SlideTimerElement>) => {
+    usePresentationStore.getState().updateDraftElement(element.id, updates)
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <PanelHeader
+        title={t("timerProperties.title")}
+        icon={<TimerIcon className="size-3.5" />}
+      />
+
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-4 p-3">
+          {/* Timer behaviour */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("rightPanel.timer")}
+            </span>
+            <PropertyRow label={t("timerProperties.mode")}>
+              <Select
+                value={element.mode}
+                onValueChange={(v) => update({ mode: v as CountdownMode })}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="duration">
+                    {t("timerProperties.duration")}
+                  </SelectItem>
+                  <SelectItem value="clock">
+                    {t("timerProperties.timeOfDay")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            {element.mode === "clock" ? (
+              <PropertyRow label={t("timerProperties.target")}>
+                <Input
+                  type="time"
+                  value={element.targetTime ?? ""}
+                  onChange={(e) => update({ targetTime: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </PropertyRow>
+            ) : (
+              <PropertyRow label={t("timerProperties.seconds")}>
+                <Input
+                  type="number"
+                  value={element.durationSeconds}
+                  onChange={(e) =>
+                    update({
+                      durationSeconds: Math.max(0, Number(e.target.value)),
+                    })
+                  }
+                  className="h-7 text-xs"
+                  min={0}
+                />
+              </PropertyRow>
+            )}
+            <PropertyRow label={t("timerProperties.format")}>
+              <Select
+                value={element.format}
+                onValueChange={(v) => update({ format: v as CountdownFormat })}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mm:ss">MM:SS</SelectItem>
+                  <SelectItem value="hh:mm:ss">HH:MM:SS</SelectItem>
+                  <SelectItem value="minutes">
+                    {t("timerProperties.minutes")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            <div className="flex items-center justify-between">
+              <span className="text-[0.6875rem] text-muted-foreground">
+                {t("timerProperties.overtime")}
+              </span>
+              <Switch
+                checked={element.overtime ?? false}
+                onCheckedChange={(v) => update({ overtime: v })}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Urgency thresholds */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("timerProperties.urgency")}
+            </span>
+            <PropertyRow label={t("timerProperties.warn")}>
+              <Input
+                type="number"
+                value={element.warnSeconds ?? ""}
+                onChange={(e) =>
+                  update({ warnSeconds: parseThreshold(e.target.value) })
+                }
+                className="h-7 text-xs"
+                min={0}
+                placeholder={t("properties.off")}
+              />
+            </PropertyRow>
+            <PropertyRow label={t("timerProperties.danger")}>
+              <Input
+                type="number"
+                value={element.dangerSeconds ?? ""}
+                onChange={(e) =>
+                  update({ dangerSeconds: parseThreshold(e.target.value) })
+                }
+                className="h-7 text-xs"
+                min={0}
+                placeholder={t("properties.off")}
+              />
+            </PropertyRow>
+          </div>
+
+          <Separator />
+
+          {/* Typography */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-medium tracking-wider text-muted-foreground uppercase">
+              {t("rightPanel.text")}
+            </span>
+            <PropertyRow label={t("properties.color")}>
+              <div className="flex items-center gap-2">
+                <ColorSwatch
+                  value={element.color}
+                  onChange={(color) => update({ color })}
+                  className="size-7"
+                />
+                <Input
+                  value={element.color}
+                  onChange={(e) => update({ color: e.target.value })}
+                  className="h-7 flex-1 text-xs"
+                />
+              </div>
+            </PropertyRow>
+            <PropertyRow label={t("timerProperties.size")}>
+              <Slider
+                value={[element.fontSize]}
+                onValueChange={([v]) => update({ fontSize: v })}
+                min={12}
+                max={320}
+                step={2}
+              />
+            </PropertyRow>
+            <PropertyRow label={t("timerProperties.weight")}>
+              <Select
+                value={String(element.fontWeight)}
+                onValueChange={(v) => update({ fontWeight: Number(v) })}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="400">
+                    {t("timerProperties.regular")}
+                  </SelectItem>
+                  <SelectItem value="600">
+                    {t("timerProperties.semibold")}
+                  </SelectItem>
+                  <SelectItem value="700">
+                    {t("timerProperties.bold")}
+                  </SelectItem>
+                  <SelectItem value="900">
+                    {t("timerProperties.black")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            <PropertyRow label={t("properties.align")}>
+              <Select
+                value={element.horizontalAlign}
+                onValueChange={(v) =>
+                  update({
+                    horizontalAlign: v as SlideTimerElement["horizontalAlign"],
+                  })
+                }
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">{t("properties.left")}</SelectItem>
+                  <SelectItem value="center">
+                    {t("properties.center")}
+                  </SelectItem>
+                  <SelectItem value="right">{t("properties.right")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+          </div>
+
+          <Separator />
+
+          <ShadowSection
+            shadow={element.shadow}
+            onChange={(shadow) => update({ shadow })}
+          />
+
+          <Separator />
+
+          <OutlineSection
+            outline={element.outline}
+            onChange={(outline) => update({ outline })}
+          />
+
+          <Separator />
+
+          <PositionSizeSection rect={element} onChange={update} />
+
+          <ElementAnimationProperties element={element} />
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}

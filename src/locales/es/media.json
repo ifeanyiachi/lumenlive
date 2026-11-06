@@ -1,0 +1,79 @@
+{
+  "details": "Detalles",
+  "selectAsset": "Selecciona un recurso multimedia",
+  "preview": "Vista previa de {{name}}",
+  "type": "Tipo",
+  "size": "Tamaño",
+  "dimensions": "Dimensiones",
+  "duration": "Duración",
+  "unknown": "Desconocido",
+  "tags": "Etiquetas",
+  "addTag": "Añadir etiqueta",
+  "addTagPlaceholder": "Añadir etiqueta...",
+  "collections": "Colecciones",
+  "addToCollection": "Añadir a la colección",
+  "addToCollectionLower": "Añadir a la colección",
+  "removeFromLibrary": "Quitar de la biblioteca",
+  "import": "Importar",
+  "importing": "Importando…",
+  "dropFiles": "Suelta archivos para añadirlos a la biblioteca",
+  "library": "Biblioteca multimedia",
+  "importingProgress": "Importando {{current}} de {{total}}...",
+  "selected_one": "{{count}} seleccionado",
+  "selected_other": "{{count}} seleccionados",
+  "selectAll": "Seleccionar todo",
+  "delete": "Eliminar",
+  "clearSelection": "Borrar selección",
+  "filters": {
+    "all": "Todo",
+    "images": "Imágenes",
+    "videos": "Vídeos",
+    "audio": "Audio"
+  },
+  "allCollections": "Todas las colecciones",
+  "manageCollections": "Gestionar colecciones...",
+  "searchPlaceholder": "Buscar multimedia...",
+  "empty": {
+    "collection": "No hay multimedia en esta colección",
+    "search": "No se encontró multimedia",
+    "images": "Aún no hay imágenes importadas",
+    "videos": "Aún no hay vídeos importados",
+    "audio": "Aún no hay audio importado",
+    "all": "Aún no hay multimedia importada",
+    "importHint": "Haz clic en «Importar» para añadir multimedia",
+    "collectionHint": "Selecciona recursos y usa «Añadir a la colección»"
+  },
+  "manage": {
+    "title": "Gestionar colecciones",
+    "empty": "Aún no hay colecciones",
+    "confirmRename": "Confirmar cambio de nombre",
+    "cancelRename": "Cancelar cambio de nombre",
+    "rename": "Cambiar nombre de {{name}}",
+    "delete": "Eliminar {{name}}",
+    "newName": "Nuevo nombre de colección...",
+    "create": "Crear"
+  },
+  "addDialog": {
+    "title": "Añadir a la colección",
+    "empty": "Aún no hay colecciones; crea una abajo",
+    "newCollection": "Nueva colección...",
+    "new": "Nueva"
+  },
+  "picker": {
+    "choose": "Elegir {{label}}",
+    "search": "Buscar {{label}}s en la biblioteca...",
+    "drop": "Suelta archivos de {{label}} aquí",
+    "empty": "No hay {{label}}s en la biblioteca",
+    "hint": "Arrastra archivos aquí o usa «Desde el dispositivo»",
+    "fromDevice": "Desde el dispositivo",
+    "uploadFiles": "Subir archivos",
+    "select": "Seleccionar",
+    "selectCount": "Seleccionar {{count}}",
+    "labels": {
+      "media": "Multimedia",
+      "video": "Vídeo",
+      "audio": "Audio",
+      "image": "Imagen"
+    }
+  }
+}

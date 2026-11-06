@@ -1,0 +1,57 @@
+{
+  "command": {
+    "title": "Paleta de comandos",
+    "description": "Buscar un comando para ejecutar…"
+  },
+  "actions": {
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "tryAgain": "Intentar de nuevo"
+  },
+  "accessibility": {
+    "breadcrumb": "Ruta de navegación",
+    "more": "Más",
+    "chooseColor": "Elegir color",
+    "microphoneLevel": "Nivel del micrófono",
+    "detectionConfidence": "Confianza de detección {{value}} %",
+    "toggleSidebar": "Alternar barra lateral"
+  },
+  "color": {
+    "hex": "Hex"
+  },
+  "colorPalette": {
+    "standardColors": "Colores estándar",
+    "recentColors": "Colores recientes",
+    "moreColors": "Más colores…",
+    "palette": "Paleta",
+    "clear": "Borrar",
+    "selectColor": "Seleccionar {{color}}"
+  },
+  "live": {
+    "active": "EN DIRECTO",
+    "inactive": "FUERA DEL AIRE"
+  },
+  "verseCard": {
+    "empty": "Selecciona un versículo para previsualizar"
+  },
+  "errorBoundary": {
+    "message": "Algo salió mal{{location}}.",
+    "location": " en {{label}}",
+    "unexpected": "Se produjo un error inesperado."
+  },
+  "sidebar": {
+    "title": "Barra lateral",
+    "mobileDescription": "Muestra la barra lateral móvil."
+  },
+  "signInPrompt": {
+    "title": "Inicia sesión para transcribir",
+    "description": "Conecta tu propia clave de proveedor en el portal. Solo la transcripción requiere iniciar sesión.",
+    "signIn": "Iniciar sesión",
+    "notNow": "Ahora no"
+  },
+  "transcriptionBlocked": {
+    "openPortal": "Abrir portal de cuenta",
+    "notNow": "Ahora no"
+  }
+}

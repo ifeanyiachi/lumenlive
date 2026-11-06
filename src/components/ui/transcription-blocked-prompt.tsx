@@ -1,0 +1,74 @@
+import { openExternalUrl } from "@/services/external-link-gateway"
+import { useTranslation } from "react-i18next"
+import { appUrl } from "@/lib/app-urls"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+/**
+ * Shown when the platform blocks transcription for a signed-in user (portalplan
+ * D2-06): allowance spent or the platform key unset. Points the operator at the
+ * account portal, where they configure their provider keys. Distinct from
+ * `SignInPrompt`, which handles the anonymous "not signed in yet" case.
+ */
+
+/**
+ * The account portal's transcription page, on the app/dashboard host
+ * (`app.lumenlive.xyz`), built from `VITE_LUMENLIVE_APP_URL`. See `lib/app-urls`.
+ */
+const PORTAL_URL = appUrl("/account/transcription")
+
+interface TranscriptionBlockedPromptProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  message: string
+}
+
+export function TranscriptionBlockedPrompt({
+  open,
+  onOpenChange,
+  title,
+  message,
+}: TranscriptionBlockedPromptProps) {
+  const { t } = useTranslation("ui")
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="border-foreground/12 bg-linear-to-b from-card to-card/95 sm:max-w-[420px]"
+        showCloseButton={false}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-center">{title}</DialogTitle>
+          <DialogDescription className="text-center">
+            {message}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => {
+              onOpenChange(false)
+              void openExternalUrl(PORTAL_URL)
+            }}
+          >
+            {t("transcriptionBlocked.openPortal")}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("transcriptionBlocked.notNow")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

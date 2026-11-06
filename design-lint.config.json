@@ -1,0 +1,34 @@
+{
+  "$comment": "UI must use design tokens. Allowlisted files hold CONTENT colours — what users put on the projector/stream (slide themes, renderers, picker swatches, default content colours) — or are tests / the dev-only settings mockup.",
+  "include": [
+    "src"
+  ],
+  "allow": [
+    "src/lib/theme/**",
+    "src/lib/slide-renderer/**",
+    "src/lib/verse-renderer/**",
+    "src/lib/broadcast/**",
+    "src/lib/broadcast-output/**",
+    "src/lib/countdown/**",
+    "src/lib/stage-layout/**",
+    "src/lib/pptx-import/**",
+    "src/lib/color/**",
+    "src/lib/song/**",
+    "src/lib/stage-display-renderer.ts",
+    "src/lib/theme-element-renderer.ts",
+    "src/lib/lexicon-card-renderer.ts",
+    "src/lib/lexicon-slide.ts",
+    "src/lib/slide-defaults.ts",
+    "src/lib/slide-migration.ts",
+    "src/lib/media-fit.ts",
+    "src/lib/content-colors.ts",
+    "src/components/ui/color-palette-data.ts",
+    "src/types/alert.ts",
+    "src/types/broadcast.ts",
+    "src/settings-variations.tsx",
+    "src/settings-variations.css",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.fixture.ts"
+  ]
+}

@@ -1,0 +1,21 @@
+[package]
+name = "lumenlive-lyrics"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+# Key-less lyrics APIs + (later) HTML scraping. rustls (no OpenSSL) matches the
+# root crate; `json` deserializes API responses directly.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+async-trait = "0.1"
+futures = "0.3"
+url = "2"
+# HTML parsing for scraping providers (Genius lyrics pages, later CeeNaija/etc).
+scraper = "0.21"

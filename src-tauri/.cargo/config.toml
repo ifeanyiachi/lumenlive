@@ -1,0 +1,17 @@
+# Cargo configuration for the Tauri backend.
+#
+# Raise the bundled SQLite's compile-time attached-database ceiling.
+#
+# Each downloaded Bible translation lives in its own SQLite file and is
+# `ATTACH`ed onto the single Bible connection (see
+# `crates/bible/src/db.rs::attach_translation`). SQLite's default
+# `SQLITE_MAX_ATTACHED` is 10, so the 11th install would fail with
+# "too many attached databases" and roll back — leaving only the first
+# ~10 downloads working. The catalog already ships 26 translations.
+#
+# 125 is SQLite's hard maximum for this limit, which also raises the
+# run-time `SQLITE_LIMIT_ATTACHED` default to match. `LIBSQLITE3_FLAGS` is
+# appended after libsqlite3-sys's own defaults (FTS5, RTREE, JSON1, …), so
+# this only adds the flag and does not disable anything.
+[env]
+LIBSQLITE3_FLAGS = "-DSQLITE_MAX_ATTACHED=125"

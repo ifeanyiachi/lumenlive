@@ -1,0 +1,8 @@
+{
+  "language": "Idioma",
+  "percent": "{{value}}%",
+  "milliseconds": "{{value}} ms",
+  "save": "Salvar",
+  "saved": "Salvo",
+  "apiKey": { "configured": "Chave configurada" }
+}

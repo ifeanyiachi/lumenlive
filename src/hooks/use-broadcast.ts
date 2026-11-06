@@ -1,0 +1,314 @@
+import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBibleStore, useQueueStore } from "@/stores"
+import { bibleActions } from "@/hooks/use-bible"
+import { toMultiVerseRenderData } from "@/lib/multi-verse"
+import type { VerseRenderData, QueueItem, DetectionResult } from "@/types"
+import type { Verse } from "@/types"
+import type { StyledVerseSegment } from "@/types/verse-edit"
+import type { Slide } from "@/types/slide"
+import type { MediaAsset } from "@/types/media"
+import type {
+  MediaLayerState,
+  LiveMedia,
+  LiveWeb,
+} from "@/stores/broadcast-store"
+import type { WebScheduleItem } from "@/types/schedule"
+import { buildDisplayUrl, extractVideoId, isYouTubeUrl } from "@/lib/youtube"
+import { liveFeatureLabel } from "@/lib/broadcast/live-gate"
+import { requireFeature } from "@/components/entitlements/require-feature"
+
+/**
+ * Take the staged item live, surfacing an upgrade prompt when the current
+ * entitlement may not send that content to the audience (Free may take only
+ * scripture). The store's {@link BroadcastState.takeToLive} is the authoritative
+ * gate — it commits nothing and returns the required feature key when blocked;
+ * this wrapper turns that into the operator-facing toast. Route the interactive
+ * "Go Live" / Take affordances through here so a blocked take explains itself.
+ */
+export function takeToLiveOrPrompt(onActivated?: () => void): void {
+  const blocked = useBroadcastStore.getState().takeToLive()
+  if (blocked) requireFeature(blocked, liveFeatureLabel(blocked), onActivated)
+}
+
+/**
+ * Push a freshly-edited verse block straight to the audience from the verse
+ * editor. Stages it into Program preview, brings the broadcast on air when the
+ * operator was off-air (the editor's live options are expected to work from a
+ * cold start, not only mid-service), then commits through the gated take so a
+ * blocked entitlement explains itself. Shared by the single- and multi-verse
+ * editors so their "Live" and "Schedule & live" paths are byte-for-byte
+ * identical and can't drift.
+ */
+export function takeEditedVerseLive(renderData: VerseRenderData): void {
+  const broadcast = useBroadcastStore.getState()
+  broadcast.setLiveVerse(renderData, "manual")
+  if (!broadcast.isLive) broadcast.setLive(true)
+  takeToLiveOrPrompt()
+}
+
+export function toVerseRenderData(
+  verse: Verse,
+  translation: string,
+  interlinearText?: string | null,
+  styledSegments?: StyledVerseSegment[]
+): VerseRenderData {
+  // Styled edits are item-scoped: the caller passes them explicitly (from the
+  // schedule item / editor). There is no global saved-edit store to consult.
+  if (styledSegments && styledSegments.length > 0) {
+    return {
+      reference: `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`,
+      segments: styledSegments,
+    }
+  }
+  return {
+    reference: `${verse.book_name} ${verse.chapter}:${verse.verse} (${translation})`,
+    segments: [
+      {
+        verseNumber: verse.verse,
+        text: interlinearText ?? verse.text,
+        isInterlinear: !!interlinearText,
+      },
+    ],
+  }
+}
+
+export function deriveLiveVerse({
+  isLive,
+  selectedVerse,
+  translation,
+  interlinearText,
+}: {
+  isLive: boolean
+  selectedVerse: Verse | null
+  translation: string
+  interlinearText?: string | null
+}): VerseRenderData | null {
+  if (!isLive || !selectedVerse) return null
+  return toVerseRenderData(selectedVerse, translation, interlinearText)
+}
+
+/**
+ * Stage a queue item into the Program preview — the shared "present" step for
+ * an AI-detections / queue verse. It marks the row active, mirrors the verse
+ * into the book search, and pins the preview to the "queue" source. It never
+ * touches the audience: the operator commits it with takeToLive (play / Enter /
+ * Go Live). Shared by the queue panel's row click and the keyboard path so both
+ * stage identically.
+ */
+export function presentQueueVerse(item: QueueItem, index: number): void {
+  useQueueStore.getState().setActive(index)
+  bibleActions.selectVerse(item.verse)
+  const bible = useBibleStore.getState()
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  const renderData = item.verses
+    ? toMultiVerseRenderData(item.verses, translation)
+    : toVerseRenderData(item.verse, translation)
+  useBroadcastStore.getState().setLiveVerse(renderData, "queue")
+}
+
+/**
+ * Stage a queued verse into the Program preview and immediately take it live.
+ * This is the double-click / "send live" path for the AI-verses queue: it
+ * reuses presentQueueVerse for identical staging, then commits with takeToLive
+ * so the audience push matches the manual "Go Live" exactly. Single-click still
+ * only stages (presentQueueVerse); this is the deliberate one-step live call.
+ */
+export function presentQueueVerseLive(item: QueueItem, index: number): void {
+  presentQueueVerse(item, index)
+  useBroadcastStore.getState().takeToLive()
+}
+
+/**
+ * Present an AI detection straight to the audience. This is the deliberate
+ * exception to the locked-by-default "stage-then-take" flow: queue/schedule
+ * presents stage into the Program preview and wait for an explicit take, but an
+ * AI-detection Present is the operator's live call, so it stages the verse and
+ * commits it live in one step. It also mirrors the verse into the book search
+ * and selection like the other present paths.
+ */
+export function presentDetectionLive(detection: DetectionResult): void {
+  const bible = useBibleStore.getState()
+  const verse: Verse = {
+    id: 0,
+    translation_id: bible.activeTranslationId,
+    book_number: detection.book_number,
+    book_name: detection.book_name,
+    book_abbreviation: "",
+    chapter: detection.chapter,
+    verse: detection.verse,
+    text: detection.verse_text,
+  }
+  bibleActions.selectVerse(verse)
+  if (detection.book_number > 0) {
+    bibleActions.navigateToVerse(
+      detection.book_number,
+      detection.chapter,
+      detection.verse
+    )
+  }
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  const bs = useBroadcastStore.getState()
+  // Stage then immediately take: reuse the exact live-push path the manual
+  // "Go Live" uses, so the audience push is identical.
+  bs.setLiveVerse(toVerseRenderData(verse, translation), "queue")
+  bs.takeToLive()
+}
+
+/**
+ * Preview an AI detection in the Program without going live: stage the verse
+ * into the Program preview (pinned to the "queue" source) and navigate the book
+ * panel to it — but no takeToLive, so the audience is untouched until the
+ * operator commits with the manual "Go Live" / Enter.
+ *
+ * Navigation goes through pendingNavigation with `focusPanel: false`, which the
+ * book panel resolves with the *raw* store selectVerse rather than the
+ * pin-releasing wrapper (see search-panel.tsx). That reflects the verse in the
+ * book search WITHOUT releasing the "queue" pin, so loadChapter's async
+ * chapter-reconcile can't clear the staged preview mid-audition — the flicker the
+ * previous no-navigation approach was avoiding. focusPanel is false so the audition
+ * keeps keyboard focus where the operator left it instead of grabbing the arrows.
+ */
+export function previewDetection(detection: DetectionResult): void {
+  const bible = useBibleStore.getState()
+  const verse: Verse = {
+    id: 0,
+    translation_id: bible.activeTranslationId,
+    book_number: detection.book_number,
+    book_name: detection.book_name,
+    book_abbreviation: "",
+    chapter: detection.chapter,
+    verse: detection.verse,
+    text: detection.verse_text,
+  }
+  const translation =
+    bible.translations.find((t) => t.id === bible.activeTranslationId)
+      ?.abbreviation ?? "KJV"
+  useBroadcastStore
+    .getState()
+    .setLiveVerse(toVerseRenderData(verse, translation), "queue")
+  if (detection.book_number > 0) {
+    bible.setPendingNavigation({
+      bookNumber: detection.book_number,
+      chapter: detection.chapter,
+      verse: detection.verse,
+      focusPanel: false,
+    })
+  }
+}
+
+export async function presentSlide(slide: Slide): Promise<void> {
+  const bs = useBroadcastStore.getState()
+  bs.setLiveSlide(slide, "schedule")
+  bs.syncStageOutput()
+}
+
+/** Per-media playback config sourced from a schedule item (trim/loop/end-action/markers). */
+export type MediaPlaybackConfig = Pick<
+  LiveMedia,
+  | "trimStart"
+  | "trimEnd"
+  | "loop"
+  | "endAction"
+  | "markers"
+  | "fit"
+  | "zoom"
+  | "focalX"
+  | "focalY"
+  | "containBackground"
+  | "containBackgroundColor"
+>
+
+export async function presentMedia(
+  asset: MediaAsset,
+  config?: MediaPlaybackConfig
+): Promise<void> {
+  const media: LiveMedia = {
+    filePath: asset.filePath,
+    mediaType: asset.type,
+    name: asset.name,
+    ...config,
+  }
+  const bs = useBroadcastStore.getState()
+  bs.setLiveMedia(media, "schedule")
+  bs.syncStageOutput()
+}
+
+export async function presentWeb(item: WebScheduleItem): Promise<void> {
+  const muted = useBroadcastStore.getState().broadcastMuted
+  const url = buildDisplayUrl(item.url, {
+    autoplay: item.autoplay,
+    startTime: item.startTime,
+    mute: muted,
+  })
+  useBroadcastStore.getState().setLiveWeb(
+    {
+      url,
+      isYouTube: item.isYouTube,
+      videoId: item.videoId,
+      isLive: item.isLive,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      endAction: item.endAction,
+      markers: item.markers,
+      autoplay: item.autoplay,
+    },
+    "schedule"
+  )
+}
+
+/** Playback config carried onto a live web item (mirrors the media path). */
+export type WebPlaybackConfig = Pick<
+  LiveWeb,
+  "isLive" | "startTime" | "endTime" | "endAction" | "markers"
+>
+
+export async function presentWebUrl(
+  rawUrl: string,
+  opts: { config?: WebPlaybackConfig } = {}
+): Promise<void> {
+  const yt = isYouTubeUrl(rawUrl)
+  const videoId = extractVideoId(rawUrl) ?? undefined
+  const muted = useBroadcastStore.getState().broadcastMuted
+  const url = buildDisplayUrl(rawUrl, {
+    // Cue paused — the operator presses Play from the live transport.
+    autoplay: false,
+    startTime: opts.config?.startTime,
+    mute: muted,
+  })
+  useBroadcastStore
+    .getState()
+    .setLiveWeb(
+      { url, isYouTube: yt, videoId, autoplay: false, ...opts.config },
+      "manual"
+    )
+}
+
+export function setMediaLayer(asset: MediaAsset): void {
+  const layer: MediaLayerState = {
+    filePath: asset.filePath,
+    mediaType: asset.type as "image" | "video",
+    name: asset.name,
+    active: true,
+  }
+  useBroadcastStore.getState().setMediaLayer(layer)
+}
+
+export function clearMediaLayer(): void {
+  useBroadcastStore.getState().setMediaLayer(null)
+}
+
+export const broadcastActions = {
+  setLiveVerse: (verse: VerseRenderData | null) =>
+    useBroadcastStore.getState().setLiveVerse(verse),
+  setLive: (live: boolean) => useBroadcastStore.getState().setLive(live),
+  presentSlide,
+  presentMedia,
+  presentWeb,
+  presentWebUrl,
+  setMediaLayer,
+  clearMediaLayer,
+}

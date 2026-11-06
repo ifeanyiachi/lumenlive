@@ -1,0 +1,477 @@
+{
+  "display": {
+    "detectionBehavior": "Detection Behavior",
+    "directVerseDestination": {
+      "title": "Detected verse destination",
+      "description": "Choose what happens automatically when a clear Bible reference like \"John 3:16\" is detected.",
+      "options": {
+        "live": {
+          "title": "Live output",
+          "description": "Send it straight to the audience."
+        },
+        "preview": {
+          "title": "Program Preview",
+          "description": "Stage it for your review and take."
+        },
+        "detection": {
+          "title": "Detection panel only",
+          "description": "Keep it in Detections. Do not stage, send, or queue it automatically."
+        }
+      }
+    },
+    "voiceNavigationGoesLive": {
+      "title": "Voice navigation goes live",
+      "description": "When you say \"turn to the next verse\" or \"go back one verse\", push the target straight to the audience. When off (default), it is staged to Program preview for you to take."
+    },
+    "scheduleVoiceNavigationGoesLive": {
+      "title": "Schedule voice navigation goes live",
+      "description": "When you say \"next slide\" or \"go back to the previous slide\", step the active schedule item (and its sub-slides) and push it straight to the audience. When off, the new slide is staged to Program preview for you to take. Separate from verse navigation."
+    },
+    "confidenceThreshold": {
+      "label": "Confidence Threshold",
+      "description": "Minimum confidence for a semantic (meaning-based) match to appear in the AI Detections panel. Direct references like 'John 3:16' always appear. Higher values hide weaker guesses. Semantic matches are suggestions only — they never display to the audience or queue automatically."
+    },
+    "cooldown": {
+      "label": "Cooldown",
+      "description": "Minimum time between auto-displayed detections. Prevents rapid flickering when multiple verses are detected in quick succession."
+    }
+  },
+  "language": {
+    "label": "Interface Language",
+    "description": "Choose the language used for LumenLive's operator interface.",
+    "active": "Active",
+    "setActive": "Set as Active"
+  },
+  "audio": {
+    "modeLabel": "Transcription mode",
+    "modeDescription": "Choose whether LumenLive transcribes online or on this device.",
+    "modes": {
+      "online": "Online",
+      "on-device": "On-Device"
+    },
+    "onDeviceModelsLabel": "On-device transcription options",
+    "onDeviceModels": {
+      "selected": "Selected",
+      "active": "Active",
+      "setActive": "Set as Active",
+      "download": "Download",
+      "remove": "Remove",
+      "english": {
+        "title": "LumenLive On-device (English)",
+        "description": "Works better with a direct audio input. Downloads approx. 464 MB of data."
+      }
+    },
+    "detectionDescription": "Choose how detected verses and voice navigation are handled during a service.",
+    "inputDevice": "Input Device",
+    "loadingDevices": "Loading devices...",
+    "systemDefault": "System default",
+    "defaultDeviceSuffix": " (default)",
+    "deviceDescription": "Selected device persists across sessions. Leave as system default to follow OS audio routing.",
+    "inputGain": {
+      "label": "Input Gain",
+      "description": "Amplifies the incoming audio signal before transcription. 50% is unity gain."
+    }
+  },
+  "schedule": {
+    "building": "Building the Schedule",
+    "preventDuplicates": {
+      "title": "Prevent duplicate items",
+      "description": "When something already in the schedule is added again — the same verse, slide deck, media file, or video — keep the original and flash it in the list instead of adding a second copy. Section headers are never affected, so repeated dividers still work."
+    },
+    "guidance": {
+      "title": "Which setting fits your service?",
+      "leaveOn": "Leave it on",
+      "leaveOnDescription": "if your schedule is built ahead of time by several people, or if verses land in it from AI detection and search during the service. Two operators dragging John 3:16 in from different panels then get one item, and the flash shows where it already is.",
+      "turnOff": "Turn it off",
+      "turnOffDescription": "if your order of service deliberately repeats content — a call-to-worship verse read again at the benediction, a bumper video before and after the sermon, or a song slide reprised at the end. With it off, every add creates its own item you can re-order and re-cue independently."
+    }
+  },
+  "privacy": {
+    "anonymousUsageData": "Anonymous Usage Data",
+    "shareUsage": {
+      "title": "Share anonymous usage data",
+      "description": "Help improve LumenLive by sending anonymous, aggregate usage data — which features are used and how often the app runs a service. This never includes scripture text, song lyrics, media, church or service names, or anything that identifies you. You can turn it off at any time."
+    },
+    "collection": {
+      "title": "What is and isn't collected",
+      "collected": "Collected:",
+      "collectedDescription": "counts of events like the app launching, a service starting, going live, and which features get used — plus your app version and operating system. It helps us see which parts of LumenLive matter to churches and where to focus.",
+      "neverCollected": "Never collected:",
+      "neverCollectedDescription": "your identity, your church, verse or song content, file paths, screenshots, or anything you type. There is no account and no tracking across other apps."
+    }
+  },
+  "help": {
+    "description": "Resources to help you get the most out of LumenLive.",
+    "tutorial": {
+      "title": "Interactive Tutorial",
+      "description": "Step-by-step walkthrough of every feature",
+      "restart": "Restart"
+    }
+  },
+  "feedback": {
+    "description": "Send a bug report or feature request directly to the LumenLive team.",
+    "bug": {
+      "title": "Report a bug",
+      "description": "Something is not working as expected? Let us know what happened."
+    },
+    "feature": {
+      "title": "Request a feature",
+      "description": "Share an idea that would make your services easier to run."
+    },
+    "tabs": {
+      "bug": "Bugs",
+      "feature": "Feature requests"
+    },
+    "signIn": {
+      "title": "Sign in to send feedback",
+      "description": "Please sign in so we can attach your account and church details to the submission.",
+      "action": "Sign in"
+    },
+    "loading": "Loading feedback…",
+    "form": {
+      "titleLabel": "Title",
+      "bugTitlePlaceholder": "What went wrong?",
+      "featureTitlePlaceholder": "What would you like LumenLive to do?",
+      "whatHappenedLabel": "What happened?",
+      "whatHappenedPlaceholder": "Describe the problem and what you were doing when it occurred.",
+      "requestLabel": "What would you like to see?",
+      "requestPlaceholder": "Describe the feature or improvement you have in mind.",
+      "stepsLabel": "Steps to reproduce",
+      "stepsPlaceholder": "1. Open... 2. Click... 3. Notice...",
+      "expectedLabel": "Expected behavior",
+      "expectedPlaceholder": "What did you expect to happen?",
+      "impactLabel": "Why would this help?",
+      "impactPlaceholder": "Who would this help, and how would it improve your workflow?"
+    },
+    "send": "Send feedback",
+    "sending": "Sending…",
+    "sent": "Sent",
+    "sentDescription": "Thanks — your feedback was sent to the LumenLive team.",
+    "failedDescription": "We couldn't send your feedback. Check your connection and try again."
+  },
+  "mediaLibrary": {
+    "whenImporting": "When Importing Media",
+    "reference": {
+      "title": "Reference originals",
+      "description": "Keeps only a link to each file where it already lives. Uses no extra disk space, but a clip stops working if you move, rename, or delete the original — and the library can't move to another computer on its own."
+    },
+    "copy": {
+      "title": "Copy into app library",
+      "description": "Copies each imported file into a folder LumenLive manages, so the library keeps working even if you move or delete the originals. Uses more disk space. Removing a copied item from the library deletes its copy."
+    },
+    "appliesFromNow": "This applies to files imported from now on. Media already in your library is left exactly as it is.",
+    "folder": "Library Folder",
+    "open": "Open",
+    "folderDescription": "Where copied files are stored. Only used when \"Copy into app library\" is selected."
+  },
+  "bible": {
+    "primaryTranslation": "Primary Translation",
+    "loading": "Loading...",
+    "selectTranslation": "Select translation",
+    "english": "English",
+    "otherLanguages": "Other Languages",
+    "detectedVerses": "Detected verses will display in this translation.",
+    "translationsAvailable_one": "{{count}} translation available.",
+    "translationsAvailable_other": "{{count}} translations available.",
+    "originalLanguages": "Original Languages",
+    "translations": {
+      "title": "Bible Translations",
+      "description": "Install and manage translations from the resource store, grouped by original language.",
+      "groupedBy": "Original language",
+      "import": "Import",
+      "importTitle": "Import a Bible translation file you're licensed to use",
+      "dismiss": "Dismiss",
+      "loading": "Loading translations…",
+      "empty": "No Bible translations found",
+      "emptyDescription": "Install a translation or import a Bible file to add one here.",
+      "noResults": "No translations match your search",
+      "noResultsDescription": "Try a different title, abbreviation, or language.",
+      "searchPlaceholder": "Search Bible translations…",
+      "count_one": "{{count}} translation",
+      "count_other": "{{count}} translations"
+    },
+    "lexicon": {
+      "title": "Greek & Hebrew lexicon",
+      "description": "Bundled with KJV but off by default. When on, each verse gains an interlinear (He / Gr) toggle for word-by-word original text with Strong's definitions, and lets you push a word study to the program preview. When off, it stays hidden everywhere."
+    }
+  },
+  "songs": {
+    "apiKeyLabel": "Genius API Key",
+    "apiKeyPlaceholder": "Enter your Genius API key...",
+    "instructionsTitle": "How to get a Genius API key",
+    "helpText": "Enables Genius results (including lyric-line matches) in the online lyrics search. Stored locally on this device. Other sources work without a key.",
+    "disclaimer": "Disclaimer: By enabling this integration, you agree that you are using your own personal, non-commercial Genius developer key. This software is a neutral utility and is not affiliated with, endorsed, or licensed by Genius. You are entirely responsible for complying with the Genius API Terms of Service, and any commercial exploitation or misuse of their data is strictly at your own risk.",
+    "instructions": {
+      "signInAt": "Sign in at",
+      "freeAccount": "(a free Genius account).",
+      "click": "Click",
+      "newApiClient": "New API Client",
+      "createClient": ", fill in any app name and URL, then create it.",
+      "onClient": "On the client, click",
+      "generateToken": "Generate Access Token",
+      "copyToken": ", copy the token, paste it above, and press",
+      "finish": "."
+    }
+  },
+  "account": {
+    "signIn": {
+      "title": "Sign in to LumenLive",
+      "description": "All features are free. Sign in only to use transcription.",
+      "action": "Sign in"
+    },
+    "browser": {
+      "description": "Continue in your browser to sign in securely, then activate this device.",
+      "action": "Sign in via browser",
+      "pending": "Browser sign-in is open. Complete sign-in in your browser, then return here.",
+      "pendingAction": "Waiting for browser",
+      "cancel": "Cancel sign-in",
+      "cancelled": "Browser sign-in was cancelled.",
+      "timedOut": "The browser sign-in window expired. Start again.",
+      "offline": "LumenLive could not reach the server. Check your connection and try again."
+    },
+    "email": "Email",
+    "password": "Password",
+    "signingIn": "Signing in…",
+    "newToLumenLive": "New to LumenLive?",
+    "registerChurch": "Register a church",
+    "unknownDevice": "Unknown device",
+    "activation": {
+      "required": "Finish account setup to use transcription. All other features are ready to use.",
+      "activating": "Device activation is still in progress.",
+      "failed": "This device could not be activated.",
+      "deviceLimit": "This account has reached its device limit. Deactivate another device, then try again.",
+      "noSeat": "This account no longer has a desktop seat for the selected team.",
+      "sessionExpired": "Your sign-in session expired. Sign in again to activate this device.",
+      "offline": "The server could not be reached. Check your connection and try again.",
+      "retry": "Try activation again",
+      "retrying": "Activating…",
+      "signInAgain": "Sign in again"
+    },
+    "reason": {
+      "trial_ended": "Your free trial has ended. Subscribe to a plan to restore full access.",
+      "expired": "We haven't been able to confirm your plan lately. Connect to the internet, then re-validate below.",
+      "machine_mismatch": "This plan is active on another device. Sign in here to move it to this one.",
+      "signature": "Your plan needs a quick refresh on this device. Re-validate below to update it.",
+      "malformed": "The stored device license is unreadable. Re-validate to obtain a fresh license.",
+      "issuer": "The stored device license came from an untrusted issuer. Re-validate to obtain a fresh license.",
+      "audience": "The stored device license is not for this app. Re-validate to obtain a fresh license."
+    },
+    "refreshFailed": "We couldn't refresh your plan right now: {{message}}",
+    "revalidatedNow": "You're all set — your plan is now {{plan}}.",
+    "revalidatedStill": "Checked with the server — you're still on {{plan}}, all good.",
+    "thisDevice": "This device",
+    "loadingDevice": "…",
+    "unlimitedDevices": "No device limit.",
+    "deviceLimit_one": "Your plan covers up to {{count}} device.",
+    "deviceLimit_other": "Your plan covers up to {{count}} devices.",
+    "revalidating": "Re-validating…",
+    "revalidated": "Re-validated",
+    "revalidateNow": "Re-validate now",
+    "signOut": "Sign out",
+    "accessPeriod": "Access period",
+    "accessEnded": "Access ended",
+    "transcriptionUsage": "Transcription this month",
+    "transcriptionUsageProgress": "{{used}} min of {{allowance}} min used",
+    "transcriptionUsageRemaining": "{{minutes}} min remaining",
+    "transcriptionUsageUnlimited": "Unlimited",
+    "transcriptionUsageTeamKey": "Your provider key",
+    "transcriptionUsageTeamKeyDescription": "Usage is managed by your transcription provider.",
+    "transcriptionUsageUsed": "{{minutes}} min used",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "accessRemaining": "{{days}} {{hours}} remaining",
+    "team": {
+      "label": "Account",
+      "choose": "Choose an account",
+      "chooseTitle": "Choose your account",
+      "chooseDescription": "Choose which account’s transcription keys to use on this device.",
+      "personalBadge": "Personal",
+      "teamBadge": "Team",
+      "activating": "Activating…",
+      "continue": "Continue"
+    },
+    "manageTranscriptionKeys": "Manage transcription keys"
+  },
+  "remote": {
+    "featureName": "Remote control",
+    "listening": "Listening",
+    "stopped": "Stopped",
+    "osc": "OSC (Open Sound Control)",
+    "port": "Port",
+    "start": "Start",
+    "stop": "Stop",
+    "oscListening": "Listening on UDP port {{port}}",
+    "oscDescription": "Receives commands from hardware controllers (Stream Deck, TouchOSC, Companion) via OSC over UDP. OSC has no access code (the protocol has no auth) — only enable it on networks you trust.",
+    "httpApi": "HTTP API",
+    "httpServing": "Serving on http://localhost:{{port}}/api/v1/",
+    "accessCode": "Access code (required)",
+    "accessCodeIntro": "Enter this on your remote device — send it as an",
+    "accessCodeMiddle": "or",
+    "accessCodeOutro": "header. Without it, control requests are rejected. The code changes each time you restart the server.",
+    "httpDescription": "REST API for status queries and control commands. Use with custom dashboards, automation scripts, or HTTP-capable controllers. Requests are protected by the access code above.",
+    "firewall": {
+      "title": "Firewall Note",
+      "description": "Your OS may block incoming connections. On macOS, allow LumenLive through System Settings → Network → Firewall. On Windows, allow through Windows Security → Firewall → Allow an app."
+    },
+    "commandLog": "Command Log",
+    "clear": "Clear",
+    "noCommands": "No commands received yet"
+  },
+  "backup": {
+    "heading": "Backup & Restore",
+    "moveTitle": "Move your content to a new PC",
+    "moveDescription": "Save your content — custom themes, stage layouts, presentations, songs, schedules, timers, alerts and the media library (images and videos included) — into a single backup file, then restore it on another computer. Pick everything, or just the kinds you need. Restore accepts any backup and merges in whatever it holds.",
+    "allContent": "All content",
+    "saving": "Saving…",
+    "export": "Export backup",
+    "restoring": "Restoring…",
+    "restore": "Restore backup",
+    "travelTitle": "What travels — and what doesn't",
+    "included": "Included:",
+    "includedDescription": "all your custom content and the media files it uses, so backgrounds and videos still play on the new machine.",
+    "notIncluded": "Not included:",
+    "notIncludedDescription": "app settings and API keys (re-enter those on the new PC), and Bible translations (re-download them from the Bible settings). Restoring adds to — and updates — your current library; it never deletes what's already there.",
+    "confirmTitle": "Restore from a backup?",
+    "confirmDescription": "This merges the backup's content into your library, updating any items that share an id. Your existing content is kept. Continue?",
+    "chooseFile": "Choose file…",
+    "kinds": {
+      "themes": "Themes",
+      "stageLayouts": "Stage layouts",
+      "presentations": "Presentations",
+      "songs": "Songs",
+      "schedules": "Schedules",
+      "mediaAssets": "Media library",
+      "countdownTimers": "Timers",
+      "alertTemplates": "Alerts"
+    },
+    "summary": {
+      "themes_one": "{{count}} theme",
+      "themes_other": "{{count}} themes",
+      "stageLayouts_one": "{{count}} stage layout",
+      "stageLayouts_other": "{{count}} stage layouts",
+      "presentations_one": "{{count}} presentation",
+      "presentations_other": "{{count}} presentations",
+      "songs_one": "{{count}} song",
+      "songs_other": "{{count}} songs",
+      "schedules_one": "{{count}} schedule",
+      "schedules_other": "{{count}} schedules",
+      "mediaAssets_one": "{{count}} media file",
+      "mediaAssets_other": "{{count}} media files",
+      "countdownTimers_one": "{{count}} timer",
+      "countdownTimers_other": "{{count}} timers",
+      "alertTemplates_one": "{{count}} alert",
+      "alertTemplates_other": "{{count}} alerts",
+      "webBookmarks_one": "{{count}} bookmark",
+      "webBookmarks_other": "{{count}} bookmarks"
+    },
+    "savedWithMissingMedia_one": "Backup saved ({{summary}}) · {{count}} media file was missing and couldn't be packaged",
+    "savedWithMissingMedia_other": "Backup saved ({{summary}}) · {{count}} media files were missing and couldn't be packaged",
+    "saved": "Backup saved",
+    "savedWithSummary": "Backup saved · {{summary}}",
+    "restored": "Backup restored",
+    "restoredWithSummary": "Backup restored · {{summary}}",
+    "createFailed": "Couldn't create that backup.",
+    "restoreFailed": "Couldn't restore that backup.",
+    "transcripts": {
+      "heading": "Transcriptions",
+      "description": "Export a full service transcript — every spoken line and verse detection — recorded during transcription. The latest recording and the two before it are listed below.",
+      "empty": "No transcriptions recorded yet.",
+      "latest": "Latest",
+      "export": "Export",
+      "exporting": "Exporting…",
+      "exported": "Transcription exported",
+      "exportFailed": "Couldn't export that transcription.",
+      "unknownTime": "Unknown date"
+    }
+  },
+  "sections": {
+    "account": {
+      "name": "Account",
+      "title": "Account & License"
+    },
+    "audio": {
+      "name": "Transcription",
+      "title": "Transcription"
+    },
+    "bible": {
+      "name": "Bible Translations",
+      "title": "Bible Translations"
+    },
+    "display": {
+      "name": "Display Mode",
+      "title": "Display Mode"
+    },
+    "schedule": {
+      "name": "Schedule",
+      "title": "Schedule"
+    },
+    "media": {
+      "name": "Media Library",
+      "title": "Media Library"
+    },
+    "songs": {
+      "name": "Songs",
+      "title": "Songs"
+    },
+    "remote": {
+      "name": "Remote Control",
+      "title": "Remote Control"
+    },
+    "backup": {
+      "name": "Backup & Restore",
+      "title": "Backup & Restore"
+    },
+    "privacy": {
+      "name": "Privacy",
+      "title": "Privacy"
+    },
+    "help": {
+      "name": "Help",
+      "title": "Help"
+    },
+    "feedback": {
+      "name": "Send feedback",
+      "title": "Send feedback"
+    },
+    "language": {
+      "name": "Language",
+      "title": "Language"
+    },
+    "appearance": {
+      "name": "Appearance",
+      "title": "Appearance"
+    }
+  },
+  "dialog": {
+    "title": "Settings",
+    "description": "Configure transcription, display behavior, and app settings.",
+    "buttonLabel": "Settings",
+    "buttonTitle": "Settings (Ctrl ,)",
+    "backupFile": "LumenLive backup",
+    "allFiles": "All files",
+    "restoreBackup": "Restore backup"
+  },
+  "appearance": {
+    "description": "Make the operator interface fit your screen. Changes apply immediately and are saved on this device. Projected slides, stage displays, and broadcast output keep their own sizes.",
+    "size": "Interface size",
+    "sizeDescription": "Scale text, icons, buttons, badges, and the rest of the interface together.",
+    "default": "Default",
+    "shortcuts": "Use Ctrl / Command with + or − to resize, and 0 to return to 100%. These shortcuts also work while typing.",
+    "density": "Interface density",
+    "densityDescription": "Adjust control heights and spacing without changing text size.",
+    "densities": {
+      "compact": "Compact",
+      "standard": "Standard",
+      "comfortable": "Comfortable"
+    },
+    "preview": "Preview",
+    "previewBadge": "Badge",
+    "previewText": "Check how text, badges, and controls feel at this size.",
+    "previewInput": "Sample input",
+    "previewButton": "Sample button",
+    "reset": "Reset appearance",
+    "applyFailed": "Could not change interface size. Try again or restart LumenLive."
+  }
+}

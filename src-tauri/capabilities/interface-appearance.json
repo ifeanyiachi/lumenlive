@@ -1,0 +1,6 @@
+{
+  "identifier": "interface-appearance",
+  "description": "Allow operator interface zoom in the main window only.",
+  "windows": ["main"],
+  "permissions": ["core:webview:allow-set-webview-zoom"]
+}

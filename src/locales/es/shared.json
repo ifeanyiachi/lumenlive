@@ -1,0 +1,31 @@
+{
+  "anchor": {
+    "center": "Centro",
+    "top-left": "Arriba a la izquierda",
+    "top-center": "Arriba al centro",
+    "top-right": "Arriba a la derecha",
+    "bottom-left": "Abajo a la izquierda",
+    "bottom-center": "Abajo al centro",
+    "bottom-right": "Abajo a la derecha"
+  },
+  "loadingFonts": "Cargando fuentes...",
+  "searchFonts": "Buscar fuentes...",
+  "noFontsFound": "No se encontraron fuentes",
+  "style": "Estilo",
+  "linear": "Lineal",
+  "radial": "Radial",
+  "angle": "Ángulo",
+  "colorStops": "Paradas de color",
+  "addStop": "Añadir parada",
+  "position": "Posición %",
+  "removeStop": "Eliminar parada",
+  "textShadow": "Sombra de texto",
+  "offsetX": "Desplazamiento X",
+  "offsetY": "Desplazamiento Y",
+  "blur": "Desenfoque",
+  "shadowColor": "Color de sombra",
+  "opacity": "Opacidad",
+  "textOutline": "Contorno de texto",
+  "width": "Ancho",
+  "outlineColor": "Color de contorno"
+}

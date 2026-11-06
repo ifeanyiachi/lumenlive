@@ -1,0 +1,94 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "LumenLive",
+  "version": "0.7.2",
+  "identifier": "xyz.lumenlive.app",
+  "build": {
+    "frontendDist": "../build",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "bun dev",
+    "beforeBuildCommand": "bun run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LumenLive",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "maximized": true,
+        "center": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,DirectCompositionVideoOverlays --disable-direct-composition-video-overlays --autoplay-policy=no-user-gesture-required"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost http://asset.localhost data: blob: https://i.ytimg.com https://img.youtube.com; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:3000 ws://localhost:3000 asset: https://asset.localhost http://asset.localhost; media-src 'self' asset: https://asset.localhost http://asset.localhost blob:; worker-src 'self'; frame-src https: http:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://lumenlivedl.94streetstudio.xyz/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVEOEM4M0ZCQUE4MzZCRUQKUldUdGE0T3ErNE9NWGE4T3E0aldDMmVsSlYzTWJEYW83NkJhc1FoZkNBaWV3cjQ3YjdEV1BSTU4K"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["lumenlive"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "publisher": "94streetStudio",
+    "fileAssociations": [
+      {
+        "ext": ["lumsched"],
+        "name": "LumenLive Service Schedule",
+        "description": "LumenLive Service Schedule",
+        "mimeType": "application/json",
+        "role": "Editor"
+      },
+      {
+        "ext": ["lumtheme"],
+        "name": "LumenLive Theme",
+        "description": "LumenLive Theme",
+        "mimeType": "application/zip",
+        "role": "Editor"
+      },
+      {
+        "ext": ["lumbackup"],
+        "name": "LumenLive Backup",
+        "description": "LumenLive Backup",
+        "mimeType": "application/zip",
+        "role": "Editor"
+      }
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../data/lumenlive.db": "./",
+      "../models/bge-base-en-v1.5-int8/model_quantized.onnx": "models/bge-base-en-v1.5-int8/model_quantized.onnx",
+      "../models/bge-base-en-v1.5-int8/tokenizer.json": "models/bge-base-en-v1.5-int8/tokenizer.json",
+      "../embeddings/kjv-bge-base-en-v1.5.bin": "embeddings/kjv-bge-base-en-v1.5.bin",
+      "../embeddings/kjv-bge-base-en-v1.5-ids.bin": "embeddings/kjv-bge-base-en-v1.5-ids.bin",
+      "../sdk/ndi/windows/Processing.NDI.Lib.x64.dll": "sdk/ndi/windows/Processing.NDI.Lib.x64.dll",
+      "libs/onnxruntime.dll": "./",
+      "libs/onnxruntime_providers_shared.dll": "./"
+    }
+  }
+}

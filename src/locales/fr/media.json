@@ -1,0 +1,79 @@
+{
+  "details": "Détails",
+  "selectAsset": "Sélectionnez un média",
+  "preview": "Aperçu de {{name}}",
+  "type": "Type",
+  "size": "Taille",
+  "dimensions": "Dimensions",
+  "duration": "Durée",
+  "unknown": "Inconnu",
+  "tags": "Étiquettes",
+  "addTag": "Ajouter une étiquette",
+  "addTagPlaceholder": "Ajouter une étiquette...",
+  "collections": "Collections",
+  "addToCollection": "Ajouter à la collection",
+  "addToCollectionLower": "Ajouter à la collection",
+  "removeFromLibrary": "Retirer de la bibliothèque",
+  "import": "Importer",
+  "importing": "Importation…",
+  "dropFiles": "Déposez des fichiers pour les ajouter à la bibliothèque",
+  "library": "Bibliothèque multimédia",
+  "importingProgress": "Importation de {{current}} sur {{total}}...",
+  "selected_one": "{{count}} sélectionné",
+  "selected_other": "{{count}} sélectionnés",
+  "selectAll": "Tout sélectionner",
+  "delete": "Supprimer",
+  "clearSelection": "Effacer la sélection",
+  "filters": {
+    "all": "Tout",
+    "images": "Images",
+    "videos": "Vidéos",
+    "audio": "Audio"
+  },
+  "allCollections": "Toutes les collections",
+  "manageCollections": "Gérer les collections...",
+  "searchPlaceholder": "Rechercher des médias...",
+  "empty": {
+    "collection": "Aucun média dans cette collection",
+    "search": "Aucun média correspondant",
+    "images": "Aucune image importée",
+    "videos": "Aucune vidéo importée",
+    "audio": "Aucun audio importé",
+    "all": "Aucun média importé",
+    "importHint": "Cliquez sur « Importer » pour ajouter des médias",
+    "collectionHint": "Sélectionnez des éléments et utilisez « Ajouter à la collection »"
+  },
+  "manage": {
+    "title": "Gérer les collections",
+    "empty": "Aucune collection",
+    "confirmRename": "Confirmer le renommage",
+    "cancelRename": "Annuler le renommage",
+    "rename": "Renommer {{name}}",
+    "delete": "Supprimer {{name}}",
+    "newName": "Nouveau nom de collection...",
+    "create": "Créer"
+  },
+  "addDialog": {
+    "title": "Ajouter à la collection",
+    "empty": "Aucune collection — créez-en une ci-dessous",
+    "newCollection": "Nouvelle collection...",
+    "new": "Nouvelle"
+  },
+  "picker": {
+    "choose": "Choisir {{label}}",
+    "search": "Rechercher des {{label}}s dans la bibliothèque...",
+    "drop": "Déposez ici des fichiers {{label}}",
+    "empty": "Aucun {{label}} dans la bibliothèque",
+    "hint": "Glissez des fichiers ici ou utilisez « Depuis l’appareil »",
+    "fromDevice": "Depuis l’appareil",
+    "uploadFiles": "Téléverser des fichiers",
+    "select": "Sélectionner",
+    "selectCount": "Sélectionner {{count}}",
+    "labels": {
+      "media": "Média",
+      "video": "Vidéo",
+      "audio": "Audio",
+      "image": "Image"
+    }
+  }
+}
