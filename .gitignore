@@ -107,7 +107,10 @@ src-tauri/*.key.pub
 # Agent configuration, GitHub metadata, and local generated artifacts
 .agents/
 .claude/
-.github/
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/release.yml
 artifacts/
 /skills-lock.json
 /memory/

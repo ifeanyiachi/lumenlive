@@ -1,0 +1,238 @@
+# Build signed Windows installers and publish them to GitHub Releases.
+# Tag pushes always publish; manual runs can build private artifacts only.
+# Runner selection: dispatch input, then DEFAULT_RELEASE_RUNNER, then self-hosted.
+# Self-hosted runners require Git Bash, GitHub CLI, and ASSETS_DIR containing the
+# runtime assets (data/, models/, embeddings/, sdk/, src-tauri/libs/).
+# Cloud builds fetch the pinned runtime-assets release using GITHUB_TOKEN.
+# Required secrets: TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
+# GitHub Actions must be allowed to create releases (contents: write below).
+# Public downloads require this repository to remain public.
+# Before publishing, bump both package.json and src-tauri/tauri.conf.json.
+# Published versions cannot be replaced: bump the version for another build.
+name: Release build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Build on"
+        type: choice
+        options:
+          - self-hosted
+          - cloud
+        default: self-hosted
+      publish:
+        description: "Publish to GitHub Releases (off = private build artifact only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# Serialize publishers so overlapping runs cannot expose incomplete releases.
+concurrency:
+  group: lumenlive-release
+  cancel-in-progress: false
+
+# Pinned runtime assets used by cloud builds.
+env:
+  DL_BASE: https://github.com/ifeanyiachi/lumenlive/releases/download
+  ASSETS_TAG: assets-v4
+  ASSETS_TAR: lumenlive-runtime-assets-v4.tar
+  ASSETS_SHA256: 041f2f7319bf9aa2d7af769bb32c422ace2f947339ec18a7a2799d48b9fdb7ff
+
+jobs:
+  build:
+    # Pick the runner: dispatch input wins; otherwise the tag-push default var;
+    # otherwise self-hosted. `cloud` -> windows-latest, else the self-hosted
+    # Windows runner.
+    runs-on: ${{ (inputs.runner == 'cloud' || (inputs.runner == '' && vars.DEFAULT_RELEASE_RUNNER == 'cloud')) && 'windows-latest' || fromJSON('["self-hosted","windows"]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Both runners are Windows, so `powershell` (5.1, always present) is the
+      # portable shell here — avoids assuming node/jq/pwsh7 on a bare self-hosted
+      # PC. Enforce tauri.conf.json == package.json always; also tag == version
+      # on tag pushes. A mismatch ships an update that never triggers or points
+      # at the wrong build.
+      - name: Verify versions
+        shell: powershell
+        run: |
+          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $pkg  = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          Write-Host "conf=$conf  pkg=$pkg  ref=$env:GITHUB_REF_TYPE/$env:GITHUB_REF_NAME"
+          $fail = $false
+          if ($conf -ne $pkg) { Write-Host "::error::tauri.conf.json ($conf) != package.json ($pkg)"; $fail = $true }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME -replace '^v',''
+            if ($tag -ne $conf) { Write-Host "::error::tag ($tag) != version ($conf)"; $fail = $true }
+          }
+          if ($fail) { exit 1 }
+
+      # Cloud runners are ephemeral (no persistent target/), so cache the cargo
+      # registry + target and the ort-downloaded ONNX Runtime libs (which live
+      # outside target and are linked by absolute path). Self-hosted keeps target/
+      # on disk between runs, so it skips this.
+      - name: Cache Rust build (cloud only)
+        if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          prefix-key: v3-rust
+          cache-directories: |
+            ~/AppData/Local/ort.pyke.io
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # SELF-HOSTED: stage runtime assets from the local folder. Pure cp, no
+      # network; `cp -r "$ASSETS_DIR/." .` merges data/ models/ embeddings/ sdk/
+      # and src-tauri/libs/ into the workspace (GNU cp merges existing dirs).
+      - name: Stage runtime assets from local folder (self-hosted)
+        if: runner.environment == 'self-hosted'
+        shell: bash
+        env:
+          ASSETS_DIR: ${{ vars.ASSETS_DIR }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASSETS_DIR:-}" ]; then
+            echo "::error::Repo variable ASSETS_DIR is not set (path to the local runtime-assets folder)."
+            exit 1
+          fi
+          if [ ! -d "$ASSETS_DIR" ]; then
+            echo "::error::ASSETS_DIR '$ASSETS_DIR' does not exist on this runner."
+            exit 1
+          fi
+          echo "Staging runtime assets from: $ASSETS_DIR"
+          cp -r "$ASSETS_DIR/." .
+          test -f data/lumenlive.db || { echo "::error::data/lumenlive.db missing after staging"; exit 1; }
+          test -f src-tauri/libs/onnxruntime.dll || { echo "::error::src-tauri/libs/onnxruntime.dll missing after staging"; exit 1; }
+
+      # CLOUD: fetch the bundled runtime assets from the assets-v4 release (works
+      # on a private repo with GITHUB_TOKEN), verify the SHA, extract at the repo
+      # root so paths line up with tauri.conf.json -> bundle.resources.
+      - name: Fetch runtime assets (cloud)
+        if: runner.environment == 'github-hosted'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$ASSETS_TAG" --pattern "$ASSETS_TAR" --clobber
+          echo "${ASSETS_SHA256}  ${ASSETS_TAR}" | sha256sum -c -
+          tar -xf "$ASSETS_TAR"
+          rm -f "$ASSETS_TAR"
+
+      # The staged DB may come from an older asset bundle. Correct its display
+      # names in the workspace and fail before packaging if book 66 is missing.
+      - name: Normalize and verify bundled Bible names
+        run: bun run data/ensure-revelation-name.ts --fix
+
+      # Build the frontend (beforeBuildCommand: bun run build) and bundle the
+      # signed NSIS installer. createUpdaterArtifacts=true + the TAURI_SIGNING_*
+      # env vars make the bundler emit `<installer>.sig` next to the .exe — the
+      # signature embedded in latest.json below.
+      - name: Build signed installer
+        shell: bash
+        env:
+          VITE_LUMENBO_URL: https://app.lumenlive.xyz
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run tauri build --bundles nsis
+
+      # The API base is compiled into the Vite bundle. Fail the release if a
+      # production installer accidentally contains the local development URL.
+      - name: Validate production API URL
+        shell: powershell
+        run: |
+          $bundles = Get-ChildItem -Path build -Recurse -Filter *.js -File
+          if (-not $bundles) { Write-Host "::error::No frontend JavaScript bundles found"; exit 1 }
+          $local = $bundles | Select-String -SimpleMatch 'http://localhost:3016'
+          if ($local) { Write-Host "::error::Production bundle contains http://localhost:3016"; exit 1 }
+          $prod = $bundles | Select-String -SimpleMatch 'https://app.lumenlive.xyz'
+          if (-not $prod) { Write-Host "::error::Production API URL was not found in the frontend bundle"; exit 1 }
+          Write-Host "Production API URL validation passed."
+
+      # Tauri updater manifest points to an immutable, versioned GitHub asset.
+      # The website manifest is separate because it uses a different JSON shape.
+      - name: Build update manifest (latest.json)
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        shell: powershell
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter *-setup.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::No NSIS *-setup.exe found in bundle/nsis"; exit 1 }
+          $sigPath = "$($exe.FullName).sig"
+          if (-not (Test-Path $sigPath)) { Write-Host "::error::No .sig next to installer ($sigPath) - are TAURI_SIGNING_* secrets set?"; exit 1 }
+          $sig = (Get-Content $sigPath -Raw).Trim()
+          $url = "$env:DL_BASE/v$version/LumenLive-x64-setup.exe"
+
+          $manifest = [ordered]@{
+            version   = $version
+            notes     = "Update to version $version."
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{ signature = $sig; url = $url }
+            }
+          }
+          $json = $manifest | ConvertTo-Json -Depth 6
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'latest.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
+
+          Copy-Item -LiteralPath $exe.FullName -Destination LumenLive-x64-setup.exe
+          Copy-Item -LiteralPath $sigPath -Destination LumenLive-x64-setup.exe.sig
+          $hasher = [System.Security.Cryptography.SHA256]::Create()
+          $stream = [System.IO.File]::OpenRead($exe.FullName)
+          try { $sha = ([System.BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+          finally { $stream.Dispose(); $hasher.Dispose() }
+          $encoding = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'LumenLive-x64-setup.exe.sha256'), "$sha  LumenLive-x64-setup.exe`n", $encoding)
+          $website = [ordered]@{ version = "v$version"; sha256 = $sha; published = $manifest.pub_date }
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'download-latest.json'), ($website | ConvertTo-Json), $encoding)
+          Add-Content -Path $env:GITHUB_ENV -Value "APP_VERSION=$version" -Encoding ascii
+          Write-Host "Generated latest.json:"; Get-Content latest.json
+
+      # Stage all assets on a draft before making the release the latest.
+      # Refuse to overwrite a published build, preserving updater signatures.
+      - name: Publish to GitHub Releases
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v${APP_VERSION}"
+          if draft=$(gh release view "$tag" --json isDraft --jq '.isDraft'); then
+            if [ "$draft" != "true" ]; then
+              echo "::error::Release $tag is already published. Bump the app version."
+              exit 1
+            fi
+          else
+            gh release create "$tag" --draft --target "$GITHUB_SHA" \
+              --title "LumenLive $tag" --notes "Update to version ${APP_VERSION}."
+          fi
+          gh release upload "$tag" --clobber \
+            LumenLive-x64-setup.exe LumenLive-x64-setup.exe.sig \
+            LumenLive-x64-setup.exe.sha256 latest.json download-latest.json
+          gh release edit "$tag" --draft=false --latest
+          echo "Published $tag: https://github.com/${GH_REPO}/releases/tag/${tag}"
+
+      # A downloadable copy of the installer on the run itself, regardless of mode.
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sig
+          if-no-files-found: warn

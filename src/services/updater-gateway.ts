@@ -28,7 +28,7 @@ const DISMISSED_KEY = "dismissedVersion"
 const MINIMUM_SUPPORTED_KEY = "minimumSupportedVersion"
 const UPDATE_MANIFEST_URL =
   import.meta.env.VITE_UPDATE_MANIFEST_URL ??
-  "https://lumenlivedl.94streetstudio.xyz/latest.json"
+  "https://github.com/ifeanyiachi/lumenlive/releases/latest/download/latest.json"
 
 export interface UpdatePolicy {
   /** Null means the server has not activated mandatory updates. */

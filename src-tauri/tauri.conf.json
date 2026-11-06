@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LumenLive",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "identifier": "xyz.lumenlive.app",
   "build": {
     "frontendDist": "../build",
@@ -35,7 +35,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://lumenlivedl.94streetstudio.xyz/latest.json"
+        "https://github.com/ifeanyiachi/lumenlive/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVEOEM4M0ZCQUE4MzZCRUQKUldUdGE0T3ErNE9NWGE4T3E0aldDMmVsSlYzTWJEYW83NkJhc1FoZkNBaWV3cjQ3YjdEV1BSTU4K"
     },
