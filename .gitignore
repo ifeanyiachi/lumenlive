@@ -48,7 +48,9 @@ models/*
 # Runtime-asset tarball built by data/pack-runtime-assets.sh — published to a
 # GitHub Release (assets-v*), never committed to git.
 lumenlive-runtime-assets-v*.tar
-.env
+# Keep environment values local; publish only the sanitized example.
+.env*
+!.env.example
 .venv/
 .superpowers/
 embeddings/*
